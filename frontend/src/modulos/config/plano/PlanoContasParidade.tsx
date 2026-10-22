@@ -1,10 +1,11 @@
 /**
  * Plano de contas — funções do ecrã do sistema anterior (renderPlanoContas, js/app_v2.js:8320-8402; verificação visual de
  * 2026-10-08, linha 14.3.1): coluna «Uso», «Copiar de outra empresa», «Baixar Template» e «Importar Excel».
- * Endpoints: GET /config/plano-contas/uso · POST /config/plano-contas/copiar[/simular] · POST /config/plano-contas/importar
+ * Endpoints: GET /config/plano-contas/uso · POST /config/plano-contas/copiar[/simular] · POST /config/plano-contas/pgca[/simular] ·
+ * POST /config/plano-contas/importar
  * · GET /sistema/migracao/modelos/plano_contas (modelo).
  */
-import { Alert, Button, Modal, Select, Space, Table, Tag, Typography, Upload, message, theme } from 'antd';
+import { Alert, Button, Modal, Select, Space, Table, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { descarregar, enviar, obter } from '@/api/cliente';
@@ -153,6 +154,107 @@ export function CopiarOutraEmpresa({ aberto, aoFechar }: { aberto: boolean; aoFe
             />
           )}
         </div>
+      )}
+    </Modal>
+  );
+}
+
+interface SimulacaoPgca {
+  total: number;
+  novas: number;
+  existentes: number;
+  amostra: { codigo: string; descricao: string; tipo: string }[];
+  iguais: { codigo: string; descricao: string; descricao_actual: string | null }[];
+}
+
+/**
+ * «Sincronizar PGCA oficial»: acrescenta à empresa activa as contas do Plano Geral de Contabilidade de Angola que ainda
+ * não tem. As contas com o mesmo código já existentes são ignoradas (e listadas); nada é alterado nem apagado.
+ */
+export function SincronizarPgca({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => void }) {
+  const { empresa } = useSessao();
+  const cliente = useQueryClient();
+  const { token } = theme.useToken();
+  const previa = useQuery({
+    queryKey: ['config', 'plano-contas', 'pgca', empresa?.id],
+    queryFn: async () => (await enviar<SimulacaoPgca>('post', '/config/plano-contas/pgca/simular', {})).dados,
+    enabled: aberto,
+    retry: false,
+    staleTime: 0,
+  });
+  const sincronizar = useMutation({
+    mutationFn: () => enviar<{ criadas: number; existentes: number }>('post', '/config/plano-contas/pgca', { confirmar: true }),
+    onSuccess: ({ mensagem }) => {
+      message.success(mensagem);
+      void cliente.invalidateQueries({ queryKey: CHAVE_PLANO });
+      void cliente.invalidateQueries({ queryKey: ['config', 'plano-contas'] });
+      aoFechar();
+    },
+    onError: (e) => notificarErro(e, 'A sincronização não foi feita'),
+  });
+  const p = previa.data;
+  const confirmar = () =>
+    Modal.confirm({
+      title: `Acrescentar ${formatarNumero(p?.novas ?? 0)} conta(s) do PGCA?`,
+      content: `As contas são acrescentadas a «${empresa?.nome ?? 'empresa activa'}». As ${formatarNumero(p?.existentes ?? 0)} que já existem são ignoradas: nada é alterado nem apagado.`,
+      okText: 'Sincronizar',
+      cancelText: 'Cancelar',
+      onOk: () => sincronizar.mutateAsync(),
+    });
+
+  return (
+    <Modal
+      title={<Space><IconeFa nome="book" /> Sincronizar PGCA oficial</Space>}
+      open={aberto}
+      onCancel={aoFechar}
+      width={larguraModal(640)}
+      destroyOnHidden
+      footer={
+        <Space>
+          <Button onClick={aoFechar}>Cancelar</Button>
+          <Button type="primary" icon={<IconeFa nome="book" />} disabled={!p || p.novas === 0} loading={sincronizar.isPending} onClick={confirmar}>
+            Sincronizar
+          </Button>
+        </Space>
+      }
+    >
+      <Typography.Paragraph type="secondary">
+        Acrescenta a <strong>{empresa?.nome ?? 'a empresa activa'}</strong> as contas do Plano Geral de Contabilidade de Angola que ainda não existem.
+        Contas com o mesmo código já existentes são ignoradas; nenhuma conta é alterada nem apagada.
+      </Typography.Paragraph>
+      {previa.isLoading && <Typography.Text type="secondary">A comparar com o PGCA…</Typography.Text>}
+      {previa.error && <Alert type="error" showIcon message={(previa.error as Error).message} />}
+      {p && (
+        <>
+          <div style={{ background: token.colorFillAlter, borderRadius: 4, padding: '0.6rem 1rem' }}>
+            <strong>{formatarNumero(p.total)}</strong> contas no PGCA · <strong style={{ color: '#16a34a' }}>{formatarNumero(p.novas)} novas</strong> a acrescentar ·{' '}
+            <strong style={{ color: token.colorTextSecondary }}>{formatarNumero(p.existentes)} já existem</strong> (ignoradas)
+          </div>
+          {p.novas === 0 && <Alert style={{ marginTop: 12 }} type="success" showIcon message="O plano de contas já tem todas as contas do PGCA." />}
+          <Tabs
+            style={{ marginTop: 8 }}
+            items={[
+              p.novas > 0 && {
+                key: 'novas',
+                label: `Novas (${formatarNumero(p.novas)})`,
+                children: (
+                  <Table size="small" rowKey="codigo" pagination={false} scroll={{ y: 240 }} dataSource={p.amostra}
+                    columns={[{ title: 'Código', dataIndex: 'codigo', width: 110 }, { title: 'Descrição', dataIndex: 'descricao' }, { title: 'Tipo', dataIndex: 'tipo', width: 70 }]}
+                    footer={p.novas > p.amostra.length ? () => `… e mais ${formatarNumero(p.novas - p.amostra.length)} conta(s).` : undefined} />
+                ),
+              },
+              p.existentes > 0 && {
+                key: 'iguais',
+                label: `Já existem (${formatarNumero(p.existentes)})`,
+                children: (
+                  <Table size="small" rowKey="codigo" pagination={false} scroll={{ y: 240 }} dataSource={p.iguais}
+                    columns={[{ title: 'Código', dataIndex: 'codigo', width: 110 }, { title: 'No PGCA', dataIndex: 'descricao' }, { title: 'No seu plano (mantida)', dataIndex: 'descricao_actual' }]}
+                    footer={p.existentes > p.iguais.length ? () => `… e mais ${formatarNumero(p.existentes - p.iguais.length)} conta(s) já existente(s).` : undefined} />
+                ),
+              },
+            ].filter((x): x is Exclude<typeof x, false> => !!x)}
+          />
+        </>
       )}
     </Modal>
   );

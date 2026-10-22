@@ -187,4 +187,35 @@ final class ParidadeConfigPlanoContasTest extends TestCase
             $this->sessao(['config_plano_view']) + ['Accept' => 'application/json'])->assertForbidden();
         $this->assertCount(2, $this->planoA());
     }
+
+    #[Test]
+    public function sincronizar_pgca_acrescenta_as_contas_em_falta_e_ignora_as_existentes(): void
+    {
+        $this->postJson('/api/config/plano-contas/pgca/simular', [], $this->sessao(['config_plano_view']))->assertForbidden();
+        $s = $this->sessao(['config_plano_view', 'contab_plano_gerir']);
+        $this->getJson('/api/contabilidade/plano-contas', $s)->assertOk()->assertJsonCount(2, 'dados');
+
+        $p = $this->postJson('/api/config/plano-contas/pgca/simular', [], $s)->assertOk()->json('dados');
+        $this->assertSame(755, $p['total']);
+        $this->assertSame([753, 2], [$p['novas'], $p['existentes']]);
+        $this->assertEqualsCanonicalizing(['3111', '62'], array_column($p['iguais'], 'codigo'));
+        $this->assertNotContains('000', array_column($p['amostra'], 'codigo'));
+        $this->assertCount(2, $this->planoA(), 'a simulação não grava');
+
+        $this->postJson('/api/config/plano-contas/pgca', [], $s)->assertUnprocessable();
+        $this->postJson('/api/config/plano-contas/pgca', ['confirmar' => true], $s)->assertOk()
+            ->assertJsonPath('dados.criadas', 753)->assertJsonPath('dados.existentes', 2);
+
+        $plano = $this->planoA();
+        $this->assertCount(755, $plano);
+        $this->assertSame('Clientes A', $plano['3111'], 'as existentes não são alteradas');
+        $this->assertArrayNotHasKey('000', $plano);
+        $this->assertSame('T', $this->em($this->a, fn () => PlanoConta::query()->where('codigo', '1')->value('tipo')));
+        $this->assertSame(4, $this->em($this->b, fn () => PlanoConta::query()->count()), 'outras empresas não são tocadas');
+        $this->getJson('/api/contabilidade/plano-contas', $s)->assertOk()->assertJsonCount(755, 'dados');
+        $this->assertTrue($this->em($this->a, fn () => LogAuditoria::query()->where('acao', 'Sincronizar PGCA oficial')->exists()));
+
+        // idempotente
+        $this->postJson('/api/config/plano-contas/pgca', ['confirmar' => true], $s)->assertOk()->assertJsonPath('dados.criadas', 0);
+    }
 }

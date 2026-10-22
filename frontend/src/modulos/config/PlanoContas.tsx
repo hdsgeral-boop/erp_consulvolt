@@ -17,7 +17,7 @@ import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import type { ContaPlano } from '@/modulos/contab/api';
 import { IconeFa } from '@/componentes/fluxos';
 import { tituloPlanoContas } from './comum/paridade';
-import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
+import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, SincronizarPgca, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
 import { DadosBancariosConta, useDadosBancariosConta } from './plano/DadosBancariosConta';
 import { BarraAccoesMassa } from './plano/AccoesMassaPlano';
 import { CAMPOS_BANCARIOS, dadosBancariosParaApi, ibanContaValido, swiftValido, type DadosBancarios } from './plano/contasBancarias';
@@ -109,7 +109,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
   const [filtro, setFiltro] = useState('');
   const [tipo, setTipo] = useState<'M' | 'T' | undefined>();
   const [edicao, setEdicao] = useState<ContaPlano | 'nova' | null>(null);
-  const [janela, setJanela] = useState<'copiar' | 'importar' | null>(null);
+  const [janela, setJanela] = useState<'copiar' | 'importar' | 'pgca' | null>(null);
   const [seleccao, setSeleccao] = useState<Key[]>([]);
   const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string } & DadosBancarios>();
   const gerir = pode('contab_plano_gerir');
@@ -158,6 +158,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
         accoes={<>
           {gerir && <Button icon={<IconeFa nome="copy" />} style={{ color: '#1d4ed8' }} onClick={() => setJanela('copiar')}>Copiar de outra empresa</Button>}
           {aoSubstituir && <Button icon={<IconeFa nome="exchange-alt" />} style={{ color: '#b45309', borderColor: '#f59e0b' }} onClick={aoSubstituir}>Substituir conta</Button>}
+          {gerir && <Button icon={<IconeFa nome="book" />} style={{ color: '#16a34a', borderColor: '#16a34a' }} onClick={() => setJanela('pgca')}>Sincronizar PGCA oficial</Button>}
           {gerir && <Button icon={<IconeFa nome="file-download" />} onClick={() => void baixarTemplatePlano()}>Baixar Template</Button>}
           {gerir && <Button icon={<IconeFa nome="file-import" />} onClick={() => setJanela('importar')}>Importar Excel</Button>}
           <BotaoCsv<ContaPlano>
@@ -217,6 +218,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
       />
       <CopiarOutraEmpresa aberto={janela === 'copiar'} aoFechar={() => setJanela(null)} />
       <ImportarPlano aberto={janela === 'importar'} aoFechar={() => setJanela(null)} />
+      <SincronizarPgca aberto={janela === 'pgca'} aoFechar={() => setJanela(null)} />
       <ModalFormulario chave="config.plano_contas" titulo={edicao === 'nova' ? 'Nova conta' : `Conta ${edicao?.codigo ?? ''}`} aberto={!!edicao} aoFechar={() => setEdicao(null)} criacao={edicao === 'nova'} form={form}
         campos={CAMPOS_CONTA} nomeRegistos="contas" invalidar={[['contab', 'plano-contas']]} gravarLinha={(r) => enviar('post', '/contabilidade/plano-contas', dadosConta(r))}
         okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>

@@ -10,5 +10,7 @@ Route::prefix('config/plano-contas')->name('config.paridade.plano_contas.')->con
     Route::get('uso', 'uso')->name('uso');                                   // config_plano_view | contab_plano_gerir | lancamentos_view
     Route::post('copiar/simular', 'simularCopia')->name('copiar.simular');   // contab_plano_gerir
     Route::post('copiar', 'copiar')->middleware('throttle:pesado')->name('copiar');        // contab_plano_gerir + acesso à origem
+    Route::post('pgca/simular', 'simularPgca')->name('pgca.simular');       // contab_plano_gerir
+    Route::post('pgca', 'sincronizarPgca')->middleware('throttle:pesado')->name('pgca');    // contab_plano_gerir
     Route::post('importar', 'importar')->middleware('throttle:pesado')->name('importar');  // contab_plano_gerir
 });

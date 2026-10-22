@@ -1,0 +1,4536 @@
+{
+ "fonte": "Plano de Contas MEU ERP (PGCA — Plano Geral de Contabilidade de Angola), PDF de 2026-10-22",
+ "notas": "Códigos sem pontos, no formato da base (níveis com algum segmento de 2 dígitos ficam todos com 2: 68.1 -> 6801). Tipo pela hierarquia: T = tem subcontas. Sem a conta 000 (registo mestre do sistema antigo).",
+ "contas": [
+  {
+   "codigo": "1",
+   "descricao": "Meios fixos e investimentos",
+   "tipo": "T",
+   "pgca": "1"
+  },
+  {
+   "codigo": "2",
+   "descricao": "Existências",
+   "tipo": "T",
+   "pgca": "2"
+  },
+  {
+   "codigo": "3",
+   "descricao": "Terceiros",
+   "tipo": "T",
+   "pgca": "3"
+  },
+  {
+   "codigo": "4",
+   "descricao": "Meios monetários",
+   "tipo": "T",
+   "pgca": "4"
+  },
+  {
+   "codigo": "5",
+   "descricao": "Capital e reservas",
+   "tipo": "T",
+   "pgca": "5"
+  },
+  {
+   "codigo": "6",
+   "descricao": "Proveitos e ganhos por natureza",
+   "tipo": "T",
+   "pgca": "6"
+  },
+  {
+   "codigo": "7",
+   "descricao": "Custos e perdas por natureza",
+   "tipo": "T",
+   "pgca": "7"
+  },
+  {
+   "codigo": "8",
+   "descricao": "Resultados",
+   "tipo": "T",
+   "pgca": "8"
+  },
+  {
+   "codigo": "11",
+   "descricao": "Imobilizações Corpóreas",
+   "tipo": "T",
+   "pgca": "11"
+  },
+  {
+   "codigo": "111",
+   "descricao": "Terrenos e recursos naturais",
+   "tipo": "T",
+   "pgca": "11.1"
+  },
+  {
+   "codigo": "1111",
+   "descricao": "Terrenos em bruto",
+   "tipo": "M",
+   "pgca": "11.1.1"
+  },
+  {
+   "codigo": "1112",
+   "descricao": "Terrenos com arranjos",
+   "tipo": "M",
+   "pgca": "11.1.2"
+  },
+  {
+   "codigo": "1113",
+   "descricao": "Subsolos",
+   "tipo": "M",
+   "pgca": "11.1.3"
+  },
+  {
+   "codigo": "1114",
+   "descricao": "Terrenos com edifícios",
+   "tipo": "T",
+   "pgca": "11.1.4"
+  },
+  {
+   "codigo": "11141",
+   "descricao": "Relativos a edifícios industriais",
+   "tipo": "M",
+   "pgca": "11.1.4.1"
+  },
+  {
+   "codigo": "11142",
+   "descricao": "Relativos a edifícios administrativos e comerciais",
+   "tipo": "M",
+   "pgca": "11.1.4.2"
+  },
+  {
+   "codigo": "11143",
+   "descricao": "Relativos a outros edifícios",
+   "tipo": "M",
+   "pgca": "11.1.4.3"
+  },
+  {
+   "codigo": "112",
+   "descricao": "Edifícios e outras construções",
+   "tipo": "T",
+   "pgca": "11.2"
+  },
+  {
+   "codigo": "1121",
+   "descricao": "Edifícios",
+   "tipo": "T",
+   "pgca": "11.2.1"
+  },
+  {
+   "codigo": "11211",
+   "descricao": "Integrados em conjuntos industriais",
+   "tipo": "M",
+   "pgca": "11.2.1.1"
+  },
+  {
+   "codigo": "11212",
+   "descricao": "Integrados em conjuntos administrativos e comerciais",
+   "tipo": "M",
+   "pgca": "11.2.1.2"
+  },
+  {
+   "codigo": "11213",
+   "descricao": "Outros conjuntos industriais",
+   "tipo": "M",
+   "pgca": "11.2.1.3"
+  },
+  {
+   "codigo": "11214",
+   "descricao": "Implantados em propriedade alheia",
+   "tipo": "M",
+   "pgca": "11.2.1.4"
+  },
+  {
+   "codigo": "1122",
+   "descricao": "Outras construções",
+   "tipo": "M",
+   "pgca": "11.2.2"
+  },
+  {
+   "codigo": "1123",
+   "descricao": "Instalações",
+   "tipo": "M",
+   "pgca": "11.2.3"
+  },
+  {
+   "codigo": "113",
+   "descricao": "Equipamento básico",
+   "tipo": "T",
+   "pgca": "11.3"
+  },
+  {
+   "codigo": "1131",
+   "descricao": "Material industrial",
+   "tipo": "M",
+   "pgca": "11.3.1"
+  },
+  {
+   "codigo": "1132",
+   "descricao": "Ferramentas industriais",
+   "tipo": "M",
+   "pgca": "11.3.2"
+  },
+  {
+   "codigo": "1133",
+   "descricao": "Melhoramentos em equipamentos básicos",
+   "tipo": "M",
+   "pgca": "11.3.3"
+  },
+  {
+   "codigo": "114",
+   "descricao": "Equipamento de carga e transporte",
+   "tipo": "M",
+   "pgca": "11.4"
+  },
+  {
+   "codigo": "115",
+   "descricao": "Equipamento administrativo",
+   "tipo": "M",
+   "pgca": "11.5"
+  },
+  {
+   "codigo": "116",
+   "descricao": "Taras e vasilhame",
+   "tipo": "M",
+   "pgca": "11.6"
+  },
+  {
+   "codigo": "119",
+   "descricao": "Outras imobilizações corpóreas",
+   "tipo": "M",
+   "pgca": "11.9"
+  },
+  {
+   "codigo": "12",
+   "descricao": "Imobilizações Incorpóreas",
+   "tipo": "T",
+   "pgca": "12"
+  },
+  {
+   "codigo": "121",
+   "descricao": "Trespasses",
+   "tipo": "M",
+   "pgca": "12.1"
+  },
+  {
+   "codigo": "122",
+   "descricao": "Despesas de investigação e desenvolvimento",
+   "tipo": "M",
+   "pgca": "12.2"
+  },
+  {
+   "codigo": "123",
+   "descricao": "Propriedade industrial e outros direitos e contratos",
+   "tipo": "M",
+   "pgca": "12.3"
+  },
+  {
+   "codigo": "124",
+   "descricao": "Despesas de constituição",
+   "tipo": "M",
+   "pgca": "12.4"
+  },
+  {
+   "codigo": "129",
+   "descricao": "Outras imobilizações incorpóreas",
+   "tipo": "M",
+   "pgca": "12.9"
+  },
+  {
+   "codigo": "13",
+   "descricao": "Investimentos Financeiros",
+   "tipo": "T",
+   "pgca": "13"
+  },
+  {
+   "codigo": "131",
+   "descricao": "Empresas subsidiárias",
+   "tipo": "T",
+   "pgca": "13.1"
+  },
+  {
+   "codigo": "1311",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "13.1.1"
+  },
+  {
+   "codigo": "1312",
+   "descricao": "Obrigações e títulos de participação",
+   "tipo": "M",
+   "pgca": "13.1.2"
+  },
+  {
+   "codigo": "1313",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "13.1.3"
+  },
+  {
+   "codigo": "132",
+   "descricao": "Empresas associadas",
+   "tipo": "T",
+   "pgca": "13.2"
+  },
+  {
+   "codigo": "1321",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "13.2.1"
+  },
+  {
+   "codigo": "1322",
+   "descricao": "Obrigações e títulos de participação",
+   "tipo": "M",
+   "pgca": "13.2.2"
+  },
+  {
+   "codigo": "1323",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "13.2.3"
+  },
+  {
+   "codigo": "133",
+   "descricao": "Outras empresas",
+   "tipo": "T",
+   "pgca": "13.3"
+  },
+  {
+   "codigo": "1331",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "13.3.1"
+  },
+  {
+   "codigo": "1332",
+   "descricao": "Obrigações e títulos de participação",
+   "tipo": "M",
+   "pgca": "13.3.2"
+  },
+  {
+   "codigo": "1333",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "13.3.3"
+  },
+  {
+   "codigo": "134",
+   "descricao": "Investimentos em imóveis",
+   "tipo": "M",
+   "pgca": "13.4"
+  },
+  {
+   "codigo": "135",
+   "descricao": "Fundos",
+   "tipo": "M",
+   "pgca": "13.5"
+  },
+  {
+   "codigo": "139",
+   "descricao": "Outros investimentos Financeiros",
+   "tipo": "T",
+   "pgca": "13.9"
+  },
+  {
+   "codigo": "1391",
+   "descricao": "Diamantes",
+   "tipo": "M",
+   "pgca": "13.9.1"
+  },
+  {
+   "codigo": "1392",
+   "descricao": "Ouro",
+   "tipo": "M",
+   "pgca": "13.9.2"
+  },
+  {
+   "codigo": "1393",
+   "descricao": "Depósitos bancários",
+   "tipo": "M",
+   "pgca": "13.9.3"
+  },
+  {
+   "codigo": "14",
+   "descricao": "Imobilizações em Curso",
+   "tipo": "T",
+   "pgca": "14"
+  },
+  {
+   "codigo": "141",
+   "descricao": "Obra em curso",
+   "tipo": "M",
+   "pgca": "14.1"
+  },
+  {
+   "codigo": "142",
+   "descricao": "Obra em curso",
+   "tipo": "M",
+   "pgca": "14.2"
+  },
+  {
+   "codigo": "147",
+   "descricao": "Adiantamentos por conta de imobilizado corpóreo",
+   "tipo": "M",
+   "pgca": "14.7"
+  },
+  {
+   "codigo": "148",
+   "descricao": "Adiantamentos por conta de imobilizado incorpóreo",
+   "tipo": "M",
+   "pgca": "14.8"
+  },
+  {
+   "codigo": "149",
+   "descricao": "Adiantamentos por conta de investimentos financeiros",
+   "tipo": "M",
+   "pgca": "14.9"
+  },
+  {
+   "codigo": "18",
+   "descricao": "Amortizações Acumuladas",
+   "tipo": "T",
+   "pgca": "18"
+  },
+  {
+   "codigo": "181",
+   "descricao": "Imobilizações corpóreas",
+   "tipo": "T",
+   "pgca": "18.1"
+  },
+  {
+   "codigo": "1811",
+   "descricao": "Terrenos e recursos naturais",
+   "tipo": "M",
+   "pgca": "18.1.1"
+  },
+  {
+   "codigo": "1812",
+   "descricao": "Edifícios e outras construções",
+   "tipo": "M",
+   "pgca": "18.1.2"
+  },
+  {
+   "codigo": "1813",
+   "descricao": "Equipamento básico",
+   "tipo": "M",
+   "pgca": "18.1.3"
+  },
+  {
+   "codigo": "1814",
+   "descricao": "Equipamento de carga e transporte",
+   "tipo": "M",
+   "pgca": "18.1.4"
+  },
+  {
+   "codigo": "1815",
+   "descricao": "Equipamento administrativo",
+   "tipo": "M",
+   "pgca": "18.1.5"
+  },
+  {
+   "codigo": "1816",
+   "descricao": "Taras e vasilhame",
+   "tipo": "M",
+   "pgca": "18.1.6"
+  },
+  {
+   "codigo": "1819",
+   "descricao": "Outras imobilizações corpóreas",
+   "tipo": "M",
+   "pgca": "18.1.9"
+  },
+  {
+   "codigo": "182",
+   "descricao": "Imobilizações incorpóreas",
+   "tipo": "T",
+   "pgca": "18.2"
+  },
+  {
+   "codigo": "1821",
+   "descricao": "Trespasses",
+   "tipo": "M",
+   "pgca": "18.2.1"
+  },
+  {
+   "codigo": "1822",
+   "descricao": "Despesas de investigação e desenvolvimento",
+   "tipo": "M",
+   "pgca": "18.2.2"
+  },
+  {
+   "codigo": "1823",
+   "descricao": "Propriedade industrial e outros direitos e contratos",
+   "tipo": "M",
+   "pgca": "18.2.3"
+  },
+  {
+   "codigo": "1824",
+   "descricao": "Despesas de constituição",
+   "tipo": "M",
+   "pgca": "18.2.4"
+  },
+  {
+   "codigo": "1829",
+   "descricao": "Outras imobilizações incorpóreas",
+   "tipo": "M",
+   "pgca": "18.2.9"
+  },
+  {
+   "codigo": "183",
+   "descricao": "Investimentos financeiros em imóveis",
+   "tipo": "T",
+   "pgca": "18.3"
+  },
+  {
+   "codigo": "1831",
+   "descricao": "Terrenos e recursos naturais",
+   "tipo": "M",
+   "pgca": "18.3.1"
+  },
+  {
+   "codigo": "1832",
+   "descricao": "Edifícios e outras construções",
+   "tipo": "M",
+   "pgca": "18.3.2"
+  },
+  {
+   "codigo": "19",
+   "descricao": "Provisões para investimentos financeiros",
+   "tipo": "T",
+   "pgca": "19"
+  },
+  {
+   "codigo": "191",
+   "descricao": "Empresas subsidiárias",
+   "tipo": "T",
+   "pgca": "19.1"
+  },
+  {
+   "codigo": "1911",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "19.1.1"
+  },
+  {
+   "codigo": "1912",
+   "descricao": "Obrigações e títulos de participação",
+   "tipo": "M",
+   "pgca": "19.1.2"
+  },
+  {
+   "codigo": "1913",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "19.1.3"
+  },
+  {
+   "codigo": "192",
+   "descricao": "Empresas associadas",
+   "tipo": "T",
+   "pgca": "19.2"
+  },
+  {
+   "codigo": "1921",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "19.2.1"
+  },
+  {
+   "codigo": "1922",
+   "descricao": "Obrigações e títulos de participação",
+   "tipo": "M",
+   "pgca": "19.2.2"
+  },
+  {
+   "codigo": "1923",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "19.2.3"
+  },
+  {
+   "codigo": "193",
+   "descricao": "Outras empresas",
+   "tipo": "T",
+   "pgca": "19.3"
+  },
+  {
+   "codigo": "1931",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "19.3.1"
+  },
+  {
+   "codigo": "1932",
+   "descricao": "Obrigações e títulos de participação",
+   "tipo": "M",
+   "pgca": "19.3.2"
+  },
+  {
+   "codigo": "1933",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "19.3.3"
+  },
+  {
+   "codigo": "194",
+   "descricao": "Fundos",
+   "tipo": "T",
+   "pgca": "19.4"
+  },
+  {
+   "codigo": "1941",
+   "descricao": "Partes de capital",
+   "tipo": "M",
+   "pgca": "19.4.1"
+  },
+  {
+   "codigo": "199",
+   "descricao": "Outros investimentos financeiros",
+   "tipo": "T",
+   "pgca": "19.9"
+  },
+  {
+   "codigo": "1991",
+   "descricao": "Diamantes",
+   "tipo": "M",
+   "pgca": "19.9.1"
+  },
+  {
+   "codigo": "1992",
+   "descricao": "Ouro",
+   "tipo": "M",
+   "pgca": "19.9.2"
+  },
+  {
+   "codigo": "1993",
+   "descricao": "Depósitos bancários",
+   "tipo": "M",
+   "pgca": "19.9.3"
+  },
+  {
+   "codigo": "21",
+   "descricao": "Compras",
+   "tipo": "T",
+   "pgca": "21"
+  },
+  {
+   "codigo": "211",
+   "descricao": "Matérias-primas, subsidiárias e de consumo",
+   "tipo": "M",
+   "pgca": "21.1"
+  },
+  {
+   "codigo": "212",
+   "descricao": "Mercadorias",
+   "tipo": "M",
+   "pgca": "21.2"
+  },
+  {
+   "codigo": "217",
+   "descricao": "Devoluções de compras",
+   "tipo": "M",
+   "pgca": "21.7"
+  },
+  {
+   "codigo": "218",
+   "descricao": "Descontos e abatimentos em compras",
+   "tipo": "M",
+   "pgca": "21.8"
+  },
+  {
+   "codigo": "22",
+   "descricao": "Matérias-primas subsidiárias e de consumo",
+   "tipo": "T",
+   "pgca": "22"
+  },
+  {
+   "codigo": "221",
+   "descricao": "Matérias-primas",
+   "tipo": "M",
+   "pgca": "22.1"
+  },
+  {
+   "codigo": "222",
+   "descricao": "Matérias subsidiárias",
+   "tipo": "M",
+   "pgca": "22.2"
+  },
+  {
+   "codigo": "223",
+   "descricao": "Materiais diversos",
+   "tipo": "M",
+   "pgca": "22.3"
+  },
+  {
+   "codigo": "224",
+   "descricao": "Embalagens de consumo",
+   "tipo": "M",
+   "pgca": "22.4"
+  },
+  {
+   "codigo": "225",
+   "descricao": "Outros materiais",
+   "tipo": "M",
+   "pgca": "22.5"
+  },
+  {
+   "codigo": "23",
+   "descricao": "Produtos e trabalhos em curso",
+   "tipo": "M",
+   "pgca": "23"
+  },
+  {
+   "codigo": "24",
+   "descricao": "Produtos acabados e intermédios",
+   "tipo": "T",
+   "pgca": "24"
+  },
+  {
+   "codigo": "241",
+   "descricao": "Produtos acabados",
+   "tipo": "M",
+   "pgca": "24.1"
+  },
+  {
+   "codigo": "242",
+   "descricao": "Produtos intermédios",
+   "tipo": "M",
+   "pgca": "24.2"
+  },
+  {
+   "codigo": "249",
+   "descricao": "Em poder de terceiros",
+   "tipo": "M",
+   "pgca": "24.9"
+  },
+  {
+   "codigo": "25",
+   "descricao": "Sub-produtos, desperdícios, resíduos e refugos",
+   "tipo": "T",
+   "pgca": "25"
+  },
+  {
+   "codigo": "251",
+   "descricao": "Sub-produtos",
+   "tipo": "M",
+   "pgca": "25.1"
+  },
+  {
+   "codigo": "252",
+   "descricao": "Desperdícios, resíduos e refugos",
+   "tipo": "M",
+   "pgca": "25.2"
+  },
+  {
+   "codigo": "26",
+   "descricao": "Mercadorias",
+   "tipo": "T",
+   "pgca": "26"
+  },
+  {
+   "codigo": "269",
+   "descricao": "Em poder de terceiros",
+   "tipo": "M",
+   "pgca": "26.9"
+  },
+  {
+   "codigo": "27",
+   "descricao": "Matérias-primas, mercadorias e outros materiais em trânsito",
+   "tipo": "T",
+   "pgca": "27"
+  },
+  {
+   "codigo": "271",
+   "descricao": "Matérias-primas",
+   "tipo": "M",
+   "pgca": "27.1"
+  },
+  {
+   "codigo": "272",
+   "descricao": "Outros materiais",
+   "tipo": "M",
+   "pgca": "27.2"
+  },
+  {
+   "codigo": "273",
+   "descricao": "Mercadorias",
+   "tipo": "M",
+   "pgca": "27.3"
+  },
+  {
+   "codigo": "28",
+   "descricao": "Adiantamentos por conta de compras",
+   "tipo": "T",
+   "pgca": "28"
+  },
+  {
+   "codigo": "281",
+   "descricao": "Matérias-primas e outros materiais",
+   "tipo": "M",
+   "pgca": "28.1"
+  },
+  {
+   "codigo": "282",
+   "descricao": "Mercadorias",
+   "tipo": "M",
+   "pgca": "28.2"
+  },
+  {
+   "codigo": "29",
+   "descricao": "Provisão para depreciação de existências",
+   "tipo": "T",
+   "pgca": "29"
+  },
+  {
+   "codigo": "292",
+   "descricao": "Matérias-primas subsidiárias e de consumo",
+   "tipo": "M",
+   "pgca": "29.2"
+  },
+  {
+   "codigo": "293",
+   "descricao": "Produtos e trabalhos em curso",
+   "tipo": "M",
+   "pgca": "29.3"
+  },
+  {
+   "codigo": "294",
+   "descricao": "Produtos acabados e intermédios",
+   "tipo": "M",
+   "pgca": "29.4"
+  },
+  {
+   "codigo": "295",
+   "descricao": "Sub-produtos, desperdícios, resíduos e refugos",
+   "tipo": "M",
+   "pgca": "29.5"
+  },
+  {
+   "codigo": "296",
+   "descricao": "Mercadorias",
+   "tipo": "M",
+   "pgca": "29.6"
+  },
+  {
+   "codigo": "31",
+   "descricao": "Clientes",
+   "tipo": "T",
+   "pgca": "31"
+  },
+  {
+   "codigo": "311",
+   "descricao": "Clientes – correntes",
+   "tipo": "T",
+   "pgca": "31.1"
+  },
+  {
+   "codigo": "3111",
+   "descricao": "Grupo",
+   "tipo": "T",
+   "pgca": "31.1.1"
+  },
+  {
+   "codigo": "31111",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "31.1.1.1"
+  },
+  {
+   "codigo": "31112",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "31.1.1.2"
+  },
+  {
+   "codigo": "3112",
+   "descricao": "Não grupo",
+   "tipo": "T",
+   "pgca": "31.1.2"
+  },
+  {
+   "codigo": "31121",
+   "descricao": "Nacionais",
+   "tipo": "M",
+   "pgca": "31.1.2.1"
+  },
+  {
+   "codigo": "31122",
+   "descricao": "Estrangeiros",
+   "tipo": "M",
+   "pgca": "31.1.2.2"
+  },
+  {
+   "codigo": "312",
+   "descricao": "Clientes – títulos a receber",
+   "tipo": "T",
+   "pgca": "31.2"
+  },
+  {
+   "codigo": "3121",
+   "descricao": "Grupo",
+   "tipo": "T",
+   "pgca": "31.2.1"
+  },
+  {
+   "codigo": "31211",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "31.2.1.1"
+  },
+  {
+   "codigo": "31212",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "31.2.1.2"
+  },
+  {
+   "codigo": "3122",
+   "descricao": "Não grupo",
+   "tipo": "T",
+   "pgca": "31.2.2"
+  },
+  {
+   "codigo": "31221",
+   "descricao": "Nacionais",
+   "tipo": "M",
+   "pgca": "31.2.2.1"
+  },
+  {
+   "codigo": "31222",
+   "descricao": "Estrangeiros",
+   "tipo": "M",
+   "pgca": "31.2.2.2"
+  },
+  {
+   "codigo": "313",
+   "descricao": "Clientes – títulos descontados",
+   "tipo": "T",
+   "pgca": "31.3"
+  },
+  {
+   "codigo": "3131",
+   "descricao": "Grupo",
+   "tipo": "T",
+   "pgca": "31.3.1"
+  },
+  {
+   "codigo": "31311",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "31.3.1.1"
+  },
+  {
+   "codigo": "31312",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "31.3.1.2"
+  },
+  {
+   "codigo": "3132",
+   "descricao": "Não grupo",
+   "tipo": "T",
+   "pgca": "31.3.2"
+  },
+  {
+   "codigo": "31321",
+   "descricao": "Nacionais",
+   "tipo": "M",
+   "pgca": "31.3.2.1"
+  },
+  {
+   "codigo": "31322",
+   "descricao": "Estrangeiros",
+   "tipo": "M",
+   "pgca": "31.3.2.2"
+  },
+  {
+   "codigo": "318",
+   "descricao": "Clientes de cobrança duvidosa",
+   "tipo": "T",
+   "pgca": "31.8"
+  },
+  {
+   "codigo": "3181",
+   "descricao": "Clientes – correntes",
+   "tipo": "M",
+   "pgca": "31.8.1"
+  },
+  {
+   "codigo": "3182",
+   "descricao": "Clientes – títulos",
+   "tipo": "M",
+   "pgca": "31.8.2"
+  },
+  {
+   "codigo": "319",
+   "descricao": "Clientes - saldos credores",
+   "tipo": "T",
+   "pgca": "31.9"
+  },
+  {
+   "codigo": "3191",
+   "descricao": "Adiantamentos",
+   "tipo": "M",
+   "pgca": "31.9.1"
+  },
+  {
+   "codigo": "3192",
+   "descricao": "Embalagens a devolver",
+   "tipo": "M",
+   "pgca": "31.9.2"
+  },
+  {
+   "codigo": "3193",
+   "descricao": "Material à consignação",
+   "tipo": "M",
+   "pgca": "31.9.3"
+  },
+  {
+   "codigo": "32",
+   "descricao": "Fornecedores",
+   "tipo": "T",
+   "pgca": "32"
+  },
+  {
+   "codigo": "321",
+   "descricao": "Fornecedores – correntes",
+   "tipo": "T",
+   "pgca": "32.1"
+  },
+  {
+   "codigo": "3211",
+   "descricao": "Grupo",
+   "tipo": "T",
+   "pgca": "32.1.1"
+  },
+  {
+   "codigo": "32111",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "32.1.1.1"
+  },
+  {
+   "codigo": "32112",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "32.1.1.2"
+  },
+  {
+   "codigo": "3212",
+   "descricao": "Não grupo",
+   "tipo": "T",
+   "pgca": "32.1.2"
+  },
+  {
+   "codigo": "32121",
+   "descricao": "Nacionais",
+   "tipo": "M",
+   "pgca": "32.1.2.1"
+  },
+  {
+   "codigo": "32122",
+   "descricao": "Estrangeiros",
+   "tipo": "M",
+   "pgca": "32.1.2.2"
+  },
+  {
+   "codigo": "322",
+   "descricao": "Fornecedores – títulos a pagar",
+   "tipo": "T",
+   "pgca": "32.2"
+  },
+  {
+   "codigo": "3221",
+   "descricao": "Grupo",
+   "tipo": "T",
+   "pgca": "32.2.1"
+  },
+  {
+   "codigo": "32211",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "32.2.1.1"
+  },
+  {
+   "codigo": "32212",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "32.2.1.2"
+  },
+  {
+   "codigo": "3222",
+   "descricao": "Não grupo",
+   "tipo": "T",
+   "pgca": "32.2.2"
+  },
+  {
+   "codigo": "32221",
+   "descricao": "Nacionais",
+   "tipo": "M",
+   "pgca": "32.2.2.1"
+  },
+  {
+   "codigo": "32222",
+   "descricao": "Estrangeiros",
+   "tipo": "M",
+   "pgca": "32.2.2.2"
+  },
+  {
+   "codigo": "328",
+   "descricao": "Fornecedores – facturas em recepção e conferência",
+   "tipo": "M",
+   "pgca": "32.8"
+  },
+  {
+   "codigo": "329",
+   "descricao": "Fornecedores – saldos devedores",
+   "tipo": "T",
+   "pgca": "32.9"
+  },
+  {
+   "codigo": "3291",
+   "descricao": "Adiantamentos",
+   "tipo": "M",
+   "pgca": "32.9.1"
+  },
+  {
+   "codigo": "3292",
+   "descricao": "Embalagens a devolver",
+   "tipo": "M",
+   "pgca": "32.9.2"
+  },
+  {
+   "codigo": "3293",
+   "descricao": "Material à consignação",
+   "tipo": "M",
+   "pgca": "32.9.3"
+  },
+  {
+   "codigo": "33",
+   "descricao": "Empréstimos",
+   "tipo": "T",
+   "pgca": "33"
+  },
+  {
+   "codigo": "331",
+   "descricao": "Empréstimos bancários",
+   "tipo": "T",
+   "pgca": "33.1"
+  },
+  {
+   "codigo": "3311",
+   "descricao": "Moeda nacional",
+   "tipo": "T",
+   "pgca": "33.1.1"
+  },
+  {
+   "codigo": "33111",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "33.1.1.1"
+  },
+  {
+   "codigo": "3312",
+   "descricao": "Moeda estrangeira",
+   "tipo": "T",
+   "pgca": "33.1.2"
+  },
+  {
+   "codigo": "33121",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "33.1.2.1"
+  },
+  {
+   "codigo": "332",
+   "descricao": "Empréstimos por obrigações",
+   "tipo": "T",
+   "pgca": "33.2"
+  },
+  {
+   "codigo": "3321",
+   "descricao": "Convertíveis",
+   "tipo": "T",
+   "pgca": "33.2.1"
+  },
+  {
+   "codigo": "33211",
+   "descricao": "Entidade ___",
+   "tipo": "M",
+   "pgca": "33.2.1.1"
+  },
+  {
+   "codigo": "3322",
+   "descricao": "Não convertíveis",
+   "tipo": "T",
+   "pgca": "33.2.2"
+  },
+  {
+   "codigo": "33221",
+   "descricao": "Entidade ___",
+   "tipo": "M",
+   "pgca": "33.2.2.1"
+  },
+  {
+   "codigo": "333",
+   "descricao": "Empréstimos por títulos de participação",
+   "tipo": "T",
+   "pgca": "33.3"
+  },
+  {
+   "codigo": "3331",
+   "descricao": "Entidade ___",
+   "tipo": "M",
+   "pgca": "33.3.1"
+  },
+  {
+   "codigo": "339",
+   "descricao": "Outros empréstimos obtidos",
+   "tipo": "T",
+   "pgca": "33.9"
+  },
+  {
+   "codigo": "3391",
+   "descricao": "Entidade ___",
+   "tipo": "M",
+   "pgca": "33.9.1"
+  },
+  {
+   "codigo": "34",
+   "descricao": "Estado",
+   "tipo": "T",
+   "pgca": "34"
+  },
+  {
+   "codigo": "341",
+   "descricao": "Imposto sobre os lucros",
+   "tipo": "M",
+   "pgca": "34.1"
+  },
+  {
+   "codigo": "342",
+   "descricao": "Imposto de produção e consumo",
+   "tipo": "M",
+   "pgca": "34.2"
+  },
+  {
+   "codigo": "343",
+   "descricao": "Imposto de rendimento de trabalho",
+   "tipo": "M",
+   "pgca": "34.3"
+  },
+  {
+   "codigo": "344",
+   "descricao": "Imposto de circulação",
+   "tipo": "M",
+   "pgca": "34.4"
+  },
+  {
+   "codigo": "348",
+   "descricao": "Subsídios a preços",
+   "tipo": "M",
+   "pgca": "34.8"
+  },
+  {
+   "codigo": "349",
+   "descricao": "Outros impostos",
+   "tipo": "M",
+   "pgca": "34.9"
+  },
+  {
+   "codigo": "35",
+   "descricao": "Entidades participantes e participadas",
+   "tipo": "T",
+   "pgca": "35"
+  },
+  {
+   "codigo": "351",
+   "descricao": "Entidades participantes",
+   "tipo": "T",
+   "pgca": "35.1"
+  },
+  {
+   "codigo": "3511",
+   "descricao": "Estado",
+   "tipo": "T",
+   "pgca": "35.1.1"
+  },
+  {
+   "codigo": "35111",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.1.1.1"
+  },
+  {
+   "codigo": "35112",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.1.1.2"
+  },
+  {
+   "codigo": "35113",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.1.1.3"
+  },
+  {
+   "codigo": "35114",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.1.1.4"
+  },
+  {
+   "codigo": "3512",
+   "descricao": "Empresas do grupo – subsidiárias",
+   "tipo": "T",
+   "pgca": "35.1.2"
+  },
+  {
+   "codigo": "35121",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.1.2.1"
+  },
+  {
+   "codigo": "35122",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.1.2.2"
+  },
+  {
+   "codigo": "35123",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.1.2.3"
+  },
+  {
+   "codigo": "35124",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.1.2.4"
+  },
+  {
+   "codigo": "3513",
+   "descricao": "Empresas do grupo – associadas",
+   "tipo": "T",
+   "pgca": "35.1.3"
+  },
+  {
+   "codigo": "35131",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.1.3.1"
+  },
+  {
+   "codigo": "35132",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.1.3.2"
+  },
+  {
+   "codigo": "35133",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.1.3.3"
+  },
+  {
+   "codigo": "35134",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.1.3.4"
+  },
+  {
+   "codigo": "3514",
+   "descricao": "Outros",
+   "tipo": "T",
+   "pgca": "35.1.4"
+  },
+  {
+   "codigo": "35141",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.1.4.1"
+  },
+  {
+   "codigo": "35142",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.1.4.2"
+  },
+  {
+   "codigo": "35143",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.1.4.3"
+  },
+  {
+   "codigo": "35144",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.1.4.4"
+  },
+  {
+   "codigo": "352",
+   "descricao": "Entidades participadas",
+   "tipo": "T",
+   "pgca": "35.2"
+  },
+  {
+   "codigo": "3521",
+   "descricao": "Estado",
+   "tipo": "T",
+   "pgca": "35.2.1"
+  },
+  {
+   "codigo": "35211",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.2.1.1"
+  },
+  {
+   "codigo": "35212",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.2.1.2"
+  },
+  {
+   "codigo": "35213",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.2.1.3"
+  },
+  {
+   "codigo": "35214",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.2.1.4"
+  },
+  {
+   "codigo": "3522",
+   "descricao": "Empresas do grupo – subsidiárias",
+   "tipo": "T",
+   "pgca": "35.2.2"
+  },
+  {
+   "codigo": "35221",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.2.2.1"
+  },
+  {
+   "codigo": "35222",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.2.2.2"
+  },
+  {
+   "codigo": "35223",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.2.2.3"
+  },
+  {
+   "codigo": "35224",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.2.2.4"
+  },
+  {
+   "codigo": "3523",
+   "descricao": "Empresas do grupo – associadas",
+   "tipo": "T",
+   "pgca": "35.2.3"
+  },
+  {
+   "codigo": "35231",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.2.3.1"
+  },
+  {
+   "codigo": "35232",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.2.3.2"
+  },
+  {
+   "codigo": "35233",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.2.3.3"
+  },
+  {
+   "codigo": "35234",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.2.3.4"
+  },
+  {
+   "codigo": "3524",
+   "descricao": "Outros",
+   "tipo": "T",
+   "pgca": "35.2.4"
+  },
+  {
+   "codigo": "35241",
+   "descricao": "c/subscrição",
+   "tipo": "M",
+   "pgca": "35.2.4.1"
+  },
+  {
+   "codigo": "35242",
+   "descricao": "c/adiantamentos sobre lucros",
+   "tipo": "M",
+   "pgca": "35.2.4.2"
+  },
+  {
+   "codigo": "35243",
+   "descricao": "c/lucros",
+   "tipo": "M",
+   "pgca": "35.2.4.3"
+  },
+  {
+   "codigo": "35244",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "35.2.4.4"
+  },
+  {
+   "codigo": "36",
+   "descricao": "Pessoal",
+   "tipo": "T",
+   "pgca": "36"
+  },
+  {
+   "codigo": "361",
+   "descricao": "Pessoal – remunerações",
+   "tipo": "T",
+   "pgca": "36.1"
+  },
+  {
+   "codigo": "3611",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "36.1.1"
+  },
+  {
+   "codigo": "3612",
+   "descricao": "Empregados",
+   "tipo": "M",
+   "pgca": "36.1.2"
+  },
+  {
+   "codigo": "362",
+   "descricao": "Pessoal – participação nos resultados",
+   "tipo": "T",
+   "pgca": "36.2"
+  },
+  {
+   "codigo": "3621",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "36.2.1"
+  },
+  {
+   "codigo": "3622",
+   "descricao": "Empregados",
+   "tipo": "M",
+   "pgca": "36.2.2"
+  },
+  {
+   "codigo": "363",
+   "descricao": "Pessoal – adiantamentos",
+   "tipo": "M",
+   "pgca": "36.3"
+  },
+  {
+   "codigo": "369",
+   "descricao": "Pessoal – outros",
+   "tipo": "M",
+   "pgca": "36.9"
+  },
+  {
+   "codigo": "37",
+   "descricao": "Outros valores a receber e a pagar",
+   "tipo": "T",
+   "pgca": "37"
+  },
+  {
+   "codigo": "371",
+   "descricao": "Compras de imobilizado",
+   "tipo": "T",
+   "pgca": "37.1"
+  },
+  {
+   "codigo": "3711",
+   "descricao": "Corpóreo",
+   "tipo": "M",
+   "pgca": "37.1.1"
+  },
+  {
+   "codigo": "3712",
+   "descricao": "Incorpóreo",
+   "tipo": "M",
+   "pgca": "37.1.2"
+  },
+  {
+   "codigo": "3713",
+   "descricao": "Financeiro",
+   "tipo": "M",
+   "pgca": "37.1.3"
+  },
+  {
+   "codigo": "372",
+   "descricao": "Vendas de imobilizado",
+   "tipo": "T",
+   "pgca": "37.2"
+  },
+  {
+   "codigo": "3721",
+   "descricao": "Corpóreo",
+   "tipo": "M",
+   "pgca": "37.2.1"
+  },
+  {
+   "codigo": "3722",
+   "descricao": "Incorpóreo",
+   "tipo": "M",
+   "pgca": "37.2.2"
+  },
+  {
+   "codigo": "3723",
+   "descricao": "Financeiro",
+   "tipo": "M",
+   "pgca": "37.2.3"
+  },
+  {
+   "codigo": "373",
+   "descricao": "Proveitos a facturar",
+   "tipo": "T",
+   "pgca": "37.3"
+  },
+  {
+   "codigo": "3731",
+   "descricao": "Vendas",
+   "tipo": "M",
+   "pgca": "37.3.1"
+  },
+  {
+   "codigo": "3732",
+   "descricao": "Prestações de serviço",
+   "tipo": "M",
+   "pgca": "37.3.2"
+  },
+  {
+   "codigo": "3733",
+   "descricao": "Juros",
+   "tipo": "M",
+   "pgca": "37.3.3"
+  },
+  {
+   "codigo": "374",
+   "descricao": "Encargos a repartir por períodos futuros",
+   "tipo": "T",
+   "pgca": "37.4"
+  },
+  {
+   "codigo": "3741",
+   "descricao": "Descontos de emissão de obrigações",
+   "tipo": "M",
+   "pgca": "37.4.1"
+  },
+  {
+   "codigo": "3742",
+   "descricao": "Descontos de emissão de títulos de participação",
+   "tipo": "M",
+   "pgca": "37.4.2"
+  },
+  {
+   "codigo": "375",
+   "descricao": "Encargos a pagar",
+   "tipo": "T",
+   "pgca": "37.5"
+  },
+  {
+   "codigo": "3751",
+   "descricao": "Remunerações",
+   "tipo": "M",
+   "pgca": "37.5.1"
+  },
+  {
+   "codigo": "3752",
+   "descricao": "Juros",
+   "tipo": "M",
+   "pgca": "37.5.2"
+  },
+  {
+   "codigo": "376",
+   "descricao": "Proveitos a repartir por períodos futuros",
+   "tipo": "T",
+   "pgca": "37.6"
+  },
+  {
+   "codigo": "3761",
+   "descricao": "Prémios de emissão de obrigações",
+   "tipo": "M",
+   "pgca": "37.6.1"
+  },
+  {
+   "codigo": "3762",
+   "descricao": "Prémios de emissão de títulos de participação",
+   "tipo": "M",
+   "pgca": "37.6.2"
+  },
+  {
+   "codigo": "3763",
+   "descricao": "Subsídios para investimento",
+   "tipo": "M",
+   "pgca": "37.6.3"
+  },
+  {
+   "codigo": "3764",
+   "descricao": "Diferenças de câmbio favoráveis reversíveis",
+   "tipo": "M",
+   "pgca": "37.6.4"
+  },
+  {
+   "codigo": "377",
+   "descricao": "Contas transitórias",
+   "tipo": "T",
+   "pgca": "37.7"
+  },
+  {
+   "codigo": "3771",
+   "descricao": "Transacções entre a sede e as dependências da empresa",
+   "tipo": "M",
+   "pgca": "37.7.1"
+  },
+  {
+   "codigo": "379",
+   "descricao": "Outros valores a receber e a pagar",
+   "tipo": "M",
+   "pgca": "37.9"
+  },
+  {
+   "codigo": "38",
+   "descricao": "Provisões para cobranças duvidosas",
+   "tipo": "T",
+   "pgca": "38"
+  },
+  {
+   "codigo": "381",
+   "descricao": "Provisões para clientes",
+   "tipo": "T",
+   "pgca": "38.1"
+  },
+  {
+   "codigo": "3811",
+   "descricao": "Clientes – correntes",
+   "tipo": "T",
+   "pgca": "38.1.1"
+  },
+  {
+   "codigo": "38111",
+   "descricao": "Grupo",
+   "tipo": "M",
+   "pgca": "38.1.1.1"
+  },
+  {
+   "codigo": "38112",
+   "descricao": "Não grupo",
+   "tipo": "M",
+   "pgca": "38.1.1.2"
+  },
+  {
+   "codigo": "3812",
+   "descricao": "Cliente – títulos a receber",
+   "tipo": "T",
+   "pgca": "38.1.2"
+  },
+  {
+   "codigo": "38121",
+   "descricao": "Grupo",
+   "tipo": "M",
+   "pgca": "38.1.2.1"
+  },
+  {
+   "codigo": "38122",
+   "descricao": "Não grupo",
+   "tipo": "M",
+   "pgca": "38.1.2.2"
+  },
+  {
+   "codigo": "3813",
+   "descricao": "Clientes – cobrança duvidosa",
+   "tipo": "T",
+   "pgca": "38.1.3"
+  },
+  {
+   "codigo": "38131",
+   "descricao": "Grupo",
+   "tipo": "M",
+   "pgca": "38.1.3.1"
+  },
+  {
+   "codigo": "38132",
+   "descricao": "Não grupo",
+   "tipo": "M",
+   "pgca": "38.1.3.2"
+  },
+  {
+   "codigo": "382",
+   "descricao": "Provisões para saldos devedores de fornecedores",
+   "tipo": "M",
+   "pgca": "38.2"
+  },
+  {
+   "codigo": "383",
+   "descricao": "Provisões p/participantes e participadas",
+   "tipo": "T",
+   "pgca": "38.3"
+  },
+  {
+   "codigo": "3831",
+   "descricao": "Participantes",
+   "tipo": "M",
+   "pgca": "38.3.1"
+  },
+  {
+   "codigo": "3832",
+   "descricao": "Participadas",
+   "tipo": "M",
+   "pgca": "38.3.2"
+  },
+  {
+   "codigo": "384",
+   "descricao": "Provisões p/dívidas do pessoal",
+   "tipo": "M",
+   "pgca": "38.4"
+  },
+  {
+   "codigo": "389",
+   "descricao": "Provisões para outros saldos a receber",
+   "tipo": "T",
+   "pgca": "38.9"
+  },
+  {
+   "codigo": "3891",
+   "descricao": "Vendas imobilizado",
+   "tipo": "M",
+   "pgca": "38.9.1"
+  },
+  {
+   "codigo": "39",
+   "descricao": "Provisões para outros riscos e encargos",
+   "tipo": "T",
+   "pgca": "39"
+  },
+  {
+   "codigo": "391",
+   "descricao": "Provisões para pensões",
+   "tipo": "M",
+   "pgca": "39.1"
+  },
+  {
+   "codigo": "392",
+   "descricao": "Provisões para processos judiciais em curso",
+   "tipo": "M",
+   "pgca": "39.2"
+  },
+  {
+   "codigo": "393",
+   "descricao": "Provisões para acidentes de trabalho",
+   "tipo": "M",
+   "pgca": "39.3"
+  },
+  {
+   "codigo": "394",
+   "descricao": "Provisões para garantias dadas a clientes",
+   "tipo": "M",
+   "pgca": "39.4"
+  },
+  {
+   "codigo": "399",
+   "descricao": "Provisões para outros riscos e encargos",
+   "tipo": "M",
+   "pgca": "39.9"
+  },
+  {
+   "codigo": "41",
+   "descricao": "Títulos negociáveis",
+   "tipo": "T",
+   "pgca": "41"
+  },
+  {
+   "codigo": "411",
+   "descricao": "Acções",
+   "tipo": "T",
+   "pgca": "41.1"
+  },
+  {
+   "codigo": "4111",
+   "descricao": "Empresas do grupo",
+   "tipo": "M",
+   "pgca": "41.1.1"
+  },
+  {
+   "codigo": "4112",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "41.1.2"
+  },
+  {
+   "codigo": "4113",
+   "descricao": "Outras empresas",
+   "tipo": "M",
+   "pgca": "41.1.3"
+  },
+  {
+   "codigo": "412",
+   "descricao": "Obrigações",
+   "tipo": "T",
+   "pgca": "41.2"
+  },
+  {
+   "codigo": "4121",
+   "descricao": "Empresas do grupo",
+   "tipo": "M",
+   "pgca": "41.2.1"
+  },
+  {
+   "codigo": "4122",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "41.2.2"
+  },
+  {
+   "codigo": "4123",
+   "descricao": "Outras empresas",
+   "tipo": "M",
+   "pgca": "41.2.3"
+  },
+  {
+   "codigo": "413",
+   "descricao": "Títulos da dívida pública",
+   "tipo": "M",
+   "pgca": "41.3"
+  },
+  {
+   "codigo": "42",
+   "descricao": "Depósitos a prazo",
+   "tipo": "T",
+   "pgca": "42"
+  },
+  {
+   "codigo": "421",
+   "descricao": "Moeda nacional",
+   "tipo": "T",
+   "pgca": "42.1"
+  },
+  {
+   "codigo": "4211",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "42.1.1"
+  },
+  {
+   "codigo": "4212",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "42.1.2"
+  },
+  {
+   "codigo": "422",
+   "descricao": "Moeda estrangeira",
+   "tipo": "T",
+   "pgca": "42.2"
+  },
+  {
+   "codigo": "4221",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "42.2.1"
+  },
+  {
+   "codigo": "4222",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "42.2.2"
+  },
+  {
+   "codigo": "43",
+   "descricao": "Depósitos à ordem",
+   "tipo": "T",
+   "pgca": "43"
+  },
+  {
+   "codigo": "431",
+   "descricao": "Moeda nacional",
+   "tipo": "T",
+   "pgca": "43.1"
+  },
+  {
+   "codigo": "4311",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "43.1.1"
+  },
+  {
+   "codigo": "4312",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "43.1.2"
+  },
+  {
+   "codigo": "432",
+   "descricao": "Moeda estrangeira",
+   "tipo": "T",
+   "pgca": "43.2"
+  },
+  {
+   "codigo": "4321",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "43.2.1"
+  },
+  {
+   "codigo": "4322",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "43.2.2"
+  },
+  {
+   "codigo": "44",
+   "descricao": "Outros depósitos",
+   "tipo": "T",
+   "pgca": "44"
+  },
+  {
+   "codigo": "441",
+   "descricao": "Moeda nacional",
+   "tipo": "T",
+   "pgca": "44.1"
+  },
+  {
+   "codigo": "4411",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "44.1.1"
+  },
+  {
+   "codigo": "4412",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "44.1.2"
+  },
+  {
+   "codigo": "442",
+   "descricao": "Moeda estrangeira",
+   "tipo": "T",
+   "pgca": "44.2"
+  },
+  {
+   "codigo": "4421",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "44.2.1"
+  },
+  {
+   "codigo": "4422",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "44.2.2"
+  },
+  {
+   "codigo": "45",
+   "descricao": "Caixa",
+   "tipo": "T",
+   "pgca": "45"
+  },
+  {
+   "codigo": "451",
+   "descricao": "Fundo fixo",
+   "tipo": "T",
+   "pgca": "45.1"
+  },
+  {
+   "codigo": "4511",
+   "descricao": "Caixa ___",
+   "tipo": "M",
+   "pgca": "45.1.1"
+  },
+  {
+   "codigo": "4512",
+   "descricao": "Caixa ___",
+   "tipo": "M",
+   "pgca": "45.1.2"
+  },
+  {
+   "codigo": "452",
+   "descricao": "Valores para depositar",
+   "tipo": "M",
+   "pgca": "45.2"
+  },
+  {
+   "codigo": "453",
+   "descricao": "Valores destinados a pagamentos específicos",
+   "tipo": "T",
+   "pgca": "45.3"
+  },
+  {
+   "codigo": "4531",
+   "descricao": "Salários",
+   "tipo": "M",
+   "pgca": "45.3.1"
+  },
+  {
+   "codigo": "48",
+   "descricao": "Conta transitória",
+   "tipo": "T",
+   "pgca": "48"
+  },
+  {
+   "codigo": "481",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "48.1"
+  },
+  {
+   "codigo": "482",
+   "descricao": "Banco ___",
+   "tipo": "M",
+   "pgca": "48.2"
+  },
+  {
+   "codigo": "49",
+   "descricao": "Provisões para aplicações de tesouraria",
+   "tipo": "T",
+   "pgca": "49"
+  },
+  {
+   "codigo": "491",
+   "descricao": "Títulos negociáveis",
+   "tipo": "T",
+   "pgca": "49.1"
+  },
+  {
+   "codigo": "4911",
+   "descricao": "Acções",
+   "tipo": "M",
+   "pgca": "49.1.1"
+  },
+  {
+   "codigo": "4912",
+   "descricao": "Obrigações",
+   "tipo": "M",
+   "pgca": "49.1.2"
+  },
+  {
+   "codigo": "4913",
+   "descricao": "Títulos da dívida pública",
+   "tipo": "M",
+   "pgca": "49.1.3"
+  },
+  {
+   "codigo": "492",
+   "descricao": "Outras aplicações de tesouraria",
+   "tipo": "M",
+   "pgca": "49.2"
+  },
+  {
+   "codigo": "51",
+   "descricao": "Capital",
+   "tipo": "M",
+   "pgca": "51"
+  },
+  {
+   "codigo": "52",
+   "descricao": "Acções/quotas próprias",
+   "tipo": "T",
+   "pgca": "52"
+  },
+  {
+   "codigo": "521",
+   "descricao": "Valor nominal",
+   "tipo": "M",
+   "pgca": "52.1"
+  },
+  {
+   "codigo": "522",
+   "descricao": "Descontos",
+   "tipo": "M",
+   "pgca": "52.2"
+  },
+  {
+   "codigo": "523",
+   "descricao": "Prémios",
+   "tipo": "M",
+   "pgca": "52.3"
+  },
+  {
+   "codigo": "53",
+   "descricao": "Prémios de emissão",
+   "tipo": "M",
+   "pgca": "53"
+  },
+  {
+   "codigo": "54",
+   "descricao": "Prestações suplementares",
+   "tipo": "M",
+   "pgca": "54"
+  },
+  {
+   "codigo": "55",
+   "descricao": "Reservas legais",
+   "tipo": "M",
+   "pgca": "55"
+  },
+  {
+   "codigo": "56",
+   "descricao": "Reservas de reavaliação",
+   "tipo": "T",
+   "pgca": "56"
+  },
+  {
+   "codigo": "561",
+   "descricao": "Legais",
+   "tipo": "T",
+   "pgca": "56.1"
+  },
+  {
+   "codigo": "5611",
+   "descricao": "Decreto-Lei n.º ___",
+   "tipo": "M",
+   "pgca": "56.1.1"
+  },
+  {
+   "codigo": "5612",
+   "descricao": "Decreto-Lei n.º ___",
+   "tipo": "M",
+   "pgca": "56.1.2"
+  },
+  {
+   "codigo": "562",
+   "descricao": "Autónomas",
+   "tipo": "T",
+   "pgca": "56.2"
+  },
+  {
+   "codigo": "5621",
+   "descricao": "Avaliação",
+   "tipo": "M",
+   "pgca": "56.2.1"
+  },
+  {
+   "codigo": "57",
+   "descricao": "Reservas com fins especiais",
+   "tipo": "M",
+   "pgca": "57"
+  },
+  {
+   "codigo": "58",
+   "descricao": "Reservas livres",
+   "tipo": "M",
+   "pgca": "58"
+  },
+  {
+   "codigo": "61",
+   "descricao": "Vendas",
+   "tipo": "T",
+   "pgca": "61"
+  },
+  {
+   "codigo": "611",
+   "descricao": "Produtos acabados e intermédios",
+   "tipo": "T",
+   "pgca": "61.1"
+  },
+  {
+   "codigo": "6111",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "61.1.1"
+  },
+  {
+   "codigo": "6112",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "61.1.2"
+  },
+  {
+   "codigo": "612",
+   "descricao": "Sub-produtos, desperdícios, resíduos e refugos",
+   "tipo": "T",
+   "pgca": "61.2"
+  },
+  {
+   "codigo": "6121",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "61.2.1"
+  },
+  {
+   "codigo": "6122",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "61.2.2"
+  },
+  {
+   "codigo": "613",
+   "descricao": "Mercadorias",
+   "tipo": "T",
+   "pgca": "61.3"
+  },
+  {
+   "codigo": "6131",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "61.3.1"
+  },
+  {
+   "codigo": "6132",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "61.3.2"
+  },
+  {
+   "codigo": "614",
+   "descricao": "Embalagens de consumo",
+   "tipo": "T",
+   "pgca": "61.4"
+  },
+  {
+   "codigo": "6141",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "61.4.1"
+  },
+  {
+   "codigo": "6142",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "61.4.2"
+  },
+  {
+   "codigo": "615",
+   "descricao": "Subsídios a preços",
+   "tipo": "M",
+   "pgca": "61.5"
+  },
+  {
+   "codigo": "617",
+   "descricao": "Devoluções",
+   "tipo": "T",
+   "pgca": "61.7"
+  },
+  {
+   "codigo": "6171",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "61.7.1"
+  },
+  {
+   "codigo": "6172",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "61.7.2"
+  },
+  {
+   "codigo": "618",
+   "descricao": "Descontos e abatimentos",
+   "tipo": "T",
+   "pgca": "61.8"
+  },
+  {
+   "codigo": "6181",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "61.8.1"
+  },
+  {
+   "codigo": "6182",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "61.8.2"
+  },
+  {
+   "codigo": "619",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "61.9"
+  },
+  {
+   "codigo": "62",
+   "descricao": "Prestações de serviço",
+   "tipo": "T",
+   "pgca": "62"
+  },
+  {
+   "codigo": "621",
+   "descricao": "Serviços principais",
+   "tipo": "T",
+   "pgca": "62.1"
+  },
+  {
+   "codigo": "6211",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "62.1.1"
+  },
+  {
+   "codigo": "6212",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "62.1.2"
+  },
+  {
+   "codigo": "622",
+   "descricao": "Serviços secundários",
+   "tipo": "T",
+   "pgca": "62.2"
+  },
+  {
+   "codigo": "6221",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "62.2.1"
+  },
+  {
+   "codigo": "6222",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "62.2.2"
+  },
+  {
+   "codigo": "628",
+   "descricao": "Descontos e abatimentos",
+   "tipo": "T",
+   "pgca": "62.8"
+  },
+  {
+   "codigo": "6281",
+   "descricao": "Mercado nacional",
+   "tipo": "M",
+   "pgca": "62.8.1"
+  },
+  {
+   "codigo": "6282",
+   "descricao": "Mercado estrangeiro",
+   "tipo": "M",
+   "pgca": "62.8.2"
+  },
+  {
+   "codigo": "629",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "62.9"
+  },
+  {
+   "codigo": "63",
+   "descricao": "Outros proveitos operacionais",
+   "tipo": "T",
+   "pgca": "63"
+  },
+  {
+   "codigo": "631",
+   "descricao": "Serviços suplementares",
+   "tipo": "T",
+   "pgca": "63.1"
+  },
+  {
+   "codigo": "6311",
+   "descricao": "Aluguer de equipamento",
+   "tipo": "M",
+   "pgca": "63.1.1"
+  },
+  {
+   "codigo": "6312",
+   "descricao": "Cedência de pessoal",
+   "tipo": "M",
+   "pgca": "63.1.2"
+  },
+  {
+   "codigo": "6313",
+   "descricao": "Cedência de energia",
+   "tipo": "M",
+   "pgca": "63.1.3"
+  },
+  {
+   "codigo": "6314",
+   "descricao": "Estudos, projectos e assistência técnica",
+   "tipo": "M",
+   "pgca": "63.1.4"
+  },
+  {
+   "codigo": "632",
+   "descricao": "Royalties",
+   "tipo": "M",
+   "pgca": "63.2"
+  },
+  {
+   "codigo": "633",
+   "descricao": "Subsídios à exploração",
+   "tipo": "M",
+   "pgca": "63.3"
+  },
+  {
+   "codigo": "634",
+   "descricao": "Subsídios a investimento",
+   "tipo": "M",
+   "pgca": "63.4"
+  },
+  {
+   "codigo": "638",
+   "descricao": "Outros proveitos e ganhos operacionais",
+   "tipo": "M",
+   "pgca": "63.8"
+  },
+  {
+   "codigo": "639",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "63.9"
+  },
+  {
+   "codigo": "64",
+   "descricao": "Variação nos inventários de produtos acabados e de produção em",
+   "tipo": "T",
+   "pgca": "64"
+  },
+  {
+   "codigo": "641",
+   "descricao": "Produtos e trabalhos em curso",
+   "tipo": "M",
+   "pgca": "64.1"
+  },
+  {
+   "codigo": "642",
+   "descricao": "Produtos acabados",
+   "tipo": "M",
+   "pgca": "64.2"
+  },
+  {
+   "codigo": "643",
+   "descricao": "Produtos intermédios",
+   "tipo": "M",
+   "pgca": "64.3"
+  },
+  {
+   "codigo": "649",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "64.9"
+  },
+  {
+   "codigo": "65",
+   "descricao": "Trabalhos para a própria empresa",
+   "tipo": "T",
+   "pgca": "65"
+  },
+  {
+   "codigo": "651",
+   "descricao": "Para imobilizado",
+   "tipo": "T",
+   "pgca": "65.1"
+  },
+  {
+   "codigo": "6511",
+   "descricao": "Corpóreo",
+   "tipo": "M",
+   "pgca": "65.1.1"
+  },
+  {
+   "codigo": "6512",
+   "descricao": "Incorpóreo",
+   "tipo": "M",
+   "pgca": "65.1.2"
+  },
+  {
+   "codigo": "6513",
+   "descricao": "Financeiro",
+   "tipo": "M",
+   "pgca": "65.1.3"
+  },
+  {
+   "codigo": "6514",
+   "descricao": "Em curso",
+   "tipo": "M",
+   "pgca": "65.1.4"
+  },
+  {
+   "codigo": "652",
+   "descricao": "Para encargos a repartir por exercícios futuros",
+   "tipo": "M",
+   "pgca": "65.2"
+  },
+  {
+   "codigo": "659",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "65.9"
+  },
+  {
+   "codigo": "66",
+   "descricao": "Proveitos e ganhos financeiros gerais",
+   "tipo": "T",
+   "pgca": "66"
+  },
+  {
+   "codigo": "661",
+   "descricao": "Juros",
+   "tipo": "T",
+   "pgca": "66.1"
+  },
+  {
+   "codigo": "6611",
+   "descricao": "De investimentos financeiros",
+   "tipo": "T",
+   "pgca": "66.1.1"
+  },
+  {
+   "codigo": "66111",
+   "descricao": "Obrigações",
+   "tipo": "M",
+   "pgca": "66.1.1.1"
+  },
+  {
+   "codigo": "66113",
+   "descricao": "Títulos de participação",
+   "tipo": "M",
+   "pgca": "66.1.1.3"
+  },
+  {
+   "codigo": "66114",
+   "descricao": "Empréstimos",
+   "tipo": "M",
+   "pgca": "66.1.1.4"
+  },
+  {
+   "codigo": "66119",
+   "descricao": "Outros",
+   "tipo": "M",
+   "pgca": "66.1.1.9"
+  },
+  {
+   "codigo": "6612",
+   "descricao": "De mora relativos a dívidas de terceiros",
+   "tipo": "T",
+   "pgca": "66.1.2"
+  },
+  {
+   "codigo": "66121",
+   "descricao": "Dívidas recebidas a prestações",
+   "tipo": "M",
+   "pgca": "66.1.2.1"
+  },
+  {
+   "codigo": "66122",
+   "descricao": "De empréstimos a terceiros",
+   "tipo": "M",
+   "pgca": "66.1.2.2"
+  },
+  {
+   "codigo": "6614",
+   "descricao": "Desconto de títulos",
+   "tipo": "M",
+   "pgca": "66.1.4"
+  },
+  {
+   "codigo": "6615",
+   "descricao": "De aplicações de tesouraria",
+   "tipo": "M",
+   "pgca": "66.1.5"
+  },
+  {
+   "codigo": "662",
+   "descricao": "Diferenças de câmbio favoráveis",
+   "tipo": "T",
+   "pgca": "66.2"
+  },
+  {
+   "codigo": "6621",
+   "descricao": "Realizadas",
+   "tipo": "M",
+   "pgca": "66.2.1"
+  },
+  {
+   "codigo": "6622",
+   "descricao": "Não realizadas",
+   "tipo": "M",
+   "pgca": "66.2.2"
+  },
+  {
+   "codigo": "663",
+   "descricao": "Descontos de pronto pagamento obtidos",
+   "tipo": "M",
+   "pgca": "66.3"
+  },
+  {
+   "codigo": "664",
+   "descricao": "Rendimentos de investimentos em imóveis",
+   "tipo": "M",
+   "pgca": "66.4"
+  },
+  {
+   "codigo": "665",
+   "descricao": "Rendimento de participações de capital",
+   "tipo": "T",
+   "pgca": "66.5"
+  },
+  {
+   "codigo": "6651",
+   "descricao": "Acções, quotas em outras empresas",
+   "tipo": "M",
+   "pgca": "66.5.1"
+  },
+  {
+   "codigo": "6652",
+   "descricao": "Acções, quotas incluídas nos fundos",
+   "tipo": "M",
+   "pgca": "66.5.2"
+  },
+  {
+   "codigo": "6653",
+   "descricao": "Acções, quotas incluídas nos títulos negociáveis",
+   "tipo": "M",
+   "pgca": "66.5.3"
+  },
+  {
+   "codigo": "666",
+   "descricao": "Ganhos na alienação de aplicações financeiras",
+   "tipo": "T",
+   "pgca": "66.6"
+  },
+  {
+   "codigo": "6661",
+   "descricao": "Investimentos financeiros",
+   "tipo": "T",
+   "pgca": "66.6.1"
+  },
+  {
+   "codigo": "66611",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "66.6.1.1"
+  },
+  {
+   "codigo": "66612",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "66.6.1.2"
+  },
+  {
+   "codigo": "66613",
+   "descricao": "Outras empresas",
+   "tipo": "M",
+   "pgca": "66.6.1.3"
+  },
+  {
+   "codigo": "66614",
+   "descricao": "Imóveis",
+   "tipo": "M",
+   "pgca": "66.6.1.4"
+  },
+  {
+   "codigo": "66615",
+   "descricao": "Fundos",
+   "tipo": "M",
+   "pgca": "66.6.1.5"
+  },
+  {
+   "codigo": "66619",
+   "descricao": "Outros investimentos",
+   "tipo": "M",
+   "pgca": "66.6.1.9"
+  },
+  {
+   "codigo": "6662",
+   "descricao": "Títulos negociáveis",
+   "tipo": "M",
+   "pgca": "66.6.2"
+  },
+  {
+   "codigo": "667",
+   "descricao": "Reposição de provisões",
+   "tipo": "T",
+   "pgca": "66.7"
+  },
+  {
+   "codigo": "6671",
+   "descricao": "Investimentos financeiros",
+   "tipo": "T",
+   "pgca": "66.7.1"
+  },
+  {
+   "codigo": "66711",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "66.7.1.1"
+  },
+  {
+   "codigo": "66712",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "66.7.1.2"
+  },
+  {
+   "codigo": "66713",
+   "descricao": "Outras empresas",
+   "tipo": "M",
+   "pgca": "66.7.1.3"
+  },
+  {
+   "codigo": "66714",
+   "descricao": "Fundos",
+   "tipo": "M",
+   "pgca": "66.7.1.4"
+  },
+  {
+   "codigo": "66719",
+   "descricao": "Outros investimentos",
+   "tipo": "M",
+   "pgca": "66.7.1.9"
+  },
+  {
+   "codigo": "6672",
+   "descricao": "Aplicações de tesouraria",
+   "tipo": "T",
+   "pgca": "66.7.2"
+  },
+  {
+   "codigo": "66721",
+   "descricao": "Títulos negociáveis",
+   "tipo": "M",
+   "pgca": "66.7.2.1"
+  },
+  {
+   "codigo": "66722",
+   "descricao": "Depósitos a prazo",
+   "tipo": "M",
+   "pgca": "66.7.2.2"
+  },
+  {
+   "codigo": "66723",
+   "descricao": "Outros depósitos",
+   "tipo": "M",
+   "pgca": "66.7.2.3"
+  },
+  {
+   "codigo": "66729",
+   "descricao": "Outros investimentos",
+   "tipo": "M",
+   "pgca": "66.7.2.9"
+  },
+  {
+   "codigo": "67",
+   "descricao": "Proveitos e ganhos financeiros em filiais e associadas",
+   "tipo": "T",
+   "pgca": "67"
+  },
+  {
+   "codigo": "671",
+   "descricao": "Rendimento de participações de capital",
+   "tipo": "T",
+   "pgca": "67.1"
+  },
+  {
+   "codigo": "6711",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "67.1.1"
+  },
+  {
+   "codigo": "6712",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "67.1.2"
+  },
+  {
+   "codigo": "679",
+   "descricao": "Transferência para resultados em filiais e associadas",
+   "tipo": "M",
+   "pgca": "67.9"
+  },
+  {
+   "codigo": "68",
+   "descricao": "Outros proveitos e ganhos não operacionais",
+   "tipo": "T",
+   "pgca": "68"
+  },
+  {
+   "codigo": "6801",
+   "descricao": "Reposição de provisões",
+   "tipo": "T",
+   "pgca": "68.1"
+  },
+  {
+   "codigo": "68011",
+   "descricao": "Existências",
+   "tipo": "T",
+   "pgca": "68.1.1"
+  },
+  {
+   "codigo": "680111",
+   "descricao": "Matérias-primas subsidiárias e de consumo",
+   "tipo": "M",
+   "pgca": "68.1.1.1"
+  },
+  {
+   "codigo": "680112",
+   "descricao": "Produtos e trabalhos em curso",
+   "tipo": "M",
+   "pgca": "68.1.1.2"
+  },
+  {
+   "codigo": "680113",
+   "descricao": "Produtos acabados e intermédios",
+   "tipo": "M",
+   "pgca": "68.1.1.3"
+  },
+  {
+   "codigo": "680114",
+   "descricao": "Sub-produtos, desperdícios, resíduos e refugos",
+   "tipo": "M",
+   "pgca": "68.1.1.4"
+  },
+  {
+   "codigo": "680115",
+   "descricao": "Mercadorias",
+   "tipo": "M",
+   "pgca": "68.1.1.5"
+  },
+  {
+   "codigo": "68012",
+   "descricao": "Cobranças duvidosas",
+   "tipo": "T",
+   "pgca": "68.1.2"
+  },
+  {
+   "codigo": "680121",
+   "descricao": "Clientes",
+   "tipo": "M",
+   "pgca": "68.1.2.1"
+  },
+  {
+   "codigo": "680122",
+   "descricao": "Clientes – títulos a receber",
+   "tipo": "M",
+   "pgca": "68.1.2.2"
+  },
+  {
+   "codigo": "680123",
+   "descricao": "Clientes – cobrança duvidosa",
+   "tipo": "M",
+   "pgca": "68.1.2.3"
+  },
+  {
+   "codigo": "680124",
+   "descricao": "Saldos devedores de fornecedores",
+   "tipo": "M",
+   "pgca": "68.1.2.4"
+  },
+  {
+   "codigo": "680125",
+   "descricao": "Participantes e participadas",
+   "tipo": "M",
+   "pgca": "68.1.2.5"
+  },
+  {
+   "codigo": "680126",
+   "descricao": "Dívidas do Pessoal",
+   "tipo": "M",
+   "pgca": "68.1.2.6"
+  },
+  {
+   "codigo": "680129",
+   "descricao": "Outros saldos a receber",
+   "tipo": "M",
+   "pgca": "68.1.2.9"
+  },
+  {
+   "codigo": "68013",
+   "descricao": "Riscos e encargos",
+   "tipo": "T",
+   "pgca": "68.1.3"
+  },
+  {
+   "codigo": "680131",
+   "descricao": "Pensões",
+   "tipo": "M",
+   "pgca": "68.1.3.1"
+  },
+  {
+   "codigo": "680132",
+   "descricao": "Processos judiciais em curso",
+   "tipo": "M",
+   "pgca": "68.1.3.2"
+  },
+  {
+   "codigo": "680133",
+   "descricao": "Acidentes de trabalho",
+   "tipo": "M",
+   "pgca": "68.1.3.3"
+  },
+  {
+   "codigo": "680134",
+   "descricao": "Garantias dadas a clientes",
+   "tipo": "M",
+   "pgca": "68.1.3.4"
+  },
+  {
+   "codigo": "680139",
+   "descricao": "Outros riscos e encargos",
+   "tipo": "M",
+   "pgca": "68.1.3.9"
+  },
+  {
+   "codigo": "6802",
+   "descricao": "Anulação de amortizações extraordinárias",
+   "tipo": "T",
+   "pgca": "68.2"
+  },
+  {
+   "codigo": "68021",
+   "descricao": "Imobilizações corpóreas",
+   "tipo": "M",
+   "pgca": "68.2.1"
+  },
+  {
+   "codigo": "68022",
+   "descricao": "Imobilizações incorpóreas",
+   "tipo": "M",
+   "pgca": "68.2.2"
+  },
+  {
+   "codigo": "6803",
+   "descricao": "Ganhos em imobilizações",
+   "tipo": "T",
+   "pgca": "68.3"
+  },
+  {
+   "codigo": "68031",
+   "descricao": "Venda de imobilizações corpóreas",
+   "tipo": "M",
+   "pgca": "68.3.1"
+  },
+  {
+   "codigo": "68032",
+   "descricao": "Venda de imobilizações incorpóreas",
+   "tipo": "M",
+   "pgca": "68.3.2"
+  },
+  {
+   "codigo": "6804",
+   "descricao": "Ganhos em existências",
+   "tipo": "T",
+   "pgca": "68.4"
+  },
+  {
+   "codigo": "68041",
+   "descricao": "Sobras",
+   "tipo": "M",
+   "pgca": "68.4.1"
+  },
+  {
+   "codigo": "6805",
+   "descricao": "Recuperação de dívidas",
+   "tipo": "M",
+   "pgca": "68.5"
+  },
+  {
+   "codigo": "6806",
+   "descricao": "Benefícios de penalidades contratuais",
+   "tipo": "M",
+   "pgca": "68.6"
+  },
+  {
+   "codigo": "6808",
+   "descricao": "Descontinuidade de operações",
+   "tipo": "M",
+   "pgca": "68.8"
+  },
+  {
+   "codigo": "6809",
+   "descricao": "Alterações de políticas contabilísticas",
+   "tipo": "M",
+   "pgca": "68.9"
+  },
+  {
+   "codigo": "6810",
+   "descricao": "Correcções relativas a exercícios anteriores",
+   "tipo": "T",
+   "pgca": "68.10"
+  },
+  {
+   "codigo": "68101",
+   "descricao": "Estimativa impostos",
+   "tipo": "M",
+   "pgca": "68.10.1"
+  },
+  {
+   "codigo": "68102",
+   "descricao": "Restituição de impostos",
+   "tipo": "M",
+   "pgca": "68.10.2"
+  },
+  {
+   "codigo": "6811",
+   "descricao": "Outros ganhos e perdas não operacionais",
+   "tipo": "T",
+   "pgca": "68.11"
+  },
+  {
+   "codigo": "68111",
+   "descricao": "Donativos",
+   "tipo": "M",
+   "pgca": "68.11.1"
+  },
+  {
+   "codigo": "6819",
+   "descricao": "Transferência para resultados não operacionais",
+   "tipo": "M",
+   "pgca": "68.19"
+  },
+  {
+   "codigo": "69",
+   "descricao": "Proveitos e ganhos extraordinários",
+   "tipo": "T",
+   "pgca": "69"
+  },
+  {
+   "codigo": "691",
+   "descricao": "Ganhos resultantes de catástrofes naturais",
+   "tipo": "M",
+   "pgca": "69.1"
+  },
+  {
+   "codigo": "692",
+   "descricao": "Ganhos resultantes de convulsões políticas",
+   "tipo": "M",
+   "pgca": "69.2"
+  },
+  {
+   "codigo": "693",
+   "descricao": "Ganhos resultantes de expropriações",
+   "tipo": "M",
+   "pgca": "69.3"
+  },
+  {
+   "codigo": "694",
+   "descricao": "Ganhos resultantes de sinistros",
+   "tipo": "M",
+   "pgca": "69.4"
+  },
+  {
+   "codigo": "695",
+   "descricao": "Subsídios",
+   "tipo": "M",
+   "pgca": "69.5"
+  },
+  {
+   "codigo": "696",
+   "descricao": "Anulação de passivos não exigíveis",
+   "tipo": "M",
+   "pgca": "69.6"
+  },
+  {
+   "codigo": "699",
+   "descricao": "Transferência para resultados extraordinários",
+   "tipo": "M",
+   "pgca": "69.9"
+  },
+  {
+   "codigo": "71",
+   "descricao": "Custo das existências vendidas",
+   "tipo": "T",
+   "pgca": "71"
+  },
+  {
+   "codigo": "711",
+   "descricao": "Matérias-primas",
+   "tipo": "M",
+   "pgca": "71.1"
+  },
+  {
+   "codigo": "712",
+   "descricao": "Matérias subsidiárias",
+   "tipo": "M",
+   "pgca": "71.2"
+  },
+  {
+   "codigo": "713",
+   "descricao": "Materiais diversos",
+   "tipo": "M",
+   "pgca": "71.3"
+  },
+  {
+   "codigo": "714",
+   "descricao": "Embalagens de consumo",
+   "tipo": "M",
+   "pgca": "71.4"
+  },
+  {
+   "codigo": "715",
+   "descricao": "Outros materiais",
+   "tipo": "M",
+   "pgca": "71.5"
+  },
+  {
+   "codigo": "719",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "71.9"
+  },
+  {
+   "codigo": "72",
+   "descricao": "Custos com o pessoal",
+   "tipo": "T",
+   "pgca": "72"
+  },
+  {
+   "codigo": "721",
+   "descricao": "Remunerações – Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.1"
+  },
+  {
+   "codigo": "722",
+   "descricao": "Remunerações – Pessoal",
+   "tipo": "M",
+   "pgca": "72.2"
+  },
+  {
+   "codigo": "723",
+   "descricao": "Pensões",
+   "tipo": "T",
+   "pgca": "72.3"
+  },
+  {
+   "codigo": "7231",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.3.1"
+  },
+  {
+   "codigo": "7232",
+   "descricao": "Pessoal",
+   "tipo": "M",
+   "pgca": "72.3.2"
+  },
+  {
+   "codigo": "724",
+   "descricao": "Prémios para pensões",
+   "tipo": "T",
+   "pgca": "72.4"
+  },
+  {
+   "codigo": "7241",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.4.1"
+  },
+  {
+   "codigo": "7242",
+   "descricao": "Pessoal",
+   "tipo": "M",
+   "pgca": "72.4.2"
+  },
+  {
+   "codigo": "725",
+   "descricao": "Encargos sobre remunerações",
+   "tipo": "T",
+   "pgca": "72.5"
+  },
+  {
+   "codigo": "7251",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.5.1"
+  },
+  {
+   "codigo": "7252",
+   "descricao": "Pessoal",
+   "tipo": "M",
+   "pgca": "72.5.2"
+  },
+  {
+   "codigo": "726",
+   "descricao": "Seguros de acidentes de trabalho e doenças profissionais",
+   "tipo": "T",
+   "pgca": "72.6"
+  },
+  {
+   "codigo": "7261",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.6.1"
+  },
+  {
+   "codigo": "7262",
+   "descricao": "Pessoal",
+   "tipo": "M",
+   "pgca": "72.6.2"
+  },
+  {
+   "codigo": "727",
+   "descricao": "Formação",
+   "tipo": "T",
+   "pgca": "72.7"
+  },
+  {
+   "codigo": "7271",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.7.1"
+  },
+  {
+   "codigo": "7272",
+   "descricao": "Pessoal",
+   "tipo": "M",
+   "pgca": "72.7.2"
+  },
+  {
+   "codigo": "728",
+   "descricao": "Outras despesas com o pessoal",
+   "tipo": "T",
+   "pgca": "72.8"
+  },
+  {
+   "codigo": "7281",
+   "descricao": "Órgãos sociais",
+   "tipo": "M",
+   "pgca": "72.8.1"
+  },
+  {
+   "codigo": "7282",
+   "descricao": "Pessoal",
+   "tipo": "M",
+   "pgca": "72.8.2"
+  },
+  {
+   "codigo": "729",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "72.9"
+  },
+  {
+   "codigo": "73",
+   "descricao": "Amortizações do exercício",
+   "tipo": "T",
+   "pgca": "73"
+  },
+  {
+   "codigo": "731",
+   "descricao": "Imobilizações corpóreas",
+   "tipo": "T",
+   "pgca": "73.1"
+  },
+  {
+   "codigo": "7312",
+   "descricao": "Edifícios e outras construções",
+   "tipo": "M",
+   "pgca": "73.1.2"
+  },
+  {
+   "codigo": "7313",
+   "descricao": "Equipamento básico",
+   "tipo": "M",
+   "pgca": "73.1.3"
+  },
+  {
+   "codigo": "7314",
+   "descricao": "Equipamento de carga e transporte",
+   "tipo": "M",
+   "pgca": "73.1.4"
+  },
+  {
+   "codigo": "7315",
+   "descricao": "Equipamento administrativo",
+   "tipo": "M",
+   "pgca": "73.1.5"
+  },
+  {
+   "codigo": "7316",
+   "descricao": "Taras e vasilhame",
+   "tipo": "M",
+   "pgca": "73.1.6"
+  },
+  {
+   "codigo": "7319",
+   "descricao": "Outras imobilizações corpóreas",
+   "tipo": "M",
+   "pgca": "73.1.9"
+  },
+  {
+   "codigo": "732",
+   "descricao": "Imobilizações incorpóreas",
+   "tipo": "T",
+   "pgca": "73.2"
+  },
+  {
+   "codigo": "7321",
+   "descricao": "Trespasses",
+   "tipo": "M",
+   "pgca": "73.2.1"
+  },
+  {
+   "codigo": "7322",
+   "descricao": "Despesas de investigação e desenvolvimento",
+   "tipo": "M",
+   "pgca": "73.2.2"
+  },
+  {
+   "codigo": "7323",
+   "descricao": "Propriedade industrial e outros direitos e contratos",
+   "tipo": "M",
+   "pgca": "73.2.3"
+  },
+  {
+   "codigo": "7324",
+   "descricao": "Despesas de constituição",
+   "tipo": "M",
+   "pgca": "73.2.4"
+  },
+  {
+   "codigo": "7329",
+   "descricao": "Outras imobilizações incorpóreas",
+   "tipo": "M",
+   "pgca": "73.2.9"
+  },
+  {
+   "codigo": "739",
+   "descricao": "Transferência para resultados operacionais",
+   "tipo": "M",
+   "pgca": "73.9"
+  },
+  {
+   "codigo": "75",
+   "descricao": "Outros custos e perdas operacionais",
+   "tipo": "T",
+   "pgca": "75"
+  },
+  {
+   "codigo": "751",
+   "descricao": "Sub-contratos",
+   "tipo": "M",
+   "pgca": "75.1"
+  },
+  {
+   "codigo": "752",
+   "descricao": "Fomecimentos e serviços de terceiros",
+   "tipo": "T",
+   "pgca": "75.2"
+  },
+  {
+   "codigo": "75211",
+   "descricao": "Água",
+   "tipo": "M",
+   "pgca": "75.2.11"
+  },
+  {
+   "codigo": "75212",
+   "descricao": "Electricidade",
+   "tipo": "M",
+   "pgca": "75.2.12"
+  },
+  {
+   "codigo": "75213",
+   "descricao": "Combustíveis e outros fluídos",
+   "tipo": "M",
+   "pgca": "75.2.13"
+  },
+  {
+   "codigo": "75214",
+   "descricao": "Conservação e reparação",
+   "tipo": "M",
+   "pgca": "75.2.14"
+  },
+  {
+   "codigo": "75215",
+   "descricao": "Material de protecção segurança e conforto",
+   "tipo": "M",
+   "pgca": "75.2.15"
+  },
+  {
+   "codigo": "75216",
+   "descricao": "Ferramentas e utensílios de desgaste rápido",
+   "tipo": "M",
+   "pgca": "75.2.16"
+  },
+  {
+   "codigo": "75217",
+   "descricao": "Material de escritório",
+   "tipo": "M",
+   "pgca": "75.2.17"
+  },
+  {
+   "codigo": "75218",
+   "descricao": "Livros e documentação técnica",
+   "tipo": "M",
+   "pgca": "75.2.18"
+  },
+  {
+   "codigo": "75219",
+   "descricao": "Outros fornecimentos",
+   "tipo": "M",
+   "pgca": "75.2.19"
+  },
+  {
+   "codigo": "75220",
+   "descricao": "Comunicação",
+   "tipo": "M",
+   "pgca": "75.2.20"
+  },
+  {
+   "codigo": "75221",
+   "descricao": "Rendas e alugueres",
+   "tipo": "M",
+   "pgca": "75.2.21"
+  },
+  {
+   "codigo": "75222",
+   "descricao": "Seguros",
+   "tipo": "M",
+   "pgca": "75.2.22"
+  },
+  {
+   "codigo": "75223",
+   "descricao": "Deslocações e estadas",
+   "tipo": "M",
+   "pgca": "75.2.23"
+  },
+  {
+   "codigo": "75224",
+   "descricao": "Despesas de representação",
+   "tipo": "M",
+   "pgca": "75.2.24"
+  },
+  {
+   "codigo": "75226",
+   "descricao": "Conservação e reparação",
+   "tipo": "M",
+   "pgca": "75.2.26"
+  },
+  {
+   "codigo": "75227",
+   "descricao": "Vigilância e segurança",
+   "tipo": "M",
+   "pgca": "75.2.27"
+  },
+  {
+   "codigo": "75228",
+   "descricao": "Limpeza, higiene e conforto",
+   "tipo": "M",
+   "pgca": "75.2.28"
+  },
+  {
+   "codigo": "75229",
+   "descricao": "Publicidade e propaganda",
+   "tipo": "M",
+   "pgca": "75.2.29"
+  },
+  {
+   "codigo": "75230",
+   "descricao": "Contencioso e notariado",
+   "tipo": "M",
+   "pgca": "75.2.30"
+  },
+  {
+   "codigo": "75231",
+   "descricao": "Comissões a intermediários",
+   "tipo": "M",
+   "pgca": "75.2.31"
+  },
+  {
+   "codigo": "75232",
+   "descricao": "Assistência técnica",
+   "tipo": "T",
+   "pgca": "75.2.32"
+  },
+  {
+   "codigo": "752321",
+   "descricao": "Estrangeira",
+   "tipo": "M",
+   "pgca": "75.2.32.1"
+  },
+  {
+   "codigo": "752322",
+   "descricao": "Nacional",
+   "tipo": "M",
+   "pgca": "75.2.32.2"
+  },
+  {
+   "codigo": "75233",
+   "descricao": "Trabalhos executados no exterior",
+   "tipo": "M",
+   "pgca": "75.2.33"
+  },
+  {
+   "codigo": "75234",
+   "descricao": "Honorários e avenças",
+   "tipo": "M",
+   "pgca": "75.2.34"
+  },
+  {
+   "codigo": "75235",
+   "descricao": "Royalties",
+   "tipo": "M",
+   "pgca": "75.2.35"
+  },
+  {
+   "codigo": "75239",
+   "descricao": "Outros serviços",
+   "tipo": "M",
+   "pgca": "75.2.39"
+  },
+  {
+   "codigo": "753",
+   "descricao": "Impostos",
+   "tipo": "T",
+   "pgca": "75.3"
+  },
+  {
+   "codigo": "7531",
+   "descricao": "Indirectos",
+   "tipo": "T",
+   "pgca": "75.3.1"
+  },
+  {
+   "codigo": "75311",
+   "descricao": "Imposto de selo",
+   "tipo": "M",
+   "pgca": "75.3.1.1"
+  },
+  {
+   "codigo": "75319",
+   "descricao": "Outros impostos",
+   "tipo": "M",
+   "pgca": "75.3.1.9"
+  },
+  {
+   "codigo": "7532",
+   "descricao": "Directos",
+   "tipo": "T",
+   "pgca": "75.3.2"
+  },
+  {
+   "codigo": "75321",
+   "descricao": "Imposto de capitais",
+   "tipo": "M",
+   "pgca": "75.3.2.1"
+  },
+  {
+   "codigo": "75322",
+   "descricao": "Contribuição predial",
+   "tipo": "M",
+   "pgca": "75.3.2.2"
+  },
+  {
+   "codigo": "75329",
+   "descricao": "Outros impostos",
+   "tipo": "M",
+   "pgca": "75.3.2.9"
+  },
+  {
+   "codigo": "754",
+   "descricao": "Despesas confidênciais",
+   "tipo": "M",
+   "pgca": "75.4"
+  },
+  {
+   "codigo": "755",
+   "descricao": "Quotizações",
+   "tipo": "M",
+   "pgca": "75.5"
+  },
+  {
+   "codigo": "756",
+   "descricao": "Ofertas e Amostras de existências",
+   "tipo": "M",
+   "pgca": "75.6"
+  },
+  {
+   "codigo": "758",
+   "descricao": "Outros custos e perdas operacionais",
+   "tipo": "M",
+   "pgca": "75.8"
+  },
+  {
+   "codigo": "759",
+   "descricao": "Transferências para resultados operacionais",
+   "tipo": "M",
+   "pgca": "75.9"
+  },
+  {
+   "codigo": "76",
+   "descricao": "Custos e perdas financeiros gerais",
+   "tipo": "T",
+   "pgca": "76"
+  },
+  {
+   "codigo": "761",
+   "descricao": "Juros",
+   "tipo": "T",
+   "pgca": "76.1"
+  },
+  {
+   "codigo": "7611",
+   "descricao": "De empréstimos",
+   "tipo": "T",
+   "pgca": "76.1.1"
+  },
+  {
+   "codigo": "76111",
+   "descricao": "Bancários",
+   "tipo": "M",
+   "pgca": "76.1.1.1"
+  },
+  {
+   "codigo": "76112",
+   "descricao": "Obrigações",
+   "tipo": "M",
+   "pgca": "76.1.1.2"
+  },
+  {
+   "codigo": "76113",
+   "descricao": "Títulos de participação",
+   "tipo": "M",
+   "pgca": "76.1.1.3"
+  },
+  {
+   "codigo": "7612",
+   "descricao": "De descobertos bancários",
+   "tipo": "M",
+   "pgca": "76.1.2"
+  },
+  {
+   "codigo": "7613",
+   "descricao": "De mora relativos a dívidas a terceiros",
+   "tipo": "M",
+   "pgca": "76.1.3"
+  },
+  {
+   "codigo": "7614",
+   "descricao": "De desconto de títulos",
+   "tipo": "M",
+   "pgca": "76.1.4"
+  },
+  {
+   "codigo": "762",
+   "descricao": "Diferenças de câmbio desfavoráveis",
+   "tipo": "T",
+   "pgca": "76.2"
+  },
+  {
+   "codigo": "7621",
+   "descricao": "Realizadas",
+   "tipo": "M",
+   "pgca": "76.2.1"
+  },
+  {
+   "codigo": "7622",
+   "descricao": "Não realizadas",
+   "tipo": "M",
+   "pgca": "76.2.2"
+  },
+  {
+   "codigo": "763",
+   "descricao": "Descontos de pronto pagamento concedidos",
+   "tipo": "M",
+   "pgca": "76.3"
+  },
+  {
+   "codigo": "764",
+   "descricao": "Amortizações de investimentos em imóveis",
+   "tipo": "M",
+   "pgca": "76.4"
+  },
+  {
+   "codigo": "765",
+   "descricao": "Provisões para aplicações financeiras",
+   "tipo": "T",
+   "pgca": "76.5"
+  },
+  {
+   "codigo": "7651",
+   "descricao": "Investimentos financeiros",
+   "tipo": "T",
+   "pgca": "76.5.1"
+  },
+  {
+   "codigo": "76511",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "76.5.1.1"
+  },
+  {
+   "codigo": "76512",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "76.5.1.2"
+  },
+  {
+   "codigo": "76513",
+   "descricao": "Outras empresas",
+   "tipo": "M",
+   "pgca": "76.5.1.3"
+  },
+  {
+   "codigo": "76514",
+   "descricao": "Fundos",
+   "tipo": "M",
+   "pgca": "76.5.1.4"
+  },
+  {
+   "codigo": "76519",
+   "descricao": "Outros investimentos",
+   "tipo": "M",
+   "pgca": "76.5.1.9"
+  },
+  {
+   "codigo": "7652",
+   "descricao": "Aplicações de tesouraria",
+   "tipo": "T",
+   "pgca": "76.5.2"
+  },
+  {
+   "codigo": "76521",
+   "descricao": "Títulos negociáveis",
+   "tipo": "M",
+   "pgca": "76.5.2.1"
+  },
+  {
+   "codigo": "76522",
+   "descricao": "Depósitos a prazo",
+   "tipo": "M",
+   "pgca": "76.5.2.2"
+  },
+  {
+   "codigo": "76523",
+   "descricao": "Outros depósitos",
+   "tipo": "M",
+   "pgca": "76.5.2.3"
+  },
+  {
+   "codigo": "76529",
+   "descricao": "Outros",
+   "tipo": "M",
+   "pgca": "76.5.2.9"
+  },
+  {
+   "codigo": "766",
+   "descricao": "Perdas na alienação de aplicações financeiras",
+   "tipo": "T",
+   "pgca": "76.6"
+  },
+  {
+   "codigo": "7661",
+   "descricao": "Investimentos financeiros",
+   "tipo": "T",
+   "pgca": "76.6.1"
+  },
+  {
+   "codigo": "76611",
+   "descricao": "Subsidiárias",
+   "tipo": "M",
+   "pgca": "76.6.1.1"
+  },
+  {
+   "codigo": "76612",
+   "descricao": "Associadas",
+   "tipo": "M",
+   "pgca": "76.6.1.2"
+  },
+  {
+   "codigo": "76613",
+   "descricao": "Outras empresas",
+   "tipo": "M",
+   "pgca": "76.6.1.3"
+  },
+  {
+   "codigo": "76619",
+   "descricao": "Outros investimentos",
+   "tipo": "M",
+   "pgca": "76.6.1.9"
+  },
+  {
+   "codigo": "7662",
+   "descricao": "Aplicações de títulos negociáveis",
+   "tipo": "M",
+   "pgca": "76.6.2"
+  },
+  {
+   "codigo": "767",
+   "descricao": "Serviços bancários",
+   "tipo": "M",
+   "pgca": "76.7"
+  },
+  {
+   "codigo": "769",
+   "descricao": "Transferência para resultados financeiros",
+   "tipo": "M",
+   "pgca": "76.9"
+  },
+  {
+   "codigo": "77",
+   "descricao": "Custos e perdas financeiros em filiais e associadas",
+   "tipo": "T",
+   "pgca": "77"
+  },
+  {
+   "codigo": "779",
+   "descricao": "Transferência para resultados financeiros",
+   "tipo": "M",
+   "pgca": "77.9"
+  },
+  {
+   "codigo": "78",
+   "descricao": "Outros custos e perdas não operacionais",
+   "tipo": "T",
+   "pgca": "78"
+  },
+  {
+   "codigo": "7801",
+   "descricao": "Provisões do exercício",
+   "tipo": "T",
+   "pgca": "78.1"
+  },
+  {
+   "codigo": "78011",
+   "descricao": "Existências",
+   "tipo": "T",
+   "pgca": "78.1.1"
+  },
+  {
+   "codigo": "780111",
+   "descricao": "Matérias-primas subsidiárias e de consumo",
+   "tipo": "M",
+   "pgca": "78.1.1.1"
+  },
+  {
+   "codigo": "780112",
+   "descricao": "Produtos e trabalhos em curso",
+   "tipo": "M",
+   "pgca": "78.1.1.2"
+  },
+  {
+   "codigo": "780113",
+   "descricao": "Produtos acabados e intermédios",
+   "tipo": "M",
+   "pgca": "78.1.1.3"
+  },
+  {
+   "codigo": "780114",
+   "descricao": "Sub-produtos, desperdícios, resíduos e refugos",
+   "tipo": "M",
+   "pgca": "78.1.1.4"
+  },
+  {
+   "codigo": "780115",
+   "descricao": "Mercadorias",
+   "tipo": "M",
+   "pgca": "78.1.1.5"
+  },
+  {
+   "codigo": "78012",
+   "descricao": "Cobranças Duvidosas",
+   "tipo": "T",
+   "pgca": "78.1.2"
+  },
+  {
+   "codigo": "780121",
+   "descricao": "Clientes",
+   "tipo": "M",
+   "pgca": "78.1.2.1"
+  },
+  {
+   "codigo": "780122",
+   "descricao": "Clientes – títulos a receber",
+   "tipo": "M",
+   "pgca": "78.1.2.2"
+  },
+  {
+   "codigo": "780123",
+   "descricao": "Clientes – cobrança duvidosa",
+   "tipo": "M",
+   "pgca": "78.1.2.3"
+  },
+  {
+   "codigo": "780124",
+   "descricao": "Saldos devedores de fornecedores",
+   "tipo": "M",
+   "pgca": "78.1.2.4"
+  },
+  {
+   "codigo": "780125",
+   "descricao": "Participantes e participadas",
+   "tipo": "M",
+   "pgca": "78.1.2.5"
+  },
+  {
+   "codigo": "780126",
+   "descricao": "Dívidas do pessoal",
+   "tipo": "M",
+   "pgca": "78.1.2.6"
+  },
+  {
+   "codigo": "780129",
+   "descricao": "Outros saldos a receber",
+   "tipo": "M",
+   "pgca": "78.1.2.9"
+  },
+  {
+   "codigo": "78013",
+   "descricao": "Riscos e encargos",
+   "tipo": "T",
+   "pgca": "78.1.3"
+  },
+  {
+   "codigo": "780131",
+   "descricao": "Pensões",
+   "tipo": "M",
+   "pgca": "78.1.3.1"
+  },
+  {
+   "codigo": "780132",
+   "descricao": "Processos judiciais em curso",
+   "tipo": "M",
+   "pgca": "78.1.3.2"
+  },
+  {
+   "codigo": "780133",
+   "descricao": "Acidentes de trabalho",
+   "tipo": "M",
+   "pgca": "78.1.3.3"
+  },
+  {
+   "codigo": "780134",
+   "descricao": "Garantias dadas a clientes",
+   "tipo": "M",
+   "pgca": "78.1.3.4"
+  },
+  {
+   "codigo": "780139",
+   "descricao": "Outros riscos e encargos",
+   "tipo": "M",
+   "pgca": "78.1.3.9"
+  },
+  {
+   "codigo": "7802",
+   "descricao": "Amortizações extraordinárias",
+   "tipo": "T",
+   "pgca": "78.2"
+  },
+  {
+   "codigo": "78021",
+   "descricao": "Imobilizações Corpóreas",
+   "tipo": "M",
+   "pgca": "78.2.1"
+  },
+  {
+   "codigo": "78022",
+   "descricao": "Imobilizações Incorpóreas",
+   "tipo": "M",
+   "pgca": "78.2.2"
+  },
+  {
+   "codigo": "7803",
+   "descricao": "Perdas em imobilizações",
+   "tipo": "T",
+   "pgca": "78.3"
+  },
+  {
+   "codigo": "78031",
+   "descricao": "Venda de imobilizações corpóreas",
+   "tipo": "M",
+   "pgca": "78.3.1"
+  },
+  {
+   "codigo": "78032",
+   "descricao": "Venda de imobilizações incorpóreas",
+   "tipo": "M",
+   "pgca": "78.3.2"
+  },
+  {
+   "codigo": "78033",
+   "descricao": "Abates",
+   "tipo": "M",
+   "pgca": "78.3.3"
+  },
+  {
+   "codigo": "78039",
+   "descricao": "Outras",
+   "tipo": "M",
+   "pgca": "78.3.9"
+  },
+  {
+   "codigo": "7804",
+   "descricao": "Perdas em existências",
+   "tipo": "T",
+   "pgca": "78.4"
+  },
+  {
+   "codigo": "78041",
+   "descricao": "Quebras",
+   "tipo": "M",
+   "pgca": "78.4.1"
+  },
+  {
+   "codigo": "7805",
+   "descricao": "Dívidas incobráveis",
+   "tipo": "M",
+   "pgca": "78.5"
+  },
+  {
+   "codigo": "7806",
+   "descricao": "Multas e penalidades contratuais",
+   "tipo": "T",
+   "pgca": "78.6"
+  },
+  {
+   "codigo": "78061",
+   "descricao": "Fiscais",
+   "tipo": "M",
+   "pgca": "78.6.1"
+  },
+  {
+   "codigo": "78062",
+   "descricao": "Não fiscais",
+   "tipo": "M",
+   "pgca": "78.6.2"
+  },
+  {
+   "codigo": "78063",
+   "descricao": "Penalidades contratuais",
+   "tipo": "M",
+   "pgca": "78.6.3"
+  },
+  {
+   "codigo": "7807",
+   "descricao": "Custos de reestruturação",
+   "tipo": "M",
+   "pgca": "78.7"
+  },
+  {
+   "codigo": "7808",
+   "descricao": "Descontinuidade de operações",
+   "tipo": "M",
+   "pgca": "78.8"
+  },
+  {
+   "codigo": "7809",
+   "descricao": "Alterações de políticas contabilísticas",
+   "tipo": "M",
+   "pgca": "78.9"
+  },
+  {
+   "codigo": "7810",
+   "descricao": "Correcções relativas a exercícios anteriores",
+   "tipo": "T",
+   "pgca": "78.10"
+  },
+  {
+   "codigo": "78101",
+   "descricao": "Estimativa impostos",
+   "tipo": "M",
+   "pgca": "78.10.1"
+  },
+  {
+   "codigo": "7811",
+   "descricao": "Outros custos e perdas não operacionais",
+   "tipo": "T",
+   "pgca": "78.11"
+  },
+  {
+   "codigo": "78111",
+   "descricao": "Donativos",
+   "tipo": "M",
+   "pgca": "78.11.1"
+  },
+  {
+   "codigo": "78112",
+   "descricao": "Reembolso de subsídios à exploração",
+   "tipo": "M",
+   "pgca": "78.11.2"
+  },
+  {
+   "codigo": "78113",
+   "descricao": "Reembolso de subsídios a investimentos",
+   "tipo": "M",
+   "pgca": "78.11.3"
+  },
+  {
+   "codigo": "7819",
+   "descricao": "Transferência para resultados não operacionais",
+   "tipo": "M",
+   "pgca": "78.19"
+  },
+  {
+   "codigo": "79",
+   "descricao": "Custos e perdas extraordinárias",
+   "tipo": "T",
+   "pgca": "79"
+  },
+  {
+   "codigo": "791",
+   "descricao": "Perdas resultantes de catástrofes naturais",
+   "tipo": "M",
+   "pgca": "79.1"
+  },
+  {
+   "codigo": "792",
+   "descricao": "Perdas resultantes de convulsões políticas",
+   "tipo": "M",
+   "pgca": "79.2"
+  },
+  {
+   "codigo": "793",
+   "descricao": "Perdas resultantes de expropriações",
+   "tipo": "M",
+   "pgca": "79.3"
+  },
+  {
+   "codigo": "794",
+   "descricao": "Perdas resultantes de sinistros",
+   "tipo": "M",
+   "pgca": "79.4"
+  },
+  {
+   "codigo": "799",
+   "descricao": "Transferência para resultados extraordinários",
+   "tipo": "M",
+   "pgca": "79.9"
+  },
+  {
+   "codigo": "81",
+   "descricao": "Resultados transitados",
+   "tipo": "T",
+   "pgca": "81"
+  },
+  {
+   "codigo": "811",
+   "descricao": "Ano____",
+   "tipo": "T",
+   "pgca": "81.1"
+  },
+  {
+   "codigo": "8111",
+   "descricao": "Resultado do ano",
+   "tipo": "M",
+   "pgca": "81.1.1"
+  },
+  {
+   "codigo": "8112",
+   "descricao": "Aplicação de resultados",
+   "tipo": "M",
+   "pgca": "81.1.2"
+  },
+  {
+   "codigo": "8113",
+   "descricao": "Correcções de erros fundamentais, no exercício seguinte",
+   "tipo": "M",
+   "pgca": "81.1.3"
+  },
+  {
+   "codigo": "8114",
+   "descricao": "Efeito das alterações de políticas contabilísticas",
+   "tipo": "M",
+   "pgca": "81.1.4"
+  },
+  {
+   "codigo": "8115",
+   "descricao": "Imposto relativo a correcções de erros fundamentais e alterações de",
+   "tipo": "M",
+   "pgca": "81.1.5"
+  },
+  {
+   "codigo": "812",
+   "descricao": "Ano____",
+   "tipo": "T",
+   "pgca": "81.2"
+  },
+  {
+   "codigo": "8121",
+   "descricao": "Resultado do ano",
+   "tipo": "M",
+   "pgca": "81.2.1"
+  },
+  {
+   "codigo": "8122",
+   "descricao": "Aplicação de resultados",
+   "tipo": "M",
+   "pgca": "81.2.2"
+  },
+  {
+   "codigo": "8123",
+   "descricao": "Correcções de erros fundamentais, no exercício seguinte",
+   "tipo": "M",
+   "pgca": "81.2.3"
+  },
+  {
+   "codigo": "8124",
+   "descricao": "Efeito das alterações de políticas contabilísticas",
+   "tipo": "M",
+   "pgca": "81.2.4"
+  },
+  {
+   "codigo": "8125",
+   "descricao": "Imposto relativo a correcções de erros fundamentais e alterações de",
+   "tipo": "M",
+   "pgca": "81.2.5"
+  },
+  {
+   "codigo": "82",
+   "descricao": "Resultados operacionais",
+   "tipo": "T",
+   "pgca": "82"
+  },
+  {
+   "codigo": "8201",
+   "descricao": "Vendas",
+   "tipo": "M",
+   "pgca": "82.1"
+  },
+  {
+   "codigo": "8202",
+   "descricao": "Prestações de serviço",
+   "tipo": "M",
+   "pgca": "82.2"
+  },
+  {
+   "codigo": "8203",
+   "descricao": "Outros proveitos operacionais",
+   "tipo": "M",
+   "pgca": "82.3"
+  },
+  {
+   "codigo": "8204",
+   "descricao": "Variação nos inventários de produtos acabados e produtos em vias de",
+   "tipo": "M",
+   "pgca": "82.4"
+  },
+  {
+   "codigo": "8205",
+   "descricao": "Trabalhos para a própria empresa",
+   "tipo": "M",
+   "pgca": "82.5"
+  },
+  {
+   "codigo": "8206",
+   "descricao": "Custo das mercadorias vendidas e das matérias consumidas",
+   "tipo": "M",
+   "pgca": "82.6"
+  },
+  {
+   "codigo": "8207",
+   "descricao": "Custos com o pessoal",
+   "tipo": "M",
+   "pgca": "82.7"
+  },
+  {
+   "codigo": "8208",
+   "descricao": "Amortizações do exercício",
+   "tipo": "M",
+   "pgca": "82.8"
+  },
+  {
+   "codigo": "8209",
+   "descricao": "Outros custos operacionais",
+   "tipo": "M",
+   "pgca": "82.9"
+  },
+  {
+   "codigo": "8219",
+   "descricao": "Transferência para resultados líquidos",
+   "tipo": "M",
+   "pgca": "82.19"
+  },
+  {
+   "codigo": "83",
+   "descricao": "Resultados financeiros",
+   "tipo": "T",
+   "pgca": "83"
+  },
+  {
+   "codigo": "831",
+   "descricao": "Proveitos e ganhos financeiros gerais",
+   "tipo": "M",
+   "pgca": "83.1"
+  },
+  {
+   "codigo": "832",
+   "descricao": "Custos e perdas financeiros gerais",
+   "tipo": "M",
+   "pgca": "83.2"
+  },
+  {
+   "codigo": "839",
+   "descricao": "Transferência para resultados líquidos",
+   "tipo": "M",
+   "pgca": "83.9"
+  },
+  {
+   "codigo": "84",
+   "descricao": "Resultados financeiros em filiais e associadas",
+   "tipo": "T",
+   "pgca": "84"
+  },
+  {
+   "codigo": "841",
+   "descricao": "Proveitos e ganhos em filiais e associadas",
+   "tipo": "M",
+   "pgca": "84.1"
+  },
+  {
+   "codigo": "842",
+   "descricao": "Custos e perdas em filiais e associadas",
+   "tipo": "M",
+   "pgca": "84.2"
+  },
+  {
+   "codigo": "849",
+   "descricao": "Transferência para resultados líquidos",
+   "tipo": "M",
+   "pgca": "84.9"
+  },
+  {
+   "codigo": "85",
+   "descricao": "Resultados não operacionais",
+   "tipo": "T",
+   "pgca": "85"
+  },
+  {
+   "codigo": "851",
+   "descricao": "Proveitos e ganhos não operacionais",
+   "tipo": "M",
+   "pgca": "85.1"
+  },
+  {
+   "codigo": "852",
+   "descricao": "Custos e perdas não operacionais",
+   "tipo": "M",
+   "pgca": "85.2"
+  },
+  {
+   "codigo": "859",
+   "descricao": "Transferência para resultados líquidos",
+   "tipo": "M",
+   "pgca": "85.9"
+  },
+  {
+   "codigo": "86",
+   "descricao": "Resultados extraordinários",
+   "tipo": "T",
+   "pgca": "86"
+  },
+  {
+   "codigo": "861",
+   "descricao": "Proveitos e ganhos extraordinários",
+   "tipo": "M",
+   "pgca": "86.1"
+  },
+  {
+   "codigo": "862",
+   "descricao": "Custos e perdas extraordinários",
+   "tipo": "M",
+   "pgca": "86.2"
+  },
+  {
+   "codigo": "869",
+   "descricao": "Transferência para resultados líquidos",
+   "tipo": "M",
+   "pgca": "86.9"
+  },
+  {
+   "codigo": "87",
+   "descricao": "Impostos sobre os lucros",
+   "tipo": "T",
+   "pgca": "87"
+  },
+  {
+   "codigo": "871",
+   "descricao": "Imposto sobre os resultados correntes",
+   "tipo": "M",
+   "pgca": "87.1"
+  },
+  {
+   "codigo": "872",
+   "descricao": "Imposto sobre os resultados extraordinários",
+   "tipo": "M",
+   "pgca": "87.2"
+  },
+  {
+   "codigo": "879",
+   "descricao": "Transferência para resultados líquidos",
+   "tipo": "M",
+   "pgca": "87.9"
+  },
+  {
+   "codigo": "88",
+   "descricao": "Resultados líquidos do exercício",
+   "tipo": "T",
+   "pgca": "88"
+  },
+  {
+   "codigo": "881",
+   "descricao": "Resultados operacionais",
+   "tipo": "M",
+   "pgca": "88.1"
+  },
+  {
+   "codigo": "882",
+   "descricao": "Resultados financeiros gerais",
+   "tipo": "M",
+   "pgca": "88.2"
+  },
+  {
+   "codigo": "883",
+   "descricao": "Resultados em filiais e associadas",
+   "tipo": "M",
+   "pgca": "88.3"
+  },
+  {
+   "codigo": "884",
+   "descricao": "Resultados não operacionais",
+   "tipo": "M",
+   "pgca": "88.4"
+  },
+  {
+   "codigo": "885",
+   "descricao": "Imposto sobre os resultados correntes",
+   "tipo": "M",
+   "pgca": "88.5"
+  },
+  {
+   "codigo": "886",
+   "descricao": "Resultados extraordinários",
+   "tipo": "M",
+   "pgca": "88.6"
+  },
+  {
+   "codigo": "887",
+   "descricao": "Imposto sobre os resultados extraordinários",
+   "tipo": "M",
+   "pgca": "88.7"
+  },
+  {
+   "codigo": "889",
+   "descricao": "Transferência para resultados transitados",
+   "tipo": "M",
+   "pgca": "88.9"
+  },
+  {
+   "codigo": "89",
+   "descricao": "Dividendos antecipados",
+   "tipo": "T",
+   "pgca": "89"
+  },
+  {
+   "codigo": "899",
+   "descricao": "Transferência para resultados transitados",
+   "tipo": "M",
+   "pgca": "89.9"
+  }
+ ]
+}
