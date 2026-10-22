@@ -1,10 +1,11 @@
-import { Component, Suspense, useState, type ReactNode } from 'react';
+import { Component, Suspense, useState, type ComponentType, type ReactNode } from 'react';
 import { Alert, Button, Drawer, Grid, Layout, Menu, Spin, Typography } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ecras } from '@/modulos/config/ecras';
 import { PlataformaEntrar } from './PlataformaEntrar';
+import { PainelTickets } from './PlataformaSuporte';
 
 /** Entradas do menu da plataforma SaaS: id do registo de ecrãs → rótulo. O URL é /plataforma/<sufixo>. */
 export const ENTRADAS_PLATAFORMA: { id: string; rotulo: string }[] = [
@@ -14,11 +15,17 @@ export const ENTRADAS_PLATAFORMA: { id: string; rotulo: string }[] = [
   { id: 'plataforma_saas', rotulo: 'Gestão de Activação SaaS' },
   { id: 'plataforma_suporte', rotulo: 'Suporte' },
   { id: 'plataforma_administradores', rotulo: 'Administradores' },
+  { id: 'plataforma_agentes_suporte', rotulo: 'Agentes de suporte' },
   { id: 'plataforma_auditoria', rotulo: 'Auditoria' },
   { id: 'plataforma_sessoes', rotulo: 'Sessões activas' },
   { id: 'plataforma_definicoes', rotulo: 'Definições' },
   { id: 'plataforma_codigos', rotulo: 'Manual de códigos' },
 ];
+
+/** Agente de suporte: só os tickets (ecrã próprio sobre /api/suporte; sem abrir nem eliminar tickets). */
+export const ENTRADAS_SUPORTE: { id: string; rotulo: string }[] = [{ id: 'plataforma_tickets', rotulo: 'Suporte' }];
+
+const ECRAS_SUPORTE: Record<string, ComponentType> = { plataforma_tickets: () => <PainelTickets agente /> };
 
 const PAINEL = '/plataforma/painel';
 const caminhoDe = (id: string) => `/plataforma/${id.replace('plataforma_', '')}`;
@@ -37,12 +44,19 @@ class Contido extends Component<{ children: ReactNode }, { erro: boolean }> {
 
 /**
  * Raiz da aplicação da plataforma SaaS (view Blade plataforma), separada do ERP: sem sessão -> entrar / primeiro acesso;
- * com sessão só entra quem é administrador da plataforma (e_plataforma). Nunca pede empresa.
+ * com sessão entra o administrador da plataforma (e_plataforma) e, só com o menu «Suporte», o agente de suporte
+ * (e_suporte). Nunca pede empresa.
  */
 export function PlataformaApp() {
-  const { estado, ePlataforma, sair } = useSessao();
+  const { estado, ePlataforma, eSuporte, sair } = useSessao();
   if (estado === 'a_carregar') return <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
   if (estado === 'anonimo') return <PlataformaEntrar />;
+  if (!ePlataforma && eSuporte)
+    return (
+      <BrowserRouter>
+        <PlataformaShell entradas={ENTRADAS_SUPORTE} />
+      </BrowserRouter>
+    );
   if (!ePlataforma)
     return (
       <Alert
@@ -61,7 +75,7 @@ export function PlataformaApp() {
 }
 
 /** Cabeçalho, menu lateral e ecrãs da plataforma. */
-export function PlataformaShell() {
+export function PlataformaShell({ entradas = ENTRADAS_PLATAFORMA }: { entradas?: { id: string; rotulo: string }[] }) {
   const { utilizador, sair } = useSessao();
   const { pathname } = useLocation();
   const navegar = useNavigate();
@@ -69,12 +83,13 @@ export function PlataformaShell() {
   const [aberto, setAberto] = useState(false);
   const movel = ecra.md === false;
 
-  const activo = ENTRADAS_PLATAFORMA.find((e) => pathname.startsWith(caminhoDe(e.id)))?.id ?? 'plataforma_painel';
+  const inicio = caminhoDe(entradas[0].id);
+  const activo = entradas.find((e) => pathname.startsWith(caminhoDe(e.id)))?.id ?? entradas[0].id;
   const menu = (
     <Menu
       mode="inline"
       selectedKeys={[activo]}
-      items={ENTRADAS_PLATAFORMA.map((e) => ({ key: e.id, label: e.rotulo }))}
+      items={entradas.map((e) => ({ key: e.id, label: e.rotulo }))}
       onClick={({ key }) => {
         navegar(caminhoDe(key));
         setAberto(false);
@@ -100,8 +115,8 @@ export function PlataformaShell() {
         )}
         <Layout.Content style={{ padding: 16, minWidth: 0 }}>
           <Routes>
-            {ENTRADAS_PLATAFORMA.map(({ id }) => {
-              const Ecra = ecras[id];
+            {entradas.map(({ id }) => {
+              const Ecra = ECRAS_SUPORTE[id] ?? ecras[id];
               return (
                 <Route
                   key={id}
@@ -116,7 +131,7 @@ export function PlataformaShell() {
                 />
               );
             })}
-            <Route path="*" element={<Navigate to={PAINEL} replace />} />
+            <Route path="*" element={<Navigate to={entradas === ENTRADAS_PLATAFORMA ? PAINEL : inicio} replace />} />
           </Routes>
         </Layout.Content>
       </Layout>

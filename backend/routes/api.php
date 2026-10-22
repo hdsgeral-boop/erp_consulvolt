@@ -103,6 +103,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Área da plataforma SaaS (sem empresa activa; ver routes/api/plataforma.php)
     require __DIR__.'/api/plataforma.php';
+    // Backoffice de suporte (agentes de suporte e super-administradores da plataforma; ver routes/api/suporte.php)
+    require __DIR__.'/api/suporte.php';
 
     // Rotas com empresa activa (X-Empresa-Id)
     Route::middleware('empresa')->group(function () {

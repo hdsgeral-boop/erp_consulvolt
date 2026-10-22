@@ -6,6 +6,7 @@ let sessao: Record<string, unknown> = {};
 vi.setConfig({ testTimeout: 120_000 });
 vi.mock('@/sessao/SessaoContexto', () => ({ useSessao: () => sessao }));
 vi.mock('./PlataformaEntrar', () => ({ PlataformaEntrar: () => <div>ENTRAR_PLATAFORMA</div> }));
+vi.mock('./PlataformaSuporte', () => ({ PainelTickets: ({ agente }: { agente: boolean }) => <div>{agente ? 'TICKETS_AGENTE' : 'TICKETS'}</div> }));
 vi.mock('@/modulos/config/ecras', () => ({ ecras: { plataforma_painel: () => <div>ECRA_PAINEL</div> } }));
 
 describe('PlataformaApp: decisão de ecrã', () => {
@@ -28,5 +29,15 @@ describe('PlataformaApp: decisão de ecrã', () => {
     expect(screen.getByText('MEU ERP · Plataforma')).toBeInTheDocument();
     expect(await screen.findByText('ECRA_PAINEL')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/plataforma/painel');
+  });
+
+  it('agente de suporte entra na consola só com o «Suporte» (tickets, sem administração)', async () => {
+    window.history.pushState({}, '', '/plataforma/clientes');
+    sessao = { estado: 'autenticado', ePlataforma: false, eSuporte: true, empresa: null, utilizador: { id: 2, nome_utilizador: 'agente' }, sair: vi.fn() };
+    render(<PlataformaApp />);
+    expect(await screen.findByText('TICKETS_AGENTE')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/plataforma/tickets');
+    expect(screen.queryByText('Clientes')).toBeNull();
+    expect(screen.queryByText('Administradores')).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ use App\Exceptions\ManipuladorExcecoesApi;
 use App\Http\Middleware\CacheCondicional;
 use App\Http\Middleware\ExigirAdministradorCliente;
 use App\Http\Middleware\ExigirPlataforma;
+use App\Http\Middleware\ExigirSuporte;
 use App\Http\Middleware\ForcarRespostaJson;
 use App\Http\Middleware\ResolverEmpresaAtiva;
 use App\Http\Middleware\ResolverTenantAtivo;
@@ -37,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [ResolverTenantAtivo::class]);
         // Limite geral da API (limitador 'api' do AppServiceProvider, configurável em erp.api.pedidos_por_minuto).
         $middleware->throttleApi();
-        $middleware->alias(['empresa' => ResolverEmpresaAtiva::class, 'plataforma' => ExigirPlataforma::class, 'admin_cliente' => ExigirAdministradorCliente::class, 'cache_condicional' => CacheCondicional::class]);
+        $middleware->alias(['empresa' => ResolverEmpresaAtiva::class, 'plataforma' => ExigirPlataforma::class, 'suporte' => ExigirSuporte::class, 'admin_cliente' => ExigirAdministradorCliente::class, 'cache_condicional' => CacheCondicional::class]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);
     })

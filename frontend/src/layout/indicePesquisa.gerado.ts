@@ -1014,6 +1014,7 @@ export const INDICE_PESQUISA: readonly EntradaIndicePesquisa[] = [
   ["orc_rubricas","s","Exploração","","EXPLORACAO"],
   ["orc_rubricas","s","Tesouraria","","TESOURARIA"],
   ["plataforma_administradores","b","Novo administrador",""],
+  ["plataforma_agentes_suporte","b","Novo agente",""],
   ["plataforma_clientes","b","Activar",""],
   ["plataforma_clientes","b","Arquivar",""],
   ["plataforma_clientes","b","Novo cliente",""],

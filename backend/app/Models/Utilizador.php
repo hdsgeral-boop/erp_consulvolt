@@ -36,6 +36,9 @@ class Utilizador extends Autenticavel
 
     public const PAPEL_UTILIZADOR = 'UTILIZADOR';
 
+    /** Agente de suporte da plataforma (tenant da plataforma): só vê e responde a tickets (ExigirSuporte, /api/suporte). */
+    public const PAPEL_AGENTE_SUPORTE = 'AGENTE_SUPORTE';
+
     protected $table = 'utilizadores';
 
     protected string $moduloAuditoria = 'Sistema/Utilizadores';
@@ -118,6 +121,11 @@ class Utilizador extends Autenticavel
     public function eSuperAdministrador(): bool
     {
         return $this->papel === self::PAPEL_SUPER_ADMINISTRADOR;
+    }
+
+    public function eAgenteSuporte(): bool
+    {
+        return $this->papel === self::PAPEL_AGENTE_SUPORTE;
     }
 
     /** Administrador da plataforma SaaS: super-administrador do tenant da plataforma (erp.dominio.plataforma_tenant_id). */

@@ -17,21 +17,30 @@ const opcoes = (l: string[]) => l.map((v) => ({ value: v, label: v }));
 
 /** Plataforma SaaS — suporte (plataforma_suporte): tickets dos clientes. */
 export default function PlataformaSuporte() {
+  return <PainelTickets agente={false} />;
+}
+
+/**
+ * Lista e conversa dos tickets. `agente`: backoffice dos agentes de suporte (/api/suporte/tickets) — vê, responde e
+ * muda o estado, mas não abre nem elimina tickets (isso fica com os administradores da plataforma).
+ */
+export function PainelTickets({ agente }: { agente: boolean }) {
+  const base = agente ? '/suporte/tickets' : '/plataforma/suporte';
   const qc = useQueryClient();
   const [estado, setEstado] = useState<string>();
   const [aberto, setAberto] = useState(false);
   const [conversa, setConversa] = useState<Ticket | null>(null);
   const [form] = Form.useForm();
-  const lista = useQuery({ queryKey: [...CHAVE, estado], queryFn: () => obter<Ticket[]>(`/plataforma/suporte${estado ? `?estado=${estado}` : ''}`) });
+  const lista = useQuery({ queryKey: [...CHAVE, base, estado], queryFn: () => obter<Ticket[]>(`${base}${estado ? `?estado=${estado}` : ''}`) });
   const clientes = useQuery({ queryKey: ['plataforma', 'clientes'], queryFn: () => obter<Cliente[]>('/plataforma/clientes'), enabled: aberto });
   const refrescar = () => qc.invalidateQueries({ queryKey: CHAVE });
   const criar = useMutation({ mutationFn: (v: Record<string, unknown>) => enviar('post', '/plataforma/suporte', v), onSuccess: () => { message.success('Ticket criado.'); setAberto(false); refrescar(); }, onError: (e) => notificarErro(e) });
-  const mudar = useMutation({ mutationFn: (p: { id: number; estado: string }) => enviar('put', `/plataforma/suporte/${p.id}`, { estado: p.estado }), onSuccess: refrescar, onError: (e) => notificarErro(e) });
+  const mudar = useMutation({ mutationFn: (p: { id: number; estado: string }) => enviar('put', `${base}/${p.id}`, { estado: p.estado }), onSuccess: refrescar, onError: (e) => notificarErro(e) });
   const apagar = useMutation({ mutationFn: (id: number) => enviar('delete', `/plataforma/suporte/${id}`), onSuccess: () => { message.success('Ticket eliminado.'); refrescar(); }, onError: (e) => notificarErro(e) });
   return (
     <>
       <CabecalhoPagina titulo="Suporte" subtitulo="Pedidos de suporte dos clientes" />
-      <Card extra={<Space><Select allowClear placeholder="Estado" style={{ width: 160 }} options={opcoes(ESTADOS)} value={estado} onChange={setEstado} /><Button type="primary" onClick={() => { form.resetFields(); setAberto(true); }}>Novo ticket</Button></Space>}>
+      <Card extra={<Space><Select allowClear placeholder="Estado" style={{ width: 160 }} options={opcoes(ESTADOS)} value={estado} onChange={setEstado} />{!agente && <Button type="primary" onClick={() => { form.resetFields(); setAberto(true); }}>Novo ticket</Button>}</Space>}>
         <Table<Ticket> rowKey="id" size="small" loading={lista.isLoading} dataSource={lista.data ?? []} scroll={{ x: 'max-content' }}
           expandable={{ expandedRowRender: (t) => t.descricao ?? '—' }}
           columns={[
@@ -40,10 +49,10 @@ export default function PlataformaSuporte() {
             { title: 'Prioridade', render: (_, t) => <Tag color={t.prioridade === 'URGENTE' ? 'red' : t.prioridade === 'ALTA' ? 'orange' : 'default'}>{t.prioridade}</Tag> },
             { title: 'Estado', render: (_, t) => <Select size="small" style={{ width: 130 }} value={t.estado} options={opcoes(ESTADOS)} onChange={(e) => mudar.mutate({ id: t.id, estado: e })} /> },
             { title: 'Criado', render: (_, t) => formatarDataHora(t.criado_em) },
-            { title: '', render: (_, t) => <Space><Button size="small" onClick={() => setConversa(t)}>Conversa</Button><Popconfirm title="Eliminar o ticket?" onConfirm={() => apagar.mutate(t.id)}><Button size="small" danger>Eliminar</Button></Popconfirm></Space> },
+            { title: '', render: (_, t) => <Space><Button size="small" onClick={() => setConversa(t)}>Conversa</Button>{!agente && <Popconfirm title="Eliminar o ticket?" onConfirm={() => apagar.mutate(t.id)}><Button size="small" danger>Eliminar</Button></Popconfirm>}</Space> },
           ]} />
       </Card>
-      <ConversaSuporte base="/plataforma/suporte" ticketId={conversa?.id ?? null} titulo={conversa ? `: ` : undefined} aoFechar={() => setConversa(null)} />
+      <ConversaSuporte base={base} ticketId={conversa?.id ?? null} titulo={conversa ? `: ` : undefined} aoFechar={() => setConversa(null)} />
       <Modal open={aberto} title="Novo ticket" okText="Criar" confirmLoading={criar.isPending} onCancel={() => setAberto(false)} destroyOnClose onOk={() => form.validateFields().then((v) => criar.mutate(v))}>
         <Form form={form} layout="vertical" initialValues={{ prioridade: 'NORMAL', categoria: 'GERAL' }}>
           <Form.Item name="tenant_id" label="Cliente" rules={[{ required: true }]}><Select options={(clientes.data ?? []).map((c) => ({ value: c.id, label: c.nome }))} /></Form.Item>

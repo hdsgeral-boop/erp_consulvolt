@@ -112,6 +112,8 @@ final class AutenticacaoController extends Controller
             'permissoes' => $this->permissoes->efectivas($utilizador),
             'perfil_formato_v2' => $this->permissoes->formatoV2($utilizador),
             'e_plataforma' => $utilizador->ePlataforma(),
+            // agente de suporte da plataforma: só o backoffice de tickets (/api/suporte)
+            'e_suporte' => $utilizador->eAgenteSuporte() && (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1),
             'empresas' => EmpresaResource::collection($this->empresas->acessiveis($utilizador))->resolve(),
         ];
     }
