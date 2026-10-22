@@ -45,6 +45,8 @@ $C run --rm app php artisan erp:saas:aplicar-rls
 
 echo "== arranque"
 $C up -d app worker scheduler web caddy
+# Caddyfile montado: um ficheiro novo só entra em vigor com reload (sem cortar ligações)
+$C exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || echo 'aviso: caddy reload falhou (continua com a configuração anterior)'
 $C exec -T app php artisan optimize:clear >/dev/null
 $C exec -T app php artisan optimize
 $C exec -T app php artisan erp:empresas:invalidar-cache
