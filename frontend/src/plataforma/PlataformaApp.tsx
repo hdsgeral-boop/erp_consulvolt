@@ -1,29 +1,52 @@
 import { Component, Suspense, useState, type ComponentType, type ReactNode } from 'react';
-import { Alert, Button, Drawer, Grid, Layout, Menu, Spin, Typography } from 'antd';
-import { MenuOutlined } from '@ant-design/icons';
+import { Alert, Avatar, Breadcrumb, Button, Drawer, Dropdown, Grid, Layout, Menu, Spin, Typography, type MenuProps } from 'antd';
+import {
+  AppstoreOutlined,
+  AuditOutlined,
+  BookOutlined,
+  CustomerServiceOutlined,
+  DashboardOutlined,
+  DesktopOutlined,
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuOutlined,
+  MenuUnfoldOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  SolutionOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ecras } from '@/modulos/config/ecras';
 import { PlataformaEntrar } from './PlataformaEntrar';
 import { PainelTickets } from './PlataformaSuporte';
 
-/** Entradas do menu da plataforma SaaS: id do registo de ecrãs → rótulo. O URL é /plataforma/<sufixo>. */
-export const ENTRADAS_PLATAFORMA: { id: string; rotulo: string }[] = [
-  { id: 'plataforma_painel', rotulo: 'Painel' },
-  { id: 'plataforma_clientes', rotulo: 'Clientes' },
-  { id: 'plataforma_planos', rotulo: 'Planos e versões' },
-  { id: 'plataforma_saas', rotulo: 'Gestão de Activação SaaS' },
-  { id: 'plataforma_suporte', rotulo: 'Suporte' },
-  { id: 'plataforma_administradores', rotulo: 'Administradores' },
-  { id: 'plataforma_agentes_suporte', rotulo: 'Agentes de suporte' },
-  { id: 'plataforma_auditoria', rotulo: 'Auditoria' },
-  { id: 'plataforma_sessoes', rotulo: 'Sessões activas' },
-  { id: 'plataforma_definicoes', rotulo: 'Definições' },
-  { id: 'plataforma_codigos', rotulo: 'Manual de códigos' },
+/** Entrada do menu da plataforma: id do registo de ecrãs → rótulo, ícone e grupo. O URL é /plataforma/<sufixo>. */
+export interface EntradaPlataforma {
+  id: string;
+  rotulo: string;
+  icone?: ReactNode;
+  grupo?: string;
+}
+
+export const ENTRADAS_PLATAFORMA: EntradaPlataforma[] = [
+  { id: 'plataforma_painel', rotulo: 'Painel', icone: <DashboardOutlined />, grupo: 'Visão geral' },
+  { id: 'plataforma_clientes', rotulo: 'Clientes', icone: <TeamOutlined />, grupo: 'Negócio' },
+  { id: 'plataforma_planos', rotulo: 'Planos e versões', icone: <AppstoreOutlined />, grupo: 'Negócio' },
+  { id: 'plataforma_saas', rotulo: 'Activação SaaS e licenças', icone: <SafetyCertificateOutlined />, grupo: 'Negócio' },
+  { id: 'plataforma_suporte', rotulo: 'Tickets de suporte', icone: <CustomerServiceOutlined />, grupo: 'Suporte' },
+  { id: 'plataforma_agentes_suporte', rotulo: 'Agentes de suporte', icone: <SolutionOutlined />, grupo: 'Suporte' },
+  { id: 'plataforma_administradores', rotulo: 'Administradores', icone: <UserOutlined />, grupo: 'Segurança' },
+  { id: 'plataforma_sessoes', rotulo: 'Sessões activas', icone: <DesktopOutlined />, grupo: 'Segurança' },
+  { id: 'plataforma_auditoria', rotulo: 'Auditoria', icone: <AuditOutlined />, grupo: 'Segurança' },
+  { id: 'plataforma_definicoes', rotulo: 'Definições', icone: <SettingOutlined />, grupo: 'Sistema' },
+  { id: 'plataforma_codigos', rotulo: 'Manual de códigos', icone: <BookOutlined />, grupo: 'Sistema' },
 ];
 
 /** Agente de suporte: só os tickets (ecrã próprio sobre /api/suporte; sem abrir nem eliminar tickets). */
-export const ENTRADAS_SUPORTE: { id: string; rotulo: string }[] = [{ id: 'plataforma_tickets', rotulo: 'Suporte' }];
+export const ENTRADAS_SUPORTE: EntradaPlataforma[] = [{ id: 'plataforma_tickets', rotulo: 'Suporte', icone: <CustomerServiceOutlined /> }];
 
 const ECRAS_SUPORTE: Record<string, ComponentType> = { plataforma_tickets: () => <PainelTickets agente /> };
 
@@ -74,24 +97,41 @@ export function PlataformaApp() {
   );
 }
 
-/** Cabeçalho, menu lateral e ecrãs da plataforma. */
-export function PlataformaShell({ entradas = ENTRADAS_PLATAFORMA }: { entradas?: { id: string; rotulo: string }[] }) {
+/** Menu agrupado (Visão geral, Negócio, Suporte, Segurança, Sistema) a partir das entradas. */
+function itensMenu(entradas: EntradaPlataforma[]): MenuProps['items'] {
+  const grupos = [...new Set(entradas.map((e) => e.grupo ?? ''))];
+  if (grupos.length <= 1) return entradas.map((e) => ({ key: e.id, icon: e.icone, label: e.rotulo }));
+  return grupos.map((g) => ({
+    type: 'group' as const,
+    key: `grupo-${g}`,
+    label: g,
+    children: entradas.filter((e) => (e.grupo ?? '') === g).map((e) => ({ key: e.id, icon: e.icone, label: e.rotulo })),
+  }));
+}
+
+/** Cabeçalho, menu lateral (agrupado, com ícones, recolhível) e ecrãs da plataforma. */
+export function PlataformaShell({ entradas = ENTRADAS_PLATAFORMA }: { entradas?: EntradaPlataforma[] }) {
   const { utilizador, sair } = useSessao();
   const { pathname } = useLocation();
   const navegar = useNavigate();
   const ecra = Grid.useBreakpoint();
   const [aberto, setAberto] = useState(false);
+  const [recolhido, setRecolhido] = useState(false);
   const movel = ecra.md === false;
 
   const inicio = caminhoDe(entradas[0].id);
   const activo = entradas.find((e) => pathname.startsWith(caminhoDe(e.id)))?.id ?? entradas[0].id;
+  const actual = entradas.find((e) => e.id === activo);
+  const nome = utilizador?.nome_completo || utilizador?.nome_utilizador || '';
   const menu = (
     <Menu
       mode="inline"
       selectedKeys={[activo]}
-      items={entradas.map((e) => ({ key: e.id, label: e.rotulo }))}
+      items={itensMenu(entradas)}
+      inlineCollapsed={!movel && recolhido}
+      style={{ borderInlineEnd: 'none' }}
       onClick={({ key }) => {
-        navegar(caminhoDe(key));
+        navegar(caminhoDe(String(key)));
         setAberto(false);
       }}
     />
@@ -99,19 +139,35 @@ export function PlataformaShell({ entradas = ENTRADAS_PLATAFORMA }: { entradas?:
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Layout.Header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px' }}>
-        {movel && <Button type="text" aria-label="Menu" icon={<MenuOutlined style={{ color: '#fff' }} />} onClick={() => setAberto(true)} />}
-        <Typography.Text strong style={{ color: '#fff', flex: 1 }}>MEU ERP · Plataforma</Typography.Text>
-        {!movel && <Typography.Text style={{ color: '#fff' }}>{utilizador?.nome_completo || utilizador?.nome_utilizador}</Typography.Text>}
-        <Button onClick={() => void sair()}>Sair</Button>
-      </Layout.Header>
+      {!movel && (
+        <Layout.Sider width={250} collapsedWidth={64} collapsed={recolhido} theme="light" style={{ borderInlineEnd: '1px solid #e2e8f0' }}>
+          <div style={{ height: 56, display: 'flex', alignItems: 'center', gap: 10, padding: recolhido ? '0 20px' : '0 18px', borderBottom: '1px solid #e2e8f0' }}>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: '#1d4ed8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flex: 'none' }}>M</span>
+            {!recolhido && <span style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>MEU ERP · Plataforma</span>}
+          </div>
+          {menu}
+        </Layout.Sider>
+      )}
       <Layout>
-        {movel ? (
-          <Drawer placement="left" open={aberto} onClose={() => setAberto(false)} title="Plataforma" styles={{ body: { padding: 0 } }}>
+        <Layout.Header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', background: '#fff', borderBottom: '1px solid #e2e8f0', height: 56, lineHeight: '56px' }}>
+          <Button type="text" aria-label="Menu" icon={movel ? <MenuOutlined /> : recolhido ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => (movel ? setAberto(true) : setRecolhido((r) => !r))} />
+          {movel && <Typography.Text strong>MEU ERP · Plataforma</Typography.Text>}
+          <Breadcrumb style={{ flex: 1 }} items={movel ? [] : [{ title: 'Plataforma' }, { title: actual?.grupo }, { title: actual?.rotulo }].filter((x) => x.title)} />
+          {movel && <span style={{ flex: 1 }} />}
+          <Dropdown
+            trigger={['click']}
+            menu={{ items: [{ key: 'sair', icon: <LogoutOutlined />, label: 'Terminar sessão', onClick: () => void sair() }] }}
+          >
+            <Button type="text" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40 }}>
+              <Avatar size="small" style={{ background: '#1d4ed8' }}>{nome.slice(0, 1).toUpperCase() || '?'}</Avatar>
+              {!movel && <span>{nome}</span>}
+            </Button>
+          </Dropdown>
+        </Layout.Header>
+        {movel && (
+          <Drawer placement="left" open={aberto} onClose={() => setAberto(false)} title="MEU ERP · Plataforma" styles={{ body: { padding: 0 } }}>
             {menu}
           </Drawer>
-        ) : (
-          <Layout.Sider width={250} theme="light">{menu}</Layout.Sider>
         )}
         <Layout.Content style={{ padding: 16, minWidth: 0 }}>
           <Routes>
