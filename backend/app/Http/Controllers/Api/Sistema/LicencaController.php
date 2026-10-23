@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Sistema;
 
 use App\Http\Controllers\Controller;
+use App\Services\Pagamentos\ProcessadorPagamentos;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +32,21 @@ final class LicencaController extends Controller
         $todos = $this->ePlataforma($request) && $request->boolean('todos');
 
         return RespostaApi::sucesso($this->licenca->planos($todos), 'Planos de licença.');
+    }
+
+    /**
+     * Dados bancários da plataforma para o pagamento por transferência (banco, titular, IBAN, SWIFT), definidos em
+     * Plataforma › Definições › Pagamentos. São da plataforma, não do cliente: aqui o cliente só os lê.
+     */
+    public function dadosBancarios(ProcessadorPagamentos $pagamentos): JsonResponse
+    {
+        $this->exigir('config_licenca_gerir');
+        $d = $pagamentos->obterConfiguracoes()['dados_bancarios'] ?? [];
+
+        return RespostaApi::sucesso([
+            'banco' => (string) ($d['banco'] ?? ''), 'titular' => (string) ($d['titular'] ?? ''),
+            'iban' => (string) ($d['iban'] ?? ''), 'swift' => (string) ($d['swift'] ?? ''),
+        ], 'Dados bancários da plataforma.');
     }
 
     public function subscricoes(): JsonResponse

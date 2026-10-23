@@ -213,7 +213,7 @@ export default function PlataformaDefinicoes() {
                             name={['dados_bancarios', 'titular']}
                             label="Titular da Conta / Razão Social"
                           >
-                            <Input placeholder="Ex: MEU ERP, LDA" />
+                            <Input placeholder="Ex: CONSULVOLT, LDA" />
                           </Form.Item>
                         </Col>
 

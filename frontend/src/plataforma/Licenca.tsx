@@ -129,6 +129,13 @@ export default function Licenca() {
     queryFn: () => obter<Subscricao[]>('/licenca/subscricoes'),
   });
 
+  // Dados bancários da plataforma (definidos em Plataforma › Definições), para o pagamento por transferência
+  const dadosBancarios = useQuery({
+    queryKey: [...CHAVE_LICENCA, 'dados-bancarios'],
+    queryFn: () => obter<{ banco: string; titular: string; iban: string; swift: string }>('/licenca/dados-bancarios'),
+    enabled: gerir,
+    staleTime: 60_000,
+  });
   const [planoId, setPlanoId] = useState<number>();
   const [meses, setMeses] = useState<number>(1);
 
@@ -621,22 +628,28 @@ export default function Licenca() {
             {metodoSelecionado === 'BANCO' && (
               <div>
                 <Card style={{ background: '#f8fafc', borderRadius: 8 }}>
-                  <Descriptions column={1} size="small" bordered>
-                    <Descriptions.Item label="Banco Destinatário">
-                      <strong>BFA / BAI / BCI</strong>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="IBAN">
-                      <Space>
-                        <Text copyable strong>AO06 0006 0000 0000 0000 0000 0</Text>
-                      </Space>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Titular da Conta">
-                      CONSULVOLT — TECNOLOGIAS, LDA
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Descritivo / Referência">
-                      {subscricaoPagamento.referencia}
-                    </Descriptions.Item>
-                  </Descriptions>
+                  {dadosBancarios.data?.iban ? (
+                    <Descriptions column={1} size="small" bordered>
+                      <Descriptions.Item label="Banco Destinatário">
+                        <strong>{dadosBancarios.data.banco || '—'}</strong>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="IBAN">
+                        <Text copyable strong>{dadosBancarios.data.iban}</Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Titular da Conta">{dadosBancarios.data.titular || '—'}</Descriptions.Item>
+                      {dadosBancarios.data.swift && <Descriptions.Item label="SWIFT / BIC">{dadosBancarios.data.swift}</Descriptions.Item>}
+                      <Descriptions.Item label="Descritivo / Referência">
+                        {subscricaoPagamento.referencia}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  ) : (
+                    <Alert
+                      type="info"
+                      showIcon
+                      message="Os dados bancários para transferência ainda não foram disponibilizados."
+                      description={`Contacte o suporte para obter o IBAN e indique a referência ${subscricaoPagamento.referencia}, ou use outro método de pagamento.`}
+                    />
+                  )}
 
                   <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 12 }}>
                     Após realizar a transferência bancária, envie o comprovativo mencionando a referência <strong>{subscricaoPagamento.referencia}</strong> para a equipa de suporte ou aguarde a reconciliação.

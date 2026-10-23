@@ -13,6 +13,7 @@ Route::prefix('licenca')->name('licenca.')->group(function () {
         Route::get('estado', 'estado')->name('estado');
         Route::get('planos', 'planos')->name('planos');
         Route::get('subscricoes', 'subscricoes')->name('subscricoes');
+        Route::get('dados-bancarios', 'dadosBancarios')->name('dados_bancarios');
         Route::post('renovacao', 'renovar')->name('renovacao');
         Route::delete('subscricoes/{subscricao}', 'cancelar')->whereNumber('subscricao')->name('subscricoes.cancelar');
         Route::post('subscricoes/{subscricao}/confirmar-pagamento', 'confirmarPagamento')->whereNumber('subscricao')->name('subscricoes.confirmar');

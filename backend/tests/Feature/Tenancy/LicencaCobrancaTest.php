@@ -94,6 +94,26 @@ class LicencaCobrancaTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'PLANO_INEXISTENTE');
     }
 
+    public function test_os_dados_bancarios_para_transferencia_sao_os_da_plataforma_e_so_o_gestor_os_le(): void
+    {
+        $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
+        $nomeCliente = $empresa->nome;
+
+        // sem nada definido pela plataforma: vazio (o ecrã explica; não há IBAN escrito no código)
+        $this->getJson('/api/licenca/dados-bancarios', $this->sessaoGestor($empresa))->assertOk()->assertJsonPath('dados.iban', '');
+
+        app(\App\Services\Pagamentos\ProcessadorPagamentos::class)->guardarConfiguracoes(['dados_bancarios' => [
+            'banco' => 'Banco Ficticio', 'titular' => 'MEU ERP, Lda', 'iban' => 'AO06000000000000000000001', 'swift' => 'BFICAOLU']]);
+        $r = $this->getJson('/api/licenca/dados-bancarios', $this->sessaoGestor($empresa))->assertOk();
+        $this->assertSame(['Banco Ficticio', 'MEU ERP, Lda', 'AO06000000000000000000001'], [$r->json('dados.banco'), $r->json('dados.titular'), $r->json('dados.iban')]);
+        $this->assertStringNotContainsString($nomeCliente, (string) $r->getContent());
+
+        // um utilizador sem a permissão de gerir a licença não os vê
+        $u = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true])->id]);
+        $u->empresas()->attach($empresa->id);
+        $this->getJson('/api/licenca/dados-bancarios', $this->entrar($u) + ['X-Empresa-Id' => $empresa->id])->assertForbidden();
+    }
+
     public function test_o_cliente_so_le_os_planos_activos_e_nao_gere_o_catalogo(): void
     {
         $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
