@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoVersoesPlano;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -15,6 +16,20 @@ class LicencaCobrancaTest extends TestCase
     {
         parent::setUp();
         config(['erp.licencas.ativo' => true]);
+    }
+
+    /** A landing page (sem autenticação) mostra sempre os módulos reais do plano em vigor — nunca uma lista à parte. */
+    public function test_planos_publicos_e_definicoes_publicas_expoem_os_modulos_reais(): void
+    {
+        $plano = PlanoLicenca::create(['codigo' => 'publico-teste', 'nome' => 'Plano Público Teste', 'preco_mensal' => 5000, 'moeda' => 'AOA', 'ativo' => true]);
+        $servico = app(ServicoVersoesPlano::class);
+        $servico->publicar($servico->atualizarRascunho($servico->criarRascunho($plano), ['modulos' => ['vendas', 'teso']]));
+
+        $this->getJson('/api/sistema/planos-publicos')->assertOk()
+            ->assertJsonFragment(['codigo' => 'publico-teste', 'modulos' => ['vendas', 'teso']]);
+
+        $this->getJson('/api/sistema/definicoes-publicas')->assertOk()
+            ->assertJsonPath('dados.modulos_catalogo.vendas', 'Vendas');
     }
 
     public function test_estado_avisa_quando_falta_pouco_e_quando_expirou(): void

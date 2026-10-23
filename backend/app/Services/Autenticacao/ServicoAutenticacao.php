@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoAuditoria;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,7 @@ final class ServicoAutenticacao
     public function __construct(
         private readonly VerificadorPasswordLegado $verificadorLegado,
         private readonly ServicoAuditoria $auditoria,
+        private readonly ContextoTenant $tenant,
     ) {}
 
     /**
@@ -34,7 +36,12 @@ final class ServicoAutenticacao
      */
     public function entrar(string $nomeUtilizador, string $palavraPasse, string $dispositivo, ?string $ip, ?string $agente): array
     {
-        $utilizador = Utilizador::query()->where('nome_utilizador', $nomeUtilizador)->first();
+        // O nome de utilizador é único em toda a instalação, não por tenant (RegistoEmpresaController,
+        // AdministradoresController): a este ponto ainda não se sabe a que tenant pertence, por isso a pesquisa tem de
+        // atravessar todos — o único caso legítimo de ver `utilizadores` sem contexto definido (login_localizar_utilizador,
+        // SECURITY DEFINER, migração saas_rls_utilizadores). `Utilizador::query()->where(...)` ficaria sempre vazio
+        // sob a RLS de `utilizadores`, porque app_tenant_id() ainda não tem valor.
+        $utilizador = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizador(?, NULL)', [$nomeUtilizador])->first();
 
         // OWASP A07: verificar SEMPRE uma palavra-passe — sem utilizador, contra um hash fictício com o mesmo custo — para
         // o tempo de resposta não revelar se o nome existe (antes: ~ms sem utilizador vs. ~100 ms do Argon2id).
@@ -49,6 +56,13 @@ final class ServicoAutenticacao
 
             throw new ErroNegocio('Nome de utilizador ou palavra-passe incorrectos.', 'CREDENCIAIS_INVALIDAS', 401);
         }
+
+        // Define o tenant da sessão de base de dados assim que o utilizador é identificado: sem isto, o resto deste
+        // pedido (criação do token, actualização do último acesso, e a resposta do controlador com as empresas e
+        // permissões do utilizador) corria sem contexto — a RLS escondia tudo, incluindo as próprias empresas do
+        // utilizador que acabou de entrar (ResolverTenantAtivo só define o tenant a partir do 2.º pedido, quando já
+        // há um token; este é o 1.º).
+        $this->tenant->definir((int) $utilizador->tenant_id);
 
         return DB::transaction(function () use ($utilizador, $palavraPasse, $dispositivo, $ip, $agente) {
             $this->modernizarHash($utilizador, $palavraPasse);

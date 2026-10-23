@@ -49,7 +49,10 @@ final class ServicoPermissoesTest extends TestCase
         $this->assertFalse($this->permissoes->tem($u, 'vendas_fat_emitir'));      // só `true` concede
         $this->assertFalse($this->permissoes->tem($u, 'lancamentos_post'));
         $this->assertTrue($this->permissoes->formatoV2($u));
-        $this->assertSame(['config_logs_view', 'config_migracao_view'], $this->permissoes->efectivas($u));
+        // config_logs_view fica de fora de efectivas() (Logs de Navegação é reservado a Super Administradores,
+        // nenhuma empresa tem Super Administradores) — tem() continua true acima: é a computação em bruto do
+        // perfil, quem decide o acesso real é autoriza()/efectivas() (tal como a holding e o plano do cliente).
+        $this->assertSame(['config_migracao_view'], $this->permissoes->efectivas($u));
     }
 
     #[Test]
@@ -77,5 +80,26 @@ final class ServicoPermissoesTest extends TestCase
 
         $this->assertFalse($this->permissoes->tem($u, 'dashboard_view'));
         $this->assertSame([], $this->permissoes->efectivas($u));
+    }
+
+    #[Test]
+    public function ecras_de_plataforma_ficam_escondidos_de_quem_nao_e_elegivel_mesmo_com_acesso_total(): void
+    {
+        // Acesso total (perfil all=true) de um tenant que não é o da plataforma: vê tudo excepto os ecrãs plataforma_*
+        // (administração do SaaS) — o mesmo que ExigirPlataforma já impede no servidor para estas rotas.
+        $outroTenant = \App\Models\Tenant::create(['nome' => 'Outro Cliente', 'slug' => 'outro-cliente-'.random_int(1000, 99999), 'estado' => \App\Models\Tenant::ESTADO_ATIVO]);
+        $cliente = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['all' => true])->id]);
+        $cliente->forceFill(['tenant_id' => $outroTenant->id])->save();
+        $this->assertTrue($this->permissoes->tem($cliente, 'dashboard_view'));
+        $this->assertTrue($this->permissoes->tem($cliente, 'config_licenca_view'));
+        $this->assertFalse($this->permissoes->tem($cliente, 'plataforma_clientes_view'));
+        $this->assertFalse($this->permissoes->tem($cliente, 'plataforma_saas_view'));
+        $this->assertFalse($this->permissoes->elegivelPlataforma($cliente));
+
+        // Super-administrador do tenant da própria plataforma: continua a ver tudo, incluindo plataforma_*.
+        $plataforma = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR]);
+        $plataforma->forceFill(['tenant_id' => (int) config('erp.dominio.plataforma_tenant_id', 1)])->save();
+        $this->assertTrue($this->permissoes->tem($plataforma, 'plataforma_clientes_view'));
+        $this->assertTrue($this->permissoes->elegivelPlataforma($plataforma));
     }
 }

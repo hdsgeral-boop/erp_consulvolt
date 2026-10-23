@@ -8,6 +8,7 @@ use App\Models\InfotipoSalarial;
 use App\Models\Moeda;
 use App\Models\TipoOrganizacaoRH;
 use App\Models\Utilizador;
+use App\Services\Contabilidade\ServicoPlanoContasModelo;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,8 @@ use Illuminate\Support\Facades\DB;
  * Paridade:
  *  - nome e NIF obrigatórios; contactos, CRC e rodapé dos documentos; taxas de INSS (por omissão 8% / 3%);
  *  - logótipo em data URI (base64), mantido quando a ficha é gravada sem nova imagem; "remover" = enviar vazio;
- *  - empresa nova recebe as rubricas e os tipos de organização por omissão (seedDefaultInfotypes, app_v2.js:2962-2987);
+ *  - empresa nova recebe as rubricas e os tipos de organização por omissão (seedDefaultInfotypes, app_v2.js:2962-2987),
+ *    e uma cópia do plano de contas da empresa modelo (ServicoPlanoContasModelo) — própria, editável sem afectar outras;
  *  - horas extra: percentagens e limite ≥ 0 (o motor usa 50% / 30 h / 75% quando vazios);
  *  - moeda funcional só muda enquanto a empresa não tiver lançamentos.
  *
@@ -60,6 +62,7 @@ final class ServicoGestaoEmpresas
         private readonly ServicoPermissoes $permissoes,
         private readonly ServicoEmpresas $empresas,
         private readonly ServicoAuditoria $auditoria,
+        private readonly ServicoPlanoContasModelo $planoContasModelo,
     ) {}
 
     /** Empresas geríveis: todas (acesso total ou a todas as empresas) ou as ligadas ao utilizador, em qualquer estado. */
@@ -105,7 +108,9 @@ final class ServicoGestaoEmpresas
     /** @param  array<string, mixed>  $d */
     public function criar(array $d, Utilizador $actor): Empresa
     {
-        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteEmpresas();
+        if ($actor->tenant_id !== null) {
+            app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteEmpresas((int) $actor->tenant_id);
+        }
 
         return DB::transaction(function () use ($d, $actor) {
             $this->validar($d, null);
@@ -120,6 +125,7 @@ final class ServicoGestaoEmpresas
                     TipoOrganizacaoRH::create(['nome' => $nome]);
                 }
             });
+            $this->planoContasModelo->semear($e->id);
             if (! $this->veTodas($actor)) {
                 $actor->empresas()->syncWithoutDetaching([$e->id]);
                 $this->empresas->invalidarUtilizador($actor->id);

@@ -69,6 +69,7 @@ require __DIR__.'/api/bi_odata.php';   // feed OData do Power BI: autenticação
 // Webhooks públicos de terceiros (sem sessão)
 Route::post('pagamentos/webhook/{gateway}', [GatewayPagamentoController::class, 'webhook'])->name('pagamentos.webhook');
 Route::get('sistema/planos-publicos', [LicencaController::class, 'planosPublicos'])->name('sistema.planos_publicos');
+Route::get('sistema/definicoes-publicas', [LicencaController::class, 'definicoesPublicas'])->name('sistema.definicoes_publicas');
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
@@ -95,6 +96,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Área da plataforma SaaS (sem empresa activa; ver routes/api/plataforma.php)
     require __DIR__.'/api/plataforma.php';
+
+    // Backoffice de suporte, isolado da plataforma (sem empresa activa; ver routes/api/suporte.php)
+    require __DIR__.'/api/suporte.php';
 
     // Rotas com empresa activa (X-Empresa-Id)
     Route::middleware('empresa')->group(function () {
@@ -204,7 +208,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('documentos/{venda}/revalidar', [FaturacaoEletronicaController::class, 'revalidar'])->whereNumber('venda')->name('documentos.revalidar');
             Route::get('documentos/{venda}/pedido-assinado', [FaturacaoEletronicaController::class, 'pedidoAssinado'])->whereNumber('venda')->name('documentos.pedido-assinado');
             Route::get('documentos/{venda}/qr', [FaturacaoEletronicaController::class, 'qr'])->whereNumber('venda')->name('documentos.qr');
-            Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->name('saft');
+            Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->middleware('licenca_exportacao')->name('saft');
         });
 
         Route::prefix('compras')->name('compras.')->controller(ContratosComprasController::class)->group(function () {
@@ -455,6 +459,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('terminais/{terminal}', 'eliminarTerminal')->whereNumber('terminal')->name('terminais.destroy');
             Route::post('terminais/{terminal}/copiar-meios', 'copiarMeios')->whereNumber('terminal')->name('terminais.copiar');
             Route::post('terminais/{terminal}/ativo', 'ativarTerminal')->whereNumber('terminal')->name('terminais.ativo');
+            Route::get('terminais/{terminal}/servicos-lav', 'servicosLavTerminal')->whereNumber('terminal')->name('terminais.servicos-lav.show');
+            Route::put('terminais/{terminal}/servicos-lav', 'guardarServicosLavTerminal')->whereNumber('terminal')->name('terminais.servicos-lav.update');
             Route::post('terminais/{terminal}/sessoes', 'abrirSessao')->whereNumber('terminal')->name('sessoes.abrir');
             Route::get('definicoes', 'definicoes')->name('definicoes.show');
             Route::put('definicoes', 'guardarDefinicoes')->name('definicoes.update');

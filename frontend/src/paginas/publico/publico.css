@@ -34,12 +34,30 @@
   background: #ffffff;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  /* o cabeçalho é `position: fixed` (ver .cv-header) e sai do fluxo normal: este espaço compensa a altura dele,
+     para o conteúdo não nascer tapado por baixo. */
+  padding-top: 76px;
+}
+
+/* Secções com destino de âncora do menu (#modulos, #porquê, #precos, #faq, #contactos): com o cabeçalho fixo,
+   sem isto o scroll deixa o topo da secção tapado por baixo dele. */
+#modulos,
+#porquê,
+#precos,
+#faq,
+#contactos {
+  scroll-margin-top: 92px;
 }
 
 /* ── NAVBAR ───────────────────────────────────────────────────────────── */
 .cv-header {
-  position: sticky;
+  /* `fixed`, não `sticky`: .cv-landing tem overflow-x:hidden (para as animações de entrada), o que quebra o
+     `position: sticky` em todos os motores — com `fixed` o cabeçalho fica sempre à vista, flutuante, nunca sai
+     com o scroll da página, independentemente dos antepassados. */
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   background: #ffffff;
   border-bottom: 1px solid #edf2f7;
@@ -69,6 +87,8 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .cv-brand-text {
@@ -82,6 +102,15 @@
   color: var(--cv-slate-800);
   font-weight: 600;
   margin-left: 3px;
+}
+
+/* Nome do sistema ao lado do logótipo (quando há logótipo carregado) — sempre a preto, sem o vermelho da marca. */
+.cv-brand-nome {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--cv-slate-900);
+  white-space: nowrap;
 }
 
 /* Selector de Idioma Funcional */
@@ -147,7 +176,7 @@
 .cv-nav-menu {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: clamp(12px, 1.6vw, 24px);
   margin-left: 12px;
 }
 
@@ -156,6 +185,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--cv-slate-700);
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
@@ -166,26 +196,85 @@
 .cv-header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-.cv-header-links {
-  display: flex;
+.cv-header-right > .cv-btn-pill-outline,
+.cv-header-right > .cv-btn-pill-primary {
+  white-space: nowrap;
+}
+
+/* Menu hambúrguer: só aparece quando a navegação principal não cabe (ver breakpoint 1160px). */
+.cv-mobile-menu-toggle {
+  display: none;
   align-items: center;
-  gap: 20px;
-  margin-right: 8px;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--cv-border);
+  background: #ffffff;
+  color: var(--cv-slate-800);
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.cv-header-links a {
+.cv-mobile-menu-toggle:hover {
+  background: var(--cv-slate-50);
+  border-color: var(--cv-slate-500);
+}
+
+.cv-mobile-menu-panel {
+  /* `.cv-header` é flex (linha) para centrar `.cv-header-container`; sem `absolute` este painel ficava ao lado
+     dele em vez de abrir por baixo — `.cv-header` já é `position: fixed`, serve de referência. */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 24px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #edf2f7;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  animation: cv-mobile-menu-entrada 0.18s ease;
+}
+
+@keyframes cv-mobile-menu-entrada {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cv-mobile-menu-panel a:not(.cv-btn-pill-outline):not(.cv-btn-pill-primary) {
   text-decoration: none;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--cv-slate-700);
-  transition: color 0.15s ease;
+  padding: 10px 4px;
+  border-radius: 8px;
 }
 
-.cv-header-links a:hover {
+.cv-mobile-menu-panel a:not(.cv-btn-pill-outline):not(.cv-btn-pill-primary):hover {
   color: var(--cv-red);
+  background: var(--cv-slate-50);
+}
+
+.cv-mobile-menu-divider {
+  height: 1px;
+  background: var(--cv-border);
+  margin: 8px 0;
+}
+
+.cv-mobile-menu-panel .cv-btn-pill-outline,
+.cv-mobile-menu-panel .cv-btn-pill-primary {
+  width: 100%;
+  margin-top: 8px;
 }
 
 /* ── BOTÕES PILL ───────────────────────────────────────────────────────── */
@@ -247,28 +336,50 @@
   padding: 68px 0 90px;
 }
 
+/* Fundo animado em loop (grelha técnica a deslizar + manchas de luz a flutuar), em transparência, atrás do
+   conteúdo — substitui um vídeo por algo mais leve, sem ficheiro para carregar e sempre nítido em qualquer ecrã. */
 .cv-hero-section::before {
   content: '';
   position: absolute;
-  top: -15%;
-  left: 10%;
-  width: 550px;
-  height: 550px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(185, 28, 28, 0.25) 0%, transparent 70%);
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
+  animation: cv-hero-grelha 26s linear infinite;
   pointer-events: none;
 }
 
 .cv-hero-section::after {
   content: '';
   position: absolute;
-  bottom: -10%;
-  right: 15%;
-  width: 500px;
-  height: 500px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+  inset: -20%;
+  background:
+    radial-gradient(circle 420px at 18% 22%, rgba(185, 28, 28, 0.35) 0%, transparent 70%),
+    radial-gradient(circle 380px at 82% 72%, rgba(245, 158, 11, 0.22) 0%, transparent 70%),
+    radial-gradient(circle 300px at 60% 15%, rgba(37, 99, 235, 0.16) 0%, transparent 70%);
+  animation: cv-hero-manchas 18s ease-in-out infinite;
   pointer-events: none;
+}
+
+@keyframes cv-hero-grelha {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 84px 42px, 84px 42px; }
+}
+
+@keyframes cv-hero-manchas {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(3%, -4%) scale(1.08); }
+  66% { transform: translate(-3%, 3%) scale(0.96); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-hero-section::before,
+  .cv-hero-section::after {
+    animation: none;
+  }
 }
 
 .cv-hero-container {
@@ -1149,15 +1260,30 @@
   margin-bottom: 56px;
 }
 
+.cv-footer-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cv-footer-logo-img {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+}
+
 .cv-footer-brand h3 {
   color: #ffffff;
   font-size: 22px;
   font-weight: 800;
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .cv-footer-brand h3 span {
-  color: var(--cv-red);
+  color: #ffffff;
+  font-weight: 600;
+  margin-left: 3px;
 }
 
 .cv-footer-brand p {
@@ -1205,27 +1331,263 @@
 }
 
 /* ── BOTÃO FLUTUANTE DE CHAT ───────────────────────────────────────────── */
-.cv-floating-chat {
+/* ── BOTÃO FLUTUANTE DE WHATSAPP ───────────────────────────────────────── */
+.cv-whatsapp-floating {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: var(--cv-red);
+  background: #25d366;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(185, 28, 28, 0.4);
-  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.45);
   z-index: 9999;
-  border: none;
-  transition: transform 0.2s ease;
+  text-decoration: none;
+  animation: cv-whatsapp-pulse 2.4s ease-in-out infinite;
 }
 
-.cv-floating-chat:hover {
+.cv-whatsapp-floating:hover {
   transform: scale(1.08);
+  animation-play-state: paused;
+}
+
+@keyframes cv-whatsapp-pulse {
+  0%, 100% { box-shadow: 0 8px 24px rgba(37, 211, 102, 0.45), 0 0 0 0 rgba(37, 211, 102, 0.55); }
+  50% { box-shadow: 0 8px 24px rgba(37, 211, 102, 0.45), 0 0 0 10px rgba(37, 211, 102, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-whatsapp-floating { animation: none; }
+}
+
+/* ── SECÇÃO DE LOCALIZAÇÃO E CONTACTO ──────────────────────────────────── */
+.cv-location-section {
+  padding: 96px 0;
+  background: var(--cv-slate-50);
+}
+
+.cv-location-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.cv-location-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 48px;
+  align-items: stretch;
+  margin-top: 40px;
+}
+
+.cv-location-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cv-location-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid var(--cv-border);
+  border-radius: var(--cv-radius-card);
+  padding: 22px 24px;
+}
+
+.cv-location-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--cv-red-light);
+  color: var(--cv-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+}
+
+.cv-location-card h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cv-slate-900);
+}
+
+.cv-location-card p,
+.cv-location-card a {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--cv-slate-600);
+  text-decoration: none;
+}
+
+.cv-location-card a:hover {
+  color: var(--cv-red);
+}
+
+.cv-map-frame {
+  border-radius: var(--cv-radius-card);
+  overflow: hidden;
+  border: 1px solid var(--cv-border);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  min-height: 360px;
+}
+
+.cv-map-frame iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  border: 0;
+  display: block;
+}
+
+/* ── BOTÕES DE REDES SOCIAIS (RODAPÉ) ──────────────────────────────────── */
+.cv-social-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.cv-social-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.cv-social-icon:hover {
+  background: var(--cv-red);
+  color: #ffffff;
+  border-color: var(--cv-red);
+  transform: translateY(-2px);
+}
+
+/* ── TABELA DE COMPARAÇÃO DE PLANOS ────────────────────────────────────── */
+.cv-compare-wrap {
+  margin-top: 56px;
+  overflow-x: auto;
+  border: 1px solid var(--cv-border);
+  border-radius: var(--cv-radius-card);
+  background: #ffffff;
+}
+
+.cv-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+  font-size: 13.5px;
+}
+
+.cv-compare-table th,
+.cv-compare-table td {
+  padding: 14px 18px;
+  text-align: center;
+  border-bottom: 1px solid var(--cv-border);
+}
+
+.cv-compare-table th:first-child,
+.cv-compare-table td:first-child {
+  text-align: left;
+  color: var(--cv-slate-700);
+  font-weight: 600;
+}
+
+.cv-compare-table thead th {
+  background: var(--cv-slate-50);
+  font-weight: 800;
+  color: var(--cv-slate-900);
+}
+
+.cv-compare-table thead th.popular {
+  color: var(--cv-red);
+}
+
+.cv-compare-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cv-compare-check {
+  color: #16a34a;
+  font-size: 16px;
+}
+
+.cv-compare-dash {
+  color: var(--cv-slate-500);
+  opacity: 0.5;
+}
+
+/* ── PÁGINAS LEGAIS / INSTITUCIONAIS (Termos, Privacidade, Conformidade) ─ */
+.cv-legal-conteudo h2 {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--cv-slate-900);
+  margin: 40px 0 12px;
+}
+
+.cv-legal-conteudo h2:first-child {
+  margin-top: 0;
+}
+
+.cv-legal-conteudo p {
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: var(--cv-slate-700);
+  margin: 0 0 14px;
+}
+
+.cv-legal-conteudo ul {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+
+.cv-legal-conteudo li {
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: var(--cv-slate-700);
+  margin-bottom: 6px;
+}
+
+.cv-legal-conteudo strong {
+  color: var(--cv-slate-900);
+}
+
+.cv-legal-conteudo a {
+  color: var(--cv-red);
+}
+
+/* ── ANIMAÇÃO DE ENTRADA AO DESCER A PÁGINA ────────────────────────────── */
+.cv-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.cv-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 /* ── RESPONSIVIDADE ───────────────────────────────────────────────────── */
@@ -1262,17 +1624,51 @@
   .cv-footer-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .cv-location-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-@media (max-width: 768px) {
-  .cv-header-links,
+/* Cabeçalho: a navegação principal + Login/Experimente Grátis deixam de caber numa só linha a partir daqui —
+   passam para o menu hambúrguer (.cv-mobile-menu-toggle/.cv-mobile-menu-panel) em vez de apertar ou quebrar texto. */
+@media (max-width: 1160px) {
   .cv-nav-menu {
     display: none;
   }
+  .cv-header-right > .cv-btn-pill-outline,
+  .cv-header-right > .cv-btn-pill-primary {
+    display: none;
+  }
+  .cv-mobile-menu-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 768px) {
   .cv-why-grid {
     grid-template-columns: 1fr;
   }
   .cv-footer-grid {
     grid-template-columns: 1fr;
+  }
+  .cv-whatsapp-floating {
+    right: 24px;
+    bottom: 88px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cv-header-container {
+    padding: 0 16px;
+  }
+  .cv-brand-nome,
+  .cv-brand-text {
+    font-size: 17px;
+  }
+  .cv-country-badge span {
+    display: none;   /* fica só a bandeira/ícone do globo — «PT»/«EN» já estão no menu aberto */
+  }
+  .cv-mobile-menu-panel {
+    padding: 10px 16px 16px;
   }
 }

@@ -1,4 +1,5 @@
 import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd';
+import { CommentOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
@@ -31,16 +32,27 @@ export default function PlataformaSuporte() {
   return (
     <>
       <CabecalhoPagina titulo="Suporte" subtitulo="Pedidos de suporte dos clientes" />
-      <Card extra={<Space><Select allowClear placeholder="Estado" style={{ width: 160 }} options={opcoes(ESTADOS)} value={estado} onChange={setEstado} /><Button type="primary" onClick={() => { form.resetFields(); setAberto(true); }}>Novo ticket</Button></Space>}>
-        <Table<Ticket> rowKey="id" size="small" loading={lista.isLoading} dataSource={lista.data ?? []} scroll={{ x: 'max-content' }}
+      <Card extra={<Space><Select allowClear placeholder="Estado" style={{ width: 160 }} options={opcoes(ESTADOS)} value={estado} onChange={setEstado} /><Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setAberto(true); }}>Novo ticket</Button></Space>}>
+        <Table<Ticket> rowKey="id" size="middle" loading={lista.isLoading} dataSource={lista.data ?? []} scroll={{ x: 'max-content' }}
           expandable={{ expandedRowRender: (t) => t.descricao ?? '—' }}
           columns={[
-            { title: 'Cliente', dataIndex: 'cliente' },
-            { title: 'Assunto', dataIndex: 'assunto' },
-            { title: 'Prioridade', render: (_, t) => <Tag color={t.prioridade === 'URGENTE' ? 'red' : t.prioridade === 'ALTA' ? 'orange' : 'default'}>{t.prioridade}</Tag> },
-            { title: 'Estado', render: (_, t) => <Select size="small" style={{ width: 130 }} value={t.estado} options={opcoes(ESTADOS)} onChange={(e) => mudar.mutate({ id: t.id, estado: e })} /> },
+            { title: 'Cliente', dataIndex: 'cliente', render: (v: string | null) => v || <Tag>—</Tag> },
+            { title: 'Assunto', dataIndex: 'assunto', render: (v: string) => <strong>{v}</strong> },
+            { title: 'Prioridade', render: (_, t) => <Tag color={t.prioridade === 'URGENTE' ? 'red' : t.prioridade === 'ALTA' ? 'orange' : t.prioridade === 'BAIXA' ? 'default' : 'blue'}>{t.prioridade}</Tag> },
+            { title: 'Estado', render: (_, t) => <Select size="small" style={{ width: 140 }} value={t.estado} options={opcoes(ESTADOS)} onChange={(e) => mudar.mutate({ id: t.id, estado: e })} /> },
             { title: 'Criado', render: (_, t) => formatarDataHora(t.criado_em) },
-            { title: '', render: (_, t) => <Space><Button size="small" onClick={() => setConversa(t)}>Conversa</Button><Popconfirm title="Eliminar o ticket?" onConfirm={() => apagar.mutate(t.id)}><Button size="small" danger>Eliminar</Button></Popconfirm></Space> },
+            {
+              title: '',
+              align: 'right',
+              render: (_, t) => (
+                <Space>
+                  <Button size="small" icon={<CommentOutlined />} onClick={() => setConversa(t)}>Conversa</Button>
+                  <Popconfirm title="Eliminar o ticket?" onConfirm={() => apagar.mutate(t.id)}>
+                    <Button size="small" danger icon={<DeleteOutlined />}>Eliminar</Button>
+                  </Popconfirm>
+                </Space>
+              ),
+            },
           ]} />
       </Card>
       <ConversaSuporte base="/plataforma/suporte" ticketId={conversa?.id ?? null} titulo={conversa ? `: ` : undefined} aoFechar={() => setConversa(null)} />

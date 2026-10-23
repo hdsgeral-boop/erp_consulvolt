@@ -6,6 +6,7 @@ use App\Exceptions\ErroContextoEmpresa;
 use App\Models\Empresa;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -66,22 +67,32 @@ final class ResolverEmpresaAtiva
      */
     private function licenca(Request $request, $utilizador, int $empresaId): void
     {
-        if (! config('erp.licencas.ativo') || $utilizador->eSuperAdministrador()) {
-            return;
-        }
-
-        $empresa = Empresa::query()->whereKey($empresaId)->first(['id', 'licenca_fim']);
-        if ($empresa === null || ! $empresa->licencaExpirada()) {
-            return;
-        }
-
-        // As rotas da própria licença (pedir renovação, confirmar pagamento) ficam sempre disponíveis: é por elas que se renova.
-        if (str_starts_with((string) $request->route()?->getName(), 'licenca.')) {
+        if (! $this->licencaBloqueada($request, $utilizador, $empresaId)) {
             return;
         }
 
         if (! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)) {
             throw ErroContextoEmpresa::licencaExpirada();
         }
+    }
+
+    /**
+     * Mesma regra de negócio acima, mas devolvida como booleano (sem olhar ao método HTTP) — usada pelo middleware
+     * `licenca_exportacao` para bloquear também pedidos GET que geram documentos (SAF-T, recibos em PDF, cópias de
+     * segurança): tecnicamente são leitura, mas contam como "exportar", que a licença expirada também proíbe.
+     */
+    public function licencaBloqueada(Request $request, $utilizador, int $empresaId): bool
+    {
+        if (! DefinicoesPlataforma::licencasAtivas() || $utilizador->eSuperAdministrador()) {
+            return false;
+        }
+
+        $empresa = Empresa::query()->whereKey($empresaId)->first(['id', 'licenca_fim']);
+        if ($empresa === null || ! $empresa->licencaExpirada()) {
+            return false;
+        }
+
+        // As rotas da própria licença (pedir renovação, confirmar pagamento) ficam sempre disponíveis: é por elas que se renova.
+        return ! str_starts_with((string) $request->route()?->getName(), 'licenca.');
     }
 }

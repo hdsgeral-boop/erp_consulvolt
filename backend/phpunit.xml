@@ -23,9 +23,12 @@
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_DEBUG" value="false" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_CONNECTION" value="pgsql_owner" force="true"/>
         <env name="DB_DATABASE" value="erp_consulvolt_testes" force="true"/>
         <env name="DB_URL" value="" force="true"/>
+        <!-- A suite assume SaaS desligado por omissão (cada teste que precisa dele liga-o com config()); fixar aqui
+             torna-a independente do .env do anfitrião (ex.: SAAS_ATIVO=true em produção/dev, ADR-073). -->
+        <env name="SAAS_ATIVO" value="false" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
@@ -38,9 +41,10 @@
         <!-- Também em $_SERVER: o Laravel lê $_SERVER antes de $_ENV e o docker-compose define DB_DATABASE como variável real. -->
         <server name="APP_ENV" value="testing" force="true"/>
         <server name="APP_DEBUG" value="false" force="true"/>
-        <server name="DB_CONNECTION" value="pgsql" force="true"/>
+        <server name="DB_CONNECTION" value="pgsql_owner" force="true"/>
         <server name="DB_DATABASE" value="erp_consulvolt_testes" force="true"/>
         <server name="DB_URL" value="" force="true"/>
+        <server name="SAAS_ATIVO" value="false" force="true"/>
         <server name="CACHE_STORE" value="array" force="true"/>
         <server name="QUEUE_CONNECTION" value="sync" force="true"/>
         <server name="SESSION_DRIVER" value="array" force="true"/>

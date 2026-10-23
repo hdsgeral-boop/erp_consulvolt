@@ -5,6 +5,7 @@
 // (middleware `plataforma`, negar por omissão). A licença/cobrança por empresa fica em /api/licenca.
 
 use App\Http\Controllers\Api\Plataforma\AdministradoresController;
+use App\Http\Controllers\Api\Plataforma\AgentesSuporteController;
 use App\Http\Controllers\Api\Plataforma\AuditoriaPlataformaController;
 use App\Http\Controllers\Api\Plataforma\ClientesController;
 use App\Http\Controllers\Api\Plataforma\CodigosController;
@@ -65,6 +66,14 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::put('administradores/{administrador}/estado', 'estado')->whereNumber('administrador')->name('administradores.estado');
         Route::put('administradores/{administrador}', 'atualizar')->whereNumber('administrador')->name('administradores.atualizar');
         Route::delete('administradores/{administrador}', 'eliminar')->whereNumber('administrador')->name('administradores.eliminar');
+    });
+
+    Route::controller(AgentesSuporteController::class)->group(function () {
+        Route::get('agentes-suporte', 'index')->name('agentes_suporte.index');
+        Route::post('agentes-suporte', 'store')->name('agentes_suporte.store');
+        Route::put('agentes-suporte/{agente}/estado', 'estado')->whereNumber('agente')->name('agentes_suporte.estado');
+        Route::put('agentes-suporte/{agente}', 'atualizar')->whereNumber('agente')->name('agentes_suporte.atualizar');
+        Route::delete('agentes-suporte/{agente}', 'eliminar')->whereNumber('agente')->name('agentes_suporte.eliminar');
     });
 
     Route::controller(SessoesController::class)->group(function () {

@@ -1,24 +1,20 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Row, Select, Typography } from 'antd';
+import { Link, useNavigate } from 'react-router-dom';
+import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Row, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { CHAVE_SESSAO_MOSTRAR_TOUR } from '@/componentes/tour/TourBoasVindas';
 
-type Plano = { codigo: string; nome: string; preco_mensal?: number };
-
-const PLANOS_PADRAO: Plano[] = [
-  { codigo: 'basico', nome: 'Plano Básico (9.500 Kz/mês)' },
-  { codigo: 'profissional', nome: 'Plano Profissional (15.000 Kz/mês)' },
-  { codigo: 'empresarial', nome: 'Plano Empresarial (21.000 Kz/mês)' },
-];
+const DIAS_TESTE_PADRAO = 30;
 
 export function RegistarEmpresa() {
-  const [params] = useSearchParams();
+  const [form] = Form.useForm();
   const navigate = useNavigate();
   const { autenticarAposRegisto } = useSessao();
   const [erro, setErro] = useState<string | null>(null);
+  const [detalhesErros, setDetalhesErros] = useState<string[]>([]);
   const [aGuardar, setAGuardar] = useState(false);
 
   const logotipo = useQuery({
@@ -27,30 +23,56 @@ export function RegistarEmpresa() {
     retry: false
   });
 
-  const planos = useQuery({
-    queryKey: ['planos-publicos'],
-    queryFn: () => obter<Plano[]>('/sistema/planos-publicos'),
-    retry: false
+  const definicoes = useQuery({
+    queryKey: ['definicoes-publicas'],
+    queryFn: () => obter<{ dias_teste_padrao: number }>('/sistema/definicoes-publicas'),
+    retry: false,
+    staleTime: 5 * 60_000
   });
-
-  const opcoesPlanos = (planos.data && planos.data.length > 0)
-    ? planos.data.map(p => ({
-        value: p.codigo,
-        label: p.preco_mensal
-          ? `${p.nome} (${Number(p.preco_mensal).toLocaleString('pt-AO')} Kz/mês)`
-          : p.nome
-      }))
-    : PLANOS_PADRAO.map(p => ({ value: p.codigo, label: p.nome }));
+  const diasTeste = definicoes.data?.dias_teste_padrao ?? DIAS_TESTE_PADRAO;
 
   const submeter = async (v: Record<string, string>) => {
     setAGuardar(true);
     setErro(null);
+    setDetalhesErros([]);
     try {
       const r = await enviar<{ token: string; empresa_id: number }>('post', '/autenticacao/registar-empresa', v);
       await autenticarAposRegisto(r.dados.token, r.dados.empresa_id);
+      try {
+        sessionStorage.setItem(CHAVE_SESSAO_MOSTRAR_TOUR, '1');
+      } catch {
+        /* modo privado ou armazenamento bloqueado: o tour de boas-vindas simplesmente não arranca sozinho */
+      }
       navigate('/app', { replace: true });
     } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível concluir o registo.');
+      if (e instanceof ErroApi) {
+        if (e.erros && Object.keys(e.erros).length > 0) {
+          const camposComErro: { name: string; errors: string[] }[] = [];
+          const listaMensagens: string[] = [];
+
+          for (const [campo, msgs] of Object.entries(e.erros)) {
+            const arr = Array.isArray(msgs) ? msgs.map(String) : [String(msgs)];
+            camposComErro.push({ name: campo, errors: arr });
+            listaMensagens.push(...arr);
+          }
+
+          form.setFields(camposComErro);
+
+          if (listaMensagens.length === 1) {
+            setErro(listaMensagens[0]);
+            setDetalhesErros([]);
+          } else {
+            setErro('Por favor, corrija os seguintes erros:');
+            setDetalhesErros(listaMensagens);
+          }
+        } else {
+          setErro(e.message || 'Não foi possível concluir o registo.');
+          setDetalhesErros([]);
+        }
+      } else {
+        setErro('Não foi possível concluir o registo.');
+        setDetalhesErros([]);
+      }
     } finally {
       setAGuardar(false);
     }
@@ -73,16 +95,43 @@ export function RegistarEmpresa() {
           ) : null}
           <h1 className="erp-entrada-titulo">Criar Conta Consulvolt ERP</h1>
           <Typography.Text type="secondary">
-            30 dias gratuitos sem qualquer compromisso · Comece em 2 minutos
+            {diasTeste} dias de demonstração gratuitos, sem qualquer compromisso · Comece em 2 minutos
           </Typography.Text>
         </Flex>
 
-        {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
+        {erro && (
+          <Alert
+            type="error"
+            showIcon
+            message={erro}
+            description={
+              detalhesErros.length > 0 ? (
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  {detalhesErros.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+              ) : undefined
+            }
+            closable
+            onClose={() => {
+              setErro(null);
+              setDetalhesErros([]);
+            }}
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         <Form
+          form={form}
           layout="vertical"
-          initialValues={{ plano: params.get('plano') || 'basico' }}
           onFinish={submeter}
+          onValuesChange={() => {
+            if (erro) {
+              setErro(null);
+              setDetalhesErros([]);
+            }
+          }}
           requiredMark={false}
         >
           <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: 6, marginBottom: 14 }}>
@@ -178,13 +227,12 @@ export function RegistarEmpresa() {
             </Col>
           </Row>
 
-          <Form.Item name="plano" label="Plano selecionado" style={{ marginTop: 4 }}>
-            <Select
-              size="large"
-              placeholder="Escolher plano inicial"
-              options={opcoesPlanos}
-            />
-          </Form.Item>
+          <Alert
+            type="info"
+            showIcon
+            message={`Durante os ${diasTeste} dias de demonstração tem acesso a todos os módulos do sistema, sem precisar de escolher um plano. Escolhe o plano apenas quando quiser continuar a usar o sistema depois do período gratuito.`}
+            style={{ marginTop: 4, marginBottom: 12 }}
+          />
 
           <Button
             type="primary"
@@ -201,7 +249,7 @@ export function RegistarEmpresa() {
               borderColor: '#b91c1c'
             }}
           >
-            Começar 30 dias grátis
+            Começar {diasTeste} dias grátis
           </Button>
 
           <div style={{ textAlign: 'center', marginTop: 12, fontSize: 12, color: '#94a3b8' }}>
@@ -218,8 +266,8 @@ export function RegistarEmpresa() {
               Entrar no sistema
             </Link>
           </div>
-          <Link to="/" style={{ fontSize: 13, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            ← Voltar ao site
+          <Link to="/" className="erp-link-voltar">
+            Voltar ao site
           </Link>
         </Flex>
       </Card>

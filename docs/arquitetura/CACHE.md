@@ -31,6 +31,7 @@ Chave no Redis = `erp:` + chave lógica. TTL em `config/erp.php` (`erp.cache.ttl
 | `gestao:painel:{md5(empresa, painel, mês, filtros, módulos visíveis, ver_salarios, empresas acessíveis)}` | `ServicoPaineis::painel` | empresa + permissões | 120 s (`ServicoPaineis::TTL_CACHE`) | 5–50 KB | só TTL e `actualizar=1` (R9, aceite) |
 | `gestao:comparacao:{md5(utilizador, ids, mês)}` | `PaineisController::comparacao` | utilizador | 120 s | 5–30 KB | só TTL e `actualizar=1`. O acesso a cada empresa é verificado **antes** do `remember` (`ServicoComparacaoEmpresas::garantirAcesso`, ADR-069): um acesso retirado deixa de ver a comparação de imediato (`GestaoPaineisTest::comparacao_em_cache_deixa_de_ser_vista_logo_que_o_acesso_e_retirado`) |
 | `fk_referencias:{versão do esquema}:{tabela}` | `VerificadorReferencias::referenciasPara` | global (metadados do esquema) | 3600 s | < 2 KB | **versionada pela última migração** (corrigido R8 em 2026-10-06) |
+| `plataforma:definicoes` | `DefinicoesPlataforma` (toda a tabela `definicoes_plataforma` numa só leitura) | global (metadados da plataforma) | 3600 s (`erp.cache.ttl.definicoes_plataforma`) | < 1 KB | `DefinicoesPlataforma::invalidar()` depois de qualquer escrita (`PlataformaSaasController::atualizarGeral`, `DefinicoesController::gravar`). Lida por `ResolverEmpresaAtiva` em todos os pedidos com empresa activa — sem cache era uma consulta a mais por pedido (2026-10-19, corrigiu `DesempenhoTest`) |
 | `copia_empresa:tabelas:{versão do esquema}` | `ServicoCopiaEmpresa::tabelasEmpresa` | global (metadados) | 3600 s | < 4 KB | versionada pela última migração |
 | `operacoes:{uuid do batch}` | `ServicoOperacoes::registarDono` | utilizador + empresa (no valor) | 7 dias | < 1 KB | expira; o dono é verificado em cada leitura |
 | `batimento:{scheduler,worker}` | `Batimentos::registar` | global | sem TTL (`forever`) | inteiro | sobrescrito a cada batimento |
@@ -53,6 +54,13 @@ em `ServicoPermissoes`, nunca no Redis) e `taxas_cambio`.
 4. **Simulações** que fazem rollback (importação em massa) apagam as chaves que possam ter sido preenchidas.
 5. **Mudanças globais** (estado de uma empresa) não fazem `SCAN/DEL`: sobem a versão (`empresas:versao`) e as chaves
    antigas morrem pelo TTL.
+6. **Activar/desligar o SaaS** (`erp.saas.ativo`, docs/arquitetura/SAAS_ATIVACAO.md): uma mudança de infra-estrutura,
+   não uma escrita nos modelos — a cache não a observa. Chaves calculadas antes da mudança (ex.: `idsAcessiveis`
+   sem RLS, ligação superuser) continuam com o resultado antigo até ao TTL mesmo depois da ligação passar a
+   `erp_app`/RLS activa, porque nada disparou `InvalidacaoCache`. Incidente real (2026-10-19): um administrador com
+   `acesso_todas_empresas` ficou sem empresas visíveis durante ~15 min depois da activação, até ao `cache:clear`
+   manual. Tal como no ETL (ponto 3), a limpeza aqui é sempre manual: `php artisan cache:clear` é o último passo de
+   qualquer activação/desactivação do SaaS, nunca opcional.
 
 ## 4. Regras de ouro
 

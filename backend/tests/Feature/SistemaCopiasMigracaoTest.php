@@ -11,6 +11,7 @@ use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
+use App\Models\Utilizador;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
@@ -29,6 +30,9 @@ final class SistemaCopiasMigracaoTest extends TestCase
 
     private array $s;
 
+    /** Importar cópia de segurança é reservado a Super Administradores (CopiaEmpresaController::importar). */
+    private array $sa;
+
     private array $ids = [];
 
     protected function setUp(): void
@@ -37,6 +41,7 @@ final class SistemaCopiasMigracaoTest extends TestCase
         $this->empresa = $this->criarEmpresa(['nif' => '5417000501', 'nome' => 'Origem, Lda']);
         $this->s = $this->sessao(['config_backup', 'config_ferramentas', 'config_empresas_gerir', 'config_migracao_view', 'contab_plano_gerir', 'aux_gerir',
             'rh_infotipos_gerir', 'rh_bancario_gerir', 'rh_funcoes_gerir', 'vendas_produtos_gerir', 'compras_forn_gerir']);
+        $this->sa = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR])) + ['X-Empresa-Id' => $this->empresa->id];
     }
 
     private function sessao(array $permissoes): array
@@ -106,13 +111,13 @@ final class SistemaCopiasMigracaoTest extends TestCase
 
                 return new UploadedFile($tmp, 'copia.json', 'application/json', null, true);
             };
-            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000501'], $this->s + ['Accept' => 'application/json'])
+            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000501'], $this->sa + ['Accept' => 'application/json'])
                 ->assertStatus(422)->assertJsonPath('codigo', 'NIF_DUPLICADO');
-            $sim = $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000599', 'simular' => true], $this->s + ['Accept' => 'application/json'])->assertOk();
+            $sim = $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000599', 'simular' => true], $this->sa + ['Accept' => 'application/json'])->assertOk();
             $this->assertSame(1, $sim->json('dados.por_tabela.contratos_trabalho'));
             $this->assertSame(1, Empresa::query()->count());
 
-            $r = $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000599'], $this->s + ['Accept' => 'application/json'])->assertCreated();
+            $r = $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000599'], $this->sa + ['Accept' => 'application/json'])->assertCreated();
             $nova = (int) $r->json('dados.empresa_destino.id');
             $this->assertStringContainsString('Origem, Lda (Restauro', $r->json('dados.empresa_destino.nome'));
 
@@ -143,12 +148,13 @@ final class SistemaCopiasMigracaoTest extends TestCase
             $this->assertSame(1, DB::table('lancamentos_contabeis')->where('empresa_id', $this->empresa->id)->count());
 
             // nunca por cima de dados: destino com dados é recusado
-            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'empresa_destino_id' => $this->empresa->id], $this->s + ['Accept' => 'application/json'])
+            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'empresa_destino_id' => $this->empresa->id], $this->sa + ['Accept' => 'application/json'])
                 ->assertStatus(422)->assertJsonPath('codigo', 'DESTINO_COM_DADOS');
             // R3: destino vazio já aberto antes (plano e catálogo vazios em cache) — a importação invalida-os depois do commit
             $vazia = $this->criarEmpresa(['nif' => '5417000590', 'nome' => 'Vazia, Lda']);
-            $u = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'config_backup' => true, 'config_empresas_gerir' => true, 'config_ferramentas' => true])->id]);
-            $u->empresas()->attach([$this->empresa->id, $vazia->id]);
+            // Importar é reservado a Super Administradores (CopiaEmpresaController::importar); têm sempre acesso a
+            // qualquer empresa, por isso não precisam de ligação directa a $vazia.
+            $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR]);
             $planoVazia = ChaveCache::empresa($vazia->id, 'contabilidade', 'plano_contas');
             $catalogoVazia = ChaveCache::empresa($vazia->id, 'logistica', 'catalogo_produtos');
             Cache::put($planoVazia, [], 86400);
@@ -160,8 +166,22 @@ final class SistemaCopiasMigracaoTest extends TestCase
             // ficheiro de outra versão do esquema
             $copia['esquema'] = '2000_01_01_000000_antiga';
             file_put_contents($ficheiro, json_encode($copia));
-            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000598'], $this->s + ['Accept' => 'application/json'])
+            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000598'], $this->sa + ['Accept' => 'application/json'])
                 ->assertStatus(422)->assertJsonPath('codigo', 'COPIA_INCOMPATIVEL');
+        } finally {
+            @unlink($ficheiro);
+        }
+    }
+
+    /** Importar não é self-service, mesmo com config_ferramentas: é reservado a Super Administradores. */
+    #[Test]
+    public function importar_fica_reservado_a_super_administradores_mesmo_com_a_permissao(): void
+    {
+        $ficheiro = $this->exportar();
+        try {
+            $upload = fn () => new UploadedFile($ficheiro, 'copia.json', 'application/json', null, true);
+            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'nif' => '5417000596'], $this->s + ['Accept' => 'application/json'])
+                ->assertStatus(403)->assertJsonPath('codigo', 'RESERVADO_SUPER_ADMINISTRADOR');
         } finally {
             @unlink($ficheiro);
         }

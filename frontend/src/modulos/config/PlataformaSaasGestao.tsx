@@ -186,7 +186,7 @@ export default function PlataformaSaasGestao() {
     <>
       <CabecalhoPagina
         titulo="Gestão Geral do SaaS e Licenciamento"
-        subtitulo="Controlo global da plataforma: ativação/desligamento de módulos SaaS, períodos de teste e licenciamento de empresas"
+        subtitulo="Controlo global da plataforma: ativação/desligamento de módulos SaaS, períodos de demonstração e licenciamento de empresas"
         accoes={
           <Button
             icon={<ReloadOutlined />}
@@ -220,7 +220,7 @@ export default function PlataformaSaasGestao() {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ height: '100%' }}>
             <Statistic
-              title="Em Período de Teste"
+              title="Em Período de Demonstração"
               value={stats?.empresas_em_teste ?? 0}
               valueStyle={{ color: '#1890ff' }}
               prefix={<ClockCircleOutlined />}
@@ -275,8 +275,12 @@ export default function PlataformaSaasGestao() {
           <Col xs={24} md={8}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f5f7fa', borderRadius: 8 }}>
               <div>
-                <div style={{ fontWeight: 600 }}>Plataforma SaaS Global</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Ativa isolamento multi-tenant e subdomínios</Text>
+                <Tooltip title="O isolamento real entre clientes (RLS) é uma decisão de infra-estrutura à parte, feita por quem opera o servidor — ver docs/arquitetura/SAAS_ATIVACAO.md. Este interruptor só restringe /admin ao subdomínio admin.erp.<domínio>.">
+                  <div style={{ fontWeight: 600, cursor: 'help' }}>Área da Plataforma por Subdomínio</div>
+                </Tooltip>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Restringe /admin ao subdomínio admin.erp.&lt;domínio&gt;
+                </Text>
               </div>
               <Switch
                 checked={estadoGeral?.saas_ativo ?? false}
@@ -307,14 +311,14 @@ export default function PlataformaSaasGestao() {
           <Col xs={24} md={8}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f5f7fa', borderRadius: 8 }}>
               <div>
-                <div style={{ fontWeight: 600 }}>Dias de Teste Padrão</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Período inicial para novas empresas</Text>
+                <div style={{ fontWeight: 600 }}>Dias de Demonstração Padrão</div>
+                <Text type="secondary" style={{ fontSize: 12 }}>Duração do período de demonstração gratuita para novas empresas</Text>
               </div>
               <Space>
                 <InputNumber
                   min={1}
                   max={90}
-                  value={estadoGeral?.dias_teste_padrao ?? 7}
+                  value={estadoGeral?.dias_teste_padrao ?? 30}
                   onChange={(val) => {
                     if (val && val >= 1 && val <= 90) {
                       mutacaoGeral.mutate({ dias_teste_padrao: val });
@@ -368,7 +372,7 @@ export default function PlataformaSaasGestao() {
               options={[
                 { label: 'Todas as Empresas', value: 'TODAS' },
                 { label: 'Apenas Ativas', value: 'ATIVAS' },
-                { label: 'Em Teste', value: 'TESTE' },
+                { label: 'Em Demonstração', value: 'TESTE' },
                 { label: 'Com Plano Ativo', value: 'PLANO' },
                 { label: 'Licença Vitalícia', value: 'SEM_LIMITE' },
                 { label: 'Apenas Expiradas', value: 'EXPIRADAS' },
@@ -418,7 +422,7 @@ export default function PlataformaSaasGestao() {
                   return <Tag color="gold" icon={<CrownOutlined />}>Vitalícia (Sem Limite)</Tag>;
                 }
                 if (origem === 'TESTE') {
-                  return <Tag color="blue" icon={<ClockCircleOutlined />}>Período de Teste</Tag>;
+                  return <Tag color="blue" icon={<ClockCircleOutlined />}>Período de Demonstração</Tag>;
                 }
                 return <Tag color="purple" icon={<ThunderboltOutlined />}>Subscrição / Plano</Tag>;
               },

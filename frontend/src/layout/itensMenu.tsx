@@ -32,11 +32,19 @@ export interface MenuLateral {
 }
 
 /**
+ * Chave do grupo «Plataforma SaaS» (menuLegado.ts) — para quem não é Super Administrador só sobram ecrãs de licença
+ * e conta própria (os ecrãs `plataforma_*` ficam escondidos por ServicoPermissoes::elegivelPlataforma), por isso o
+ * rótulo passa a «Minha Licença», menos confuso para um utilizador de empresa.
+ */
+const GRUPO_PLATAFORMA_SAAS = 'grupo:sistema-plataforma';
+const ROTULO_PLATAFORMA_SAAS_UTILIZADOR_COMUM = 'Minha Licença';
+
+/**
  * Menu lateral com a estrutura do sistema anterior (ver menuLegado.ts): Início e os itens gerais soltos no topo, grupo
  * «Menu Geral» com os módulos/sub-grupos e grupo «Sistema». Só entram os ecrãs que GET /sistema/menu devolve (permissões);
  * grupos sem ecrãs desaparecem. Ecrãs do catálogo fora da estrutura entram no fim do grupo do respectivo módulo.
  */
-export function construirMenuLateral(menu: ModuloMenu[]): MenuLateral {
+export function construirMenuLateral(menu: ModuloMenu[], opts: { superAdmin?: boolean } = {}): MenuLateral {
   const disponiveis = new Set<string>();
   for (const m of menu) for (const x of m.ecras) disponiveis.add(`${m.id}/${x.id}`);
   const naEstrutura = new Set<string>();
@@ -103,12 +111,20 @@ export function construirMenuLateral(menu: ModuloMenu[]): MenuLateral {
     ),
   ];
   const itens = [...topo, grupoItem(MENU_GERAL_LEGADO, []), grupoItem(SISTEMA_LEGADO, [])].filter(Boolean) as ItemMenu[];
+  if (!opts.superAdmin) {
+    const sistema = itens.find((i) => i?.key === SISTEMA_LEGADO.chave) as (ItemMenu & { children?: ItemMenu[] }) | undefined;
+    const plataforma = sistema?.children?.find((i) => i?.key === GRUPO_PLATAFORMA_SAAS) as (ItemMenu & { label?: unknown; title?: string }) | undefined;
+    if (plataforma) {
+      plataforma.label = ROTULO_PLATAFORMA_SAAS_UTILIZADOR_COMUM;
+      plataforma.title = ROTULO_PLATAFORMA_SAAS_UTILIZADOR_COMUM;
+    }
+  }
   return { itens, ancestrais };
 }
 
 /** Itens do menu lateral (ver construirMenuLateral). */
-export function construirItensMenu(menu: ModuloMenu[]): NonNullable<MenuProps['items']> {
-  return construirMenuLateral(menu).itens;
+export function construirItensMenu(menu: ModuloMenu[], opts?: { superAdmin?: boolean }): NonNullable<MenuProps['items']> {
+  return construirMenuLateral(menu, opts).itens;
 }
 
 /**

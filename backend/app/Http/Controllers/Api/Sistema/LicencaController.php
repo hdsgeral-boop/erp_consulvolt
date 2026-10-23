@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PlanoLicenca;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -38,6 +39,20 @@ final class LicencaController extends Controller
     public function planosPublicos(): JsonResponse
     {
         return RespostaApi::sucesso($this->licenca->planos(false), 'Planos de subscrição.');
+    }
+
+    /**
+     * GET /api/sistema/definicoes-publicas (sem autenticação): dados não sensíveis para a landing page e o registo
+     * — hoje só a duração do período de demonstração, para a promessa comercial nunca divergir do que o registo concede.
+     */
+    public function definicoesPublicas(): JsonResponse
+    {
+        return RespostaApi::sucesso([
+            'dias_teste_padrao' => DefinicoesPlataforma::diasTestePadrao(),
+            // Rótulos em português dos módulos que planosPublicos() devolve em 'modulos' (códigos) — a landing page
+            // traduz sem duplicar a lista à mão (erp.planos_catalogo.modulos, o mesmo catálogo que ModulosPlano usa).
+            'modulos_catalogo' => (array) config('erp.planos_catalogo.modulos'),
+        ], 'Definições públicas da plataforma.');
     }
 
     public function criarPlano(Request $request): JsonResponse

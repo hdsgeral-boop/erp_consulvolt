@@ -1,0 +1,22 @@
+.erp-plataforma-acao-rapida:hover {
+  border-color: #1947b3 !important;
+  box-shadow: 0 2px 10px rgba(25, 71, 179, 0.12);
+}
+
+/* Botão do menu do utilizador no cabeçalho (plataforma e backoffice de suporte) — mesmo padrão do ERP principal. */
+.erp-plataforma-utilizador {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 4px 8px 4px 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.erp-plataforma-utilizador:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}

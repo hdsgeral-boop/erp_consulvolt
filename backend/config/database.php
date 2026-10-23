@@ -117,6 +117,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Faltava face a `pgsql`: sem isto a sessão ficava no fuso por omissão do servidor (UTC), 1h atrás de
+            // Luanda — só visível quando esta ligação passa a ser usada para mais do que DDL pontual.
+            'timezone' => env('DB_TIMEZONE', env('APP_TIMEZONE', 'Africa/Luanda')),
         ],
         'sqlsrv' => [
             'driver' => 'sqlsrv',

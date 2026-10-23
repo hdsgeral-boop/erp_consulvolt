@@ -8,6 +8,8 @@ use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\DefinicoesPlataforma;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,9 +18,9 @@ use Illuminate\Support\Str;
  * Licença por empresa e cobrança por plano e tempo (ADR-074).
  *
  * Fluxo: a empresa pede uma renovação (plano + meses) → subscrição PENDENTE com referência de pagamento e valor →
- * um super-administrador confirma o pagamento → a licença é prolongada (começa no dia a seguir ao fim actual, ou hoje se
- * já expirou; sem tolerância nem dias perdidos) e a empresa passa a PLANO. Não há gateway de pagamentos: a confirmação
- * é manual até se decidir o gateway.
+ * o pagamento é confirmado (manualmente por um super-administrador, ou automaticamente pelo gateway angolano —
+ * Referência/Multicaixa Express, ver GatewayPagamentoController/ProcessadorPagamentos) → a licença é prolongada
+ * (começa no dia a seguir ao fim actual, ou hoje se já expirou; sem tolerância nem dias perdidos) e a empresa passa a PLANO.
  */
 final class ServicoLicenca
 {
@@ -31,7 +33,7 @@ final class ServicoLicenca
     public function estado(): array
     {
         $empresa = Empresa::query()->findOrFail($this->contexto->obrigatorio());
-        $ativas = (bool) config('erp.licencas.ativo');
+        $ativas = DefinicoesPlataforma::licencasAtivas();
         $fim = $empresa->licenca_fim;
         $expirada = $empresa->licencaExpirada();
         $dias = $fim === null ? null : (int) now()->startOfDay()->diffInDays($fim->copy()->startOfDay(), false);
@@ -54,7 +56,7 @@ final class ServicoLicenca
             'aviso' => $aviso,
             'plano' => $ultima?->plano ? ['id' => $ultima->plano->id, 'codigo' => $ultima->plano->codigo, 'nome' => $ultima->plano->nome] : null,
             'pendentes' => SubscricaoEmpresa::query()->where('estado', SubscricaoEmpresa::PENDENTE)->count(),
-            'dias_teste' => (int) config('erp.licencas.dias_teste', 7),
+            'dias_teste' => DefinicoesPlataforma::diasTestePadrao(),
         ];
     }
 
@@ -157,6 +159,9 @@ final class ServicoLicenca
             'id' => $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'descricao' => $p->descricao,
             'preco_mensal' => (float) $p->preco_mensal, 'moeda' => $p->moeda, 'max_utilizadores' => $p->max_utilizadores, 'max_empresas' => $p->max_empresas,
             'ativo' => $p->ativo, 'ordem' => $p->ordem,
+            // Módulos da versão publicada em vigor (ModulosPlano, Fase 1 — os mesmos que bloqueiam o menu e a API):
+            // a landing page mostra sempre a verdade do que cada plano inclui, nunca uma lista à parte a divergir.
+            'modulos' => ModulosPlano::doTenant($p->codigo) ?? [],
         ];
     }
 

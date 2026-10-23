@@ -33,6 +33,9 @@ class Utilizador extends Autenticavel
 
     public const PAPEL_UTILIZADOR = 'UTILIZADOR';
 
+    /** Agente do backoffice de suporte (ADR-076, fase 4 fatia 3): tenant da plataforma, só tickets (ExigirSuporte). */
+    public const PAPEL_AGENTE_SUPORTE = 'AGENTE_SUPORTE';
+
     protected $table = 'utilizadores';
 
     protected string $moduloAuditoria = 'Sistema/Utilizadores';
@@ -104,6 +107,11 @@ class Utilizador extends Autenticavel
     public function eSuperAdministrador(): bool
     {
         return $this->papel === self::PAPEL_SUPER_ADMINISTRADOR;
+    }
+
+    public function eAgenteSuporte(): bool
+    {
+        return $this->papel === self::PAPEL_AGENTE_SUPORTE;
     }
 
     public function temCredencialLegada(): bool

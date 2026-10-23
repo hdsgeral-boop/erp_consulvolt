@@ -831,6 +831,26 @@ body {
   color: #1e293b;
 }
 
+/* Link «Voltar ao site» das telas de login: discreto, sem seta, com destaque suave ao passar o rato. */
+.erp-link-voltar {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  background: rgba(100, 116, 139, 0.07);
+  border: 1px solid rgba(100, 116, 139, 0.14);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.erp-link-voltar:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.28);
+  color: #1d4ed8;
+}
+
 /* ── Início (legado: ecrã de boas-vindas de js/ui_dashboard.js) ─────────────────────────────────────────────── */
 .erp-inicio {
   margin: -24px;

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Plataforma;
 
 use App\Http\Controllers\Controller;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ final class DefinicoesController extends Controller
         foreach ($d as $chave => $valor) {
             DB::table('definicoes_plataforma')->updateOrInsert(['chave' => $chave], ['valor' => $valor, 'atualizado_em' => now()]);
         }
+        DefinicoesPlataforma::invalidar();
 
         return RespostaApi::sucesso($this->valores(), 'Definições guardadas.');
     }

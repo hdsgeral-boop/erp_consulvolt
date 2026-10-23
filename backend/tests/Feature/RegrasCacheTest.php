@@ -37,6 +37,8 @@ final class RegrasCacheTest extends TestCase
         'Support/Cache/Batimentos.php',
         'Support/Cache/CacheComprimida.php',
         'Support/Dados/VerificadorReferencias.php',
+        'Support/Tenancy/DefinicoesPlataforma.php',
+        'Support/Tenancy/ModulosPlano.php',
     ];
 
     #[Test]

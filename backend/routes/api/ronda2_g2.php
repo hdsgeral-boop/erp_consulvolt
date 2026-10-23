@@ -18,8 +18,8 @@ Route::prefix('rh/salarios')->name('rh.salarios.')->group(function () {
     Route::put('periodos/{id}/lancamentos/lote', [FolhaSalarialController::class, 'editarLote'])->whereNumber('id')->name('lancamentos.lote.editar');
     Route::delete('periodos/{id}/lancamentos/lote', [FolhaSalarialController::class, 'removerLote'])->whereNumber('id')->name('lancamentos.lote.remover');
     Route::post('periodos/{id}/importar-excel', [ImportacaoRHController::class, 'calculo'])->whereNumber('id')->middleware('throttle:pesado')->name('periodos.importar-excel');
-    Route::get('periodos/{id}/recibos/{colaborador}/pdf', [ConfiguracaoRHController::class, 'reciboPdf'])->whereNumber(['id', 'colaborador'])->name('recibos.pdf');
-    Route::get('periodos/{id}/recibos-zip', [ConfiguracaoRHController::class, 'recibosZip'])->whereNumber('id')->middleware('throttle:pesado')->name('recibos.zip');
+    Route::get('periodos/{id}/recibos/{colaborador}/pdf', [ConfiguracaoRHController::class, 'reciboPdf'])->whereNumber(['id', 'colaborador'])->middleware('licenca_exportacao')->name('recibos.pdf');
+    Route::get('periodos/{id}/recibos-zip', [ConfiguracaoRHController::class, 'recibosZip'])->whereNumber('id')->middleware(['throttle:pesado', 'licenca_exportacao'])->name('recibos.zip');
 });
 
 Route::prefix('rh')->name('rh.')->group(function () {

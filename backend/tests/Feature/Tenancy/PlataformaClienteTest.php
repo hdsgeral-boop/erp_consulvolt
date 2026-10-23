@@ -3,6 +3,7 @@
 namespace Tests\Feature\Tenancy;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
@@ -60,30 +61,35 @@ class PlataformaClienteTest extends TestCase
         $this->getJson('/api/plataforma/planos', $sessao)->assertOk()->assertJsonPath('dados.planos.0.versoes.1.estado', 'DESCONTINUADA');
     }
 
-    public function test_limites_do_plano_aplicam_se_a_empresas_e_utilizadores_so_com_saas_activo(): void
+    public function test_limites_do_plano_aplicam_se_a_empresas_e_utilizadores_independentemente_do_saas_global(): void
     {
-        $plano = $this->plano(['max_empresas' => 1, 'max_utilizadores' => 1]);
+        $plano = $this->plano(['max_empresas' => 2, 'max_utilizadores' => 3]);
         [$cliente] = $this->cliente('limitado');
         $cliente->update(['plano' => $plano->codigo]);
         $limites = app(ServicoLimitesPlano::class);
 
-        // SaaS desligado: sem limites (comportamento actual).
-        app(ContextoTenant::class)->executarComo((int) $cliente->id, fn () => $limites->exigirLimiteUtilizadores());
+        // Ainda em demonstração (sem nenhuma empresa paga): o limite é sempre 1/1, mesmo o plano permitindo mais, e
+        // não depende do interruptor global do SaaS (erp.saas.ativo continua desligado neste teste).
+        try {
+            $limites->exigirLimiteUtilizadores((int) $cliente->id);
+            $this->fail('O administrador já ocupa o único lugar do período de demonstração.');
+        } catch (ErroNegocio $e) {
+            $this->assertSame('LIMITE_PLANO_UTILIZADORES', $e->codigo);
+        }
+        $limites->exigirLimiteEmpresas((int) $cliente->id); // 0 empresas de 1: ainda passa
 
-        config(['erp.saas.ativo' => true]);
-        app(ContextoTenant::class)->executarComo((int) $cliente->id, function () use ($limites) {
-            try {
-                $limites->exigirLimiteUtilizadores();
-                $this->fail('O administrador já ocupa o único lugar do plano.');
-            } catch (ErroNegocio $e) {
-                $this->assertSame('LIMITE_PLANO_UTILIZADORES', $e->codigo);
-            }
-            $limites->exigirLimiteEmpresas(); // 0 empresas de 1
-        });
+        // Depois de uma empresa com licença paga, os limites do plano (não mais 1/1) passam a valer.
+        app(ContextoTenant::class)->executarComo((int) $cliente->id, fn () => Empresa::query()->create(['nome' => 'Empresa Paga', 'nif' => '9988776655',
+            'moeda_funcional' => 'AOA', 'licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_inicio' => now()->toDateString(), 'licenca_fim' => now()->addMonth()->toDateString()]));
+        $uso = $limites->uso($cliente->fresh());
+        $this->assertFalse($uso['em_demonstracao']);
+        $this->assertSame(2, $uso['empresas']['limite']);
+        $this->assertSame(3, $uso['utilizadores']['limite']);
 
-        // Cliente sem plano: sem limites.
+        // Cliente sem plano: sem limites, em nenhum dos dois casos.
         [$livre] = $this->cliente('sem-plano');
-        app(ContextoTenant::class)->executarComo((int) $livre->id, fn () => $limites->exigirLimiteUtilizadores());
+        $limites->exigirLimiteUtilizadores((int) $livre->id);
+        $limites->exigirLimiteEmpresas((int) $livre->id);
     }
 
     public function test_plataforma_atribui_plano_e_minha_conta_mostra_o_uso(): void
@@ -95,6 +101,10 @@ class PlataformaClienteTest extends TestCase
 
         $this->putJson("/api/plataforma/clientes/{$cliente->id}/plano", ['plano' => 'nao-existe'], $sessao)->assertStatus(422);
         $this->putJson("/api/plataforma/clientes/{$cliente->id}/plano", ['plano' => $plano->codigo], $sessao)->assertOk();
+
+        // Com uma empresa de licença paga, os limites mostrados são os do plano (não o 1/1 do período de demonstração).
+        app(ContextoTenant::class)->executarComo((int) $cliente->id, fn () => Empresa::query()->create(['nome' => 'Empresa Paga', 'nif' => '1122334455',
+            'moeda_funcional' => 'AOA', 'licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_inicio' => now()->toDateString(), 'licenca_fim' => now()->addMonth()->toDateString()]));
 
         $this->getJson('/api/minha-conta', $sessaoCliente)->assertOk()
             ->assertJsonPath('dados.cliente.slug', 'minha-conta-a')

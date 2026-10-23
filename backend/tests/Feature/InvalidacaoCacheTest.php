@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\PlanoConta;
+use App\Models\PlanoLicenca;
 use App\Models\Produto;
+use App\Services\Plataforma\ServicoVersoesPlano;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\DefinicoesPlataforma;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -62,5 +66,41 @@ final class InvalidacaoCacheTest extends TestCase
         $this->assertSame(3, (int) Cache::get('empresas:versao'));   // sem transacção da aplicação, o «depois do commit» corre logo
         DB::transaction(fn () => $servico->invalidarTodos());
         $this->assertSame(5, (int) Cache::get('empresas:versao'));
+    }
+
+    #[Test]
+    public function definicoes_da_plataforma_em_cache_numa_so_leitura_e_invalidadas_tambem_depois_do_commit(): void
+    {
+        DB::table('definicoes_plataforma')->updateOrInsert(['chave' => 'dias_teste_padrao'], ['valor' => '10', 'atualizado_em' => now()]);
+        $this->assertSame(10, DefinicoesPlataforma::diasTestePadrao());
+        $this->assertTrue(Cache::has('plataforma:definicoes'));
+
+        DB::transaction(function () {
+            DB::table('definicoes_plataforma')->updateOrInsert(['chave' => 'dias_teste_padrao'], ['valor' => '20', 'atualizado_em' => now()]);
+            DefinicoesPlataforma::invalidar();
+            Cache::put('plataforma:definicoes', ['dias_teste_padrao' => '10'], 3600);   // pedido concorrente na janela da transacção
+        });
+
+        $this->assertNull(Cache::get('plataforma:definicoes'));
+        $this->assertSame(20, DefinicoesPlataforma::diasTestePadrao());
+    }
+
+    #[Test]
+    public function modulos_do_plano_em_cache_numa_so_leitura_e_invalidados_tambem_depois_do_commit(): void
+    {
+        $plano = PlanoLicenca::create(['codigo' => 'teste-cache', 'nome' => 'Teste', 'preco_mensal' => 1, 'moeda' => 'AOA', 'ativo' => true]);
+        $servico = app(ServicoVersoesPlano::class);
+        $servico->publicar($servico->atualizarRascunho($servico->criarRascunho($plano), ['modulos' => ['vendas']]));
+
+        $this->assertSame(['vendas'], ModulosPlano::doTenant('teste-cache'));
+        $this->assertTrue(Cache::has('plataforma:planos:modulos_em_vigor'));
+
+        DB::transaction(function () use ($servico, $plano) {
+            $servico->publicar($servico->atualizarRascunho($servico->criarRascunho($plano), ['modulos' => ['vendas', 'contab']]));
+            Cache::put('plataforma:planos:modulos_em_vigor', ['teste-cache' => ['vendas']], 3600);   // pedido concorrente na janela da transacção
+        });
+
+        $this->assertNull(Cache::get('plataforma:planos:modulos_em_vigor'));
+        $this->assertSame(['vendas', 'contab'], ModulosPlano::doTenant('teste-cache'));
     }
 }

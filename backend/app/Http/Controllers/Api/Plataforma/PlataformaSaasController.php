@@ -8,6 +8,7 @@ use App\Models\LogAuditoria;
 use App\Models\Tenant;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use App\Support\Tenancy\IsolamentoRls;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -24,14 +25,9 @@ final class PlataformaSaasController extends Controller
     /** GET /api/plataforma/saas/estado */
     public function estadoGeral(Request $request): JsonResponse
     {
-        $definicoes = DB::table('definicoes_plataforma')->pluck('valor', 'chave');
-        $saasConfig = (bool) config('erp.saas.ativo');
-        $licencasConfig = (bool) config('erp.licencas.ativo');
-
-        // Valores dinâmicos das definições se foram alterados na base de dados
-        $saasAtivo = isset($definicoes['saas_ativo']) ? $definicoes['saas_ativo'] === 'true' : $saasConfig;
-        $licencasAtivas = isset($definicoes['licencas_ativas']) ? $definicoes['licencas_ativas'] === 'true' : $licencasConfig;
-        $diasTeste = isset($definicoes['dias_teste_padrao']) ? (int) $definicoes['dias_teste_padrao'] : (int) config('erp.licencas.dias_teste', 7);
+        $saasAtivo = DefinicoesPlataforma::saasAtivo();
+        $licencasAtivas = DefinicoesPlataforma::licencasAtivas();
+        $diasTeste = DefinicoesPlataforma::diasTestePadrao();
 
         $totalTenants = Tenant::query()->count();
         $totalEmpresas = Empresa::query()->count();
@@ -102,6 +98,8 @@ final class PlataformaSaasController extends Controller
         if (isset($d['dias_teste_padrao'])) {
             DB::table('definicoes_plataforma')->updateOrInsert(['chave' => 'dias_teste_padrao'], ['valor' => (string) $d['dias_teste_padrao'], 'atualizado_em' => now()]);
         }
+
+        DefinicoesPlataforma::invalidar();
 
         return $this->estadoGeral($request);
     }
@@ -186,7 +184,7 @@ final class PlataformaSaasController extends Controller
             }
 
             if (! $fim && $d['origem'] === Empresa::LICENCA_TESTE) {
-                $fim = $hoje->copy()->addDays(7);
+                $fim = $hoje->copy()->addDays(DefinicoesPlataforma::diasTestePadrao());
             }
 
             $empresa->update([

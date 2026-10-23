@@ -23,23 +23,34 @@ final class IsolamentoRls
     /** Tabelas com `empresa_id` que ficam fora da RLS (ADR-009: auditoria imutável por privilégios, não por tenant). */
     private const EXCLUIDAS = ['logs_auditoria%'];
 
+    /**
+     * Tabelas isoladas directamente por `tenant_id` (não por `empresa_id`): a condição compara `tenant_id`, não faz a
+     * subconsulta a `empresas`. `utilizadores` não tem `empresa_id` (pertence ao tenant, liga-se a empresas por
+     * `utilizador_empresa`, essa sim com `empresa_id`) — sem isto, nenhuma RLS a protegia e qualquer serviço/controlador
+     * que esquecesse o `where('tenant_id', …)` (como o ServicoUtilizadores antes desta correcção) listava utilizadores
+     * de outros clientes. `tickets_suporte` fica de fora de propósito: pertence ao cliente mas é gerido pela equipa de
+     * suporte da própria plataforma, que precisa de ver tickets de todos os tenants (SuporteController).
+     */
+    private const TENANT_DIRETAS = ['empresas', 'utilizadores'];
+
     public function __construct(private readonly Connection $bd) {}
 
     /**
-     * Tabelas com `empresa_id` (e `empresas`) sem a política de isolamento.
+     * Tabelas com `empresa_id` (e as de TENANT_DIRETAS) sem a política de isolamento.
      *
      * @return list<string>
      */
     public function tabelasSemPolitica(): array
     {
-        $linhas = $this->bd->select(<<<'SQL'
+        $diretas = implode(',', array_map(fn ($t) => "'{$t}'", self::TENANT_DIRETAS));
+        $linhas = $this->bd->select(<<<SQL
             SELECT t.tabela FROM (
-                SELECT 'empresas'::text AS tabela
+                SELECT unnest(ARRAY[{$diretas}])::text AS tabela
                 UNION
                 SELECT c.table_name::text FROM information_schema.columns c
                 JOIN information_schema.tables tb ON tb.table_schema = c.table_schema AND tb.table_name = c.table_name
                 WHERE c.table_schema = 'public' AND c.column_name = 'empresa_id' AND tb.table_type = 'BASE TABLE'
-                  AND c.table_name <> 'empresas' AND c.table_name NOT LIKE 'logs_auditoria%'
+                  AND c.table_name NOT IN ({$diretas}) AND c.table_name NOT LIKE 'logs_auditoria%'
             ) t
             WHERE NOT EXISTS (
                 SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = t.tabela AND p.policyname = ?
@@ -65,7 +76,7 @@ final class IsolamentoRls
             $this->bd->statement("ALTER TABLE {$tabela} ENABLE ROW LEVEL SECURITY");
             $this->bd->statement('DROP POLICY IF EXISTS '.self::POLITICA." ON {$tabela}");
 
-            $condicao = $tabela === 'empresas'
+            $condicao = in_array($tabela, self::TENANT_DIRETAS, true)
                 ? 'tenant_id = app_tenant_id()'
                 : ($this->anulavel($tabela)
                     ? 'empresa_id IS NULL OR empresa_id IN (SELECT id FROM empresas)'

@@ -111,6 +111,30 @@ class AppServiceProvider extends ServiceProvider
     {
         Sanctum::usePersonalAccessTokenModel(TokenAcesso::class);
 
+        // `utilizadores` tem RLS por tenant_id (IsolamentoRls::TENANT_DIRETAS): o próprio Guard do Sanctum já lê
+        // `$accessToken->tokenable` (vendor/laravel/sanctum/src/Guard.php, isValidAccessToken->hasValidProvider)
+        // ANTES de chamar authenticateAccessTokensUsing — sem contexto ainda definido nesse ponto, a relação ficava
+        // em cache a null (Eloquent só corre a consulta uma vez) e nada feito depois a conseguia mudar: TODO pedido
+        // autenticado a seguir ao login falhava com 401 (só não apanhado pelos testes, que correm na ligação do
+        // dono, que ignora a RLS). Tem de ser aqui — o ponto mais cedo onde o Sanctum deixa entrar código próprio,
+        // antes de tocar em tokenable. tenant_do_token é SECURITY DEFINER (migração saas_rls_tenant_do_token): só
+        // devolve um tenant_id a partir do id do token, nunca dados pessoais — o mesmo bypass do login
+        // (login_localizar_utilizador), aqui para a autenticação por token.
+        Sanctum::getAccessTokenFromRequestUsing(function (Request $request) {
+            $token = $request->bearerToken();
+            if ($token && ContextoTenant::ativo() && str_contains($token, '|')) {
+                [$id] = explode('|', $token, 2);
+                if (ctype_digit($id)) {
+                    $tenantId = DB::selectOne('SELECT tenant_do_token(?) AS tenant_id', [(int) $id])?->tenant_id;
+                    if ($tenantId !== null) {
+                        app(ContextoTenant::class)->definir((int) $tenantId);
+                    }
+                }
+            }
+
+            return $token;
+        });
+
         // Paridade com o legado: a sessão expira após N minutos sem actividade (js/app_v2.js:704-723),
         // além da validade absoluta (expira_em). Utilizadores inactivos/eliminados perdem o acesso de imediato.
         Sanctum::authenticateAccessTokensUsing(function (TokenAcesso $token, bool $valido): bool {

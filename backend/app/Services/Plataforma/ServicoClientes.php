@@ -3,13 +3,16 @@
 namespace App\Services\Plataforma;
 
 use App\Exceptions\ErroNegocio;
+use App\Mail\ContaSuspensaMail;
 use App\Models\Empresa;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoGestaoEmpresas;
+use App\Services\Sistema\ServicoPerfis;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Clientes SaaS (tenants) geridos pela plataforma: criação com o administrador do cliente e, opcionalmente, a primeira
@@ -21,13 +24,16 @@ final class ServicoClientes
     public function __construct(
         private readonly ContextoTenant $tenant,
         private readonly ServicoGestaoEmpresas $empresas,
+        private readonly ServicoPerfis $perfis,
     ) {}
 
     /** @return Collection<int, array{tenant: Tenant, empresas: int, utilizadores: int}> */
     public function listar(): Collection
     {
         $empresas = collect(DB::select('SELECT tenant_id, empresas FROM plataforma_empresas_por_tenant()'))->keyBy('tenant_id');
-        $utilizadores = DB::table('utilizadores')->select('tenant_id', DB::raw('count(*) as total'))->groupBy('tenant_id')->pluck('total', 'tenant_id');
+        // utilizadores tem RLS (tenant_id directo): a função SECURITY DEFINER vê todos os tenants, tal como
+        // plataforma_empresas_por_tenant() já fazia para empresas (ver migração saas_rls_utilizadores).
+        $utilizadores = collect(DB::select('SELECT tenant_id, total FROM plataforma_utilizadores_por_tenant()'))->pluck('total', 'tenant_id');
 
         return Tenant::query()->orderBy('id')->get()->map(fn (Tenant $c) => [
             'tenant' => $c,
@@ -56,23 +62,34 @@ final class ServicoClientes
     }
 
     /**
-     * Cria o cliente, o seu administrador (super-administrador do próprio cliente, com acesso a todas as suas empresas)
-     * e a empresa inicial, se indicada. Tudo numa transacção, os dados do cliente no seu próprio contexto (RLS).
+     * Cria o cliente, o seu administrador (administrador do próprio cliente, com acesso a todas as suas empresas) e a
+     * empresa inicial, se indicada. Tudo numa transacção, os dados do cliente no seu próprio contexto (RLS).
+     *
+     * Papel ADMINISTRADOR, nunca SUPER_ADMINISTRADOR: esse está reservado a quem controla a plataforma por completo
+     * (ExigirPlataforma — tenant da própria Consulvolt), não ao administrador de um cliente, por mais empresas que
+     * ele giriras. Era um erro de RBAC corrigido aqui: além de confundir os dois papéis, um SUPER_ADMINISTRADOR fica
+     * isento da expiração da licença (ResolverEmpresaAtiva::licenca) — um cliente criado por aqui nunca ficava
+     * sujeito à cobrança. O acesso completo aos módulos de negócio vem do perfil de acesso total
+     * (ServicoPermissoes::total(), tal como RegistoEmpresaController), ainda capado pelo plano do cliente
+     * (ServicoPermissoes::bloqueadaPeloPlano/ModulosPlano).
      *
      * @param  array{nome: string, slug: string, administrador: array<string, mixed>, empresa?: array<string, mixed>|null}  $d
      * @return array{cliente: Tenant, administrador: Utilizador, empresa: ?Empresa}
      */
     public function criar(array $d): array
     {
-        return DB::transaction(function () use ($d) {
+        $perfilTotal = $this->perfis->perfilAcessoTotal();
+
+        return DB::transaction(function () use ($d, $perfilTotal) {
             $cliente = Tenant::create(['nome' => $d['nome'], 'slug' => $d['slug'], 'estado' => Tenant::ESTADO_ATIVO]);
 
-            return $this->tenant->executarComo((int) $cliente->id, function () use ($d, $cliente) {
+            return $this->tenant->executarComo((int) $cliente->id, function () use ($d, $cliente, $perfilTotal) {
                 $administrador = new Utilizador([
                     'nome_utilizador' => $d['administrador']['nome_utilizador'],
                     'nome_completo' => $d['administrador']['nome_completo'] ?? null,
                     'palavra_passe' => $d['administrador']['palavra_passe'],
-                    'papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR,
+                    'papel' => Utilizador::PAPEL_ADMINISTRADOR,
+                    'perfil_utilizador_id' => $perfilTotal->id,
                     'acesso_todas_empresas' => true,
                     'ativo' => true,
                 ]);
@@ -96,11 +113,15 @@ final class ServicoClientes
     /** @return array{cliente: Tenant, empresas: Collection<int, Empresa>, utilizadores: int} */
     public function detalhe(Tenant $cliente): array
     {
-        return [
+        // utilizadores tem RLS por tenant_id (IsolamentoRls::TENANT_DIRETAS): fora do contexto do próprio cliente,
+        // a consulta ficaria sempre a zero (como empresas, por isso o mesmo executarComo). O where('tenant_id', …)
+        // explícito é a 2.ª camada (regra do projecto: nunca confiar só na RLS) — é também o que mantém a contagem
+        // correcta numa ligação que ignora a RLS (dono/testes), onde o executarComo por si só não filtra nada.
+        return $this->tenant->executarComo((int) $cliente->id, fn () => [
             'cliente' => $cliente,
-            'empresas' => $this->tenant->executarComo((int) $cliente->id, fn () => Empresa::query()->orderBy('id')->get()),
+            'empresas' => Empresa::query()->where('tenant_id', $cliente->id)->orderBy('id')->get(),
             'utilizadores' => Utilizador::query()->where('tenant_id', $cliente->id)->count(),
-        ];
+        ]);
     }
 
     /** Edita uma empresa do cliente, no contexto dele, pela mesma regra da aplicação (NIF único, etc.). */
@@ -120,8 +141,23 @@ final class ServicoClientes
     {
         $this->naoMexerNaPlataforma($cliente, $estado === Tenant::ESTADO_SUSPENSO);
         $cliente->update(['estado' => $estado]);
+        if ($estado === Tenant::ESTADO_SUSPENSO) {
+            $this->notificarSuspensao($cliente);
+        }
 
         return $cliente->refresh();
+    }
+
+    /** utilizadores tem RLS por tenant_id: o administrador do cliente só é visível no contexto dele (ver detalhe()). */
+    private function notificarSuspensao(Tenant $cliente): void
+    {
+        $admin = $this->tenant->executarComo((int) $cliente->id, fn () => Utilizador::query()
+            ->whereIn('papel', [Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_SUPER_ADMINISTRADOR])
+            ->whereNotNull('email')->orderBy('id')->first());
+
+        if ($admin?->email) {
+            Mail::to($admin->email)->send(new ContaSuspensaMail($admin->nome_completo ?: $admin->nome_utilizador, $cliente->nome));
+        }
     }
 
     /** Arquiva o cliente (bloqueado, dados preservados). */

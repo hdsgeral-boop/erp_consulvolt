@@ -80,6 +80,21 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
     expect(rotulos(sistema.children)).toEqual(['Configurações', 'Migração de Dados']);
   });
 
+  it('grupo «Plataforma SaaS» chama-se «Minha Licença» para quem não é Super Administrador', () => {
+    // O menu já vem filtrado do servidor (ServicoPermissoes::elegivelPlataforma): um utilizador comum nunca recebe
+    // ecrãs plataforma_*; só aqui se testa o rótulo do grupo, que depende de `opts.superAdmin`, não do conteúdo.
+    const semPlataforma: ModuloMenu[] = [...MENU, { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('config_licenca'), ecra('minha_conta')] }];
+    const comum = filho(filho(construirMenuLateral(semPlataforma, { superAdmin: false }).itens as Item[], 'Sistema').children, 'Minha Licença');
+    expect(rotulos(comum.children)).toEqual(['Licença e plano', 'Minha conta']);
+
+    const comPlataforma: ModuloMenu[] = [
+      ...MENU,
+      { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('config_licenca'), ecra('minha_conta'), ecra('plataforma_clientes')] },
+    ];
+    const admin = filho(filho(construirMenuLateral(comPlataforma, { superAdmin: true }).itens as Item[], 'Sistema').children, 'Plataforma SaaS');
+    expect(rotulos(admin.children)).toEqual(['Licença e plano', 'Plataforma: clientes', 'Minha conta']);
+  });
+
   it('sem permissões, os grupos vazios desaparecem', () => {
     const so = construirMenuLateral([{ id: 'vendas', nome: 'Vendas e Facturação', ecras: [ecra('vendas_faturacao')] }]).itens as Item[];
     expect(rotulos(so)).toEqual(['Início', 'Menu Geral']);

@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
+import { Modal } from 'antd';
 import { ErroApi, type Envelope, type Pagina } from './tipos';
 import { armazenamento } from '@/sessao/armazenamento';
 
@@ -12,6 +13,29 @@ let aoExpirar: (() => void) | null = null;
 /** A sessão regista aqui o que fazer quando o servidor responde 401 (sessão expirada ou inválida). */
 export function definirAoExpirar(funcao: () => void): void {
   aoExpirar = funcao;
+}
+
+let avisoLicencaAberto = false;
+/**
+ * Licença expirada (ADR-074): a empresa fica só de leitura (criação/edição/eliminação/exportação bloqueadas no
+ * backend). Em vez de um erro genérico por ecrã, mostra um aviso claro com atalho directo para a página de planos
+ * e pagamento, uma única vez de cada vez (vários pedidos a falhar ao mesmo tempo não abrem vários avisos).
+ */
+function avisarLicencaExpirada(mensagem: string): void {
+  if (avisoLicencaAberto) return;
+  avisoLicencaAberto = true;
+  Modal.warning({
+    title: 'Licença expirada',
+    content: mensagem,
+    okText: 'Ver planos e pagar',
+    centered: true,
+    onOk: () => {
+      window.location.href = '/m/config/config_licenca';
+    },
+    afterClose: () => {
+      avisoLicencaAberto = false;
+    },
+  });
 }
 
 http.interceptors.request.use((config) => {
@@ -31,6 +55,7 @@ http.interceptors.response.use(
     const mensagem =
       corpo?.mensagem ??
       (estado === 0 ? 'Sem ligação ao servidor. Verifique a rede e tente novamente.' : `Erro inesperado (${estado}).`);
+    if (corpo?.codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
     return Promise.reject(new ErroApi(mensagem, estado, corpo?.codigo, corpo?.erros as Record<string, unknown> | undefined));
   },
 );
@@ -81,6 +106,7 @@ export async function descarregar(url: string, params: Record<string, unknown> |
     } catch {
       /* corpo não é JSON */
     }
+    if (codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
     throw new ErroApi(mensagem, r.status, codigo, erros);
   }
   const cabecalhos: Record<string, string> = {};

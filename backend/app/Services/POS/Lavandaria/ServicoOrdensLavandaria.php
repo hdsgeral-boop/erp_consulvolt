@@ -75,6 +75,7 @@ final class ServicoOrdensLavandaria
 
         return DB::transaction(function () use ($sessaoId, $d, $cfg, $cliente, $modo, $itens, $domicilio, $urgencia, $dias) {
             [$s, $t] = $this->caixa->sessaoValida($sessaoId);
+            $this->exigirServicosDoTerminal($itens, $t);
             $ano = (int) now()->format('Y');
             $prefixo = "OS/{$t->codigo}/{$ano}/";
             $n = $this->numeracao->proximo($this->contexto->obrigatorio(), "lav_os:{$t->id}:{$ano}", fn () => max((int) ($t->lavandaria_contadores_os[(string) $ano] ?? 0),
@@ -526,6 +527,25 @@ final class ServicoOrdensLavandaria
                 'percentagem_no_prazo' => $g['concluidas'] ? (int) round($g['no_prazo'] / $g['concluidas'] * 100) : null,
                 'execucao_media' => $media($g['exec']), 'ciclo_medio' => $media($g['ciclo'])], array_filter($porResp, fn ($g) => $g['em_execucao'] || $g['por_levantar'] || $g['concluidas']))),
         ];
+    }
+
+    /**
+     * O pedido feito à mão não contorna a configuração do terminal (a mesma regra do ecrã de Recepção, que só
+     * oferece os serviços configurados): `lavandaria_servicos_ids` nulo no terminal = sem restrição.
+     *
+     * @param  list<array<string, mixed>>  $itens
+     */
+    private function exigirServicosDoTerminal(array $itens, TerminalPOS $t): void
+    {
+        $permitidos = $t->lavandaria_servicos_ids;
+        if ($permitidos === null) {
+            return;
+        }
+        foreach ($itens as $i) {
+            if (! in_array((int) $i['produto_id'], $permitidos, true)) {
+                throw new ErroNegocio("O serviço «{$i['nome']}» não está configurado no terminal {$t->codigo}.", 'SERVICO_FORA_DO_TERMINAL', 422, ['produto_id' => $i['produto_id']]);
+            }
+        }
     }
 
     /** @return list<array<string, mixed>> */

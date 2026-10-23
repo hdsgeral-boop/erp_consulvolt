@@ -1,4 +1,13 @@
-import { Button, Card, Drawer, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd';
+import { Avatar, Button, Card, Descriptions, Drawer, Empty, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import {
+  BankOutlined,
+  EyeOutlined,
+  InboxOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  PlusOutlined,
+  TeamOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
@@ -69,48 +78,90 @@ export default function PlataformaClientes() {
   return (
     <>
       <CabecalhoPagina titulo="Clientes" subtitulo="Contas SaaS: cada cliente tem os seus utilizadores e empresas isolados" />
-      <Card extra={<Button type="primary" onClick={() => { form.resetFields(); setCriar(true); }}>Novo cliente</Button>}>
+      <Card extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setCriar(true); }}>Novo cliente</Button>}>
         <Table<Cliente>
           rowKey="id"
-          size="small"
+          size="middle"
           loading={lista.isLoading}
           dataSource={lista.data ?? []}
           scroll={{ x: 'max-content' }}
           columns={[
-            { title: 'Cliente', dataIndex: 'nome' },
-            { title: 'Endereço', dataIndex: 'slug' },
+            {
+              title: 'Cliente',
+              dataIndex: 'nome',
+              render: (nome: string) => (
+                <Space>
+                  <Avatar style={{ background: '#1947b3', flex: 'none' }}>{nome.slice(0, 2).toUpperCase()}</Avatar>
+                  <strong>{nome}</strong>
+                </Space>
+              ),
+            },
+            { title: 'Endereço', dataIndex: 'slug', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
             { title: 'Estado', render: (_, c) => <Tag color={COR[c.estado]}>{c.estado}</Tag> },
             { title: 'Empresas', dataIndex: 'empresas', align: 'right' },
             { title: 'Utilizadores', dataIndex: 'utilizadores', align: 'right' },
             { title: 'Criado em', render: (_, c) => formatarData(c.criado_em) },
             {
               title: '',
+              align: 'right',
               render: (_, c) => (
                 <Space>
-                  <Button size="small" onClick={() => setVer(c.id)}>Detalhe</Button>
-                  {c.estado === 'ATIVO' && c.id !== 1 && <Popconfirm title="Suspender o cliente? Os utilizadores deixam de entrar." onConfirm={() => estado.mutate({ id: c.id, estado: 'SUSPENSO' })}><Button size="small">Suspender</Button></Popconfirm>}
-                  {c.estado === 'SUSPENSO' && <Button size="small" onClick={() => estado.mutate({ id: c.id, estado: 'ATIVO' })}>Activar</Button>}
-                  {c.estado !== 'ARQUIVADO' && c.id !== 1 && <Popconfirm title="Arquivar? Os dados ficam guardados." onConfirm={() => arquivar.mutate(c.id)}><Button size="small" danger>Arquivar</Button></Popconfirm>}
+                  <Button size="small" icon={<EyeOutlined />} onClick={() => setVer(c.id)}>Detalhe</Button>
+                  {c.estado === 'ATIVO' && c.id !== 1 && (
+                    <Popconfirm title="Suspender o cliente? Os utilizadores deixam de entrar." onConfirm={() => estado.mutate({ id: c.id, estado: 'SUSPENSO' })}>
+                      <Button size="small" icon={<PauseCircleOutlined />}>Suspender</Button>
+                    </Popconfirm>
+                  )}
+                  {c.estado === 'SUSPENSO' && (
+                    <Button size="small" icon={<PlayCircleOutlined />} onClick={() => estado.mutate({ id: c.id, estado: 'ATIVO' })}>Activar</Button>
+                  )}
+                  {c.estado !== 'ARQUIVADO' && c.id !== 1 && (
+                    <Popconfirm title="Arquivar? Os dados ficam guardados." onConfirm={() => arquivar.mutate(c.id)}>
+                      <Button size="small" danger icon={<InboxOutlined />}>Arquivar</Button>
+                    </Popconfirm>
+                  )}
                 </Space>
               ),
             },
           ]}
         />
       </Card>
-      <Drawer open={ver !== null} onClose={() => setVer(null)} width={560} title={detalhe.data?.nome ?? 'Cliente'}>
-        <p>Utilizadores: {detalhe.data?.utilizadores ?? '—'}</p>
-        <p>Plano: <Select allowClear style={{ width: 240 }} placeholder="Sem plano" value={detalhe.data?.plano ?? undefined} options={(planos.data?.planos ?? []).map((p) => ({ value: p.codigo, label: p.nome }))} onChange={(v) => ver !== null && plano.mutate({ id: ver, plano: v ?? null })} /></p>
+      <Drawer open={ver !== null} onClose={() => setVer(null)} width={580} title={detalhe.data?.nome ?? 'Cliente'} destroyOnClose>
+        <Descriptions column={1} size="small" bordered style={{ marginBottom: 20 }}>
+          <Descriptions.Item label={<Space size={6}><TeamOutlined />Utilizadores</Space>}>{detalhe.data?.utilizadores ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="Plano comercial">
+            <Select
+              allowClear
+              style={{ width: 260 }}
+              placeholder="Sem plano"
+              value={detalhe.data?.plano ?? undefined}
+              options={(planos.data?.planos ?? []).map((p) => ({ value: p.codigo, label: p.nome }))}
+              onChange={(v) => ver !== null && plano.mutate({ id: ver, plano: v ?? null })}
+            />
+          </Descriptions.Item>
+        </Descriptions>
+        <Typography.Title level={5} style={{ marginBottom: 12 }}>
+          <BankOutlined style={{ marginRight: 8 }} />Empresas
+        </Typography.Title>
         <Table<EmpresaCliente>
           rowKey="id"
           size="small"
           loading={detalhe.isLoading}
           pagination={false}
           dataSource={detalhe.data?.empresas ?? []}
+          locale={{ emptyText: <Empty description="Este cliente ainda não tem empresas." image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
           columns={[
             { title: 'Empresa', dataIndex: 'nome' },
             { title: 'NIF', dataIndex: 'nif' },
-            { title: 'Estado', dataIndex: 'estado' },
-            { title: 'Licença', render: (_, e) => `${e.licenca_origem}${e.licenca_fim ? ` até ${formatarData(e.licenca_fim)}` : ''}` },
+            { title: 'Estado', render: (_, e) => <Tag color={e.estado === 'ATIVO' ? 'green' : 'default'}>{e.estado}</Tag> },
+            {
+              title: 'Licença',
+              render: (_, e) => (
+                <Tag color={e.licenca_origem === 'TESTE' ? 'blue' : e.licenca_origem === 'SEM_LIMITE' ? 'gold' : 'purple'}>
+                  {e.licenca_origem}{e.licenca_fim ? ` até ${formatarData(e.licenca_fim)}` : ''}
+                </Tag>
+              ),
+            },
           ]}
         />
       </Drawer>

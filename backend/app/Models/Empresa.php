@@ -62,11 +62,11 @@ class Empresa extends ModeloBase
                 $e->tenant_id ??= app(\App\Support\Tenancy\ContextoTenant::class)->paraNovo();
             }
 
-            // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de teste.
-            if (config('erp.licencas.ativo') && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE) {
+            // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de demonstração.
+            if (\App\Support\Tenancy\DefinicoesPlataforma::licencasAtivas() && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE) {
                 $e->licenca_origem = self::LICENCA_TESTE;
                 $e->licenca_inicio = now()->toDateString();
-                $e->licenca_fim = now()->addDays((int) config('erp.licencas.dias_teste', 7))->toDateString();
+                $e->licenca_fim = now()->addDays(\App\Support\Tenancy\DefinicoesPlataforma::diasTestePadrao())->toDateString();
             }
         });
         $invalidar = fn () => app(ServicoEmpresas::class)->invalidarTodos();

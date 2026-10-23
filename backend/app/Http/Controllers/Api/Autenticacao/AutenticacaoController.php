@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Autenticacao\EntrarRequest;
 use App\Http\Resources\Sistema\EmpresaResource;
 use App\Http\Resources\Sistema\UtilizadorResource;
+use App\Mail\RecuperacaoPasswordMail;
 use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
@@ -13,6 +14,7 @@ use App\Models\Utilizador;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 final class AutenticacaoController extends Controller
 {
@@ -65,10 +67,15 @@ final class AutenticacaoController extends Controller
 
         $identificador = trim($request->string('identificador')->toString());
 
-        $utilizador = Utilizador::query()
-            ->where('nome_utilizador', $identificador)
-            ->orWhere('email', $identificador)
-            ->first();
+        // Tal como no login: ainda não se sabe a que tenant pertence, por isso a pesquisa por nome ou email tem de
+        // atravessar todos (login_localizar_utilizador, SECURITY DEFINER — ver ServicoAutenticacao::entrar).
+        $utilizador = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizador(?, ?)', [$identificador, $identificador])->first();
+
+        // Mensagem sempre igual quer o utilizador exista ou não, para não revelar se uma conta existe (igual à
+        // lógica de autenticação, ServicoAutenticacao::entrar): só muda se um email é mesmo enviado.
+        if ($utilizador && $utilizador->ativo && $utilizador->email) {
+            Mail::to($utilizador->email)->send(new RecuperacaoPasswordMail($utilizador->nome_utilizador, $utilizador->nome_completo ?: $utilizador->nome_utilizador));
+        }
 
         return RespostaApi::sucesso([
             'processado' => true,

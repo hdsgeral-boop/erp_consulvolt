@@ -62,6 +62,8 @@ return [
             'plano_contas' => 14400,
             'catalogo_produtos' => 7200,
             'taxas_cambio' => 21600,           // reservado: as taxas de câmbio ainda não estão em cache
+            'definicoes_plataforma' => 3600,   // DefinicoesPlataforma: lida em todos os pedidos com empresa activa
+            'planos_modulos' => 3600,          // ModulosPlano: lida em todos os pedidos autenticados (menu, Gate)
         ],
         // Conjuntos grandes (plano de contas, catálogo) comprimidos pela aplicação acima deste tamanho serializado
         // (CacheComprimida). NÃO usar Redis::OPT_COMPRESSION na ligação: partiria o INCRBY de Cache::add+increment.
@@ -140,7 +142,7 @@ return [
     ],
 
     // Licença por empresa (ADR-074). Desligado: sem expiração nem período de teste (comportamento anterior).
-    // Módulos que um plano pode incluir (registados na versão do plano; ainda não condicionam o acesso).
+    // Módulos que um plano pode incluir (registados na versão do plano; condicionam o menu e o Gate — ver ModulosPlano).
     'planos_catalogo' => [
         'modulos' => [
             'vendas' => 'Vendas', 'compras' => 'Compras', 'stock' => 'Stock', 'contab' => 'Contabilidade', 'teso' => 'Tesouraria',
@@ -150,7 +152,9 @@ return [
 
     'licencas' => [
         'ativo' => (bool) env('LICENCAS_ATIVAS', false),
-        'dias_teste' => (int) env('LICENCAS_DIAS_TESTE', 7),
+        // 30 dias: alinhado com a promessa comercial da landing page e do registo ("30 dias grátis"). Pode ser
+        // alterado sem reiniciar a aplicação em Plataforma → SaaS → "Dias de Teste Padrão" (definicoes_plataforma).
+        'dias_teste' => (int) env('LICENCAS_DIAS_TESTE', 30),
     ],
 
     'dominio' => [

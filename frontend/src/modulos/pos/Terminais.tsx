@@ -26,6 +26,7 @@ import { ModalDefinicoesCaixa } from './comum/DefinicoesCaixa';
 import { iconeMeio, useSeriesTerminais } from './comum/frente';
 import './comum/pos.css';
 import { AvisoSessoesAntigas } from './frente/AvisoSessoesAntigas';
+import { ModalServicosTerminal } from './lavandaria/ServicosTerminal';
 
 /** Subtítulo do legado (renderTerminais, pos_gestao.js). */
 export const SUBTITULO_TERMINAIS = 'Série documental, armazém, cliente por omissão e meios de pagamento com a conta transitória de cada meio.';
@@ -63,6 +64,7 @@ export default function Terminais() {
   const [editar, setEditar] = useState<Terminal | 'novo' | null>(null);
   const [copiar, setCopiar] = useState<Terminal | null>(null);
   const [definicoes, setDefinicoes] = useState(false);
+  const [servicosLav, setServicosLav] = useState<{ terminal: Terminal; obrigatorio: boolean } | null>(null);
   const accao = useAccao({ invalidar: [['pos']] });
   const pequeno = useEcraPequeno();
   const serie = (t: Terminal) => series.data?.[String(t.id)]?.serie ?? null;
@@ -143,6 +145,17 @@ export default function Terminais() {
               return (
                 <Space size={4} wrap>
                   {a.editar && <Button size="small" icon={<IconeFa nome="cog" />} onClick={() => setEditar(t)} aria-label="Configurar" title="Configurar" />}
+                  {a.editar && t.tipo === 'LAVANDARIA' && (
+                    <Tooltip title={t.lavandaria_servicos_ids?.length ? 'Configurar serviços' : 'Configurar serviços — ainda sem nenhum escolhido'}>
+                      <Button
+                        size="small"
+                        icon={<IconeFa nome="tshirt" />}
+                        danger={!t.lavandaria_servicos_ids?.length}
+                        onClick={() => setServicosLav({ terminal: t, obrigatorio: false })}
+                        aria-label="Configurar serviços"
+                      />
+                    </Tooltip>
+                  )}
                   {a.copiarMeios && (
                     <Tooltip title="Copiar meios de pagamento de outro terminal">
                       <Button size="small" icon={<CopyOutlined />} onClick={() => setCopiar(t)} aria-label="Copiar meios" />
@@ -180,9 +193,15 @@ export default function Terminais() {
           },
         ]}
       />
-      <EditorTerminal alvo={editar} terminais={terminais.data ?? []} aoFechar={() => setEditar(null)} />
+      <EditorTerminal
+        alvo={editar}
+        terminais={terminais.data ?? []}
+        aoFechar={() => setEditar(null)}
+        aoCriarLavandaria={(t) => setServicosLav({ terminal: t, obrigatorio: true })}
+      />
       <ModalCopiarMeios destino={copiar} terminais={terminais.data ?? []} aoFechar={() => setCopiar(null)} />
       <ModalDefinicoesCaixa aberto={definicoes} aoFechar={() => setDefinicoes(false)} />
+      <ModalServicosTerminal terminal={servicosLav?.terminal ?? null} obrigatorio={servicosLav?.obrigatorio} aoFechar={() => setServicosLav(null)} />
     </>
   );
 }
@@ -232,14 +251,22 @@ const TIPOS_NEGOCIO: Record<string, string> = { LOJA: 'Loja / Supermercado', RES
 const hora = (v: string | null | undefined) => (v ? dayjs(v, 'HH:mm') : null);
 const textoHora = (v: Dayjs | null | undefined) => (v ? v.format('HH:mm') : null);
 
-function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo' | null; terminais: Terminal[]; aoFechar: () => void }) {
+function EditorTerminal({ alvo, terminais, aoFechar, aoCriarLavandaria }: { alvo: Terminal | 'novo' | null; terminais: Terminal[]; aoFechar: () => void; aoCriarLavandaria: (t: Terminal) => void }) {
   const [form] = Form.useForm<FormTerminal>();
   const [erros, setErros] = useState<string[]>([]);
   const novo = alvo === 'novo';
   const t = alvo && alvo !== 'novo' ? alvo : null;
   const tipo = Form.useWatch('tipo', form);
   const { token } = theme.useToken();
-  const gravar = useAccao({ invalidar: [['pos']], aoSucesso: aoFechar, tituloErro: 'Não foi possível gravar o terminal' });
+  // novo terminal de Lavandaria: a seguir a criar, obriga a escolher os serviços que este POS vai usar
+  const gravar = useAccao<Terminal>({
+    invalidar: [['pos']],
+    aoSucesso: (res) => {
+      aoFechar();
+      if (novo && res.tipo === 'LAVANDARIA') aoCriarLavandaria(res);
+    },
+    tituloErro: 'Não foi possível gravar o terminal',
+  });
 
   useEffect(() => {
     if (!alvo) return;

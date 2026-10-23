@@ -3,6 +3,7 @@ import {
   ApiOutlined,
   AppstoreOutlined,
   ArrowLeftOutlined,
+  AuditOutlined,
   CheckOutlined,
   DownOutlined,
   EditOutlined,
@@ -191,7 +192,8 @@ function Estrutura() {
   const alternarRecolhido = () => definir({ menu: recolhido ? anteriorExpandido.current : 'icones' });
   const alternarTema = useCallback(() => definir({ tema: escuro ? 'claro' : 'escuro' }), [definir, escuro]);
 
-  const lateral = useMemo(() => construirMenuLateral(menu), [menu]);
+  const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
+  const lateral = useMemo(() => construirMenuLateral(menu, { superAdmin }), [menu, superAdmin]);
   // menu com o grupo «Favoritos» (como no legado: Início, Dashboard Global, Relatórios de Gestão, Fluxo de Processos,
   // Favoritos, Menu Geral, Sistema)
   const base = useMemo(() => {
@@ -431,6 +433,9 @@ function Estrutura() {
       : []),
     ...(podeIA ? [{ key: 'ia', icon: <RobotOutlined />, label: 'Assistente IA', onClick: () => setPainel('ia') }] : []),
     ...(podeBI ? [{ key: 'powerbi', icon: <ApiOutlined />, label: 'Power BI (feed OData)', onClick: () => setPainel('powerbi') }] : []),
+    // Super Administrador: o login já não força a consola da plataforma (vai direto à escolha de empresa/ERP), por
+    // isso precisa deste link para lá chegar quando quiser (simétrico ao «Entrar no ERP» de LayoutPlataforma).
+    ...(superAdmin ? [{ key: 'consola-plataforma', icon: <AuditOutlined />, label: 'Consola da Plataforma', onClick: () => navegar('/admin') }] : []),
     { type: 'divider' as const },
     { key: 'sair', icon: <LogoutOutlined />, label: 'Terminar sessão', onClick: () => void sair() },
   ];

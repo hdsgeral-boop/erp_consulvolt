@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Api\Sistema;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NovoUtilizadorMail;
+use App\Mail\PalavraPasseRedefinidaMail;
+use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 /** /api/sistema/utilizadores — config_utilizadores (consulta) e config_util_gerir (criar, editar, eliminar). */
@@ -37,7 +41,12 @@ final class UtilizadorController extends Controller
     public function store(Request $r): JsonResponse
     {
         $this->exigir('config_util_gerir');
-        $u = $this->utilizadores->criar($this->validar($r, true), $r->user());
+        $d = $this->validar($r, true);
+        $u = $this->utilizadores->criar($d, $r->user());
+        if ($u->email) {
+            $nomeEmpresa = Tenant::query()->whereKey($r->user()->tenant_id)->value('nome') ?? 'a sua empresa';
+            Mail::to($u->email)->send(new NovoUtilizadorMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, (string) $d['palavra_passe'], $nomeEmpresa));
+        }
 
         return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador criado com sucesso.');
     }
@@ -64,7 +73,11 @@ final class UtilizadorController extends Controller
         $this->exigir('config_util_gerir');
         $d = $r->validate(['palavra_passe' => ['required', 'string', 'min:'.ServicoUtilizadores::MINIMO_PALAVRA_PASSE, 'max:200', 'confirmed']],
             [], ['palavra_passe' => 'palavra-passe']);
-        $this->utilizadores->reporPalavraPasse(Utilizador::query()->findOrFail($utilizador), $d['palavra_passe'], $r->user());
+        $u = $this->utilizadores->reporPalavraPasse(Utilizador::query()->findOrFail($utilizador), $d['palavra_passe'], $r->user());
+        if ($u->email) {
+            $nomeEmpresa = Tenant::query()->whereKey($r->user()->tenant_id)->value('nome') ?? 'a sua empresa';
+            Mail::to($u->email)->send(new PalavraPasseRedefinidaMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, $nomeEmpresa));
+        }
 
         return RespostaApi::sucesso(null, 'Palavra-passe reposta. As sessões abertas do utilizador foram terminadas.');
     }

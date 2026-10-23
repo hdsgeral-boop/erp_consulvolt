@@ -2,7 +2,7 @@ import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'ant
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
@@ -11,6 +11,7 @@ import { naRotaPortal } from '@/portal/rota';
 /** Entrada no sistema, com o aspecto do sistema anterior: fotografia de fundo e cartão translúcido ao centro. */
 export function Entrar() {
   const { entrar, motivoSaida } = useSessao();
+  const navegar = useNavigate();
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
   const portal = naRotaPortal();
@@ -20,7 +21,10 @@ export function Entrar() {
     setErro(null);
     setAEntrar(true);
     try {
-      await entrar(v.nome_utilizador, v.palavra_passe);
+      const u = await entrar(v.nome_utilizador, v.palavra_passe);
+      // só este login explícito (a seguir a um logout) cai na consola da plataforma; trocar de empresa a meio da
+      // sessão (LayoutPrincipal) nunca mais passa por aqui — fica sempre dentro do ERP (Destino em App.tsx).
+      if (u.papel === 'SUPER_ADMINISTRADOR') navegar('/admin');
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível entrar.');
     } finally {
@@ -64,8 +68,8 @@ export function Entrar() {
               Criar conta grátis
             </Link>
           </div>
-          <Link to="/" style={{ fontSize: 13, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            ← Voltar ao site
+          <Link to="/" className="erp-link-voltar">
+            Voltar ao site
           </Link>
         </Flex>
       </Card>

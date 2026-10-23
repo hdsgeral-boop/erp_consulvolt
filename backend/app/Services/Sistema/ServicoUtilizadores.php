@@ -114,7 +114,7 @@ final class ServicoUtilizadores
     /** @param  array<string, mixed>  $d */
     public function criar(array $d, Utilizador $actor): Utilizador
     {
-        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteUtilizadores();
+        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteUtilizadores((int) $actor->tenant_id);
 
         return DB::transaction(function () use ($d, $actor) {
             $nome = trim((string) $d['nome_utilizador']);

@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Schedule;
 // Partições anuais da auditoria preparadas com antecedência (1 de Dezembro).
 Schedule::command('erp:auditoria:particoes --anos=2')->yearlyOn(12, 1, '02:00');
 
+// Avisos de licença por email: 7 e 3 dias antes de expirar, e no próprio dia (ADR-074). Sem efeito com licenças desligadas.
+Schedule::command('erp:licencas:avisar')->dailyAt('07:00')->withoutOverlapping();
+
 // Facturação electrónica: envio automático e consulta de estados na AGT (no legado corria no browser, de 2 em 2 min).
 Schedule::command('erp:agt:ciclo')->everyTwoMinutes()->withoutOverlapping();
 

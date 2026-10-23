@@ -76,8 +76,10 @@ final class DominioPedido
     {
         return match ($this->area) {
             self::LIVRE, self::SITE => true,
+            // Super-administrador OU agente de suporte (ADR-076): o backoffice de suporte vive na mesma área de
+            // domínio que a plataforma, isolado por rota (ExigirSuporte), não por subdomínio.
             self::PLATAFORMA => (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id')
-                && $utilizador->eSuperAdministrador(),
+                && ($utilizador->eSuperAdministrador() || $utilizador->eAgenteSuporte()),
             self::CLIENTE => ($cliente = $this->cliente()) !== null && (int) $utilizador->tenant_id === (int) $cliente->id,
             default => false,
         };

@@ -99,7 +99,7 @@ interface DadosPagamentoIniciado {
 }
 
 export const CHAVE_LICENCA = ['licenca'];
-const ORIGENS = { SEM_LIMITE: 'Sem limite', TESTE: 'Período de teste', PLANO: 'Plano pago' } as const;
+const ORIGENS = { SEM_LIMITE: 'Sem limite', TESTE: 'Período de Demonstração', PLANO: 'Plano pago' } as const;
 const COR_ESTADO = { PENDENTE: 'gold', PAGO: 'green', CANCELADO: 'default' } as const;
 
 export function useEstadoLicenca(activo = true) {
@@ -269,6 +269,12 @@ export default function Licenca() {
                         )}
                       </Descriptions.Item>
                     </Descriptions>
+                  )}
+                  {e?.origem === 'TESTE' && (
+                    <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+                      O período de demonstração desta plataforma tem {e.dias_teste} dia(s) de duração. Pode subscrever um
+                      plano comercial a qualquer momento, mesmo antes de terminar.
+                    </Text>
                   )}
                 </Card>
 

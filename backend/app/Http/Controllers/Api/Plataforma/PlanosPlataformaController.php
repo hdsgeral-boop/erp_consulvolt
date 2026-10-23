@@ -8,6 +8,7 @@ use App\Models\PlanoLicencaVersao;
 use App\Models\Tenant;
 use App\Services\Plataforma\ServicoVersoesPlano;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -68,6 +69,8 @@ final class PlanosPlataformaController extends Controller
     {
         $d = $r->validate(['plano' => ['nullable', 'string', Rule::exists('planos_licenca', 'codigo')]]);
         $cliente->update(['plano' => $d['plano'] ?? null]);
+        // ModulosPlano tem tenant_id => código do plano em cache (ServicoPermissoes nunca consulta `tenants`).
+        ModulosPlano::invalidar();
 
         return RespostaApi::sucesso(['id' => $cliente->id, 'plano' => $cliente->plano], 'Plano do cliente actualizado.');
     }

@@ -18417,6 +18417,15 @@
           "dominio": null
         },
         {
+          "coluna": "lavandaria_servicos_ids",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": "created_at",
           "tipo": "timestamptz",

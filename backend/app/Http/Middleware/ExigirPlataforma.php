@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Exceptions\ErroNegocio;
 use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoTenant;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,23 +30,12 @@ final class ExigirPlataforma
             throw new ErroNegocio('Esta área é reservada à administração da plataforma.', 'AREA_RESERVADA', 403);
         }
 
-        if (! ContextoTenant::ativo() && ! self::saasAtivoNaBd()) {
+        if (! ContextoTenant::ativo() && ! DefinicoesPlataforma::saasAtivo()) {
             $caminho = $request ? $request->path() : '';
             // Rotas de clientes externos ou relatórios de múltiplos tenants exigem SaaS activo
             if (str_contains($caminho, 'clientes') || str_contains($caminho, 'painel')) {
                 throw new ErroNegocio('A área de plataforma só existe com o SaaS activo.', 'SAAS_INATIVO', 403);
             }
-        }
-    }
-
-    private static function saasAtivoNaBd(): bool
-    {
-        try {
-            $val = \Illuminate\Support\Facades\DB::table('definicoes_plataforma')->where('chave', 'saas_ativo')->value('valor');
-
-            return $val === 'true' || $val === '1';
-        } catch (\Throwable) {
-            return false;
         }
     }
 }

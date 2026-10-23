@@ -44,7 +44,7 @@ export default function ConfigGeral() {
         {pode('config_ferramentas') && (
           <>
             <Col xs={24} xl={12}>
-              <Importar />
+              {superAdmin ? <Importar /> : <ImportarReservada />}
             </Col>
             <Col xs={24} xl={12}>
               <Clonar />
@@ -114,6 +114,24 @@ function ResumoDaCopia({ r }: { r: ResumoCopia }) {
       </Descriptions>
       <Table size="small" rowKey="tabela" scroll={scrollTabela()} dataSource={tabelas} pagination={tabelas.length > 8 ? { pageSize: 8, size: 'small' } : false} columns={[{ title: 'Tabela', dataIndex: 'tabela' }, { title: 'Linhas', dataIndex: 'n', align: 'right', render: formatarNumero }]} />
     </>
+  );
+}
+
+/**
+ * Importar cópia de segurança não é self-service: cria dados por transacção a partir de um ficheiro de fora, sem a
+ * validação de quem está a criar pela interface normal — por isso fica reservado a Super Administradores; quem
+ * precisar de importar uma cópia abre um ticket em Minha Licença › Minha conta a indicar o que precisa.
+ */
+function ImportarReservada() {
+  return (
+    <Card title="Importar cópia de segurança" style={{ height: '100%' }}>
+      <Alert
+        type="info"
+        showIcon
+        message="Reservado à equipa de suporte"
+        description="A importação de cópias de segurança só pode ser feita por um Super Administrador. Para pedir uma importação, abra um ticket em Minha Licença › Minha conta a indicar o que precisa."
+      />
+    </Card>
   );
 }
 

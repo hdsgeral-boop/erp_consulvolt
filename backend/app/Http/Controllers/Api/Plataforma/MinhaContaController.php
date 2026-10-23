@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Plataforma;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TicketCriadoMail;
+use App\Mail\TicketRespostaMail;
 use App\Models\Empresa;
 use App\Models\MensagemSuporte;
 use App\Models\PlanoLicenca;
@@ -10,8 +12,10 @@ use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Services\Plataforma\ServicoLimitesPlano;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 /**
@@ -75,10 +79,14 @@ final class MinhaContaController extends Controller
             'descricao' => ['nullable', 'string', 'max:5000'],
             'categoria' => ['nullable', Rule::in(TicketSuporte::CATEGORIAS)],
         ]);
+        $cliente = $this->cliente($r);
         $t = TicketSuporte::query()->create($d + [
-            'tenant_id' => $this->cliente($r)->id, 'categoria' => 'GERAL', 'prioridade' => 'NORMAL',
+            'tenant_id' => $cliente->id, 'categoria' => 'GERAL', 'prioridade' => 'NORMAL',
             'estado' => TicketSuporte::ABERTO, 'criado_por' => $r->user()->nome_utilizador,
         ]);
+        if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
+            Mail::to($emailSuporte)->send(new TicketCriadoMail($t->id, $cliente->nome, $t->assunto, 'NORMAL', $t->categoria, $t->descricao));
+        }
 
         return RespostaApi::criado(['id' => $t->id, 'assunto' => $t->assunto, 'estado' => 'ABERTO'], 'Pedido de suporte aberto.');
     }
@@ -97,6 +105,9 @@ final class MinhaContaController extends Controller
         ]);
         if (in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true)) {
             $t->update(['estado' => TicketSuporte::ABERTO]);
+        }
+        if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
+            Mail::to($emailSuporte)->send(new TicketRespostaMail($t->id, $t->assunto, 'Equipa de suporte', $r->user()->nome_utilizador, $d['mensagem'], rtrim((string) config('app.url'), '/').'/admin/suporte'));
         }
 
         return RespostaApi::criado(ConversaSuportePlataformaController::apresentar($m->refresh()), 'Mensagem enviada.');

@@ -3,6 +3,7 @@
 namespace App\Services\Sistema;
 
 use App\Models\Utilizador;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Support\Facades\DB;
 use Normalizer;
 
@@ -22,12 +23,39 @@ use Normalizer;
  * utilizadores — incluindo o superadministrador —, pelo que os outros módulos ficam inacessíveis também no servidor
  * (legado: consolBloquearNavegacao/consolAplicarMenu, js/consolidacao.js:289-337, que só escondia o menu no browser).
  *
+ * Ecrãs «plataforma_*» (administração do SaaS: clientes, suporte, auditoria, definições globais…) só ficam visíveis a
+ * quem passaria também o ExigirPlataforma — super-administrador do tenant da própria plataforma. Um perfil de acesso
+ * total («all») é por empresa/cliente (ex.: o administrador de uma empresa recém-registada) e não deve, só por isso,
+ * ver ou poder listar-se como tendo acesso à gestão de todos os clientes da plataforma.
+ *
+ * Plano do cliente (ModulosPlano): os módulos de negócio que não estejam incluídos no plano em vigor do tenant
+ * (planos_licenca_versoes.modulos da versão publicada) ficam bloqueados — no menu (aqui) e no Gate (autoriza),
+ * para todos os utilizadores desse tenant, incluindo um perfil de acesso total. Tal como a holding, é bloqueio a
+ * mais, nunca a menos: um perfil sem a tarefa continua sem ela mesmo que o módulo esteja incluído no plano.
+ *
+ * Ecrãs reservados a Super Administradores: nenhuma empresa tem Super Administradores, são sempre do sistema todo.
+ * Logs de Navegação nunca fica disponível a uma empresa, mesmo a um perfil de acesso total (menu, permissões
+ * efectivas e Gate — tal como a holding e o plano do cliente). Manutenção de dados fica visível no menu a quem tiver
+ * a permissão (partilhada com outros ecrãs de empresa só de leitura: Validações de dados, sincronizar notas), mas o
+ * fluxo destrutivo de pedido/aprovação em si só é oferecido a Super Administradores dentro do próprio ecrã
+ * (Manutencao.tsx) e bloqueia-se no controller (ManutencaoDadosController::exigirSuperAdministrador).
+ *
  * Todos os perfis estão no formato v2: os antigos foram convertidos na migração com o converterAntigo do
  * próprio legado (ferramentas/levantamento/converter_perfis_antigos.mjs).
  */
 final class ServicoPermissoes
 {
     private const PORTAL_AUTOMATICO = ['rh_portal_view', 'rh_portal_usar'];
+
+    /** Prefixo dos ecrãs de administração do SaaS (catálogo, módulo `config`) — ver ExigirPlataforma. */
+    private const PREFIXO_PLATAFORMA = 'plataforma_';
+
+    /**
+     * Ecrãs reservados a Super Administradores em qualquer verificação (tem/autoriza/efectivas/menu) — nunca de uma
+     * empresa. Logs de Navegação não tem outro uso partilhado (ao contrário de config_manutencao_view, que
+     * Validações de dados também usa, por isso fica de fora desta lista — ver docblock da classe).
+     */
+    private const ECRAS_SO_SUPER_ADMINISTRADOR = ['config_logs'];
 
     /** Módulos do catálogo disponíveis numa holding (inteiros). */
     public const MODULOS_HOLDING = ['contab'];
@@ -37,6 +65,9 @@ final class ServicoPermissoes
 
     /** @var array<int, bool> memória por pedido: empresa => é holding */
     private array $holdings = [];
+
+    /** @var array<int, ?list<string>> memória por pedido: tenant_id => módulos do plano em vigor (null = sem restrição) */
+    private array $modulosPorTenant = [];
 
     /** @var array<string, list<array<string, mixed>>> memória: chave => ecrãs a que pertence */
     private static array $ecrasPorChave = [];
@@ -60,10 +91,13 @@ final class ServicoPermissoes
 
     public function tem(Utilizador $utilizador, string $chave, ?int $empresaId = null): bool
     {
+        $k = self::norm($chave);
+        if ($this->ePlataforma($k) && ! $this->elegivelPlataforma($utilizador)) {
+            return false;
+        }
         if ($this->total($utilizador)) {
             return true;
         }
-        $k = self::norm($chave);
         if ($this->administrador($utilizador) && in_array($k, ['notificacoes_centro_view', 'notificacoes_centro_ver', 'notificacoes_centro_gerir', 'notificacoes_view'], true)) {
             return true;
         }
@@ -72,6 +106,20 @@ final class ServicoPermissoes
         }
 
         return in_array($k, self::PORTAL_AUTOMATICO, true) && $empresaId !== null && $this->ligadoAColaborador($utilizador, $empresaId);
+    }
+
+    /** Mesma condição do ExigirPlataforma: só o super-administrador do tenant que opera a plataforma. */
+    public function elegivelPlataforma(Utilizador $utilizador): bool
+    {
+        return $utilizador->eSuperAdministrador() && (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
+    }
+
+    /** A chave (consulta de ecrã ou tarefa) pertence a um ecrã «plataforma_*» (administração do SaaS)? */
+    private function ePlataforma(string $k): bool
+    {
+        $ecraId = str_ends_with($k, '_view') ? substr($k, 0, -5) : (CatalogoPermissoes::tarefas()[$k]['ecra'] ?? null);
+
+        return $ecraId !== null && str_starts_with($ecraId, self::PREFIXO_PLATAFORMA);
     }
 
     /** Tarefa (acção de negócio) — equivalente a window.can / permTem do legado. */
@@ -122,6 +170,12 @@ final class ServicoPermissoes
         if ($this->eHolding($empresaId) && $this->bloqueadaNaHolding($k)) {
             return false;
         }
+        if ($this->bloqueadaPeloPlano($utilizador, $k)) {
+            return false;
+        }
+        if ($this->bloqueadaForaDoSuperAdministrador($utilizador, $k)) {
+            return false;
+        }
         if (str_ends_with($k, '_view') && CatalogoPermissoes::ecraDaVista(substr($k, 0, -5)) !== null) {
             return $this->podeVer($utilizador, substr($k, 0, -5), $empresaId);
         }
@@ -152,6 +206,8 @@ final class ServicoPermissoes
         if ($this->eHolding($empresaId)) {
             $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaNaHolding($k)));
         }
+        $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaPeloPlano($utilizador, $k)));
+        $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaForaDoSuperAdministrador($utilizador, $k)));
         sort($chaves);
 
         return $chaves;
@@ -167,10 +223,17 @@ final class ServicoPermissoes
     {
         $menu = [];
         $holding = $this->eHolding($empresaId);
+        $modulosPermitidos = $this->modulosDoTenant($utilizador->tenant_id);
         foreach (CatalogoPermissoes::completo()['modulos'] as $m) {
+            if ($modulosPermitidos !== null && ! in_array($m['id'], ModulosPlano::SEMPRE_DISPONIVEIS, true) && ! in_array($m['id'], $modulosPermitidos, true)) {
+                continue; // módulo inteiro fora do plano do cliente (ModulosPlano)
+            }
             $ecras = [];
             foreach ($m['ecras'] as $e) {
                 if ($holding && ! self::ecraPermitidoNaHolding($e + ['modulo' => $m['id']])) {
+                    continue;
+                }
+                if (! $utilizador->eSuperAdministrador() && in_array($e['id'], self::ECRAS_SO_SUPER_ADMINISTRADOR, true)) {
                     continue;
                 }
                 if ($this->ecraVisivel($utilizador, $e, $empresaId)) {
@@ -213,6 +276,56 @@ final class ServicoPermissoes
         $ecras = self::ecrasDaChave(self::norm($chave));
 
         return $ecras !== [] && array_filter($ecras, fn ($e) => self::ecraPermitidoNaHolding($e)) === [];
+    }
+
+    /**
+     * A chave só pertence a ecrãs de módulos fora do plano do tenant do utilizador (ModulosPlano) — mesma forma de
+     * bloquear que bloqueadaNaHolding, mas por tenant em vez de por empresa. Aplica-se mesmo a um perfil de acesso
+     * total («all»): o plano é uma regra de negócio/facturação (ServicoLimitesPlano), não uma permissão de perfil.
+     */
+    public function bloqueadaPeloPlano(Utilizador $utilizador, string $chave): bool
+    {
+        $permitidos = $this->modulosDoTenant($utilizador->tenant_id);
+        if ($permitidos === null) {
+            return false;
+        }
+        $ecras = self::ecrasDaChave(self::norm($chave));
+        $moduloOk = fn (string $m) => in_array($m, ModulosPlano::SEMPRE_DISPONIVEIS, true) || in_array($m, $permitidos, true);
+
+        return $ecras !== [] && array_filter($ecras, fn ($e) => $moduloOk($e['modulo'] ?? '')) === [];
+    }
+
+    /**
+     * A chave só pertence a ecrãs reservados a Super Administradores (ECRAS_SO_SUPER_ADMINISTRADOR, ex.: Logs de
+     * Navegação) — mesma forma de bloquear que bloqueadaNaHolding/bloqueadaPeloPlano, mas por papel: nenhuma
+     * empresa tem Super Administradores, por isso um administrador de empresa com perfil de acesso total («all»)
+     * continua sem estes ecrãs.
+     */
+    public function bloqueadaForaDoSuperAdministrador(Utilizador $utilizador, string $chave): bool
+    {
+        if ($utilizador->eSuperAdministrador()) {
+            return false;
+        }
+        $ecras = self::ecrasDaChave(self::norm($chave));
+
+        return $ecras !== [] && array_filter($ecras, fn ($e) => ! in_array($e['id'] ?? null, self::ECRAS_SO_SUPER_ADMINISTRADOR, true)) === [];
+    }
+
+    /**
+     * @return ?list<string> módulos do plano em vigor do tenant; null = sem restrição. Memória por pedido: a cache
+     * Redis de ModulosPlano::doTenantId() já evita qualquer consulta a `tenants`/`planos_licenca*` (regra 1 do
+     * CACHE.md — ParidadeLancamentosTest, que conta consultas por pedido, apanhou a 1.ª versão sem isto).
+     */
+    private function modulosDoTenant(?int $tenantId): ?array
+    {
+        if ($tenantId === null) {
+            return null;
+        }
+        if (! array_key_exists($tenantId, $this->modulosPorTenant)) {
+            $this->modulosPorTenant[$tenantId] = ModulosPlano::doTenantId($tenantId);
+        }
+
+        return $this->modulosPorTenant[$tenantId];
     }
 
     /** @return list<array<string, mixed>> */

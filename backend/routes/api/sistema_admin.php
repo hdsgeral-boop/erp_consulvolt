@@ -95,7 +95,7 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
     Route::put('configuracoes/logotipo-login', [ConfiguracaoSistemaController::class, 'gravarLogotipoLogin'])->name('configuracoes.logotipo_login');
 
     Route::controller(CopiaEmpresaController::class)->prefix('copias')->name('copias.')->group(function () {
-        Route::get('exportar', 'exportar')->name('exportar');
+        Route::get('exportar', 'exportar')->middleware('licenca_exportacao')->name('exportar');
         Route::post('importar', 'importar')->name('importar');
         Route::post('clonar', 'clonar')->name('clonar');
     });

@@ -1,4 +1,5 @@
-import { Button, Card, Checkbox, Form, InputNumber, Modal, Space, Table, Tag, message } from 'antd';
+import { Button, Card, Checkbox, Empty, Form, InputNumber, Modal, Space, Table, Tag, message } from 'antd';
+import { CheckCircleOutlined, EditOutlined, FileAddOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
@@ -31,16 +32,15 @@ export default function PlataformaPlanos() {
         <Card loading={true} style={{ minHeight: 200 }} />
       ) : (data?.planos ?? []).length === 0 ? (
         <Card>
-          <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <p style={{ color: '#888', marginBottom: 16 }}>Nenhum plano comercial configurado no momento.</p>
+          <Empty description="Nenhum plano comercial configurado no momento.">
             <Button type="primary" onClick={refrescar}>Actualizar</Button>
-          </div>
+          </Empty>
         </Card>
       ) : (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           {(data?.planos ?? []).map((p) => (
             <Card key={p.id} loading={isLoading} title={<>{p.nome} <Tag color="geekblue">{p.codigo}</Tag> <Tag color="blue">{p.clientes} cliente(s)</Tag></>}
-              extra={<Button type="dashed" onClick={() => criar.mutate(p.id)} loading={criar.isPending}>Novo rascunho</Button>}>
+              extra={<Button type="dashed" icon={<FileAddOutlined />} onClick={() => criar.mutate(p.id)} loading={criar.isPending}>Novo rascunho</Button>}>
               <p style={{ marginBottom: 16, color: '#4a5568' }}>
                 <strong>Em vigor:</strong> {formatarNumero(p.preco_mensal)} {p.moeda}/mês — empresas {p.max_empresas ?? 'ilimitadas'}, utilizadores {p.max_utilizadores ?? 'ilimitados'}
               </p>
@@ -61,10 +61,10 @@ export default function PlataformaPlanos() {
                   ) 
                 },
                 { title: 'Publicada', render: (_, v) => (v.publicada_em ? formatarDataHora(v.publicada_em) : '—') },
-                { title: '', render: (_, v) => v.estado === 'RASCUNHO' ? (
+                { title: '', align: 'right', render: (_, v) => v.estado === 'RASCUNHO' ? (
                   <Space>
-                    <Button size="small" onClick={() => { form.setFieldsValue(v); setEdit(v); }}>Editar</Button>
-                    <Button size="small" type="primary" onClick={() => Modal.confirm({ title: 'Publicar esta versão?', content: 'Fica imutável e passa a valer para o plano.', onOk: () => publicar.mutateAsync(v.id) })}>Publicar</Button>
+                    <Button size="small" icon={<EditOutlined />} onClick={() => { form.setFieldsValue(v); setEdit(v); }}>Editar</Button>
+                    <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={() => Modal.confirm({ title: 'Publicar esta versão?', content: 'Fica imutável e passa a valer para o plano.', onOk: () => publicar.mutateAsync(v.id) })}>Publicar</Button>
                   </Space>
                 ) : null },
               ]} />
@@ -77,7 +77,7 @@ export default function PlataformaPlanos() {
           <Form.Item name="preco_mensal" label="Preço mensal" rules={[{ required: true }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="max_empresas" label="Máx. empresas (vazio = ilimitadas)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="max_utilizadores" label="Máx. utilizadores (vazio = ilimitados)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="modulos" label="Módulos incluídos (registo; ainda não condicionam o acesso)"><Checkbox.Group options={modulos} /></Form.Item>
+          <Form.Item name="modulos" label="Módulos incluídos (bloqueiam o menu e a API fora da selecção, a partir da publicação)"><Checkbox.Group options={modulos} /></Form.Item>
         </Form>
       </Modal>
     </>

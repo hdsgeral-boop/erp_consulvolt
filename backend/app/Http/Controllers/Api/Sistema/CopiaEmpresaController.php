@@ -38,10 +38,21 @@ final class CopiaEmpresaController extends Controller
             ->deleteFileAfterSend();
     }
 
-    /** POST /api/sistema/copias/importar — ficheiro + (empresa_destino_id vazia | nome/nif da nova empresa) + simular. */
+    /**
+     * POST /api/sistema/copias/importar — ficheiro + (empresa_destino_id vazia | nome/nif da nova empresa) + simular.
+     * Reservado a Super Administradores: cria dados por transacção a partir de um ficheiro externo, sem a validação
+     * normal da interface — quem precisar de importar uma cópia abre um ticket (Minha Licença › Minha conta).
+     */
     public function importar(Request $r): JsonResponse
     {
         $this->exigir('config_ferramentas');
+        if (! $r->user()?->eSuperAdministrador()) {
+            throw new ErroNegocio(
+                'A importação de cópias de segurança é reservada a Super Administradores. Para uma importação, abra um ticket a indicar o que precisa.',
+                'RESERVADO_SUPER_ADMINISTRADOR',
+                403,
+            );
+        }
         $d = $r->validate(['ficheiro' => ['required', 'file', 'max:512000'], 'empresa_destino_id' => ['nullable', 'integer'], 'nome' => ['nullable', 'string', 'max:255'],
             'nif' => ['nullable', 'string', 'max:30'], 'simular' => ['nullable', 'boolean']]);
         if (empty($d['empresa_destino_id']) && ! Gate::allows('config_empresas_gerir')) {

@@ -115,8 +115,8 @@ export function RecuperarPassword() {
               Entrar na conta
             </Link>
           </div>
-          <Link to="/" style={{ fontSize: 13, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            ← Voltar ao site
+          <Link to="/" className="erp-link-voltar">
+            Voltar ao site
           </Link>
         </Flex>
       </Card>

@@ -18,7 +18,7 @@ interface Sessao {
   menu: ModuloMenu[];
   permissoes: string[];
   motivoSaida: string | null;
-  entrar: (nomeUtilizador: string, palavraPasse: string) => Promise<void>;
+  entrar: (nomeUtilizador: string, palavraPasse: string) => Promise<Utilizador>;
   sair: (motivo?: string) => Promise<void>;
   escolherEmpresa: (id: number) => Promise<void>;
   /** Larga a empresa activa e volta ao ecrã de escolha (legado: «Trocar empresa» → #/selecionar-empresa). */
@@ -123,6 +123,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setEmpresaId(null);
     setMotivoSaida(null);
     setEstado('autenticado');
+    return r.utilizador;
   }, []);
 
   const sair = useCallback(

@@ -5,6 +5,7 @@ namespace App\Services\Plataforma;
 use App\Exceptions\ErroNegocio;
 use App\Models\PlanoLicenca;
 use App\Models\PlanoLicencaVersao;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,6 +62,8 @@ final class ServicoVersoesPlano
                 'preco_mensal' => $versao->preco_mensal, 'moeda' => $versao->moeda,
                 'max_empresas' => $versao->max_empresas, 'max_utilizadores' => $versao->max_utilizadores,
             ]);
+            // Os módulos em vigor mudaram: ModulosPlano tem o mapa código do plano => módulos em cache (CACHE.md regra 3).
+            ModulosPlano::invalidar();
 
             return $versao->refresh();
         });

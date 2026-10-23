@@ -35,6 +35,24 @@ final class ServicoPerfis
         private readonly ServicoAuditoria $auditoria,
     ) {}
 
+    /**
+     * Perfil de acesso total (`permissoes: {all: true}`), partilhado por toda a instalação (os perfis são globais):
+     * reaproveita o primeiro que já exista em vez de criar um por cada empresa/cliente; só cria da primeira vez que é
+     * preciso. Atribuído automaticamente ao administrador de uma empresa criada por auto-registo (RegistoEmpresaController)
+     * ou pela plataforma (ServicoClientes) — nunca confere acesso a ecrãs «plataforma_*»
+     * (ServicoPermissoes::elegivelPlataforma continua a exigi-lo à parte) nem ultrapassa os módulos do plano do cliente
+     * (ServicoPermissoes::bloqueadaPeloPlano/ModulosPlano).
+     */
+    public function perfilAcessoTotal(): PerfilUtilizador
+    {
+        return PerfilUtilizador::query()->get(['id', 'permissoes'])->first(fn (PerfilUtilizador $p) => ($p->permissoes['all'] ?? null) === true)
+            ?? PerfilUtilizador::create([
+                'nome' => 'Acesso Total (Administrador)',
+                'descricao' => 'Perfil de acesso total a todos os módulos e ecrãs. Atribuído automaticamente ao administrador de uma empresa.',
+                'permissoes' => ['all' => true, '_v2' => true],
+            ]);
+    }
+
     /** @return list<array<string, mixed>> */
     public function listar(): array
     {
