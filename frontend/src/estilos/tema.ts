@@ -1,7 +1,7 @@
 import type { ThemeConfig } from 'antd';
 
 /**
- * Identidade visual do ERP Consulvolt — copiada do sistema anterior (payroll_system_web/css/styles.css) para que o
+ * Identidade visual do MEU ERP — copiada do sistema anterior (payroll_system_web/css/styles.css) para que o
  * utilizador reconheça o ambiente: azul vibrante, menu lateral escuro (#121212), cinzentos «slate», cantos de 4 px,
  * tabelas densas com cabeçalho em maiúsculas e botões em degradê «clássico ERP».
  *

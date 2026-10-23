@@ -489,8 +489,8 @@ function Estrutura() {
                   />
                 )}
                 <div className="erp-cabecalho-empresa" style={{ minWidth: 0, flex: '1 1 auto' }}>
-                  <span className="erp-cabecalho-empresa-nome" title={nomeEmpresa || 'Consulvolt'}>
-                    {nomeEmpresa || 'Consulvolt'}
+                  <span className="erp-cabecalho-empresa-nome" title={nomeEmpresa || 'MEU ERP'}>
+                    {nomeEmpresa || 'MEU ERP'}
                   </span>
                   {nif && <span className="erp-cracha-nif">NIF: {nif}</span>}
                 </div>

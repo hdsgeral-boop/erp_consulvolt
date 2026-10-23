@@ -1,5 +1,5 @@
 /*
- * CSS global do ERP Consulvolt (importado em src/main.tsx).
+ * CSS global do MEU ERP (importado em src/main.tsx).
  *
  * Objectivo: base responsiva comum a todos os ecrãs (telemóvel 360 px → ecrã grande 1920 px) sem tocar em cada
  * componente. Os pontos de quebra são os do Ant Design 5 (iguais a src/componentes/responsivo/useEcra.ts):

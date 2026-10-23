@@ -23,7 +23,7 @@
 <td style="background-color:#2563eb; padding:28px 32px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr>
-<td style="font-size:20px; font-weight:700; letter-spacing:0.5px; color:#ffffff;">CONSULVOLT</td>
+<td style="font-size:20px; font-weight:700; letter-spacing:0.5px; color:#ffffff;">MEU&nbsp;ERP</td>
 <td align="right" style="font-size:11px; font-weight:600; letter-spacing:1px; color:#dbe6fd; text-transform:uppercase;">ERP&nbsp;SaaS</td>
 </tr>
 </table>

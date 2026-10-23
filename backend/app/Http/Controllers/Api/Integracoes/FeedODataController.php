@@ -38,7 +38,7 @@ final class FeedODataController extends Controller
         $token = $this->tokens->autenticar($this->lerToken($r));
         if (! $token) {
             return $this->erro(401, 'Unauthorized', 'Token de leitura BI em falta, inválido, expirado ou revogado.')
-                ->header('WWW-Authenticate', 'Basic realm="ERP Consulvolt Power BI", charset="UTF-8"');
+                ->header('WWW-Authenticate', 'Basic realm="MEU ERP Power BI", charset="UTF-8"');
         }
         $chave = "bi-odata:{$token->id}";
         if (RateLimiter::tooManyAttempts($chave, self::PEDIDOS_POR_MINUTO)) {

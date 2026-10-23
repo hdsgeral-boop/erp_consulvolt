@@ -48,7 +48,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API REST — ERP Consulvolt (prefixo /api)
+| API REST — MEU ERP (prefixo /api)
 |--------------------------------------------------------------------------
 | Convenção (directiva, secção 4):
 |   GET    /api/{modulo}/{recurso}            listagem paginada com filtros

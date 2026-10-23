@@ -1,4 +1,4 @@
-# ERP Consulvolt
+# MEU ERP
 
 ERP multi-empresa e SaaS multi-cliente para Angola (contabilidade, vendas, compras, tesouraria, logística, RH e salários, POS, activos, projectos, orçamento, CRM, consolidação), com facturação electrónica AGT.
 Migração do ERP legado `payroll_system_web` (Vanilla JS + IndexedDB) para uma arquitectura de servidor, com base de dados, models e API em português.

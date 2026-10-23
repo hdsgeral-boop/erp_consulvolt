@@ -28,7 +28,7 @@ export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false
   const { token } = theme.useToken();
 
   const nomeSistema = sistema.data?.nome_sistema || identidade.data?.nome_sistema || 'MEU ERP';
-  const nomeEmpresa = identidade.data?.nome || empresa?.nome || 'Consulvolt';
+  const nomeEmpresa = identidade.data?.nome || empresa?.nome || 'MEU ERP';
 
   const nome = escuro ? nomeSistema : nomeEmpresa;
   const logotipo = escuro ? (sistema.data?.logotipo ?? null) : (identidade.data?.logotipo ?? null);

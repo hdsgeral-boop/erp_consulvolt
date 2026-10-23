@@ -112,7 +112,8 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        // O remetente é sempre a marca do sistema (MEU ERP), qualquer que seja o APP_NAME/MAIL_FROM_NAME do servidor
+        'name' => env('ERP_MARCA_NOME', 'MEU ERP'),
     ],
 
 ];
