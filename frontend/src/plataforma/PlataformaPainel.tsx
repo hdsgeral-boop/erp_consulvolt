@@ -24,7 +24,9 @@ import { formatarData, formatarDataHora, formatarNumero } from '@/utilitarios/fo
 
 interface Painel {
   clientes: { total: number; ativos: number; suspensos: number };
-  empresas: { total: number; ativas: number; em_teste: number; licenca_expirada: number };
+  empresas: { total: number; ativas: number };
+  /** A licença é do cliente: contagens de clientes. */
+  licencas?: { total: number; ativas: number; em_teste: number; expiradas: number; sem_limite: number };
   utilizadores: number;
   sessoes_ativas?: number;
   ultimos_clientes: { id: number; nome: string; slug: string; estado?: string; plano?: string | null; criado_em: string }[];
@@ -41,7 +43,7 @@ interface Painel {
     acessos_dia: number[];
     por_plano: { plano: string; clientes: number }[];
     tickets: Record<string, number>;
-    licencas_a_expirar: { empresa: string; cliente: string | null; licenca_fim: string; origem: string }[];
+    licencas_a_expirar: { cliente: string; licenca_fim: string; origem: string }[];
   };
 }
 
@@ -91,9 +93,9 @@ export default function PlataformaPainel() {
   const moeda = ind?.moeda ?? 'AOA';
 
   const alertas: { icone: ReactNode; titulo: string; detalhe: string; destino: string }[] = [];
-  if (data?.empresas.licenca_expirada) alertas.push({ icone: <ExclamationCircleOutlined style={{ color: '#ef4444' }} />, titulo: `${data.empresas.licenca_expirada} empresa(s) com a licença expirada`, detalhe: 'Contactar os clientes para renovar', destino: '/plataforma/saas' });
+  if (data?.licencas?.expiradas) alertas.push({ icone: <ExclamationCircleOutlined style={{ color: '#ef4444' }} />, titulo: `${data.licencas.expiradas} cliente(s) com a licença expirada`, detalhe: 'Estão em somente leitura; contactar para renovar', destino: '/plataforma/saas' });
   if (ind?.tickets_abertos) alertas.push({ icone: <ClockCircleOutlined style={{ color: '#f59e0b' }} />, titulo: `${ind.tickets_abertos} ticket(s) por resolver`, detalhe: 'Priorizar o suporte ao cliente', destino: '/plataforma/suporte' });
-  if (ind?.licencas_a_expirar.length) alertas.push({ icone: <ClockCircleOutlined style={{ color: '#3b82f6' }} />, titulo: `${ind.licencas_a_expirar.length} licença(s) terminam nos próximos 30 dias`, detalhe: ind.licencas_a_expirar.slice(0, 2).map((l) => `${l.empresa} (${formatarData(l.licenca_fim)})`).join(' · '), destino: '/plataforma/saas' });
+  if (ind?.licencas_a_expirar.length) alertas.push({ icone: <ClockCircleOutlined style={{ color: '#3b82f6' }} />, titulo: `${ind.licencas_a_expirar.length} licença(s) terminam nos próximos 30 dias`, detalhe: ind.licencas_a_expirar.slice(0, 2).map((l) => `${l.cliente} (${formatarData(l.licenca_fim)})`).join(' · '), destino: '/plataforma/saas' });
 
   return (
     <>
@@ -146,15 +148,15 @@ export default function PlataformaPainel() {
         </Col>
         <Col xs={24} xl={8}>
           <Card loading={isLoading} style={{ borderRadius: 14, height: '100%' }}>
-            <Cabecalho titulo="Licenças" subtitulo="Estado comercial das empresas" accao={<Typography.Link onClick={() => navegar('/plataforma/saas')}>Gerir</Typography.Link>} />
+            <Cabecalho titulo="Licenças" subtitulo="Estado da licença de cada cliente" accao={<Typography.Link onClick={() => navegar('/plataforma/saas')}>Gerir</Typography.Link>} />
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '14px 0 10px' }}>
-              <span style={{ fontSize: 34, fontWeight: 800, color: '#0f172a' }}>{data?.empresas.total ?? 0}</span>
-              <span style={{ color: '#64748b', fontSize: 12 }}>empresas<br />registadas</span>
+              <span style={{ fontSize: 34, fontWeight: 800, color: '#0f172a' }}>{data?.licencas?.total ?? 0}</span>
+              <span style={{ color: '#64748b', fontSize: 12 }}>clientes<br />com licença</span>
             </div>
             {[
-              ['#10b981', 'Activas', data?.empresas.ativas ?? 0],
-              ['#8b5cf6', 'Em teste', data?.empresas.em_teste ?? 0],
-              ['#f59e0b', 'Licença expirada', data?.empresas.licenca_expirada ?? 0],
+              ['#10b981', 'Válidas', data?.licencas?.ativas ?? 0],
+              ['#8b5cf6', 'Em teste', data?.licencas?.em_teste ?? 0],
+              ['#f59e0b', 'Expiradas', data?.licencas?.expiradas ?? 0],
             ].map(([cor, rotulo, n]) => (
               <div key={String(rotulo)} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid #f1f5f9', fontSize: 13 }}>
                 <span><i style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: String(cor), marginRight: 8 }} />{rotulo}</span>

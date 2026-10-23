@@ -6,34 +6,42 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
+use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Licença por empresa e cobrança por plano e tempo (ADR-074).
+ * Licença do CLIENTE (tenant) e cobrança por plano e tempo (ADR-074, revisto: a licença é do cliente, não de cada empresa).
  *
- * Fluxo: a empresa pede uma renovação (plano + meses) → subscrição PENDENTE com referência de pagamento e valor →
- * um super-administrador confirma o pagamento → a licença é prolongada (começa no dia a seguir ao fim actual, ou hoje se
- * já expirou; sem tolerância nem dias perdidos) e a empresa passa a PLANO. Não há gateway de pagamentos: a confirmação
- * é manual até se decidir o gateway.
+ * Fluxo: o cliente pede uma renovação (plano + meses) → subscrição PENDENTE com referência de pagamento e valor →
+ * um super-administrador confirma o pagamento → a licença do cliente é prolongada (começa no dia a seguir ao fim actual, ou
+ * hoje se já expirou; sem tolerância nem dias perdidos) e passa a PLANO, valendo para todas as suas empresas
+ * (ServicoLicencaCliente). Não há gateway de pagamentos: a confirmação é manual até se decidir o gateway.
  */
 final class ServicoLicenca
 {
     /** Dias antes do fim em que o aviso aparece. */
     public const DIAS_AVISO = 7;
 
-    public function __construct(private readonly ContextoEmpresa $contexto) {}
+    public function __construct(private readonly ContextoEmpresa $contexto, private readonly ServicoLicencaCliente $cliente) {}
+
+    private function doCliente(Empresa $empresa): Tenant
+    {
+        return Tenant::query()->findOrFail($empresa->tenant_id);
+    }
 
     /** @return array<string, mixed> */
     public function estado(): array
     {
         $empresa = Empresa::query()->findOrFail($this->contexto->obrigatorio());
+        $cliente = $this->doCliente($empresa);
         $ativas = (bool) config('erp.licencas.ativo');
-        $fim = $empresa->licenca_fim;
-        $expirada = $empresa->licencaExpirada();
+        $fim = $cliente->licenca_origem === Tenant::LICENCA_SEM_LIMITE ? null : $cliente->licenca_fim;
+        $expirada = $cliente->licencaExpirada();
         $dias = $fim === null ? null : (int) now()->startOfDay()->diffInDays($fim->copy()->startOfDay(), false);
 
         $aviso = null;
@@ -45,8 +53,8 @@ final class ServicoLicenca
 
         return [
             'licencas_ativas' => $ativas,
-            'origem' => $empresa->licenca_origem,
-            'inicio' => $empresa->licenca_inicio?->toDateString(),
+            'origem' => $cliente->licenca_origem,
+            'inicio' => $cliente->licenca_inicio?->toDateString(),
             'fim' => $fim?->toDateString(),
             'dias_restantes' => $dias,
             'expirada' => $expirada,
@@ -84,8 +92,9 @@ final class ServicoLicenca
     public function pedirRenovacao(int $planoId, int $meses, ?Utilizador $utilizador): array
     {
         $empresa = Empresa::query()->findOrFail($this->contexto->obrigatorio());
-        if ($empresa->licenca_origem === Empresa::LICENCA_SEM_LIMITE && $empresa->licenca_fim === null) {
-            throw new ErroNegocio('Esta empresa tem licença sem limite: não precisa de renovação.', 'LICENCA_SEM_LIMITE', 422);
+        $cliente = $this->doCliente($empresa);
+        if ($cliente->licenca_origem === Tenant::LICENCA_SEM_LIMITE && $cliente->licenca_fim === null) {
+            throw new ErroNegocio('Esta conta tem licença sem limite: não precisa de renovação.', 'LICENCA_SEM_LIMITE', 422);
         }
         $plano = PlanoLicenca::query()->where('ativo', true)->find($planoId);
         if ($plano === null) {
@@ -114,9 +123,11 @@ final class ServicoLicenca
                 throw new ErroNegocio('Só se pode confirmar o pagamento de um pedido pendente.', 'SUBSCRICAO_NAO_PENDENTE', 422);
             }
 
-            $empresa = Empresa::query()->lockForUpdate()->findOrFail($s->empresa_id);
+            $empresa = Empresa::query()->findOrFail($s->empresa_id);
+            $cliente = Tenant::query()->lockForUpdate()->findOrFail($empresa->tenant_id);
             $hoje = now()->startOfDay();
-            $inicio = ($empresa->licenca_fim !== null && $empresa->licenca_fim->gte($hoje)) ? $empresa->licenca_fim->copy()->addDay()->startOfDay() : $hoje->copy();
+            $vigente = $cliente->licenca_origem !== Tenant::LICENCA_SEM_LIMITE && $cliente->licenca_fim !== null && $cliente->licenca_fim->gte($hoje);
+            $inicio = $vigente ? $cliente->licenca_fim->copy()->addDay()->startOfDay() : $hoje->copy();
             $fim = $inicio->copy()->addMonthsNoOverflow($s->meses)->subDay();
 
             $s->forceFill([
@@ -124,11 +135,9 @@ final class ServicoLicenca
                 'pago_em' => now(), 'pago_por' => $utilizador->getKey(), 'metodo' => $metodo, 'notas' => $notas,
             ])->save();
 
-            $empresa->forceFill([
-                'licenca_origem' => Empresa::LICENCA_PLANO,
-                'licenca_inicio' => $empresa->licenca_origem === Empresa::LICENCA_PLANO && $empresa->licenca_inicio ? $empresa->licenca_inicio->toDateString() : $inicio->toDateString(),
-                'licenca_fim' => $fim->toDateString(),
-            ])->save();
+            // a licença é do cliente: o pagamento prolonga-a para todas as suas empresas
+            $this->cliente->definir((int) $cliente->id, Tenant::LICENCA_PLANO,
+                $cliente->licenca_origem === Tenant::LICENCA_PLANO && $cliente->licenca_inicio ? $cliente->licenca_inicio->copy() : $inicio->copy(), $fim);
 
             return $this->subscricao($s->load('plano:id,nome,codigo'));
         });

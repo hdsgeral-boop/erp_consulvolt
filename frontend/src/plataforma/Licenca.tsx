@@ -209,14 +209,14 @@ export default function Licenca() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Licença e plano" subtitulo="Estado da licença da empresa activa, renovação por plano e pagamentos" />
+      <CabecalhoPagina titulo="Licença e plano" subtitulo="A licença é da conta e vale para todas as suas empresas: estado, renovação por plano e pagamentos" />
 
       {e?.aviso && (
         <Alert
           style={{ marginBottom: 16 }}
           showIcon
           type={e.aviso === 'EXPIRADA' ? 'error' : 'warning'}
-          message={e.aviso === 'EXPIRADA' ? 'Licença expirada: a empresa está em modo somente leitura.' : `A licença expira em ${e.dias_restantes} dia(s).`}
+          message={e.aviso === 'EXPIRADA' ? 'Licença expirada: as empresas da conta estão em modo somente leitura.' : `A licença expira em ${e.dias_restantes} dia(s).`}
           description={
             e.aviso === 'EXPIRADA'
               ? 'Para desbloquear a emissão de documentos e gravação de dados, selecione um plano abaixo e efetue o pagamento.'
@@ -232,7 +232,7 @@ export default function Licenca() {
             label: 'Estado e Renovação',
             children: (
               <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                <Card loading={estado.isLoading} title="Licença da Empresa Ativa">
+                <Card loading={estado.isLoading} title="Licença da conta">
                   {e && (
                     <Descriptions column={{ xs: 1, md: 3 }} size="middle">
                       <Descriptions.Item label="Origem">

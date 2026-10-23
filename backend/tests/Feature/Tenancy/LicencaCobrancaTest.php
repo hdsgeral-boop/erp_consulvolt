@@ -125,10 +125,8 @@ class LicencaCobrancaTest extends TestCase
 
     private function empresaComLicenca(?string $fim): Empresa
     {
-        $e = $this->criarEmpresa();
-        DB::table('empresas')->where('id', $e->id)->update(['licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_fim' => $fim, 'licenca_inicio' => now()->subYear()->toDateString()]);
-
-        return $e->fresh();
+        // a licença é do cliente: cada empresa dos testes tem o seu próprio cliente
+        return $this->criarEmpresaDeClienteComLicenca(Empresa::LICENCA_PLANO, $fim);
     }
 
     /** @param  array<string, mixed>  $extra */

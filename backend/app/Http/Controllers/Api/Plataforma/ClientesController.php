@@ -178,6 +178,7 @@ final class ClientesController extends Controller
             'estado' => $c->estado,
             'plano' => $c->plano,
             'nome_sistema' => $c->nome_sistema,
+            'licenca' => app(\App\Services\Plataforma\ServicoLicencaCliente::class)->estado($c),
             'criado_em' => $c->criado_em,
             'endereco' => config('erp.dominio.base') ? $r->getScheme().'://'.$c->slug.'.'.config('erp.dominio.base') : null,
         ];

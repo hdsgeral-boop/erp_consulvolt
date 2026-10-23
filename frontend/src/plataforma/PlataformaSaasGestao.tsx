@@ -45,11 +45,12 @@ const { Text } = Typography;
 
 interface EstatisticasSaas {
   tenants: number;
+  clientes_total: number;
+  clientes_ativos: number;
+  clientes_em_teste: number;
+  clientes_expirados: number;
+  clientes_sem_limite: number;
   empresas_total: number;
-  empresas_ativas: number;
-  empresas_em_teste: number;
-  empresas_expiradas: number;
-  empresas_sem_limite: number;
 }
 
 interface EstadoSaas {
@@ -68,15 +69,15 @@ interface EstadoSaas {
   estatisticas: EstatisticasSaas;
 }
 
-interface EmpresaSaas {
+/** A licença é do cliente (conta SaaS) e vale para todas as suas empresas. */
+interface ClienteSaas {
   id: number;
   nome: string;
-  nif: string;
-  tenant_id: number;
-  tenant_nome: string;
-  tenant_slug?: string;
-  tenant_codigo?: string;
-  tenant_plano?: string;
+  slug: string;
+  estado: string;
+  plano: string | null;
+  empresas: number;
+  utilizadores: number;
   origem: 'SEM_LIMITE' | 'TESTE' | 'PLANO';
   inicio: string | null;
   fim: string | null;
@@ -89,7 +90,7 @@ export default function PlataformaSaasGestao() {
   const qc = useQueryClient();
   const [pesquisa, setPesquisa] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState<string>('TODAS');
-  const [empresaAEditar, setEmpresaAEditar] = useState<EmpresaSaas | null>(null);
+  const [clienteAEditar, setClienteAEditar] = useState<ClienteSaas | null>(null);
   const [formEdicao] = Form.useForm();
 
   // 1. Obter estado geral
@@ -98,10 +99,10 @@ export default function PlataformaSaasGestao() {
     queryFn: () => obter<EstadoSaas>('/plataforma/saas/estado'),
   });
 
-  // 2. Obter empresas
-  const { data: empresas = [], isLoading: loadingEmpresas, refetch: recarregarEmpresas } = useQuery({
-    queryKey: ['plataforma', 'saas', 'empresas'],
-    queryFn: () => obter<EmpresaSaas[]>('/plataforma/saas/empresas'),
+  // 2. Obter os clientes com a sua licença
+  const { data: clientes = [], isLoading: loadingClientes, refetch: recarregarClientes } = useQuery({
+    queryKey: ['plataforma', 'saas', 'clientes'],
+    queryFn: () => obter<ClienteSaas[]>('/plataforma/saas/clientes'),
   });
 
   // 3. Mutação: Atualizar definições gerais do SaaS
@@ -114,41 +115,42 @@ export default function PlataformaSaasGestao() {
     onError: (e) => notificarErro(e),
   });
 
-  // 4. Mutação: Atualizar licença de empresa
-  const mutacaoEmpresa = useMutation({
+  // 4. Mutação: Atualizar a licença de um cliente (vale para todas as suas empresas)
+  const mutacaoCliente = useMutation({
     mutationFn: ({ id, dados }: { id: number; dados: Record<string, unknown> }) =>
-      enviar('put', `/plataforma/saas/empresas/${id}`, dados),
+      enviar('put', `/plataforma/saas/clientes/${id}`, dados),
     onSuccess: () => {
-      message.success('Licença da empresa atualizada com sucesso.');
-      setEmpresaAEditar(null);
+      message.success('Licença do cliente atualizada com sucesso.');
+      setClienteAEditar(null);
       formEdicao.resetFields();
-      qc.invalidateQueries({ queryKey: ['plataforma', 'saas', 'empresas'] });
+      qc.invalidateQueries({ queryKey: ['plataforma', 'saas', 'clientes'] });
+      qc.invalidateQueries({ queryKey: ['plataforma', 'painel'] });
       qc.invalidateQueries({ queryKey: ['plataforma', 'saas', 'estado'] });
     },
     onError: (e) => notificarErro(e),
   });
 
-  const abrirModalEdicao = (emp: EmpresaSaas) => {
-    setEmpresaAEditar(emp);
+  const abrirModalEdicao = (cli: ClienteSaas) => {
+    setClienteAEditar(cli);
     formEdicao.setFieldsValue({
-      origem: emp.origem,
-      datas: emp.inicio && emp.fim ? [dayjs(emp.inicio), dayjs(emp.fim)] : undefined,
+      origem: cli.origem,
+      datas: cli.inicio && cli.fim ? [dayjs(cli.inicio), dayjs(cli.fim)] : undefined,
     });
   };
 
   const guardarEdicaoModal = (valores: { origem: string; datas?: [dayjs.Dayjs, dayjs.Dayjs] }) => {
-    if (!empresaAEditar) return;
+    if (!clienteAEditar) return;
     const payload: Record<string, unknown> = { origem: valores.origem };
     if (valores.origem !== 'SEM_LIMITE' && valores.datas && valores.datas.length === 2) {
       payload.inicio = valores.datas[0].format('YYYY-MM-DD');
       payload.fim = valores.datas[1].format('YYYY-MM-DD');
     }
-    mutacaoEmpresa.mutate({ id: empresaAEditar.id, dados: payload });
+    mutacaoCliente.mutate({ id: clienteAEditar.id, dados: payload });
   };
 
-  const adicionarDiasRapido = (emp: EmpresaSaas, dias: number) => {
-    mutacaoEmpresa.mutate({
-      id: emp.id,
+  const adicionarDiasRapido = (cli: ClienteSaas, dias: number) => {
+    mutacaoCliente.mutate({
+      id: cli.id,
       dados: {
         origem: 'PLANO',
         dias_adicionar: dias,
@@ -156,35 +158,34 @@ export default function PlataformaSaasGestao() {
     });
   };
 
-  const tornarVitalicia = (emp: EmpresaSaas) => {
-    mutacaoEmpresa.mutate({
-      id: emp.id,
+  const tornarVitalicia = (cli: ClienteSaas) => {
+    mutacaoCliente.mutate({
+      id: cli.id,
       dados: { origem: 'SEM_LIMITE' },
     });
   };
 
-  const revogarLicenca = (emp: EmpresaSaas) => {
-    mutacaoEmpresa.mutate({
-      id: emp.id,
+  const revogarLicenca = (cli: ClienteSaas) => {
+    mutacaoCliente.mutate({
+      id: cli.id,
       dados: { origem: 'PLANO', revogar: true },
     });
   };
 
   // Filtragem de dados na tabela
-  const empresasFiltradas = empresas.filter((emp) => {
+  const clientesFiltrados = clientes.filter((cli) => {
     const termo = pesquisa.toLowerCase().trim();
     const coincideTexto =
       !termo ||
-      emp.nome.toLowerCase().includes(termo) ||
-      (emp.nif && emp.nif.toLowerCase().includes(termo)) ||
-      (emp.tenant_nome && emp.tenant_nome.toLowerCase().includes(termo));
+      cli.nome.toLowerCase().includes(termo) ||
+      cli.slug.toLowerCase().includes(termo);
 
     if (!coincideTexto) return false;
 
     if (filtroOrigem === 'TODAS') return true;
-    if (filtroOrigem === 'EXPIRADAS') return emp.expirada;
-    if (filtroOrigem === 'ATIVAS') return !emp.expirada;
-    return emp.origem === filtroOrigem;
+    if (filtroOrigem === 'EXPIRADAS') return cli.expirada;
+    if (filtroOrigem === 'ATIVAS') return !cli.expirada;
+    return cli.origem === filtroOrigem;
   });
 
   const stats = estadoGeral?.estatisticas;
@@ -192,14 +193,14 @@ export default function PlataformaSaasGestao() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Gestão Geral do SaaS e Licenciamento"
-        subtitulo="Controlo global da plataforma: ativação/desligamento de módulos SaaS, períodos de teste e licenciamento de empresas"
+        titulo="Activação SaaS e licenças"
+        subtitulo="A licença é do cliente: vale para todas as suas empresas. Controlo da activação do SaaS, dos períodos de teste e das licenças dos clientes"
         accoes={
           <Button
             icon={<ReloadOutlined />}
             onClick={() => {
               recarregarEstado();
-              recarregarEmpresas();
+              recarregarClientes();
             }}
           >
             Atualizar
@@ -212,9 +213,9 @@ export default function PlataformaSaasGestao() {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ height: '100%' }}>
             <Statistic
-              title="Empresas Ativas"
-              value={stats?.empresas_ativas ?? 0}
-              suffix={`/ ${stats?.empresas_total ?? 0}`}
+              title="Clientes com licença válida"
+              value={stats?.clientes_ativos ?? 0}
+              suffix={`/ ${stats?.clientes_total ?? 0}`}
               valueStyle={{ color: '#52c41a' }}
               prefix={<CheckCircleOutlined />}
             />
@@ -227,8 +228,8 @@ export default function PlataformaSaasGestao() {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ height: '100%' }}>
             <Statistic
-              title="Em Período de Teste"
-              value={stats?.empresas_em_teste ?? 0}
+              title="Clientes em teste"
+              value={stats?.clientes_em_teste ?? 0}
               valueStyle={{ color: '#1890ff' }}
               prefix={<ClockCircleOutlined />}
             />
@@ -241,13 +242,13 @@ export default function PlataformaSaasGestao() {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ height: '100%' }}>
             <Statistic
-              title="Licenças Expiradas"
-              value={stats?.empresas_expiradas ?? 0}
+              title="Licenças expiradas"
+              value={stats?.clientes_expirados ?? 0}
               valueStyle={{ color: '#ff4d4f' }}
               prefix={<CloseCircleOutlined />}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Modo somente leitura
+              Todas as empresas do cliente em somente leitura
             </Text>
           </Card>
         </Col>
@@ -255,8 +256,8 @@ export default function PlataformaSaasGestao() {
         <Col xs={24} sm={12} md={6}>
           <Card bordered={false} style={{ height: '100%' }}>
             <Statistic
-              title="Licenças Vitalícias"
-              value={stats?.empresas_sem_limite ?? 0}
+              title="Licenças vitalícias"
+              value={stats?.clientes_sem_limite ?? 0}
               valueStyle={{ color: '#fa8c16' }}
               prefix={<CrownOutlined />}
             />
@@ -299,7 +300,7 @@ export default function PlataformaSaasGestao() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f5f7fa', borderRadius: 8 }}>
               <div>
                 <div style={{ fontWeight: 600 }}>Verificação Estrita de Licenças</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Bloqueia escrita para empresas expiradas</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>Bloqueia a escrita nas empresas de clientes com a licença expirada</Text>
               </div>
               <Switch
                 checked={estadoGeral?.licencas_ativas ?? false}
@@ -315,7 +316,7 @@ export default function PlataformaSaasGestao() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f5f7fa', borderRadius: 8 }}>
               <div>
                 <div style={{ fontWeight: 600 }}>Dias de Teste Padrão</div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Período inicial para novas empresas</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>Período de teste dos clientes novos</Text>
               </div>
               <Space>
                 <InputNumber
@@ -375,11 +376,11 @@ export default function PlataformaSaasGestao() {
 
       {/* Tabela de Gestão de Licenças por Empresa */}
       <Card
-        title="Gestão de Empresas e Licenças"
+        title="Licenças dos clientes"
         extra={
           <Space wrap>
             <Input
-              placeholder="Pesquisar por empresa, NIF ou tenant..."
+              placeholder="Pesquisar por cliente ou endereço..."
               prefix={<SearchOutlined />}
               value={pesquisa}
               onChange={(e) => setPesquisa(e.target.value)}
@@ -391,7 +392,7 @@ export default function PlataformaSaasGestao() {
               onChange={setFiltroOrigem}
               style={{ width: 180 }}
               options={[
-                { label: 'Todas as Empresas', value: 'TODAS' },
+                { label: 'Todos os clientes', value: 'TODAS' },
                 { label: 'Apenas Ativas', value: 'ATIVAS' },
                 { label: 'Em Teste', value: 'TESTE' },
                 { label: 'Com Plano Ativo', value: 'PLANO' },
@@ -403,36 +404,28 @@ export default function PlataformaSaasGestao() {
         }
       >
         <Table
-          dataSource={empresasFiltradas}
+          dataSource={clientesFiltrados}
           rowKey="id"
-          loading={loadingEmpresas}
+          loading={loadingClientes}
           pagination={{ pageSize: 10, showSizeChanger: true }}
           columns={[
             {
-              title: 'Empresa',
-              key: 'empresa',
-              render: (_, emp: EmpresaSaas) => (
+              title: 'Cliente',
+              key: 'cliente',
+              render: (_, cli: ClienteSaas) => (
                 <div>
-                  <div style={{ fontWeight: 600 }}>{emp.nome}</div>
+                  <div style={{ fontWeight: 600 }}>{cli.nome}</div>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    NIF: {emp.nif || 'Não definido'}
+                    {cli.slug}
+                    {cli.plano ? ` · plano ${cli.plano}` : ''}
                   </Text>
                 </div>
               ),
             },
             {
-              title: 'Tenant / Cliente SaaS',
-              key: 'tenant',
-              render: (_, emp: EmpresaSaas) => (
-                <div>
-                  <div>{emp.tenant_nome || `Tenant #${emp.tenant_id}`}</div>
-                  {emp.tenant_slug && (
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      Slug: {emp.tenant_slug}
-                    </Text>
-                  )}
-                </div>
-              ),
+              title: 'Empresas / Utilizadores',
+              key: 'uso',
+              render: (_, cli: ClienteSaas) => `${cli.empresas} empresa(s) · ${cli.utilizadores} utilizador(es)`,
             },
             {
               title: 'Modalidade',
@@ -451,23 +444,23 @@ export default function PlataformaSaasGestao() {
             {
               title: 'Validade & Dias Restantes',
               key: 'validade',
-              render: (_, emp: EmpresaSaas) => {
-                if (emp.origem === 'SEM_LIMITE' || !emp.fim) {
+              render: (_, cli: ClienteSaas) => {
+                if (cli.origem === 'SEM_LIMITE' || !cli.fim) {
                   return <Tag color="green">Ativa Indefinidamente</Tag>;
                 }
 
-                if (emp.expirada) {
+                if (cli.expirada) {
                   return (
                     <div>
                       <Tag color="red" icon={<CloseCircleOutlined />}>Expirada</Tag>
                       <div style={{ fontSize: 11, color: '#ff4d4f', marginTop: 2 }}>
-                        Terminou a {dayjs(emp.fim).format('DD/MM/YYYY')}
+                        Terminou a {dayjs(cli.fim).format('DD/MM/YYYY')}
                       </div>
                     </div>
                   );
                 }
 
-                const dias = emp.dias_restantes ?? 0;
+                const dias = cli.dias_restantes ?? 0;
                 const corTag = dias <= 7 ? 'volcano' : dias <= 15 ? 'orange' : 'green';
 
                 return (
@@ -476,7 +469,7 @@ export default function PlataformaSaasGestao() {
                       {dias} {dias === 1 ? 'dia restante' : 'dias restantes'}
                     </Tag>
                     <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
-                      Válida até {dayjs(emp.fim).format('DD/MM/YYYY')}
+                      Válida até {dayjs(cli.fim).format('DD/MM/YYYY')}
                     </div>
                   </div>
                 );
@@ -485,8 +478,8 @@ export default function PlataformaSaasGestao() {
             {
               title: 'Estado do Acesso',
               key: 'estado',
-              render: (_, emp: EmpresaSaas) => {
-                if (emp.somente_leitura) {
+              render: (_, cli: ClienteSaas) => {
+                if (cli.somente_leitura) {
                   return <Tag color="error">Somente Leitura</Tag>;
                 }
                 return <Tag color="success">Total (Leitura + Escrita)</Tag>;
@@ -496,14 +489,14 @@ export default function PlataformaSaasGestao() {
               title: 'Ações Rápidas de Licenciamento',
               key: 'acoes',
               align: 'right',
-              render: (_, emp: EmpresaSaas) => (
+              render: (_, cli: ClienteSaas) => (
                 <Space wrap>
                   <Tooltip title="Adicionar 30 dias de licença">
                     <Button
                       size="small"
                       icon={<PlusOutlined />}
-                      loading={mutacaoEmpresa.isPending}
-                      onClick={() => adicionarDiasRapido(emp, 30)}
+                      loading={mutacaoCliente.isPending}
+                      onClick={() => adicionarDiasRapido(cli, 30)}
                     >
                       +30d
                     </Button>
@@ -513,8 +506,8 @@ export default function PlataformaSaasGestao() {
                     <Button
                       size="small"
                       icon={<PlusOutlined />}
-                      loading={mutacaoEmpresa.isPending}
-                      onClick={() => adicionarDiasRapido(emp, 365)}
+                      loading={mutacaoCliente.isPending}
+                      onClick={() => adicionarDiasRapido(cli, 365)}
                     >
                       +1 ano
                     </Button>
@@ -524,8 +517,8 @@ export default function PlataformaSaasGestao() {
                     <Button
                       size="small"
                       icon={<CrownOutlined />}
-                      loading={mutacaoEmpresa.isPending}
-                      onClick={() => tornarVitalicia(emp)}
+                      loading={mutacaoCliente.isPending}
+                      onClick={() => tornarVitalicia(cli)}
                     />
                   </Tooltip>
 
@@ -533,18 +526,18 @@ export default function PlataformaSaasGestao() {
                     <Button
                       size="small"
                       icon={<EditOutlined />}
-                      onClick={() => abrirModalEdicao(emp)}
+                      onClick={() => abrirModalEdicao(cli)}
                     />
                   </Tooltip>
 
-                  {!emp.expirada && emp.origem !== 'SEM_LIMITE' && (
+                  {!cli.expirada && cli.origem !== 'SEM_LIMITE' && (
                     <Popconfirm
                       title="Revogar Licença"
-                      description={`Tem a certeza que deseja revogar o acesso de escrita para "${emp.nome}"? A empresa passará para modo somente leitura.`}
+                      description={`Tem a certeza que deseja revogar o acesso de escrita de "${cli.nome}"? Todas as empresas do cliente passam para modo somente leitura.`}
                       okText="Sim, Revogar"
                       cancelText="Cancelar"
                       okButtonProps={{ danger: true }}
-                      onConfirm={() => revogarLicenca(emp)}
+                      onConfirm={() => revogarLicenca(cli)}
                     >
                       <Button size="small" danger icon={<CloseCircleOutlined />}>
                         Revogar
@@ -560,9 +553,9 @@ export default function PlataformaSaasGestao() {
 
       {/* Modal de Edição Manual de Licença */}
       <Modal
-        title={`Gerir Licença — ${empresaAEditar?.nome ?? ''}`}
-        open={!!empresaAEditar}
-        onCancel={() => setEmpresaAEditar(null)}
+        title={`Licença do cliente — ${clienteAEditar?.nome ?? ''}`}
+        open={!!clienteAEditar}
+        onCancel={() => setClienteAEditar(null)}
         footer={null}
         destroyOnClose
       >
@@ -570,7 +563,7 @@ export default function PlataformaSaasGestao() {
           form={formEdicao}
           layout="vertical"
           onFinish={guardarEdicaoModal}
-          initialValues={{ origem: empresaAEditar?.origem ?? 'PLANO' }}
+          initialValues={{ origem: clienteAEditar?.origem ?? 'PLANO' }}
         >
           <Form.Item
             name="origem"
@@ -596,7 +589,7 @@ export default function PlataformaSaasGestao() {
                 return (
                   <Alert
                     message="Licença Vitalícia Selecionada"
-                    description="Esta empresa terá acesso total sem restrições ou contagem de tempo de validade."
+                    description="Este cliente (e todas as suas empresas) terá acesso total, sem prazo de validade."
                     type="info"
                     showIcon
                     style={{ marginBottom: 16 }}
@@ -622,8 +615,8 @@ export default function PlataformaSaasGestao() {
           <Divider />
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button onClick={() => setEmpresaAEditar(null)}>Cancelar</Button>
-            <Button type="primary" htmlType="submit" loading={mutacaoEmpresa.isPending}>
+            <Button onClick={() => setClienteAEditar(null)}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={mutacaoCliente.isPending}>
               Guardar Alterações
             </Button>
           </div>

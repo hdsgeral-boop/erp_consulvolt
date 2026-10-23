@@ -31,7 +31,8 @@ class PlataformaSaasRlsRealTest extends TestCase
         $propria = $this->criarEmpresa(['nif' => '5000000101']);
         $alheia = $this->criarEmpresa(['nif' => '5000000102']);
         $outro = Tenant::query()->create(['nome' => 'Cliente Alheio', 'slug' => 'cliente-alheio']);
-        DB::table('empresas')->where('id', $alheia->id)->update(['tenant_id' => $outro->id, 'licenca_origem' => 'TESTE', 'licenca_fim' => now()->addDays(5)->toDateString()]);
+        DB::table('empresas')->where('id', $alheia->id)->update(['tenant_id' => $outro->id]);
+        app(\App\Services\Plataforma\ServicoLicencaCliente::class)->definir((int) $outro->id, 'TESTE', now()->startOfDay(), now()->addDays(5)->startOfDay());
         config(['erp.saas.ativo' => true]);
 
         return [$sessao, (int) $propria->id, (int) $alheia->id];
@@ -109,7 +110,7 @@ class PlataformaSaasRlsRealTest extends TestCase
         $this->assertSame('TESTE', $linha['origem']);
 
         $estado = $this->getJson('/api/plataforma/saas/estado', $sessao)->assertOk();
-        $estado->assertJsonPath('dados.estatisticas.empresas_em_teste', 1);
+        $estado->assertJsonPath('dados.estatisticas.clientes_em_teste', 1);   // a licença é do cliente
         $this->assertSame(1, $estado->json('dados.estatisticas.empresas_total'));   // só a do cliente: a da plataforma não conta
         $this->assertNull(collect($lista)->firstWhere('id', $propria));
     }

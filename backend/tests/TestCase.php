@@ -4,8 +4,11 @@ namespace Tests;
 
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
+use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -30,11 +33,36 @@ abstract class TestCase extends BaseTestCase
         static $sequencia = 0;
         $sequencia++;
 
-        return Empresa::create(array_merge([
+        $empresa = (new Empresa)->forceFill(array_merge([
             'nome' => "Empresa de Teste {$sequencia}, Lda",
             'nif' => sprintf('5000%06d', $sequencia),
             'estado' => Empresa::ESTADO_ATIVO,
         ], $atributos));
+        $empresa->save();
+
+        // a licença é do cliente: uma licença pedida para a empresa define a do seu cliente (e passa a todas as suas empresas)
+        if (isset($atributos['licenca_origem']) && $atributos['licenca_origem'] !== Empresa::LICENCA_SEM_LIMITE) {
+            app(ServicoLicencaCliente::class)->definir((int) $empresa->tenant_id, $atributos['licenca_origem'],
+                now()->subMonth()->startOfDay(), isset($atributos['licenca_fim']) ? Carbon::parse($atributos['licenca_fim']) : null);
+            $empresa->refresh();
+        }
+
+        return $empresa;
+    }
+
+    /**
+     * Empresa de um cliente NOVO com a licença indicada (cada cliente tem a sua; as empresas do mesmo cliente partilham-na).
+     *
+     * @param  array<string, mixed>  $empresa
+     */
+    protected function criarEmpresaDeClienteComLicenca(string $origem, ?string $fim, array $empresa = []): Empresa
+    {
+        static $n = 0;
+        $n++;
+        $cliente = Tenant::query()->create(['nome' => "Cliente de Teste {$n}", 'slug' => "cliente-teste-{$n}", 'estado' => Tenant::ESTADO_ATIVO]);
+        app(ServicoLicencaCliente::class)->definir((int) $cliente->id, $origem, $origem === Empresa::LICENCA_SEM_LIMITE ? null : now()->subYear()->startOfDay(), $fim ? Carbon::parse($fim) : null);
+
+        return $this->criarEmpresa($empresa + ['tenant_id' => $cliente->id])->refresh();
     }
 
     protected function criarPerfil(array $permissoes, string $nome = 'Perfil de teste'): PerfilUtilizador

@@ -68,26 +68,22 @@ class Empresa extends ModeloBase
                 $e->tenant_id ??= app(ContextoTenant::class)->paraNovo();
             }
 
-            // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de teste — excepto nos
-            // clientes com o plano interno (sem limites), cujas empresas ficam sem limite.
-            if (config('erp.licencas.ativo') && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE
-                && ! self::doPlanoInterno($e->tenant_id)) {
-                $e->licenca_origem = self::LICENCA_TESTE;
-                $e->licenca_inicio = now()->toDateString();
-                $e->licenca_fim = now()->addDays((int) config('erp.licencas.dias_teste', 7))->toDateString();
+            // Licença do CLIENTE: uma empresa nova herda a licença do cliente a que pertence (o período de teste é do cliente,
+            // criar mais uma empresa não dá outro teste). A empresa guarda só uma cópia, mantida pelo ServicoLicencaCliente.
+            if (config('erp.licencas.ativo') && $e->licenca_fim === null && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE
+                && Schema::hasColumn('tenants', 'licenca_origem') && $e->tenant_id !== null) {
+                $c = DB::table('tenants')->where('id', $e->tenant_id)->first(['licenca_origem', 'licenca_inicio', 'licenca_fim']);
+                if ($c !== null) {
+                    $e->licenca_origem = $c->licenca_origem;
+                    $e->licenca_inicio = $c->licenca_inicio;
+                    $e->licenca_fim = $c->licenca_fim;
+                }
             }
         });
         $invalidar = fn () => app(ServicoEmpresas::class)->invalidarTodos();
         static::saved(fn (Empresa $e) => $e->wasChanged(['estado', 'eliminado_em']) || $e->wasRecentlyCreated ? $invalidar() : null);
         static::deleted($invalidar);
         static::restored($invalidar);
-    }
-
-    /** O cliente (tenant) tem o plano interno, sem limites (pedido de 2026-10-22: consulvolt e grupoglomeu). */
-    private static function doPlanoInterno(?int $tenantId): bool
-    {
-        return $tenantId !== null && Schema::hasColumn('tenants', 'plano')
-            && DB::table('tenants')->where('id', $tenantId)->value('plano') === self::PLANO_INTERNO;
     }
 
     public function utilizadores(): BelongsToMany

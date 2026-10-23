@@ -104,6 +104,8 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
     Route::controller(PlataformaSaasController::class)->group(function () {
         Route::get('saas/estado', 'estadoGeral')->name('saas.estado');
         Route::put('saas/geral', 'atualizarGeral')->name('saas.geral');
+        Route::get('saas/clientes', 'listarClientes')->name('saas.clientes');
+        Route::put('saas/clientes/{cliente}', 'atualizarCliente')->whereNumber('cliente')->name('saas.clientes.atualizar');
         Route::get('saas/empresas', 'listarEmpresas')->name('saas.empresas');
         Route::put('saas/empresas/{empresa}', 'atualizarEmpresa')->whereNumber('empresa')->name('saas.empresas.atualizar');
     });

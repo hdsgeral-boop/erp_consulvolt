@@ -31,8 +31,14 @@ final class PainelController extends Controller
             'empresas' => [
                 'total' => $empresas->count(),
                 'ativas' => $empresas->where('estado', 'ATIVO')->count(),
-                'em_teste' => $empresas->where('licenca_origem', 'TESTE')->count(),
-                'licenca_expirada' => $empresas->filter(fn (array $e) => $e['licenca_fim'] !== null && $e['licenca_fim'] < $hoje)->count(),
+            ],
+            // a licença é do cliente: estas contagens são de clientes
+            'licencas' => [
+                'total' => $clientes->count(),
+                'ativas' => $clientes->filter(fn (array $i) => ! $i['tenant']->licencaExpirada())->count(),
+                'em_teste' => $clientes->filter(fn (array $i) => $i['tenant']->licenca_origem === Tenant::LICENCA_TESTE && ! $i['tenant']->licencaExpirada())->count(),
+                'expiradas' => $clientes->filter(fn (array $i) => $i['tenant']->licencaExpirada())->count(),
+                'sem_limite' => $clientes->filter(fn (array $i) => $i['tenant']->licenca_origem === Tenant::LICENCA_SEM_LIMITE)->count(),
             ],
             'utilizadores' => (int) DB::table('utilizadores')->where('tenant_id', '<>', (int) config('erp.dominio.plataforma_tenant_id', 1))->count(),
             'indicadores' => $this->indicadores($clientes->map(fn (array $i) => $i['tenant']), $empresas),
@@ -113,9 +119,10 @@ final class PainelController extends Controller
             'acessos_dia' => $dias->map(fn ($d) => (int) ($acessos[$d] ?? 0))->all(),
             'por_plano' => $porPlano->map(fn ($n, $codigo) => ['plano' => $nomesPlanos[$codigo] ?? 'Sem plano', 'clientes' => $n])->values()->all(),
             'tickets' => collect(['ABERTO', 'EM_CURSO', 'RESOLVIDO', 'FECHADO'])->mapWithKeys(fn ($e) => [$e => (int) ($tickets[$e] ?? 0)])->all(),
-            'licencas_a_expirar' => $empresas->filter(fn (array $e) => $e['licenca_fim'] !== null && $e['licenca_fim'] >= $hoje && $e['licenca_fim'] <= $limite)
-                ->sortBy('licenca_fim')->take(10)->map(fn (array $e) => ['empresa' => $e['nome'], 'cliente' => $nomesClientes[$e['tenant_id']] ?? null,
-                    'licenca_fim' => $e['licenca_fim'], 'origem' => $e['licenca_origem']])->values()->all(),
+            'licencas_a_expirar' => $tenants->filter(fn (Tenant $t) => $t->licenca_origem !== Tenant::LICENCA_SEM_LIMITE && $t->licenca_fim !== null
+                    && $t->licenca_fim->toDateString() >= $hoje && $t->licenca_fim->toDateString() <= $limite)
+                ->sortBy(fn (Tenant $t) => $t->licenca_fim->toDateString())->take(10)
+                ->map(fn (Tenant $t) => ['cliente' => $t->nome, 'licenca_fim' => $t->licenca_fim->toDateString(), 'origem' => $t->licenca_origem])->values()->all(),
         ];
     }
 

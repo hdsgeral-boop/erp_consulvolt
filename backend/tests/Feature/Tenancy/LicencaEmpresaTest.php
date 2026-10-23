@@ -3,6 +3,8 @@
 namespace Tests\Feature\Tenancy;
 
 use App\Models\Empresa;
+use App\Models\Tenant;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Models\Utilizador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -76,18 +78,50 @@ class LicencaEmpresaTest extends TestCase
         $this->postJson('/api/_licenca_teste', [], $this->sessao($empresa))->assertOk();
     }
 
-    public function test_empresa_nova_tem_sete_dias_de_teste_so_com_licencas_ativas(): void
+    public function test_cliente_novo_tem_sete_dias_de_teste_so_com_licencas_ativas_e_as_empresas_herdam(): void
     {
         config(['erp.licencas.ativo' => false]);
-        $antes = $this->criarEmpresa();
-        $this->assertSame(Empresa::LICENCA_SEM_LIMITE, $antes->fresh()->licenca_origem);
+        $antes = Tenant::query()->create(['nome' => 'Antes', 'slug' => 'antes-licencas']);
+        $this->assertSame(Tenant::LICENCA_SEM_LIMITE, $antes->fresh()->licenca_origem);
         $this->assertNull($antes->fresh()->licenca_fim);
 
         config(['erp.licencas.ativo' => true]);
-        $nova = $this->criarEmpresa()->fresh();
-        $this->assertSame(Empresa::LICENCA_TESTE, $nova->licenca_origem);
-        $this->assertSame(now()->addDays(7)->toDateString(), $nova->licenca_fim->toDateString());
-        $this->assertFalse($nova->licencaExpirada());
+        $novo = Tenant::query()->create(['nome' => 'Novo', 'slug' => 'novo-cliente'])->fresh();
+        $this->assertSame(Tenant::LICENCA_TESTE, $novo->licenca_origem);
+        $this->assertSame(now()->addDays(7)->toDateString(), $novo->licenca_fim->toDateString());
+        $this->assertFalse($novo->licencaExpirada());
+
+        // as empresas do cliente herdam a licença dele (uma segunda empresa não ganha outro período de teste)
+        $primeira = $this->empresaDoCliente((int) $novo->id, '5000777021');
+        app(ServicoLicencaCliente::class)->definir((int) $novo->id, Tenant::LICENCA_TESTE, now()->subDays(5)->startOfDay(), now()->addDays(2)->startOfDay());
+        $segunda = $this->empresaDoCliente((int) $novo->id, '5000777022');
+        $this->assertSame(now()->addDays(2)->toDateString(), $segunda->licenca_fim->toDateString());
+        $this->assertSame(now()->addDays(2)->toDateString(), $primeira->refresh()->licenca_fim->toDateString());
+    }
+
+    public function test_alterar_a_licenca_do_cliente_altera_todas_as_suas_empresas_e_so_as_dele(): void
+    {
+        config(['erp.licencas.ativo' => true]);
+        $a = Tenant::query()->create(['nome' => 'Cliente A', 'slug' => 'cliente-a-lic']);
+        $b = Tenant::query()->create(['nome' => 'Cliente B', 'slug' => 'cliente-b-lic']);
+        $a1 = $this->empresaDoCliente((int) $a->id, '5000777031');
+        $a2 = $this->empresaDoCliente((int) $a->id, '5000777032');
+        $b1 = $this->empresaDoCliente((int) $b->id, '5000777033');
+
+        // o cliente estava em teste (7 dias): os 30 dias somam-se ao fim actual, sem perder dias
+        app(ServicoLicencaCliente::class)->aplicar((int) $a->id, ['origem' => 'PLANO', 'dias_adicionar' => 30]);
+        $this->assertSame(now()->addDays(37)->toDateString(), $a1->refresh()->licenca_fim->toDateString());
+        $this->assertSame(Tenant::LICENCA_PLANO, $a2->refresh()->licenca_origem);
+        $this->assertSame(Tenant::LICENCA_TESTE, $b1->refresh()->licenca_origem);   // o outro cliente não é afectado
+
+        app(ServicoLicencaCliente::class)->aplicar((int) $a->id, ['origem' => 'PLANO', 'revogar' => true]);
+        $this->assertTrue($a1->refresh()->licencaExpirada());
+        $this->assertTrue($a2->refresh()->licencaExpirada());
+        $this->assertTrue($a->refresh()->licencaExpirada());
+
+        app(ServicoLicencaCliente::class)->aplicar((int) $a->id, ['origem' => 'SEM_LIMITE']);
+        $this->assertFalse($a2->refresh()->licencaExpirada());
+        $this->assertNull($a2->licenca_fim);
     }
 
     private function criarEmpresaComLicenca(string $origem, ?string $fim): Empresa
@@ -110,8 +144,8 @@ class LicencaEmpresaTest extends TestCase
     public function test_empresa_nova_de_cliente_com_plano_interno_fica_sem_limite(): void
     {
         config(['erp.licencas.ativo' => true]);
-        $interno = DB::table('tenants')->insertGetId(['nome' => 'Grupo Interno', 'slug' => 'grupo-interno', 'estado' => 'ATIVO', 'plano' => Empresa::PLANO_INTERNO]);
-        $outro = DB::table('tenants')->insertGetId(['nome' => 'Cliente Pago', 'slug' => 'cliente-pago', 'estado' => 'ATIVO', 'plano' => 'basico']);
+        $interno = (int) Tenant::query()->create(['nome' => 'Grupo Interno', 'slug' => 'grupo-interno', 'estado' => 'ATIVO', 'plano' => Empresa::PLANO_INTERNO])->id;
+        $outro = (int) Tenant::query()->create(['nome' => 'Cliente Pago', 'slug' => 'cliente-pago', 'estado' => 'ATIVO', 'plano' => 'basico'])->id;
 
         $semLimite = $this->empresaDoCliente($interno, '5000777001');
         $emTeste = $this->empresaDoCliente($outro, '5000777002');
@@ -123,8 +157,8 @@ class LicencaEmpresaTest extends TestCase
     public function test_planos_iniciais_criam_os_4_planos_e_o_interno_fica_nos_clientes_internos(): void
     {
         config(['erp.licencas.ativo' => true]);
-        $glomeu = DB::table('tenants')->insertGetId(['nome' => 'GRUPO GLOMEU', 'slug' => 'grupoglomeu', 'estado' => 'ATIVO']);
-        $outro = DB::table('tenants')->insertGetId(['nome' => 'Outro', 'slug' => 'outro-cliente', 'estado' => 'ATIVO']);
+        $glomeu = (int) Tenant::query()->create(['nome' => 'GRUPO GLOMEU', 'slug' => 'grupoglomeu', 'estado' => 'ATIVO'])->id;
+        $outro = (int) Tenant::query()->create(['nome' => 'Outro', 'slug' => 'outro-cliente', 'estado' => 'ATIVO'])->id;
         $empresaGlomeu = $this->empresaDoCliente($glomeu, '5000777011');
         $empresaOutro = $this->empresaDoCliente($outro, '5000777012');
         $this->assertSame(Empresa::LICENCA_TESTE, $empresaGlomeu->licenca_origem);
@@ -139,6 +173,7 @@ class LicencaEmpresaTest extends TestCase
         $this->assertSame('interno', DB::table('tenants')->where('id', $glomeu)->value('plano'));
         $this->assertNull(DB::table('tenants')->where('id', $outro)->value('plano'));
         $this->assertSame([Empresa::LICENCA_SEM_LIMITE, null], [$empresaGlomeu->refresh()->licenca_origem, $empresaGlomeu->licenca_fim]);
+        $this->assertSame([Tenant::LICENCA_SEM_LIMITE, null], [Tenant::query()->find($glomeu)->licenca_origem, Tenant::query()->find($glomeu)->licenca_fim]);
         $this->assertSame(Empresa::LICENCA_TESTE, $empresaOutro->refresh()->licenca_origem);
     }
 

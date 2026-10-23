@@ -66,7 +66,7 @@ final class PrepararPlanosIniciais extends Command
             $ids = $db->table('tenants')->whereIn('slug', self::CLIENTES_INTERNOS)
                 ->where('id', '<>', (int) config('erp.dominio.plataforma_tenant_id', 1))->pluck('id');
             if ($ids->isNotEmpty()) {
-                $db->table('tenants')->whereIn('id', $ids)->update(['plano' => Empresa::PLANO_INTERNO]);
+                $db->table('tenants')->whereIn('id', $ids)->update(['plano' => Empresa::PLANO_INTERNO, 'licenca_origem' => Empresa::LICENCA_SEM_LIMITE, 'licenca_inicio' => null, 'licenca_fim' => null]);
                 $db->table('empresas')->whereIn('tenant_id', $ids)
                     ->update(['licenca_origem' => Empresa::LICENCA_SEM_LIMITE, 'licenca_fim' => null]);
             }

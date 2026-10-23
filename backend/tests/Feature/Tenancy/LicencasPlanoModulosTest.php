@@ -79,14 +79,15 @@ final class LicencasPlanoModulosTest extends TestCase
     {
         config(['erp.licencas.ativo' => true]);
         Mail::fake();
-        $daqui7 = $this->criarEmpresa(['nome' => 'Sete, Lda']);
-        $hoje = $this->criarEmpresa(['nome' => 'Hoje, Lda']);
-        $daqui5 = $this->criarEmpresa(['nome' => 'Cinco, Lda']);
-        foreach ([[$daqui7, 7], [$hoje, 0], [$daqui5, 5]] as [$e, $d]) {
-            DB::table('empresas')->where('id', $e->id)->update(['licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_fim' => now()->addDays($d)->toDateString()]);
+        // a licença é do cliente: um aviso por cliente (o Sete tem duas empresas e recebe um só), aos administradores desse cliente
+        foreach ([['Sete', 7], ['Hoje', 0], ['Cinco', 5]] as [$nome, $d]) {
+            $e = $this->criarEmpresaDeClienteComLicenca(Empresa::LICENCA_PLANO, now()->addDays($d)->toDateString(), ['nome' => "{$nome}, Lda"]);
+            if ($nome === 'Sete') {
+                $this->criarEmpresa(['tenant_id' => $e->tenant_id]);
+            }
+            $this->criarUtilizador(['papel' => Utilizador::PAPEL_ADMINISTRADOR, 'email' => strtolower($nome).'@exemplo.test', 'acesso_todas_empresas' => true])->forceFill(['tenant_id' => $e->tenant_id])->save();
+            $this->criarUtilizador(['papel' => Utilizador::PAPEL_UTILIZADOR, 'email' => 'comum-'.strtolower($nome).'@exemplo.test', 'acesso_todas_empresas' => true])->forceFill(['tenant_id' => $e->tenant_id])->save();
         }
-        $this->criarUtilizador(['papel' => Utilizador::PAPEL_ADMINISTRADOR, 'email' => 'adm@exemplo.test', 'acesso_todas_empresas' => true]);
-        $this->criarUtilizador(['papel' => Utilizador::PAPEL_UTILIZADOR, 'email' => 'comum@exemplo.test', 'acesso_todas_empresas' => true]);
 
         $this->artisan('erp:licencas:avisar')->assertSuccessful();
 
