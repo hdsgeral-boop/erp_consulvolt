@@ -17,8 +17,9 @@ final class PainelController extends Controller
 
     public function dashboard(): JsonResponse
     {
-        $clientes = $this->clientes->listar();
-        $empresas = $this->clientes->empresas();
+        // A própria plataforma (tenant dos administradores) não é um cliente: fora de todas as contagens do negócio
+        $clientes = $this->clientes->listar(false);
+        $empresas = $this->clientes->empresas(false);
         $hoje = now()->toDateString();
 
         return RespostaApi::sucesso([
@@ -33,11 +34,38 @@ final class PainelController extends Controller
                 'em_teste' => $empresas->where('licenca_origem', 'TESTE')->count(),
                 'licenca_expirada' => $empresas->filter(fn (array $e) => $e['licenca_fim'] !== null && $e['licenca_fim'] < $hoje)->count(),
             ],
-            'utilizadores' => (int) DB::table('utilizadores')->count(),
+            'utilizadores' => (int) DB::table('utilizadores')->where('tenant_id', '<>', (int) config('erp.dominio.plataforma_tenant_id', 1))->count(),
             'indicadores' => $this->indicadores($clientes->map(fn (array $i) => $i['tenant']), $empresas),
             'ultimos_clientes' => $clientes->map(fn (array $i) => $i['tenant'])->sortByDesc('criado_em')->take(5)->values()
-                ->map(fn (Tenant $c) => ['id' => $c->id, 'nome' => $c->nome, 'slug' => $c->slug, 'criado_em' => $c->criado_em])->all(),
+                ->map(fn (Tenant $c) => ['id' => $c->id, 'nome' => $c->nome, 'slug' => $c->slug, 'estado' => $c->estado, 'plano' => $c->plano, 'criado_em' => $c->criado_em])->all(),
+            'sessoes_ativas' => $this->sessoesDeClientes(),
+            'actividade_recente' => $this->actividadeRecente(),
         ], 'Painel obtido com sucesso.');
+    }
+
+    /** Sessões válidas dos utilizadores dos clientes (a equipa da plataforma não conta). */
+    private function sessoesDeClientes(): int
+    {
+        return (int) DB::table('tokens_acesso as t')
+            ->join('utilizadores as u', fn ($j) => $j->on('u.id', '=', 't.portador_id')->where('t.portador_tipo', '=', 'utilizador'))
+            ->where('u.tenant_id', '<>', (int) config('erp.dominio.plataforma_tenant_id', 1))
+            ->where('t.expira_em', '>', now())->count();
+    }
+
+    /**
+     * Últimas acções registadas (auditoria), com o cliente de cada uma; as da equipa da plataforma aparecem como «Plataforma».
+     *
+     * @return list<array{acao: string, utilizador: ?string, cliente: ?string, ocorrido_em: string}>
+     */
+    private function actividadeRecente(): array
+    {
+        $donos = collect(DB::select('SELECT id, tenant_id FROM plataforma_empresas()'))->pluck('tenant_id', 'id');
+        $nomes = DB::table('tenants')->pluck('nome', 'id');
+        $nomes[(int) config('erp.dominio.plataforma_tenant_id', 1)] = 'Plataforma';
+
+        return DB::table('logs_auditoria')->orderByDesc('ocorrido_em')->limit(6)->get(['ocorrido_em', 'nome_utilizador', 'acao', 'empresa_id'])
+            ->map(fn ($l) => ['acao' => (string) $l->acao, 'utilizador' => $l->nome_utilizador,
+                'cliente' => $l->empresa_id && isset($donos[$l->empresa_id]) ? ($nomes[$donos[$l->empresa_id]] ?? null) : null, 'ocorrido_em' => (string) $l->ocorrido_em])->all();
     }
 
     /**
@@ -65,7 +93,7 @@ final class PainelController extends Controller
         $novos = $clientes->groupBy(fn (Tenant $t) => $t->criado_em?->format('Y-m'))->map->count();
         $receita = $db->table('subscricoes_empresa')->where('estado', 'PAGO')->where('pago_em', '>=', now()->startOfMonth()->subMonths(11))
             ->selectRaw("to_char(pago_em, 'YYYY-MM') AS mes, COALESCE(SUM(valor), 0) AS total")->groupBy('mes')->pluck('total', 'mes');
-        $acessos = $db->table('utilizadores')->whereNull('eliminado_em')->where('ultimo_acesso_em', '>=', now()->subDays(29)->startOfDay())
+        $acessos = $db->table('utilizadores')->whereNull('eliminado_em')->where('tenant_id', '<>', $plataforma)->where('ultimo_acesso_em', '>=', now()->subDays(29)->startOfDay())
             ->selectRaw("to_char(ultimo_acesso_em, 'YYYY-MM-DD') AS dia, COUNT(*) AS total")->groupBy('dia')->pluck('total', 'dia');
         $dias = collect(range(29, 0))->map(fn ($i) => now()->subDays($i)->format('Y-m-d'))->values();
         $hoje = now()->toDateString();
@@ -93,7 +121,7 @@ final class PainelController extends Controller
 
     public function relatorioClientes(): Response
     {
-        $linhas = $this->clientes->listar()->map(fn (array $i) => [
+        $linhas = $this->clientes->listar(false)->map(fn (array $i) => [
             $i['tenant']->id, $i['tenant']->nome, $i['tenant']->slug, $i['tenant']->estado, $i['empresas'], $i['utilizadores'],
         ])->all();
 
@@ -102,7 +130,7 @@ final class PainelController extends Controller
 
     public function relatorioEmpresas(): Response
     {
-        $linhas = $this->clientes->empresas()->map(fn (array $e) => [
+        $linhas = $this->clientes->empresas(false)->map(fn (array $e) => [
             $e['id'], $e['cliente'], $e['nome'], $e['nif'], $e['estado'], $e['licenca_origem'], $e['licenca_fim'], $e['criado_em'],
         ])->all();
 

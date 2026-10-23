@@ -1,6 +1,8 @@
 import { Button, Card, Drawer, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, message } from 'antd';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
@@ -12,6 +14,7 @@ interface Cliente {
   nome: string;
   slug: string;
   estado: 'ATIVO' | 'SUSPENSO' | 'ARQUIVADO';
+  plano?: string | null;
   empresas: number;
   utilizadores: number;
   criado_em: string;
@@ -34,6 +37,7 @@ interface EmpresaCliente {
 }
 
 const COR = { ATIVO: 'green', SUSPENSO: 'orange', ARQUIVADO: 'default' } as const;
+const NOME = { ATIVO: 'Activo', SUSPENSO: 'Suspenso', ARQUIVADO: 'Arquivado' } as const;
 const CHAVE = ['plataforma', 'clientes'];
 
 /** Plataforma SaaS — clientes (plataforma_clientes): criar cliente com administrador e empresa, suspender, arquivar. */
@@ -42,6 +46,18 @@ export default function PlataformaClientes() {
   const [criar, setCriar] = useState(false);
   const [ver, setVer] = useState<number | null>(null);
   const [form] = Form.useForm();
+  const [params, setParams] = useSearchParams();
+  const [pesquisa, setPesquisa] = useState(params.get('q') ?? '');
+  const [filtroEstado, setFiltroEstado] = useState<string | undefined>();
+  // «Novo cliente» vindo do painel (?novo=1) abre o formulário; a pesquisa do cabeçalho vem em ?q=
+  useEffect(() => {
+    if (params.get('novo') === '1') {
+      form.resetFields();
+      setCriar(true);
+      setParams((p) => { p.delete('novo'); return p; }, { replace: true });
+    }
+    setPesquisa(params.get('q') ?? '');
+  }, [params, form, setParams]);
   const lista = useQuery({ queryKey: CHAVE, queryFn: () => obter<Cliente[]>('/plataforma/clientes') });
   const detalhe = useQuery({
     queryKey: [...CHAVE, ver],
@@ -67,20 +83,34 @@ export default function PlataformaClientes() {
     onError: (e) => notificarErro(e),
   });
 
+  const filtrados = useMemo(() => {
+    const t = pesquisa.trim().toLowerCase();
+    return (lista.data ?? []).filter((c) => (!filtroEstado || c.estado === filtroEstado) && (!t || c.nome.toLowerCase().includes(t) || c.slug.toLowerCase().includes(t)));
+  }, [lista.data, pesquisa, filtroEstado]);
+
   return (
     <>
       <CabecalhoPagina titulo="Clientes" subtitulo="Contas SaaS: cada cliente tem os seus utilizadores e empresas isolados" />
-      <Card extra={<Button type="primary" onClick={() => { form.resetFields(); setCriar(true); }}>Novo cliente</Button>}>
+      <Card>
+        <Space wrap style={{ width: '100%', marginBottom: 12, justifyContent: 'space-between' }}>
+          <Space wrap>
+            <Input allowClear prefix={<SearchOutlined />} placeholder="Procurar por nome ou endereço" value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} style={{ width: 300 }} />
+            <Select allowClear placeholder="Todos os estados" value={filtroEstado} onChange={setFiltroEstado} style={{ width: 190 }}
+              options={Object.entries(NOME).map(([value, label]) => ({ value, label }))} />
+          </Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setCriar(true); }}>Novo cliente</Button>
+        </Space>
         <Table<Cliente>
           rowKey="id"
           size="small"
           loading={lista.isLoading}
-          dataSource={lista.data ?? []}
+          dataSource={filtrados}
           scroll={{ x: 'max-content' }}
           columns={[
             { title: 'Cliente', dataIndex: 'nome' },
             { title: 'Endereço', dataIndex: 'slug' },
-            { title: 'Estado', render: (_, c) => <Tag color={COR[c.estado]}>{c.estado}</Tag> },
+            { title: 'Plano', render: (_, c) => c.plano ?? '—' },
+            { title: 'Estado', render: (_, c) => <Tag color={COR[c.estado]}>{NOME[c.estado]}</Tag> },
             { title: 'Empresas', dataIndex: 'empresas', align: 'right' },
             { title: 'Utilizadores', dataIndex: 'utilizadores', align: 'right' },
             { title: 'Criado em', render: (_, c) => formatarData(c.criado_em) },

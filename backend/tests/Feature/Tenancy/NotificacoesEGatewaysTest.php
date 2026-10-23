@@ -148,7 +148,10 @@ class NotificacoesEGatewaysTest extends TestCase
 
     public function test_gestao_saas_geral_e_por_empresa(): void
     {
+        // a empresa pertence a um cliente (a empresa da própria plataforma não entra na gestão de licenças)
         $empresa = $this->criarEmpresa(['nome' => 'Empresa SaaS Alfa']);
+        $cliente = \App\Models\Tenant::query()->create(['nome' => 'Cliente SaaS Alfa', 'slug' => 'cliente-saas-alfa']);
+        \Illuminate\Support\Facades\DB::table('empresas')->where('id', $empresa->id)->update(['tenant_id' => $cliente->id]);
         $super = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
         config(['erp.saas.ativo' => true]);
 

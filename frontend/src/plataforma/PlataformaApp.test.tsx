@@ -26,7 +26,7 @@ describe('PlataformaApp: decisão de ecrã', () => {
     window.history.pushState({}, '', '/qualquer');
     sessao = { estado: 'autenticado', ePlataforma: true, empresa: null, utilizador: { id: 1, nome_utilizador: 'adm', nome_completo: 'Admin SaaS' }, sair: vi.fn() };
     render(<PlataformaApp />);
-    expect(screen.getByText('MEU ERP · Plataforma')).toBeInTheDocument();
+    expect(screen.getByText('Central Admin')).toBeInTheDocument();
     expect(await screen.findByText('ECRA_PAINEL')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/plataforma/painel');
   });

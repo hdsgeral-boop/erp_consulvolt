@@ -18,6 +18,7 @@ final class AuditoriaPlataformaController extends Controller
 
         $clientes = collect(DB::select('SELECT id, tenant_id FROM plataforma_empresas()'))->pluck('tenant_id', 'id');
         $nomes = DB::table('tenants')->pluck('nome', 'id');
+        $nomes[(int) config('erp.dominio.plataforma_tenant_id', 1)] = 'Plataforma';   // a equipa da plataforma não é um cliente
 
         $registos = DB::table('logs_auditoria')
             ->when($d['modulo'] ?? null, fn ($q, $m) => $q->where('modulo', 'ilike', $escapar($m)))

@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\Tenant;
+use App\Services\Plataforma\ServicoClientes;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\IsolamentoRls;
@@ -222,6 +223,8 @@ final class PlataformaSaasController extends Controller
      */
     private function licencasDeTodas(): Collection
     {
-        return collect(DB::select('SELECT id, tenant_id, nome, nif, estado, licenca_origem, licenca_inicio, licenca_fim FROM plataforma_empresas_licencas()'));
+        // as empresas da própria plataforma não são de clientes: não têm licença nem entram nas contagens
+        return collect(DB::select('SELECT id, tenant_id, nome, nif, estado, licenca_origem, licenca_inicio, licenca_fim FROM plataforma_empresas_licencas()'))
+            ->reject(fn ($e) => ServicoClientes::eDaPlataforma((int) $e->tenant_id))->values();
     }
 }

@@ -94,6 +94,10 @@ class PlataformaSaasRlsRealTest extends TestCase
         $ids = app(ServicoClientes::class)->empresas()->pluck('id')->all();
         $this->assertContains($propria, $ids);
         $this->assertContains($alheia, $ids);
+        // as listas do negócio não incluem a própria plataforma (não é um cliente)
+        $clientes = app(ServicoClientes::class)->empresas(false)->pluck('id')->all();
+        $this->assertNotContains($propria, $clientes);
+        $this->assertContains($alheia, $clientes);
         $porCliente = app(ServicoClientes::class)->listar()->mapWithKeys(fn ($i) => [$i['tenant']->slug => $i['empresas']]);
         $this->assertSame(1, $porCliente['cliente-alheio']);
 
@@ -106,7 +110,8 @@ class PlataformaSaasRlsRealTest extends TestCase
 
         $estado = $this->getJson('/api/plataforma/saas/estado', $sessao)->assertOk();
         $estado->assertJsonPath('dados.estatisticas.empresas_em_teste', 1);
-        $this->assertGreaterThanOrEqual(2, $estado->json('dados.estatisticas.empresas_total'));
+        $this->assertSame(1, $estado->json('dados.estatisticas.empresas_total'));   // só a do cliente: a da plataforma não conta
+        $this->assertNull(collect($lista)->firstWhere('id', $propria));
     }
 
     public function test_plataforma_altera_licenca_de_empresa_de_outro_cliente_com_rls_real(): void

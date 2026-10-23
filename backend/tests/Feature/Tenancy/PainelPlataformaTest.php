@@ -25,4 +25,19 @@ final class PainelPlataformaTest extends TestCase
         $this->assertCount(30, $r->json('dados.indicadores.acessos_dia'));
         $this->assertContains('Plano Básico', array_column($r->json('dados.indicadores.por_plano'), 'plano'));
     }
+
+    public function test_a_propria_plataforma_nao_conta_como_cliente(): void
+    {
+        $sa = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        Tenant::query()->create(['nome' => 'Cliente Real', 'slug' => 'cliente-real', 'estado' => Tenant::ESTADO_ATIVO]);
+        config(['erp.saas.ativo' => true]);
+        $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
+
+        $r = $this->getJson('/api/plataforma/painel', $sa)->assertOk();
+        $this->assertSame(1, $r->json('dados.clientes.total'));
+        $this->assertSame(['Cliente Real'], array_column($r->json('dados.ultimos_clientes'), 'nome'));
+        $this->assertNotContains($plataforma, array_column($this->getJson('/api/plataforma/empresas', $sa)->json('dados'), 'tenant_id'));
+        $this->assertNotContains($plataforma, array_column($this->getJson('/api/plataforma/clientes', $sa)->json('dados'), 'id'));
+        $this->assertNotContains($plataforma, array_column($this->getJson('/api/plataforma/saas/empresas', $sa)->json('dados.empresas') ?? $this->getJson('/api/plataforma/saas/empresas', $sa)->json('dados') ?? [], 'tenant_id'));
+    }
 }

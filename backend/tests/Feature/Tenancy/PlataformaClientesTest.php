@@ -66,7 +66,7 @@ class PlataformaClientesTest extends TestCase
 
         $this->getJson("/api/plataforma/clientes/{$id}", $sessao)->assertOk()->assertJsonPath('dados.utilizadores', 1)
             ->assertJsonCount(1, 'dados.empresas');
-        $this->getJson('/api/plataforma/painel', $sessao)->assertOk()->assertJsonPath('dados.clientes.total', 2);
+        $this->getJson('/api/plataforma/painel', $sessao)->assertOk()->assertJsonPath('dados.clientes.total', 1);   // só o cliente novo: a própria plataforma não é um cliente
 
         $this->putJson("/api/plataforma/clientes/{$id}/estado", ['estado' => 'SUSPENSO'], $sessao)->assertOk()->assertJsonPath('dados.estado', 'SUSPENSO');
         // O cliente que opera a plataforma nunca se suspende.

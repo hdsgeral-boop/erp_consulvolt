@@ -26,25 +26,37 @@ final class ServicoClientes
         private readonly ServicoGestaoEmpresas $empresas,
     ) {}
 
-    /** @return Collection<int, array{tenant: Tenant, empresas: int, utilizadores: int}> */
-    public function listar(): Collection
+    /** O tenant que opera a plataforma (onde vivem os administradores) não é um cliente. */
+    public static function eDaPlataforma(int $tenantId): bool
+    {
+        return $tenantId === (int) config('erp.dominio.plataforma_tenant_id', 1);
+    }
+
+    /**
+     * @param  bool  $incluirPlataforma  false = só clientes reais (listas, painel e relatórios do negócio)
+     * @return Collection<int, array{tenant: Tenant, empresas: int, utilizadores: int}>
+     */
+    public function listar(bool $incluirPlataforma = true): Collection
     {
         $empresas = collect(DB::select('SELECT tenant_id, empresas FROM plataforma_empresas_por_tenant()'))->keyBy('tenant_id');
         $utilizadores = DB::table('utilizadores')->select('tenant_id', DB::raw('count(*) as total'))->groupBy('tenant_id')->pluck('total', 'tenant_id');
 
-        return Tenant::query()->orderBy('id')->get()->map(fn (Tenant $c) => [
+        return Tenant::query()->orderBy('id')->get()
+            ->reject(fn (Tenant $c) => ! $incluirPlataforma && self::eDaPlataforma((int) $c->id))->values()
+            ->map(fn (Tenant $c) => [
             'tenant' => $c,
             'empresas' => (int) ($empresas[$c->id]->empresas ?? 0),
             'utilizadores' => (int) ($utilizadores[$c->id] ?? 0),
         ]);
     }
 
-    /** Empresas de todos os clientes (metadados). */
-    public function empresas(): Collection
+    /** Empresas de todos os clientes (metadados); com $incluirPlataforma=false sem as da própria plataforma. */
+    public function empresas(bool $incluirPlataforma = true): Collection
     {
         $nomes = Tenant::query()->pluck('nome', 'id');
 
         return collect(DB::select('SELECT id, tenant_id, nome, nif, estado, criado_em, licenca_origem, licenca_fim FROM plataforma_empresas()'))
+            ->reject(fn ($e) => ! $incluirPlataforma && self::eDaPlataforma((int) $e->tenant_id))->values()
             ->map(fn ($e) => [
                 'id' => (int) $e->id,
                 'tenant_id' => (int) $e->tenant_id,
