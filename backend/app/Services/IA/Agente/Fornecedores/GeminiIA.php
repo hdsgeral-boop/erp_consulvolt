@@ -113,19 +113,23 @@ final class GeminiIA implements FornecedorIA
 
     public function testar(string $modelo): void
     {
-        $this->pedir($modelo, ['contents' => [['role' => 'user', 'parts' => [['text' => 'Responde apenas: ok']]]], 'generationConfig' => ['maxOutputTokens' => 64]]);
+        $this->pedir($modelo, ['contents' => [['role' => 'user', 'parts' => [['text' => 'Responde apenas: ok']]]], 'generationConfig' => ['maxOutputTokens' => 64]], true);
     }
 
-    /** @return array<string, mixed> */
-    private function pedir(string $modelo, array $corpo): array
+    /**
+     * @param  bool  $detalhado  só no teste de ligação (ecrã da plataforma): mostra o motivo devolvido pelo Google; no chat dos clientes a mensagem é genérica
+     * @return array<string, mixed>
+     */
+    private function pedir(string $modelo, array $corpo, bool $detalhado = false): array
     {
         try {
             $r = Http::withHeaders(['x-goog-api-key' => $this->chave])->acceptJson()->timeout(180)->post(sprintf(self::URL, rawurlencode($modelo)), $corpo);
         } catch (ConnectionException $e) {
-            throw new ErroNegocio('Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio($detalhado ? 'Teste falhou (Gemini): sem ligação ao Google — '.$e->getMessage() : 'Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
         }
         if ($r->failed()) {
-            throw new ErroNegocio('O serviço de IA não conseguiu processar o pedido. Tente novamente ou contacte a plataforma.', 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio($detalhado ? 'Teste falhou (Gemini): '.($r->json('error.message') ?: 'HTTP '.$r->status())
+                : 'O serviço de IA não conseguiu processar o pedido. Tente novamente ou contacte a plataforma.', 'IA_FORNECEDOR_ERRO', 502);
         }
 
         return (array) $r->json();

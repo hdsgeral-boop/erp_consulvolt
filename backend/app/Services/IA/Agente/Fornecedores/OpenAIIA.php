@@ -93,19 +93,23 @@ final class OpenAIIA implements FornecedorIA
 
     public function testar(string $modelo): void
     {
-        $this->pedir(['model' => $modelo, 'input' => 'Responde apenas: ok', 'store' => false, 'max_output_tokens' => 64]);
+        $this->pedir(['model' => $modelo, 'input' => 'Responde apenas: ok', 'store' => false, 'max_output_tokens' => 64], true);
     }
 
-    /** @return array<string, mixed> */
-    private function pedir(array $corpo): array
+    /**
+     * @param  bool  $detalhado  só no teste de ligação (ecrã da plataforma): mostra o motivo devolvido pela OpenAI; no chat dos clientes a mensagem é genérica
+     * @return array<string, mixed>
+     */
+    private function pedir(array $corpo, bool $detalhado = false): array
     {
         try {
             $r = Http::withToken($this->chave)->acceptJson()->timeout(180)->post(self::URL, $corpo);
         } catch (ConnectionException $e) {
-            throw new ErroNegocio('Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio($detalhado ? 'Teste falhou (OpenAI): sem ligação à OpenAI — '.$e->getMessage() : 'Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
         }
         if ($r->failed()) {
-            throw new ErroNegocio('O serviço de IA não conseguiu processar o pedido. Tente novamente ou contacte a plataforma.', 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio($detalhado ? 'Teste falhou (OpenAI): '.($r->json('error.message') ?: 'HTTP '.$r->status())
+                : 'O serviço de IA não conseguiu processar o pedido. Tente novamente ou contacte a plataforma.', 'IA_FORNECEDOR_ERRO', 502);
         }
 
         return (array) $r->json();

@@ -66,10 +66,14 @@ final class ServicoConfiguracaoIA
         if (! isset(self::FORNECEDORES[$codigo])) {
             throw new ErroNegocio('Fornecedor de IA desconhecido.', 'IA_FORNECEDOR_INVALIDO', 422);
         }
+        $padrao = trim((string) ($d['modelo_padrao'] ?? ''));
+        if ($padrao !== '' && ! $this->modeloValido($codigo, $padrao)) {
+            throw new ErroNegocio("«{$padrao}» não é um nome de modelo válido para este fornecedor (ex.: ".self::FORNECEDORES[$codigo]['modelo_padrao'].'). Use «Reconhecer chave e carregar modelos».', 'IA_MODELO_INVALIDO', 422);
+        }
         $valores = array_filter([
             'nome' => $d['nome'] ?? null,
-            'modelos' => isset($d['modelos']) ? json_encode(array_values(array_unique(array_filter(array_map('trim', $d['modelos']))))) : null,
-            'modelo_padrao' => $d['modelo_padrao'] ?? null,
+            'modelos' => isset($d['modelos']) ? json_encode(array_values(array_unique(array_filter(array_map('trim', $d['modelos']), fn ($m) => $this->modeloValido($codigo, $m))))) : null,
+            'modelo_padrao' => $padrao !== '' ? $padrao : null,
             'preco_entrada_mtok' => $d['preco_entrada_mtok'] ?? null,
             'preco_saida_mtok' => $d['preco_saida_mtok'] ?? null,
             'ativo' => array_key_exists('ativo', $d) ? (bool) $d['ativo'] : null,
