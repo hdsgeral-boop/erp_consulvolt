@@ -17,7 +17,7 @@ return new class extends Migration
     {
         $rls = new IsolamentoRls(DB::connection());
         $rls->aplicarATodas();
-        $rls->prepararRole((string) env('DB_APP_PASSWORD', ''));
+        $rls->prepararRole((string) config('erp.saas.db_app_password'));
     }
 
     public function down(): void

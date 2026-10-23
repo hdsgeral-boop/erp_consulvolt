@@ -41,7 +41,7 @@ final class AplicarRlsSaasCommand extends Command
         $this->info(count($feitas).' tabela(s) protegida(s) agora'.($feitas ? ': '.implode(', ', $feitas) : '.'));
 
         if (! $this->option('sem-role')) {
-            $rls->prepararRole((string) env('DB_APP_PASSWORD', ''));
+            $rls->prepararRole((string) config('erp.saas.db_app_password'));
             $this->info('Role erp_app preparada.');
         }
 
