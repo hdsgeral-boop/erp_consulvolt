@@ -355,7 +355,7 @@ return [
     ['codigo' => 'IA_REGRA_INVALIDA', 'http' => 422, 'significado' => 'O ficheiro tem de estar em UTF-8.'],
     ['codigo' => 'IA_RESPOSTA_INCOMPLETA', 'http' => 502, 'significado' => 'A resposta do serviço de IA ficou incompleta. Reduza o documento ou o texto e tente de novo.'],
     ['codigo' => 'IA_RESPOSTA_INVALIDA', 'http' => 502, 'significado' => 'A resposta do serviço de IA não veio no formato esperado.'],
-    ['codigo' => 'IA_SEM_CHAVE', 'http' => 422, 'significado' => 'O assistente IA não está configurado no servidor (falta a variável ANTHROPIC_API_KEY).'],
+    ['codigo' => 'IA_SEM_CHAVE', 'http' => 422, 'significado' => 'O assistente IA não está configurado: falta um fornecedor de IA activo com chave em Plataforma › IA.'],
     ['codigo' => 'IA_SEM_CONTEUDO', 'http' => 422, 'significado' => 'Escreva a descrição da operação ou anexe um documento.'],
     ['codigo' => 'IA_SEM_DIAS', 'http' => 422, 'significado' => 'A IA não encontrou nenhum dia no documento. Confirme o documento ou use o motor interno.'],
     ['codigo' => 'IA_SEM_REGRA', 'http' => 422, 'significado' => 'Nenhuma regra interna corresponde ao texto. Crie uma regra com as palavras-chave ou use a IA.'],

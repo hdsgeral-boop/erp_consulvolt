@@ -1,9 +1,11 @@
 <?php
 
 /*
-| Assistente IA para lançamentos (decisão 26 — ServicoAssistenteIA). A chave da Anthropic vem SÓ do ambiente do servidor
-| (ANTHROPIC_API_KEY): nunca é gravada na base de dados, devolvida pela API ou enviada ao navegador. Sem chave, o assistente
-| funciona apenas com as regras internas (motor local, sem envio de dados a terceiros).
+| Assistente IA para lançamentos (decisão 26 — ServicoAssistenteIA). Fornecedor, chave, modelo e preços vêm da configuração
+| da plataforma (Plataforma › IA; chave cifrada, nunca devolvida nem enviada ao navegador) — ver ClienteClaude::definicao().
+| Os valores abaixo (ANTHROPIC_API_KEY, ERP_IA_MODELO, preços…) só valem como último recurso, quando a plataforma não tem nenhum
+| fornecedor activo; 'esforco', 'max_tokens', 'tempo_limite' e os limites de entrada continuam a vir daqui. Sem nenhuma chave,
+| o assistente funciona apenas com as regras internas (motor local, sem envio de dados a terceiros).
 */
 
 return [

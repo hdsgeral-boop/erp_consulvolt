@@ -338,8 +338,7 @@ export function Configuracao({ estado }: { estado?: EstadoIA }) {
           message="Como activar a IA"
           description={
             <ol style={{ margin: 0, paddingInlineStart: 18 }}>
-              <li>O administrador do servidor cria uma chave na consola da Anthropic e define a variável de ambiente <Typography.Text code>ANTHROPIC_API_KEY</Typography.Text> no ficheiro de ambiente do servidor (nunca no Git).</li>
-              <li>Reinicia os contentores da aplicação (ver docs/PRODUCAO.md › Assistente IA).</li>
+              <li>O administrador da plataforma configura o fornecedor de IA (chave, modelo e preços) em Plataforma › IA e deixa-o activo. Não é preciso mexer no servidor.</li>
               <li>Um utilizador com «Gestão de empresas» activa o assistente nesta empresa (interruptor abaixo).</li>
             </ol>
           }

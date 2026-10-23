@@ -238,6 +238,33 @@ final class ServicoConfiguracaoIA
             'preco_entrada' => (float) $a->preco_entrada_mtok, 'preco_saida' => (float) $a->preco_saida_mtok];
     }
 
+    /**
+     * Fornecedor, modelo e preços que a plataforma manda usar nas extracções do assistente de Contabilidade (lançamentos e
+     * regras de ficheiros). Segue o que o administrador definiu em Plataforma › IA, para que trocar aí troque aqui:
+     * 1.º a atribuição activa do cliente; 2.º, sem atribuição, o primeiro fornecedor activo com chave (Anthropic, OpenAI, Gemini).
+     * Sem nada configurado devolve null (o chamador recorre às variáveis do servidor, só por compatibilidade).
+     *
+     * @return array{fornecedor: string, modelo: string, preco_entrada: float, preco_saida: float}|null
+     */
+    public function definicaoParaExtracao(?int $tenant): ?array
+    {
+        $a = $this->doCliente($tenant);
+        if ($a) {
+            return ['fornecedor' => $a['fornecedor'], 'modelo' => $a['modelo'], 'preco_entrada' => $a['preco_entrada'], 'preco_saida' => $a['preco_saida']];
+        }
+        $f = collect($this->fornecedores())->first(fn ($x) => $x['ativo'] && $x['configurado'] && $x['modelo_padrao']);
+
+        return $f ? ['fornecedor' => $f['fornecedor'], 'modelo' => $f['modelo_padrao'], 'preco_entrada' => $f['preco_entrada_mtok'], 'preco_saida' => $f['preco_saida_mtok']] : null;
+    }
+
+    /** Chave do fornecedor tal como está gravada na plataforma (decifrada só aqui, no servidor). */
+    public function chaveDe(string $codigo): ?string
+    {
+        $f = $this->db()->table('ia_fornecedores')->where('fornecedor', $codigo)->first();
+
+        return $f?->chave ? rescue(fn () => Crypt::decryptString($f->chave), null, report: false) : null;
+    }
+
     /** @return array<string, mixed> consumo dos últimos 6 meses por mês e por cliente (consola da plataforma) */
     public function consumo(): array
     {

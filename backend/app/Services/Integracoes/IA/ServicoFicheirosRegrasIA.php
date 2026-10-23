@@ -179,7 +179,7 @@ final class ServicoFicheirosRegrasIA
         $regra = RegraFicheiro::ler((string) $r->conteudo);
         $inicio = microtime(true);
         $registo = ['caracteres_texto' => mb_strlen((string) $texto), 'tipo_ficheiro' => $ficheiro->getMimeType(), 'tamanho_ficheiro_kb' => (int) ceil($ficheiro->getSize() / 1024),
-            'motor' => 'IA', 'modelo' => (string) config('assistente_ia.modelo')];
+            'motor' => 'IA', 'modelo' => $this->claude->modelo()];
         $tipo = (string) $ficheiro->getMimeType();
         $dados = base64_encode((string) file_get_contents($ficheiro->getRealPath()));
         $blocos = [$tipo === 'application/pdf'
@@ -211,7 +211,7 @@ final class ServicoFicheirosRegrasIA
             throw new ErroNegocio('A IA não encontrou nenhum dia no documento. Confirme o documento ou use o motor interno.', 'IA_SEM_DIAS', 422);
         }
         $res = $this->resultados($empresa, $r, $regra, $dias, 'EXTERNA');
-        $custo = $resp['tokens_entrada'] / 1e6 * (float) config('assistente_ia.preco_entrada_mtok') + $resp['tokens_saida'] / 1e6 * (float) config('assistente_ia.preco_saida_mtok');
+        $custo = $this->claude->custo($resp['tokens_entrada'], $resp['tokens_saida']);
         $this->registarUso($empresa, $registo + ['modelo' => $resp['modelo'], 'estado' => $res['propostas_validas'] ? 'SUCESSO' : 'SEM_PROPOSTA', 'propostas' => $res['propostas_validas'],
             'tokens_entrada' => $resp['tokens_entrada'], 'tokens_saida' => $resp['tokens_saida'], 'custo_estimado_usd' => round($custo, 6),
             'duracao_ms' => (int) round((microtime(true) - $inicio) * 1000)]);

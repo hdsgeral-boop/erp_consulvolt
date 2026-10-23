@@ -54,6 +54,7 @@ final class ServicoAssistenteIA
         return [
             'ativo' => $this->ativo($empresa),
             'configurado' => $this->claude->configurado(),
+            'modelo' => $this->claude->modelo(),
             'regras_internas' => RegraInternaIA::query()->count(),
             'tem_regras_empresa' => trim((string) DB::table('empresas')->where('id', $empresa)->value('regras_ia')) !== '',
             'uso_mes' => ['pedidos' => (int) $uso->pedidos, 'pedidos_ia' => (int) $uso->pedidos_ia, 'custo_estimado_usd' => round((float) $uso->custo, 4)],
@@ -110,12 +111,12 @@ final class ServicoAssistenteIA
             $r = $this->claude->extrair($this->promptSistema($empresa), $this->conteudo($texto, $ficheiro), self::esquema());
         } catch (Throwable $e) {
             $codigo = $e instanceof ErroNegocio ? $e->codigo : 'IA_ERRO';
-            $this->registar($empresa, $registo + ['motor' => 'IA', 'modelo' => (string) config('assistente_ia.modelo'), 'estado' => $codigo === 'IA_RECUSA' ? 'RECUSA' : 'FALHA',
+            $this->registar($empresa, $registo + ['motor' => 'IA', 'modelo' => $this->claude->modelo(), 'estado' => $codigo === 'IA_RECUSA' ? 'RECUSA' : 'FALHA',
                 'codigo_erro' => $codigo, 'propostas' => 0, 'duracao_ms' => $this->ms($inicio)]);
             throw $e instanceof ErroNegocio ? $e : new ErroNegocio('Erro inesperado no assistente IA.', 'IA_ERRO', 502);
         }
         $propostas = array_map(fn ($p) => $this->validar($empresa, $p, 'IA'), array_slice((array) ($r['dados']['propostas'] ?? []), 0, 10));
-        $custo = $r['tokens_entrada'] / 1e6 * (float) config('assistente_ia.preco_entrada_mtok') + $r['tokens_saida'] / 1e6 * (float) config('assistente_ia.preco_saida_mtok');
+        $custo = $this->claude->custo($r['tokens_entrada'], $r['tokens_saida']);
         $this->registar($empresa, $registo + ['motor' => 'IA', 'modelo' => $r['modelo'], 'estado' => $propostas ? 'SUCESSO' : 'SEM_PROPOSTA', 'propostas' => count($propostas),
             'tokens_entrada' => $r['tokens_entrada'], 'tokens_saida' => $r['tokens_saida'], 'custo_estimado_usd' => round($custo, 6), 'duracao_ms' => $this->ms($inicio)]);
 
