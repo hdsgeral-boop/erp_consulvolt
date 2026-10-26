@@ -271,17 +271,19 @@ function Estrutura() {
   // como no legado, os itens soltos (Início, Dashboard Global, …) ficam por cima dos botões do aspecto e os grupos por baixo
   const itensTopo = useMemo(() => itens.filter((i) => !temFilhos(i)), [itens]);
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
-  // barra do topo: itens soltos, os módulos do «Menu Geral» lado a lado e «Sistema» (os favoritos têm linha própria)
-  const itensBarra = useMemo(
-    () =>
-      itens.flatMap((it) => {
-        const k = it && typeof it === 'object' ? String(it.key ?? '') : '';
-        if (k === 'grupo:favoritos') return [];
-        if (k === CHAVE_MENU_GERAL && temFilhos(it)) return (it as { children: ItemMenuLateral[] }).children;
-        return [it];
-      }),
-    [itens],
-  );
+  // barra do topo: itens soltos, os módulos do «Menu Geral» lado a lado e «Sistema» (os favoritos têm linha própria).
+  // Os itens soltos ficam sem o «⋮» (rótulo simples, numa só linha) e os menus que abrem usam a lista escura compacta.
+  const itensBarra = useMemo(() => {
+    const compactos = (lista: ItemMenuLateral[]): ItemMenuLateral[] =>
+      lista.map((it) => (temFilhos(it) ? ({ ...it, popupClassName: 'erp-menu-barra-topo-popup', children: compactos((it as { children: ItemMenuLateral[] }).children) } as ItemMenuLateral) : it));
+    return itens.flatMap((it) => {
+      const k = it && typeof it === 'object' ? String(it.key ?? '') : '';
+      if (k === 'grupo:favoritos') return [];
+      if (k === CHAVE_MENU_GERAL && temFilhos(it)) return compactos((it as { children: ItemMenuLateral[] }).children);
+      if (temFilhos(it)) return compactos([it]);
+      return [base.find((b) => b && typeof b === 'object' && b.key === k) ?? it];
+    });
+  }, [itens, base]);
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const ecraLido = lerCaminhoEcra(local.pathname);
   const moduloActual = ecraLido?.modulo ?? '';
@@ -494,7 +496,7 @@ function Estrutura() {
                 <MarcaEmpresa soIcone tamanho={36} escuro />
               </div>
               <div className="erp-barra-topo-corpo">
-                <Menu {...propsMenu} mode="horizontal" triggerSubMenuAction="click" className={`${classeMenu} erp-menu-barra-topo`} items={itensBarra} />
+                <Menu {...propsMenu} mode="horizontal" disabledOverflow triggerSubMenuAction="click" className={`${classeMenu} erp-menu-barra-topo`} items={itensBarra} />
                 <div className="erp-barra-topo-favoritos">
                   <span className="erp-barra-topo-favoritos-rotulo">
                     <StarFilled style={{ color: '#f59e0b' }} aria-hidden /> Favoritos
