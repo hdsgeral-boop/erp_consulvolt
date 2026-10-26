@@ -9,6 +9,7 @@ use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoDocumentosRH;
 use App\Services\RH\ServicoEmprestimos;
 use App\Services\RH\ServicoPortalColaborador;
+use App\Services\RH\ServicoPortalProjetos;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ final class PortalColaboradorController extends Controller
     public function __construct(
         private readonly ServicoPortalColaborador $portal,
         private readonly ServicoDocumentosRH $documentos,
+        private readonly ServicoPortalProjetos $projetos,
     ) {}
 
     // ───────────── Colaborador ─────────────
@@ -145,6 +147,48 @@ final class PortalColaboradorController extends Controller
     public function paraMim(): JsonResponse
     {
         return RespostaApi::sucesso($this->portal->pendentesParaMim(), 'Pedidos a aguardar a sua decisão.');
+    }
+
+    /** GET /compras/aprovacoes — pedidos de compra à minha espera (a decisão usa a rota de Compras já existente). */
+    public function comprasParaMim(): JsonResponse
+    {
+        return RespostaApi::sucesso($this->portal->comprasParaMim(), 'Pedidos de compra a aguardar a sua decisão.');
+    }
+
+    // ───────────── Projectos (separador do portal, 2026-10-24): registar horas e folha de medição ─────────────
+
+    /** GET /projetos/tarefas — as minhas tarefas (para escolher ao registar horas ou medir). */
+    public function tarefasProjeto(): JsonResponse
+    {
+        return RespostaApi::sucesso($this->projetos->minhasTarefas(), 'As minhas tarefas de projecto.');
+    }
+
+    /** POST /projetos/timesheets — registar horas numa das minhas tarefas. */
+    public function registarHorasProjeto(Request $r): JsonResponse
+    {
+        $d = $r->validate(['tarefa_projeto_id' => ['required', 'integer'], 'data' => ['required', 'date_format:Y-m-d'],
+            'horas' => ['required', 'numeric', 'gt:0', 'max:24']]);
+
+        return RespostaApi::criado($this->projetos->registarHoras($d), 'Horas registadas.');
+    }
+
+    /** GET /projetos/timesheets — as minhas horas lançadas no mês (?mes=AAAA-MM). */
+    public function timesheetsProjeto(Request $r): JsonResponse
+    {
+        $f = $r->validate(['mes' => ['nullable', 'string', 'max:7']]);
+
+        return RespostaApi::sucesso($this->projetos->meusTimesheets($f['mes'] ?? null), 'As minhas horas do mês.');
+    }
+
+    /** POST /projetos/tarefas/{tarefa}/medicoes — registar uma medição numa das minhas tarefas com meta. */
+    public function registarMedicaoProjeto(Request $r, int $tarefa): JsonResponse
+    {
+        $d = $r->validate(['quantidade' => ['required', 'numeric', 'between:-1000000000,1000000000'],
+            'data' => ['nullable', 'date_format:Y-m-d'], 'nota' => ['nullable', 'string', 'max:500']]);
+        $res = $this->projetos->registarMedicao($tarefa, $d);
+
+        return RespostaApi::criado(['tarefa_id' => $res['tarefa']->id, 'realizado' => $res['realizado'], 'pct' => $res['pct']],
+            "Registado. Execução: {$res['pct']}%.");
     }
 
     public function pedidos(Request $r): JsonResponse

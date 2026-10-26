@@ -158,11 +158,13 @@ return [
     ],
 
     'dominio' => [
-        // Domínio base dos clientes: <slug>.<base> = cliente; admin.erp.<base> = área da plataforma. Vazio = sem restrição.
+        // Domínio base dos clientes: <slug>.<base> = cliente; admin.erp.<base> = área da plataforma;
+        // portal.<base> = portal autónomo do colaborador (partilhado por todos os clientes). Vazio = sem restrição.
         'base' => env('DOMINIO_BASE', ''),
         // Tenant que opera a plataforma (acesso à área admin.erp.<base>).
         'plataforma_tenant_id' => (int) env('PLATAFORMA_TENANT_ID', 1),
-        // Subdomínios que não podem ser slugs de clientes.
-        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste'],
+        // Subdomínios que não podem ser slugs de clientes («portal» tem área própria em DominioPedido; mantido aqui
+        // também, em segunda linha de defesa, para nenhum cliente o poder reclamar como slug).
+        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste', 'portal'],
     ],
 ];

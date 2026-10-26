@@ -59,7 +59,9 @@ final class RegistoEmpresaController extends Controller
         $perfilTotal = $this->perfis->perfilAcessoTotal();
         $resultado = DB::transaction(function () use ($d, $diasTeste, $perfilTotal) {
             $base = Str::limit(Str::slug($d['nome_comercial']) ?: 'empresa', 32, ''); $slug = $base; $n = 1;
-            while (Tenant::query()->where('slug', $slug)->exists()) $slug = Str::limit($base, 28, '').'-'.++$n;
+            // Nenhum cliente pode reclamar um slug reservado (admin, portal, …): colidiria com a área desse endereço (DominioPedido).
+            $reservado = fn (string $s) => in_array($s, (array) config('erp.dominio.slugs_reservados'), true);
+            while (Tenant::query()->where('slug', $slug)->exists() || $reservado($slug)) $slug = Str::limit($base, 28, '').'-'.++$n;
             $tenant = Tenant::create(['nome' => $d['nome_comercial'], 'slug' => $slug, 'estado' => Tenant::ESTADO_ATIVO, 'plano' => $d['plano'] ?? null]);
             if ($d['plano'] ?? null) {
                 // ModulosPlano tem tenant_id => código do plano em cache (ServicoPermissoes nunca consulta `tenants`):

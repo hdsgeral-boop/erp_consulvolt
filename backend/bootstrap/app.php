@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin_cliente' => \App\Http\Middleware\ExigirAdministradorCliente::class,
             'suporte' => \App\Http\Middleware\ExigirSuporte::class,
             'licenca_exportacao' => \App\Http\Middleware\BloquearExportacaoComLicencaExpirada::class,
+            'area_portal' => \App\Http\Middleware\ExigirAreaPortal::class,
         ]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);

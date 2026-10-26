@@ -12,11 +12,18 @@ use Illuminate\Http\Request;
  *  - `livre`        — host que não é do domínio base (ex.: localhost, IP). Sem restrição por domínio (desenvolvimento).
  *  - `site`         — o próprio domínio base (ex.: meuerp.online). Sem restrição por cliente.
  *  - `plataforma`   — admin.erp.<base>: só o tenant que opera a plataforma, com super-administrador.
+ *  - `portal`       — portal.<base>: portal autónomo do colaborador, endereço único partilhado por todos os
+ *    clientes (sem segredo de subdomínio por cliente). Qualquer utilizador autenticado de qualquer tenant pode
+ *    entrar; quem realmente pode usar o portal é decidido pelo servidor em `GET /portal/acesso`
+ *    (`ServicoPortalColaborador::exigirAcessoPortal`), não aqui. O que esta área restringe é, em vez disso, QUAIS
+ *    rotas ficam alcançáveis a partir deste endereço (ver `ExigirAreaPortal`): isolamento ao nível da rota, não do
+ *    utilizador.
  *  - `cliente`      — <slug>.<base>: só utilizadores do tenant com esse slug.
  *  - `desconhecida` — subdomínio que não corresponde a nenhuma das regras acima (ex.: x.y.<base>).
  *
  * Quem decide se um utilizador pode usar a área é `permite()`. O tenant nunca vem de um cabeçalho: o host é o
- * endereço que o cliente escolheu para entrar, e o utilizador tem de pertencer a esse cliente.
+ * endereço que o cliente escolheu para entrar, e o utilizador tem de pertencer a esse cliente (excepto no portal,
+ * que é propositadamente de todos).
  */
 final class DominioPedido
 {
@@ -26,11 +33,15 @@ final class DominioPedido
 
     public const PLATAFORMA = 'plataforma';
 
+    public const PORTAL = 'portal';
+
     public const CLIENTE = 'cliente';
 
     public const DESCONHECIDA = 'desconhecida';
 
     private const PREFIXO_PLATAFORMA = 'admin.erp';
+
+    private const PREFIXO_PORTAL = 'portal';
 
     private function __construct(
         public readonly string $area,
@@ -53,6 +64,9 @@ final class DominioPedido
 
         if ($prefixo === self::PREFIXO_PLATAFORMA) {
             return new self(self::PLATAFORMA);
+        }
+        if ($prefixo === self::PREFIXO_PORTAL) {
+            return new self(self::PORTAL);
         }
         if ($prefixo === '' || str_contains($prefixo, '.') || in_array($prefixo, (array) config('erp.dominio.slugs_reservados'), true)) {
             return new self(self::DESCONHECIDA);
@@ -80,6 +94,9 @@ final class DominioPedido
             // domínio que a plataforma, isolado por rota (ExigirSuporte), não por subdomínio.
             self::PLATAFORMA => (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id')
                 && ($utilizador->eSuperAdministrador() || $utilizador->eAgenteSuporte()),
+            // Portal do colaborador: endereço partilhado por todos os clientes — qualquer utilizador autenticado pode
+            // entrar; quem pode usar o portal de facto é decidido no servidor por GET /portal/acesso.
+            self::PORTAL => true,
             self::CLIENTE => ($cliente = $this->cliente()) !== null && (int) $utilizador->tenant_id === (int) $cliente->id,
             default => false,
         };

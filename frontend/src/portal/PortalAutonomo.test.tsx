@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ErroApi, type ModuloMenu } from '@/api/tipos';
 import { PortalAutonomo } from './PortalAutonomo';
-import { naRotaPortal, temAcessoAoErp } from './rota';
+import { ehHostPortal, naRotaPortal, temAcessoAoErp } from './rota';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -121,5 +121,14 @@ describe('Portal autónomo do colaborador', () => {
     expect(naRotaPortal('/portal/x')).toBe(true);
     expect(naRotaPortal('/portalx')).toBe(false);
     expect(naRotaPortal('/m/rh/rh_portal')).toBe(false);
+  });
+
+  it('reconhece o subdomínio externo do portal (espelha DominioPedido::PORTAL do servidor)', () => {
+    expect(ehHostPortal('portal.meuerp.online')).toBe(true);
+    expect(ehHostPortal('portal.localhost')).toBe(true);
+    expect(ehHostPortal('portal')).toBe(true);
+    expect(ehHostPortal('acme.meuerp.online')).toBe(false);
+    expect(ehHostPortal('meuerp.online')).toBe(false);
+    expect(ehHostPortal('localhost')).toBe(false);
   });
 });

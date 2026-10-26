@@ -10,6 +10,7 @@ import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
 import { DadosPessoais } from '@/paginas/DadosPessoais';
 import { PortalAutonomo } from '@/portal/PortalAutonomo';
+import { ehHostPortal } from '@/portal/rota';
 import { LandingPage } from '@/paginas/publico/LandingPage';
 import { RegistarEmpresa } from '@/paginas/publico/RegistarEmpresa';
 import { TermosUtilizacao } from '@/paginas/publico/legal/TermosUtilizacao';
@@ -40,6 +41,8 @@ import SuportePainel from '@/suporte/SuportePainel';
  * - Com sessão Agente de Suporte → Backoffice de Suporte (/suporte), isolado de /admin (ADR-076)
  * - Com sessão Utilizador de Empresa → Selecção ou ERP (/app, /m/...)
  * - /portal: Portal autónomo do colaborador
+ * - Em portal.<base> (subdomínio externo dedicado): só os caminhos acima do Portal ficam alcançáveis nesta SPA; tudo
+ *   o resto redirecciona para /portal. A barreira real é do servidor (ExigirAreaPortal).
  */
 export function App() {
   const { estado, empresa, utilizador } = useSessao();
@@ -48,6 +51,27 @@ export function App() {
 
   if (estado === 'a_carregar') {
     return <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
+  }
+
+  // portal.<base>: endereço externo dedicado (ADR: isolamento por subdomínio). A barreira real é do servidor
+  // (ExigirAreaPortal, que só deixa alcançar /portal/acesso e /rh/portal/*); isto só evita mostrar o resto da SPA.
+  if (ehHostPortal()) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/portal" replace />} />
+          <Route path="portal/*" element={estado === 'anonimo' ? <Entrar /> : <PortalAutonomo />} />
+          <Route
+            path="recuperar-password"
+            element={estado === 'anonimo' ? <RecuperarPassword /> : <Navigate to="/portal" replace />}
+          />
+          <Route path="termos" element={<TermosUtilizacao />} />
+          <Route path="privacidade" element={<PoliticaPrivacidade />} />
+          <Route path="conformidade-fiscal" element={<ConformidadeFiscal />} />
+          <Route path="*" element={<Navigate to="/portal" replace />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
 
   return (

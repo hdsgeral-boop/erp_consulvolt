@@ -7,6 +7,14 @@ export const ROTA_PORTAL = '/portal';
 export const naRotaPortal = (caminho: string = typeof window === 'undefined' ? '' : window.location.pathname): boolean =>
   caminho === ROTA_PORTAL || caminho.startsWith(`${ROTA_PORTAL}/`);
 
+/**
+ * O endereço é o subdomínio externo do portal (portal.<base>)? Espelha `DominioPedido::PORTAL` do servidor: o
+ * primeiro segmento do host é literalmente «portal» — sem variável de ambiente nova, como o backend. A barreira real
+ * é do lado do servidor (`ExigirAreaPortal`); isto só decide o que a SPA mostra neste endereço.
+ */
+export const ehHostPortal = (hostname: string = typeof window === 'undefined' ? '' : window.location.hostname): boolean =>
+  hostname.split('.')[0] === 'portal';
+
 /** Ecrãs do menu que pertencem ao próprio portal (não contam como acesso ao ERP). */
 export const ECRAS_DO_PORTAL: ReadonlySet<string> = new Set(['rh_portal']);
 

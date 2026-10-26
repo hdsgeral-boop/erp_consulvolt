@@ -76,7 +76,7 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('registar-empresa', [RegistoEmpresaController::class, 'store'])->middleware('throttle:6,1')->name('registar_empresa');
     Route::post('recuperar-password', [AutenticacaoController::class, 'recuperarPassword'])->middleware('throttle:6,1')->name('recuperar_password');
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         Route::post('sair', [AutenticacaoController::class, 'sair'])->name('sair');
         Route::get('eu', [AutenticacaoController::class, 'eu'])->name('eu');
         // «Gerir Dados Pessoais»: o próprio utilizador (sem empresa activa nem permissões do catálogo)
@@ -86,7 +86,7 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
 
     // Rotas sem empresa activa (antes de escolher empresa)
     Route::prefix('sistema')->name('sistema.')->group(function () {
@@ -406,6 +406,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('pedidos', 'criarPedido')->name('pedidos.store');
             Route::post('pedidos/{pedido}/cancelar', 'cancelar')->whereNumber('pedido')->name('pedidos.cancelar');
             Route::get('aprovacoes', 'paraMim')->name('aprovacoes');
+            // Versão Actual (2026-10-24): Compras e Projectos dentro do portal — a decisão de compras usa a rota já
+            // existente de Compras (/compras/pedidos/{id}/decidir); o portal só lista as que aguardam o próprio.
+            Route::get('compras/aprovacoes', 'comprasParaMim')->name('compras.aprovacoes');
+            Route::get('projetos/tarefas', 'tarefasProjeto')->name('projetos.tarefas');
+            Route::get('projetos/timesheets', 'timesheetsProjeto')->name('projetos.timesheets.index');
+            Route::post('projetos/timesheets', 'registarHorasProjeto')->name('projetos.timesheets.store');
+            Route::post('projetos/tarefas/{tarefa}/medicoes', 'registarMedicaoProjeto')->whereNumber('tarefa')->name('projetos.medicoes.store');
             Route::get('pedidos', 'pedidos')->name('pedidos.index');
             Route::post('pedidos/{pedido}/decidir', 'decidir')->whereNumber('pedido')->name('pedidos.decidir');
             Route::get('pedidos/{pedido}/proposta', 'propostaDocumento')->whereNumber('pedido')->name('pedidos.proposta');

@@ -12,12 +12,14 @@ use App\Models\EmprestimoColaborador;
 use App\Models\EscalaTrabalho;
 use App\Models\InfotipoSalarial;
 use App\Models\ItemProdutividadeRH;
+use App\Models\PedidoCompra;
 use App\Models\PedidoPortalColaborador;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PlanoFeriasColaborador;
 use App\Models\PrestacaoEmprestimo;
 use App\Models\ResultadoFolhaSalarial;
 use App\Models\UtilizadorEmpresa;
+use App\Services\Compras\ServicoDeliberacaoCompras;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
@@ -60,6 +62,7 @@ final class ServicoPortalColaborador
         private readonly ServicoAuditoria $auditoria,
         private readonly ServicoEmprestimos $emprestimos,
         private readonly ServicoAssiduidade $assiduidade,
+        private readonly ServicoDeliberacaoCompras $comprasDeliberacao,
     ) {}
 
     // ───────────── Ligação utilizador ↔ colaborador ─────────────
@@ -89,7 +92,7 @@ final class ServicoPortalColaborador
     {
         $id = $this->colaboradorDe();
         $colaborador = $id ? Colaborador::query()->find($id, ['id', 'nome_completo']) : null;
-        $pendentes = count($this->pendentesParaMim());
+        $pendentes = count($this->pendentesParaMim()) + count($this->comprasParaMim());
         $aprovaRh = Gate::any(['rh_portal_aprovar']);
         if (! $colaborador && $pendentes === 0 && ! $aprovaRh) {
             throw new ErroNegocio('O portal do colaborador só está disponível para utilizadores associados a um colaborador desta empresa ou com aprovações pendentes. Peça ao RH que associe o seu utilizador ao seu registo de colaborador, ou escolha outra empresa.',
@@ -328,7 +331,8 @@ final class ServicoPortalColaborador
             'autoavaliacao' => ['ano' => $ano, 'periodo' => 'ANUAL', 'estado' => match ($auto) {
                 null => 'POR_FAZER', 'SUBMETIDA' => 'SUBMETIDA', default => 'RASCUNHO'
             }],
-            'aprovacoes_para_mim' => count($this->pendentesParaMim())];
+            // O contador do separador «Aprovações» soma RH (pendentesParaMim) + Compras (comprasParaMim).
+            'aprovacoes_para_mim' => count($this->pendentesParaMim()) + count($this->comprasParaMim())];
     }
 
     /** Pedidos à espera do utilizador actual (chefia directa ou, com a permissão, RH). */
@@ -345,6 +349,26 @@ final class ServicoPortalColaborador
 
             return $e && (($e['nivel'] === 'CHEFIA' && $eu && self::aprovador($e) === $eu) || ($e['nivel'] === 'RH' && $rh));
         })->values()->all();
+    }
+
+    /**
+     * Pedidos de compra à espera da minha decisão (separador «Aprovações», 2026-10-24): a mesma regra de
+     * ServicoDeliberacaoCompras::podeDecidir (escalões por valor, aprovação cumulativa, nunca os próprios pedidos). A
+     * decisão (libertar/recusar) usa a rota já existente de Compras — o portal só lista.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function comprasParaMim(): array
+    {
+        $meuColaborador = $this->colaboradorDe();
+
+        return PedidoCompra::query()->where('estado', 'PENDENTE')->orderBy('id')->get()
+            ->filter(fn ($p) => $this->comprasDeliberacao->podeDecidir($p, $meuColaborador)['pode'])
+            ->map(fn ($p) => ['id' => (int) $p->id, 'numero_pedido' => $p->numero_pedido, 'nome_requerente' => $p->nome_requerente,
+                'data' => $p->data?->toDateString(), 'valor_estimado' => $this->comprasDeliberacao->valorEstimado($p)['valor'],
+                'nivel_atual' => collect($p->deliberacao['etapas'] ?? [])->firstWhere('estado', 'PENDENTE')['nome'] ?? null,
+                'niveis_aprovados' => collect($p->deliberacao['etapas'] ?? [])->where('estado', 'APROVADO')->count(),
+                'niveis_total' => count($p->deliberacao['etapas'] ?? [])])->values()->all();
     }
 
     /** Recibos: períodos VALIDADOS com fotografia para o colaborador. */
