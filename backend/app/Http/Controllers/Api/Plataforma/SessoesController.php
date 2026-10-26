@@ -20,7 +20,7 @@ final class SessoesController extends Controller
             ->where('t.expira_em', '>', now())
             ->orderByDesc('t.ultimo_uso_em')
             ->limit(300)
-            ->get(['t.id', 't.nome as dispositivo', 't.endereco_ip', 't.ultimo_uso_em', 't.expira_em', 'u.nome_utilizador', DB::raw("CASE WHEN c.id = ".(int) config('erp.dominio.plataforma_tenant_id', 1)." THEN 'Plataforma (equipa)' ELSE c.nome END AS cliente")]);
+            ->get(['t.id', 't.nome as dispositivo', 't.endereco_ip', 't.ultimo_uso_em', 't.expira_em', 'u.nome_utilizador', DB::raw('CASE WHEN c.id = '.(int) config('erp.dominio.plataforma_tenant_id', 1)." THEN 'Plataforma (equipa)' ELSE c.nome END AS cliente")]);
 
         return RespostaApi::sucesso($sessoes->all(), 'Sessões obtidas com sucesso.');
     }

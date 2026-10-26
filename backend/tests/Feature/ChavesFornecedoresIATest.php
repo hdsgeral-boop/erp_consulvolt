@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Exceptions\ErroNegocio;
 use App\Services\IA\Agente\ServicoConfiguracaoIA;
+use App\Services\Integracoes\IA\ClienteClaude;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -82,7 +83,7 @@ final class ChavesFornecedoresIATest extends TestCase
     #[Test]
     public function o_assistente_de_contabilidade_segue_o_que_a_plataforma_define_e_so_depois_o_servidor(): void
     {
-        $claude = app(\App\Services\Integracoes\IA\ClienteClaude::class);
+        $claude = app(ClienteClaude::class);
         $esquema = ['type' => 'object'];
         $anthropic = fn (string $t) => Http::response(['model' => 'claude-opus-5-5', 'stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => $t]], 'usage' => ['input_tokens' => 10, 'output_tokens' => 5]]);
         Http::fake([

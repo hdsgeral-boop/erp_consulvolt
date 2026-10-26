@@ -4,8 +4,8 @@ namespace Tests\Feature\Tenancy;
 
 use App\Models\Empresa;
 use App\Models\Tenant;
-use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;

@@ -8,6 +8,8 @@ use App\Services\Plataforma\ServicoClientes;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /** Painel da plataforma: resumo e relatórios CSV. Acesso: middleware `plataforma`. */
@@ -80,8 +82,8 @@ final class PainelController extends Controller
      * activos (últimos 30 dias), acessos por dia, licenças a expirar e tickets. Leituras agregadas de todos os clientes
      * pela ligação do dono (sem RLS) — só contagens e somas, nunca dados de negócio.
      *
-     * @param  \Illuminate\Support\Collection<int, Tenant>  $tenants
-     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $empresas
+     * @param  Collection<int, Tenant>  $tenants
+     * @param  Collection<int, array<string, mixed>>  $empresas
      * @return array<string, mixed>
      */
     private function indicadores($tenants, $empresas): array
@@ -112,7 +114,7 @@ final class PainelController extends Controller
             'moeda' => 'AOA',
             'utilizadores_ativos_30d' => (int) $acessos->sum(),
             'tickets_abertos' => (int) (($tickets['ABERTO'] ?? 0) + ($tickets['EM_CURSO'] ?? 0)),
-            'meses' => $meses->map(fn ($m) => \Illuminate\Support\Carbon::createFromFormat('Y-m', $m)->locale('pt')->isoFormat('MMM YY'))->all(),
+            'meses' => $meses->map(fn ($m) => Carbon::createFromFormat('Y-m', $m)->locale('pt')->isoFormat('MMM YY'))->all(),
             'clientes_novos_mes' => $meses->map(fn ($m) => (int) ($novos[$m] ?? 0))->all(),
             'receita_mes' => $meses->map(fn ($m) => round((float) ($receita[$m] ?? 0), 2))->all(),
             'dias' => $dias->map(fn ($d) => substr($d, 8, 2).'/'.substr($d, 5, 2))->all(),

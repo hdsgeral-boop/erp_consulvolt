@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
@@ -178,7 +179,7 @@ final class ClientesController extends Controller
             'estado' => $c->estado,
             'plano' => $c->plano,
             'nome_sistema' => $c->nome_sistema,
-            'licenca' => app(\App\Services\Plataforma\ServicoLicencaCliente::class)->estado($c),
+            'licenca' => app(ServicoLicencaCliente::class)->estado($c),
             'criado_em' => $c->criado_em,
             'endereco' => config('erp.dominio.base') ? $r->getScheme().'://'.$c->slug.'.'.config('erp.dominio.base') : null,
         ];

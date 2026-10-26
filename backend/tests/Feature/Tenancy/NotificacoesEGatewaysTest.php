@@ -5,9 +5,11 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
+use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
 use App\Support\Tenancy\ContextoTenant;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -150,8 +152,8 @@ class NotificacoesEGatewaysTest extends TestCase
     {
         // a empresa pertence a um cliente (a empresa da própria plataforma não entra na gestão de licenças)
         $empresa = $this->criarEmpresa(['nome' => 'Empresa SaaS Alfa']);
-        $cliente = \App\Models\Tenant::query()->create(['nome' => 'Cliente SaaS Alfa', 'slug' => 'cliente-saas-alfa']);
-        \Illuminate\Support\Facades\DB::table('empresas')->where('id', $empresa->id)->update(['tenant_id' => $cliente->id]);
+        $cliente = Tenant::query()->create(['nome' => 'Cliente SaaS Alfa', 'slug' => 'cliente-saas-alfa']);
+        DB::table('empresas')->where('id', $empresa->id)->update(['tenant_id' => $cliente->id]);
         $super = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
         config(['erp.saas.ativo' => true]);
 

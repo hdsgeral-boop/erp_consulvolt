@@ -44,10 +44,10 @@ final class ServicoClientes
         return Tenant::query()->orderBy('id')->get()
             ->reject(fn (Tenant $c) => ! $incluirPlataforma && self::eDaPlataforma((int) $c->id))->values()
             ->map(fn (Tenant $c) => [
-            'tenant' => $c,
-            'empresas' => (int) ($empresas[$c->id]->empresas ?? 0),
-            'utilizadores' => (int) ($utilizadores[$c->id] ?? 0),
-        ]);
+                'tenant' => $c,
+                'empresas' => (int) ($empresas[$c->id]->empresas ?? 0),
+                'utilizadores' => (int) ($utilizadores[$c->id] ?? 0),
+            ]);
     }
 
     /** Empresas de todos os clientes (metadados); com $incluirPlataforma=false sem as da própria plataforma. */
