@@ -7,6 +7,7 @@ import {
   DownOutlined,
   EditOutlined,
   IdcardOutlined,
+  LayoutOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -124,6 +125,12 @@ const setaGrupo = ({ isOpen }: { isOpen?: boolean }) => (
  * cheio, «⇄ Trocar empresa» (volta à escolha de empresa; a seta ao lado,
  * «Empresa activa», troca directamente), utilizador com nome e papel sem avatar e sair a vermelho.
  *
+ * Menu no topo (26/10/2026, como index_arrumado.html): por omissão, em ecrãs largos, o menu é uma barra escura por cima do
+ * cabeçalho com a marca, os itens soltos, os módulos do «Menu Geral» e «Sistema» como menus que abrem ao clicar, e a
+ * linha «Favoritos» com os atalhos. O botão «Menu ao lado» passa ao menu lateral (e «Menu no topo» volta); a escolha é
+ * guardada no aspecto do utilizador (aspecto.ts › posicao). «Procurar» abre a caixa «Procurar operação» por baixo do
+ * botão.
+ *
  * Responsivo:
  *  - ≥ 992 px (lg): menu lateral fixo e recolhível (botão «Recolher menu»), «Trocar empresa» na barra superior;
  *  - < 992 px: o menu passa a uma gaveta escura aberta pelo botão «Abrir menu» (fecha ao navegar), com o selector de
@@ -172,6 +179,8 @@ function Estrutura() {
   const escuro = aspecto.tema === 'escuro';
   const recolhido = aspecto.menu === 'icones';
   const colapsado = recolhido && !ecra.pequeno;
+  const noTopo = aspecto.posicao === 'topo' && !ecra.pequeno;
+  const [barraVisivel, setBarraVisivel] = useState(true);
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const [painel, setPainel] = useState<'powerbi' | null>(null);
   const [historico, setHistorico] = useState<string[]>([]);
@@ -183,6 +192,10 @@ function Estrutura() {
   }, [aspecto.menu]);
   const alternarRecolhido = () => definir({ menu: recolhido ? anteriorExpandido.current : 'icones' });
   const alternarTema = useCallback(() => definir({ tema: escuro ? 'claro' : 'escuro' }), [definir, escuro]);
+  const alternarPosicao = () => {
+    setBarraVisivel(true);
+    definir({ posicao: noTopo ? 'lado' : 'topo' });
+  };
 
   const lateral = useMemo(() => construirMenuLateral(menu), [menu]);
   // menu com o grupo «Favoritos» (como no legado: Início, Dashboard Global, Relatórios de Gestão, Fluxo de Processos,
@@ -258,6 +271,17 @@ function Estrutura() {
   // como no legado, os itens soltos (Início, Dashboard Global, …) ficam por cima dos botões do aspecto e os grupos por baixo
   const itensTopo = useMemo(() => itens.filter((i) => !temFilhos(i)), [itens]);
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
+  // barra do topo: itens soltos, os módulos do «Menu Geral» lado a lado e «Sistema» (os favoritos têm linha própria)
+  const itensBarra = useMemo(
+    () =>
+      itens.flatMap((it) => {
+        const k = it && typeof it === 'object' ? String(it.key ?? '') : '';
+        if (k === 'grupo:favoritos') return [];
+        if (k === CHAVE_MENU_GERAL && temFilhos(it)) return (it as { children: ItemMenuLateral[] }).children;
+        return [it];
+      }),
+    [itens],
+  );
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const ecraLido = lerCaminhoEcra(local.pathname);
   const moduloActual = ecraLido?.modulo ?? '';
@@ -418,7 +442,7 @@ function Estrutura() {
     // tela nocturna: tema escuro do Ant Design só dentro do layout (sem remontar os ecrãs ao mudar)
     <ConfigProvider theme={escuro ? TEMA_NOCTURNO : undefined}>
       <Layout style={{ minHeight: '100vh' }}>
-        {!ecra.pequeno && (
+        {!ecra.pequeno && !noTopo && (
           <Layout.Sider
             className={`erp-sider${puxador.aArrastar ? ' erp-sider-a-redimensionar' : ''}`}
             collapsible
@@ -464,6 +488,30 @@ function Estrutura() {
         )}
 
         <Layout className="erp-layout-coluna">
+          {noTopo && barraVisivel && (
+            <nav id={ID_MENU_LATERAL} className="erp-barra-topo" aria-label="Menu principal">
+              <div className="erp-barra-topo-marca">
+                <MarcaEmpresa soIcone tamanho={36} escuro />
+              </div>
+              <div className="erp-barra-topo-corpo">
+                <Menu {...propsMenu} mode="horizontal" triggerSubMenuAction="click" className={`${classeMenu} erp-menu-barra-topo`} items={itensBarra} />
+                <div className="erp-barra-topo-favoritos">
+                  <span className="erp-barra-topo-favoritos-rotulo">
+                    <StarFilled style={{ color: '#f59e0b' }} aria-hidden /> Favoritos
+                  </span>
+                  {favoritos.length ? (
+                    favoritos.map((f) => (
+                      <button key={f.rota} type="button" className={`erp-barra-topo-atalho${f.rota === seleccionado ? ' activo' : ''}`} title={`${f.nome} (${f.nomeModulo})`} onClick={() => navegar(f.rota)}>
+                        {f.nome}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="erp-barra-topo-dica">Sem atalhos — clique em «⋮» numa operação do menu e escolha «Adicionar aos Favoritos».</span>
+                  )}
+                </div>
+              </div>
+            </nav>
+          )}
           <Layout.Header
             className="erp-cabecalho"
             style={{
@@ -478,6 +526,16 @@ function Estrutura() {
               <Flex align="center" gap={ecra.md ? 14 : 8} style={{ minWidth: 0, flex: '1 1 auto' }}>
                 {ecra.pequeno ? (
                   <Button className="erp-botao-menu" icon={<MenuOutlined />} aria-label="Abrir menu" aria-expanded={gavetaAberta} onClick={() => setGavetaAberta(true)} />
+                ) : noTopo ? (
+                  <Button
+                    className="erp-botao-menu"
+                    icon={<MenuOutlined />}
+                    aria-label={barraVisivel ? 'Esconder o menu' : 'Mostrar o menu'}
+                    aria-pressed={barraVisivel}
+                    aria-controls={ID_MENU_LATERAL}
+                    title={barraVisivel ? 'Esconder o menu' : 'Mostrar o menu'}
+                    onClick={() => setBarraVisivel((v) => !v)}
+                  />
                 ) : (
                   <Button
                     className="erp-botao-menu"
@@ -495,18 +553,26 @@ function Estrutura() {
                   {nif && <span className="erp-cracha-nif">NIF: {nif}</span>}
                 </div>
               </Flex>
-              {ecra.lg && (
-                <div className="erp-cabecalho-pesquisa">
-                  <PesquisaCabecalho />
-                </div>
-              )}
               <Flex align="center" gap={ecra.md ? 8 : 4} style={{ flex: 'none', minWidth: 0 }}>
                 {/* a tela nocturna e o aspecto do menu não estão no menu do utilizador (pedido de 17/10/2026): o botão fica em todas as larguras */}
+                <BotaoAjuda compacto={!ecra.xl} />
+                {ecra.pequeno ? (
+                  <PesquisaCabecalho compacto />
+                ) : (
+                  <span className="erp-pesquisa-ancora">
+                    <PesquisaCabecalho compacto rotulo={ecra.xl ? 'Procurar' : ''} />
+                  </span>
+                )}
+                {!ecra.pequeno && (
+                  <Tooltip title={ecra.xl ? undefined : noTopo ? 'Menu ao lado' : 'Menu no topo'}>
+                    <Button className="erp-botao-posicao-menu" icon={<LayoutOutlined />} aria-label={noTopo ? 'Menu ao lado' : 'Menu no topo'} onClick={alternarPosicao}>
+                      {ecra.xl && (noTopo ? 'Menu ao lado' : 'Menu no topo')}
+                    </Button>
+                  </Tooltip>
+                )}
                 <Tooltip title={`${textoTema} (Alt+Shift+N)`}>
                   <Button className="erp-botao-tema" icon={escuro ? <SunOutlined /> : <MoonOutlined />} aria-label="Tela nocturna" aria-pressed={escuro} onClick={alternarTema} />
                 </Tooltip>
-                <BotaoAjuda compacto={!ecra.xl} />
-                {!ecra.lg && <PesquisaCabecalho compacto />}
                 {ecra.md && noEcra && (
                   <Tooltip title={textoFavorito}>
                     <Button

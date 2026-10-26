@@ -291,7 +291,11 @@ const ROTULO_TIPO = { botao: 'Botão', separador: 'Separador' } as const;
  * Campo «Procurar» da barra superior. `compacto` (ecrãs estreitos): só o ícone, que abre o mesmo campo por cima da barra.
  * O atalho Ctrl+K / ⌘K foca o campo (registado aqui).
  */
-export function PesquisaCabecalho({ compacto = false }: { compacto?: boolean }) {
+/**
+ * `compacto`: só a lupa, o campo abre por cima da barra. `rotulo` (com `compacto`): botão «Procurar» com texto e a
+ * caixa pequena «Procurar operação» por baixo do botão, como no legado.
+ */
+export function PesquisaCabecalho({ compacto = false, rotulo }: { compacto?: boolean; rotulo?: string }) {
   const { menu, pode } = useSessao();
   const { eFavorito } = useFavoritos();
   const navegar = useNavigate();
@@ -382,10 +386,15 @@ export function PesquisaCabecalho({ compacto = false }: { compacto?: boolean }) 
   };
 
   if (!visivel)
-    return <Button className="erp-botao-pesquisa" icon={<SearchOutlined />} onClick={focar} aria-label="Abrir a pesquisa" title={`Procurar funções e ecrãs (${atalho})`} />;
+    return (
+      <Button className="erp-botao-pesquisa" icon={<SearchOutlined />} onClick={focar} aria-label="Abrir a pesquisa" title={`Procurar funções e ecrãs (${atalho})`}>
+        {rotulo}
+      </Button>
+    );
 
   return (
-    <div className={`erp-pesquisa-cabecalho${compacto ? ' flutuante' : ''}`} role="search">
+    <div className={`erp-pesquisa-cabecalho${compacto ? ' flutuante' : ''}${compacto && rotulo !== undefined ? ' caixa' : ''}`} role="search">
+      {compacto && rotulo !== undefined && <div className="erp-pesquisa-titulo">Procurar operação</div>}
       <AutoComplete
         value={termo}
         options={opcoes}

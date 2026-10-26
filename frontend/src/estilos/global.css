@@ -415,3 +415,28 @@ canvas {
 .erp-portal-area { width: 100%; max-width: 1400px; margin: 0 auto; }
 :root .erp-portal .erp-portal-rodape.ant-layout-footer { padding: 14px 16px; background: transparent; text-align: center; font-size: 12px; color: #94a3b8; }
 @media print { .erp-portal-cabecalho, .erp-portal-rodape { display: none !important; } }
+
+/* Menu no topo (layout/LayoutPrincipal.tsx, como index_arrumado.html): barra escura por cima do cabeçalho com a marca, os
+   módulos lado a lado (abrem ao clicar) e a linha «Favoritos». Escolhida pelo botão «Menu ao lado» / «Menu no topo». */
+.erp-barra-topo { display: flex; align-items: stretch; gap: 12px; padding: 4px 16px 4px 12px; background: #121212; border-bottom: 1px solid #1f1f1f; }
+.erp-barra-topo-marca { display: flex; flex: none; align-items: center; padding-inline: 4px 8px; }
+.erp-barra-topo-corpo { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+:root .erp-barra-topo .erp-menu-barra-topo.ant-menu-horizontal { flex-wrap: wrap; border-bottom: 0; background: transparent; line-height: 30px; font-size: 12px; }
+:root .erp-barra-topo .erp-menu-barra-topo.ant-menu-horizontal > .ant-menu-item,
+:root .erp-barra-topo .erp-menu-barra-topo.ant-menu-horizontal > .ant-menu-submenu { padding-inline: 8px; }
+:root .erp-barra-topo .erp-menu-barra-topo.ant-menu-horizontal > .ant-menu-item-selected { border-left: 3px solid #3b82f6; background: rgba(255, 255, 255, 0.06); }
+/* o «⋮» dos ecrãs só faz sentido nos menus que abrem, não nos itens soltos da barra */
+:root .erp-barra-topo .erp-menu-barra-topo.ant-menu-horizontal > .ant-menu-item .erp-menu-pontos { display: none; }
+.erp-barra-topo-favoritos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 26px; padding: 2px 8px 4px; font-size: 12px; color: #e2e8f0; }
+.erp-barra-topo-favoritos-rotulo { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.erp-barra-topo-dica { color: #94a3b8; font-size: 11px; font-style: italic; }
+.erp-barra-topo-atalho { padding: 2px 10px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; background: transparent; color: #e2e8f0; font: inherit; cursor: pointer; }
+.erp-barra-topo-atalho:hover,
+.erp-barra-topo-atalho:focus-visible { border-color: #3b82f6; color: #ffffff; outline: none; }
+.erp-barra-topo-atalho.activo { border-color: #3b82f6; background: rgba(59, 130, 246, 0.18); color: #ffffff; }
+
+/* «Procurar»: caixa pequena «Procurar operação» por baixo do botão (legado) */
+.erp-pesquisa-ancora { position: relative; display: inline-flex; }
+.erp-pesquisa-cabecalho.flutuante.caixa { inset-inline: auto 0; top: calc(100% + 8px); flex-wrap: wrap; width: 340px; padding: 8px; transform: none; background: #1e293b; }
+.erp-pesquisa-titulo { flex: 1 0 100%; padding: 0 4px 6px; color: #cbd5e1; font-size: 12px; font-weight: 600; }
+.erp-pesquisa-cabecalho.flutuante.caixa .erp-pesquisa-fechar { position: absolute; top: 2px; right: 4px; color: #94a3b8; }
