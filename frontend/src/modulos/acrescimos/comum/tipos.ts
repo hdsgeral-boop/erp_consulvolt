@@ -115,11 +115,6 @@ export interface Proposta {
   total: string;
 }
 
-export interface ResultadoContabilizacao {
-  ok: { chave: string; numero_lan?: string; [k: string]: unknown }[];
-  erros: { chave: string; mensagem: string; codigo?: string }[];
-}
-
 export interface LinhaReconciliacao {
   conta: string;
   /** Descrição da conta no plano da empresa (vazia se a conta não existir). */

@@ -1,6 +1,6 @@
-import { Alert, Button, Card, DatePicker, Flex, List, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, DatePicker, Flex, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { RollbackOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { useOperacoes } from '@/componentes/operacoes/Operacoes';
 import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -17,7 +18,7 @@ import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaAD, rotuloAD, useDefinicoes } from './comum/componentes';
 import { efeitoPorConta, mesApi, mesCurto, totaisSeleccao } from './comum/regras';
-import type { LancamentoAD, LinhaProposta, LinhaReconciliacao, Proposta, ResultadoContabilizacao } from './comum/tipos';
+import type { LancamentoAD, LinhaProposta, LinhaReconciliacao, Proposta } from './comum/tipos';
 
 /** Acréscimos e diferimentos › Proposta mensal (ecrã ad_propostas): contabilizar as linhas escolhidas, descontabilizar e reconciliar. */
 export default function Propostas() {
@@ -54,7 +55,6 @@ function PropostaMes() {
   const def = useDefinicoes();
   const [mes, setMes] = useState(dayjs());
   const [chaves, setChaves] = useState<string[]>([]);
-  const [resultado, setResultado] = useState<ResultadoContabilizacao | null>(null);
   const [descontab, setDescontab] = useState<LancamentoAD | null>(null);
   const m = mesApi(mes);
   const rotulo = mesCurto(m);
@@ -63,7 +63,14 @@ function PropostaMes() {
     queryKey: ['acrescimos', 'lancamentos', 'do-mes', m],
     queryFn: () => obterPagina<LancamentoAD>('/acrescimos/lancamentos', { mes_documento: m, estado: 'CONTABILIZADO', por_pagina: 500 }),
   });
-  const accao = useAccao<ResultadoContabilizacao>({ invalidar: [['acrescimos']], aoSucesso: (r) => { if (r.erros.length) setResultado(r); } });
+  const consulta = useQueryClient();
+  const operacoes = useOperacoes();
+  // M-05: contabilizar a proposta é uma operação em segundo plano (barra de progresso, até 1000 linhas, pode sair do
+  // ecrã); uma linha que falhe não impede as outras, com o detalhe acessível em GET /sistema/operacoes/{id}/resultados.
+  const accao = useAccao<{ id: string; titulo: string }>({
+    invalidar: [],
+    aoSucesso: (r) => operacoes.acompanharLote(r.id, r.titulo, () => void consulta.invalidateQueries({ queryKey: ['acrescimos'] })),
+  });
   const accaoDesc = useAccao({ invalidar: [['acrescimos']], aoSucesso: () => setDescontab(null) });
   const linhas = q.data?.linhas ?? [];
   // como no legado: ao abrir (ou mudar de mês / depois de contabilizar) ficam todas seleccionadas
@@ -247,10 +254,6 @@ function PropostaMes() {
         aoFechar={() => setDescontab(null)}
         aoConfirmar={(motivo) => descontab && accaoDesc.mutate({ url: `/acrescimos/lancamentos/${descontab.id}/descontabilizar`, dados: { motivo } })}
       />
-      <Modal title="Resultado da contabilização" open={!!resultado} onCancel={() => setResultado(null)} footer={<Button onClick={() => setResultado(null)}>Fechar</Button>}>
-        <Typography.Paragraph>{resultado?.ok.length} contabilizado(s), {resultado?.erros.length} com erro:</Typography.Paragraph>
-        <List size="small" dataSource={resultado?.erros ?? []} renderItem={(e) => <List.Item><Typography.Text type="danger">{e.mensagem}</Typography.Text></List.Item>} />
-      </Modal>
     </>
   );
 }

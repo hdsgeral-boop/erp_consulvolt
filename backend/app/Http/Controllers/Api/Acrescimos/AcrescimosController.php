@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Acrescimos;
 
+use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Jobs\Acrescimos\ContabilizarPropostaAcrescimoJob;
 use App\Models\ItemAcrescimoDiferimento;
 use App\Models\PeriodoLancamentoAcrescimo;
 use App\Services\Acrescimos\CalculadoraAcrescimos;
@@ -10,6 +12,7 @@ use App\Services\Acrescimos\ServicoDefinicoesAcrescimos;
 use App\Services\Acrescimos\ServicoItensAcrescimos;
 use App\Services\Acrescimos\ServicoPropostaAcrescimos;
 use App\Services\Acrescimos\ServicoRecolhaAcrescimos;
+use App\Services\Integracoes\Operacoes\ServicoOperacoes;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Carbon\CarbonImmutable;
@@ -167,13 +170,20 @@ final class AcrescimosController extends Controller
         return RespostaApi::sucesso($this->proposta->proposta($d['mes']), 'Proposta mensal.');
     }
 
+    /** Contabilização em segundo plano (M-05): uma tarefa por linha, com barra de progresso (até 1000 linhas por lote). */
     public function contabilizar(Request $r): JsonResponse
     {
         $this->exigir('ad_contabilizar');
         $d = $r->validate(['mes' => ['required', 'string', 'size:7'], 'chaves' => ['required', 'array', 'min:1', 'max:1000'], 'chaves.*' => ['string', 'max:60']]);
-        $res = $this->proposta->contabilizar($d['mes'], $d['chaves']);
+        $validas = array_values(array_intersect($d['chaves'], array_column($this->proposta->proposta($d['mes'])['linhas'], 'chave')));
+        if (! $validas) {
+            throw new ErroNegocio('Nenhuma das linhas escolhidas está por contabilizar neste mês.', 'SEM_LINHAS', 422);
+        }
+        $empresa = app(ContextoEmpresa::class)->obrigatorio();
+        $trabalhos = array_map(fn (string $chave) => new ContabilizarPropostaAcrescimoJob($empresa, $d['mes'], $chave), $validas);
+        $op = app(ServicoOperacoes::class)->despachar('Contabilizar '.count($validas).' lançamento(s) ('.$d['mes'].')', $trabalhos, 'alta', $empresa);
 
-        return RespostaApi::sucesso($res, count($res['ok']).' lançamento(s) contabilizado(s)'.($res['erros'] ? ', '.count($res['erros']).' com erro.' : '.'));
+        return RespostaApi::sucesso($op, 'Contabilização iniciada em segundo plano.');
     }
 
     public function lancamentos(Request $r): JsonResponse

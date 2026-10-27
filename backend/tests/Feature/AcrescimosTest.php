@@ -67,6 +67,16 @@ final class AcrescimosTest extends TestCase
         return array_column($this->getJson("/api/acrescimos/proposta?mes={$mes}", $this->s)->assertOk()->json('dados.linhas'), 'chave');
     }
 
+    /**
+     * Contabiliza em segundo plano (M-05) e confirma que as $esperadas linhas foram todas contabilizadas, sem falhas —
+     * no driver `sync` dos testes a operação já vem concluída na resposta (ver ContabilizarPropostaAcrescimoJob).
+     */
+    private function contabilizarOk(string $mes, array $chaves, int $esperadas, ?array $s = null): void
+    {
+        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => $mes, 'chaves' => $chaves], $s ?? $this->s)->assertOk()
+            ->assertJsonPath('dados.total', $esperadas)->assertJsonPath('dados.falhados', 0)->assertJsonPath('dados.estado', 'CONCLUIDA');
+    }
+
     #[Test]
     public function quotas_com_arredondamento_acumulado_por_meses_e_por_dias(): void
     {
@@ -118,9 +128,7 @@ final class AcrescimosTest extends TestCase
         $this->assertSame([true, true, false], array_column($p['linhas'], 'atrasada'));
         $this->assertSame('1800.00', $p['total']);
 
-        $r = $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-02', 'chaves' => array_column($p['linhas'], 'chave')], $s)->assertOk()->json('dados');
-        $this->assertCount(3, $r['ok']);
-        $this->assertSame([], $r['erros']);
+        $this->contabilizarOk('2026-02', array_column($p['linhas'], 'chave'), 3, $s);
         $this->assertSame([
             "AD{$id}-202601-INI D 3743 1200.00", "AD{$id}-202601-INI C 752331 1200.00",
             "AD{$id}-202601-REC D 752331 300.00", "AD{$id}-202601-REC C 3743 300.00",
@@ -147,7 +155,7 @@ final class AcrescimosTest extends TestCase
         $this->assertSame(['conta' => '3743', 'descricao' => 'Encargos a repartir', 'modulo' => '900.00', 'diario' => '900.00', 'diferenca' => '0.00'], $rec['3743']);
 
         // Abril: fecham-se os três meses em falta → CONCLUIDO
-        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-04', 'chaves' => $this->chaves('2026-04')], $s)->assertOk()->assertJsonCount(3, 'dados.ok');
+        $this->contabilizarOk('2026-04', $this->chaves('2026-04'), 3, $s);
         $this->getJson("/api/acrescimos/itens/{$id}", $s)->assertJsonPath('dados.item.estado', 'CONCLUIDO')->assertJsonPath('dados.reconhecido', '1200.00')
             ->assertJsonPath('dados.saldo_balanco', '0.00');
         $this->getJson('/api/acrescimos/itens', $s)->assertOk()->assertJsonCount(0, 'dados');   // por omissão só os abertos
@@ -161,7 +169,7 @@ final class AcrescimosTest extends TestCase
         // consumos de Jan-Fev (1 000 por dias: 31/59 e 28/59)
         $id = $this->criar(['tipo' => 'ACRESCIMO', 'descricao' => 'Electricidade Jan-Fev', 'valor' => 1000, 'conta_resultado' => '7521', 'conta_balanco' => '3754',
             'data_inicio' => '2026-01-01', 'data_fim' => '2026-02-28', 'reparticao' => 'DIAS']);
-        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-02', 'chaves' => $this->chaves('2026-02')], $s)->assertOk()->assertJsonCount(2, 'dados.ok');
+        $this->contabilizarOk('2026-02', $this->chaves('2026-02'), 2, $s);
         // com lançamentos só se alteram notas e data limite
         $this->putJson("/api/acrescimos/itens/{$id}", ['tipo' => 'ACRESCIMO', 'natureza' => 'CUSTO', 'descricao' => 'Outro', 'valor' => 5000, 'conta_resultado' => '7521',
             'conta_balanco' => '3754', 'data_inicio' => '2026-01-01', 'data_fim' => '2026-02-28', 'notas' => 'Aguarda factura', 'data_limite' => '2026-06-30'], $s)
@@ -192,7 +200,7 @@ final class AcrescimosTest extends TestCase
         $s = $this->s;
         $id = $this->criar(['tipo' => 'DIFERIMENTO', 'descricao' => 'Renda adiantada', 'valor' => 900, 'conta_balanco' => '3743',
             'data_inicio' => '2026-01-01', 'data_fim' => '2026-03-31', 'data_documento' => '2026-01-02']);
-        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-01', 'chaves' => $this->chaves('2026-01')], $s)->assertOk()->assertJsonCount(2, 'dados.ok');
+        $this->contabilizarOk('2026-01', $this->chaves('2026-01'), 2, $s);
         $this->postJson("/api/acrescimos/itens/{$id}/terminar", ['data' => '2025-12-01'], $s)->assertStatus(422)->assertJsonPath('codigo', 'DATA_INVALIDA');
         $this->postJson("/api/acrescimos/itens/{$id}/terminar", ['data' => '2026-02-15', 'motivo' => 'Contrato cancelado'], $s)->assertOk()->assertJsonPath('dados.estado', 'A_TERMINAR');
         $this->postJson("/api/acrescimos/itens/{$id}/desfazer-pedido", [], $s)->assertOk()->assertJsonPath('dados.estado', 'ACTIVO');
@@ -233,7 +241,7 @@ final class AcrescimosTest extends TestCase
         // proposta mensal (legado): «Contabilizados com data de Mmm/AAAA» = lançamentos activos com data do documento no mês
         $id = $this->criar(['tipo' => 'DIFERIMENTO', 'descricao' => 'Seguro trimestral', 'valor' => 900, 'conta_balanco' => '3743',
             'data_inicio' => '2026-01-01', 'data_fim' => '2026-03-31', 'data_documento' => '2026-01-05']);
-        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-02', 'chaves' => $this->chaves('2026-02')], $s)->assertOk()->assertJsonCount(3, 'dados.ok');
+        $this->contabilizarOk('2026-02', $this->chaves('2026-02'), 3, $s);
         $jan = $this->getJson('/api/acrescimos/lancamentos?mes_documento=2026-01&estado=CONTABILIZADO', $s)->assertOk()->json('dados');
         $this->assertSame([['INICIAL', '2026-01'], ['RECONHECIMENTO', '2026-01']], array_map(fn ($l) => [$l['tipo'], $l['periodo']], $jan));
         $this->assertSame('Seguro trimestral', $jan[0]['item_acrescimo_diferimento']['descricao']);
@@ -264,7 +272,7 @@ final class AcrescimosTest extends TestCase
         $s = $this->s;
         $this->criar(['tipo' => 'DIFERIMENTO', 'descricao' => 'Seguro', 'valor' => 1200, 'conta_balanco' => '3743',
             'data_inicio' => '2026-01-01', 'data_fim' => '2026-12-31', 'data_documento' => '2026-01-05']);
-        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-01', 'chaves' => $this->chaves('2026-01')], $s)->assertOk()->assertJsonCount(2, 'dados.ok');
+        $this->contabilizarOk('2026-01', $this->chaves('2026-01'), 2, $s);
         $rec = collect($this->getJson('/api/acrescimos/reconciliacao?data=2026-01-31', $s)->assertOk()->json('dados'))->keyBy('conta');
         // as quatro contas das definições entram sempre (a zero); o ecrã só mostra as que têm saldo
         $this->assertSame(['3731', '3743', '3754', '3766'], $rec->pluck('conta')->values()->all());
