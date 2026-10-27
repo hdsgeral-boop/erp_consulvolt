@@ -25,6 +25,7 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
         Route::put('preferencias/{tipo}/{nome}', 'gravar')->where(['tipo' => '[a-z_]{1,40}', 'nome' => '[A-Za-z0-9_.:\-]{1,150}'])->name('preferencias.gravar');
         Route::delete('preferencias/{tipo}/{nome}', 'eliminar')->where(['tipo' => '[a-z_]{1,40}', 'nome' => '[A-Za-z0-9_.:\-]{1,150}'])->name('preferencias.eliminar');
         Route::get('operacoes/{id}', 'operacao')->where('id', '[A-Za-z0-9\-]{1,64}')->name('operacoes.show');
+        Route::get('operacoes/{id}/resultados', 'resultadosOperacao')->where('id', '[A-Za-z0-9\-]{1,64}')->name('operacoes.resultados');
         Route::post('operacoes/{id}/cancelar', 'cancelarOperacao')->where('id', '[A-Za-z0-9\-]{1,64}')->name('operacoes.cancelar');
     });
 

@@ -44,6 +44,12 @@ final class PreferenciasOperacoesController extends Controller
         return RespostaApi::sucesso($this->operacoes->estado($id, (int) $r->user()->getKey()), 'Estado da operação.');
     }
 
+    /** Detalhe por trabalho (ex.: qual documento falhou e porquê), para ver depois de a operação terminar. */
+    public function resultadosOperacao(Request $r, string $id): JsonResponse
+    {
+        return RespostaApi::sucesso($this->operacoes->resultados($id, (int) $r->user()->getKey()), 'Resultados da operação.');
+    }
+
     public function cancelarOperacao(Request $r, string $id): JsonResponse
     {
         return RespostaApi::sucesso($this->operacoes->cancelar($id, (int) $r->user()->getKey()), 'Operação cancelada.');

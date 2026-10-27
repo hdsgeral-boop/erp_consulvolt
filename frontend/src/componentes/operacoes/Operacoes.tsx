@@ -38,7 +38,7 @@ interface ApiOperacao {
 interface ContextoOperacoes {
   operacoes: Operacao[];
   executar: <T>(titulo: string, fn: (progresso: (percentagem: number, detalhe?: string) => void) => Promise<T>) => Promise<T>;
-  acompanharLote: (id: string, titulo: string) => void;
+  acompanharLote: (id: string, titulo: string, aoConcluir?: () => void) => void;
   remover: (id: string) => void;
 }
 
@@ -75,13 +75,14 @@ export function OperacoesProvider({ children }: { children: ReactNode }) {
   );
 
   const acompanharLote = useCallback(
-    (id: string, titulo: string) => {
+    (id: string, titulo: string, aoConcluir?: () => void) => {
       setOperacoes((l) => (l.some((o) => o.id === id) ? l : [...l, { id, titulo, progresso: 0, estado: 'EM_CURSO', servidor: true, iniciada: Date.now() }]));
       const ciclo = async () => {
         try {
           const r = await obter<ApiOperacao>(`/sistema/operacoes/${id}`);
           actualizar(id, { progresso: r.progresso, estado: r.estado, detalhe: `${r.total - r.pendentes} de ${r.total}${r.falhados ? ` · ${r.falhados} com erro` : ''}` });
           if (r.estado === 'EM_CURSO') temporizadores.current.set(id, window.setTimeout(ciclo, INTERVALO_MS));
+          else aoConcluir?.();
         } catch (e) {
           actualizar(id, { estado: 'FALHOU', detalhe: e instanceof Error ? e.message : 'Não foi possível obter o estado.' });
         }

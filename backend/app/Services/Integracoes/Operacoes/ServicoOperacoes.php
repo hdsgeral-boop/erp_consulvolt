@@ -65,4 +65,24 @@ final class ServicoOperacoes
 
         return $this->estado($id, $utilizador);
     }
+
+    /**
+     * Resultado de um trabalho do lote (ex.: {id, numero, sucesso, mensagem, codigo?}), para o ecrã mostrar o detalhe
+     * por documento quando a operação terminar — cada trabalho grava o seu, sem ordem garantida entre si.
+     */
+    public function registarResultado(string $id, array $resultado): void
+    {
+        $chave = self::PREFIXO.$id.':resultados';
+        $actuais = Cache::get($chave, []);
+        $actuais[] = $resultado;
+        Cache::put($chave, $actuais, now()->addDays(7));
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function resultados(string $id, ?int $utilizador = null): array
+    {
+        $this->estado($id, $utilizador);
+
+        return Cache::get(self::PREFIXO.$id.':resultados', []);
+    }
 }
