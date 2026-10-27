@@ -1,0 +1,103 @@
+PROJECTO: Refatorar ERP (Consulvolt)
+Actualizado em: 24/10/2026
+
+===============================================================================
+FASES CONCLUÍDAS
+===============================================================================
+
+Fundação técnica
+  - Infraestrutura Docker (Laravel, React, PostgreSQL, Redis, Nginx)
+  - Modelação das 154 tabelas do sistema legado
+  - Importação do backup legado para a nova base de dados
+
+Motores de negócio (backend)
+  - Núcleo, validações e Contabilidade geral
+  - Terceiros e Produtos
+  - Vendas e Facturação certificada AGT (SAF-T, QR, multi-moeda)
+  - Compras (pedido a factura)
+  - Tesouraria (pagamentos, recebimentos, reconciliação bancária)
+  - RH e Salários (motor salarial, assiduidade, portal do colaborador)
+  - Logística (stock, armazéns, inventário)
+  - Orçamento (rubricas, controlo, desvios)
+  - POS (lavandaria, hotelaria)
+  - Activos fixos, Projectos, Acréscimos/Diferimentos, CRM
+  - Fecho/consolidação contabilística e relatórios de gestão
+
+Frontend
+  - Base do frontend e piloto (Vendas/Facturação)
+  - Ecrãs de todos os módulos
+  - Biblioteca de componentes partilhados
+
+Qualidade, segurança e produção
+  - Testes ponta-a-ponta (145 testes, 116 ecrãs)
+  - Controlo de acesso e limites de login/API
+  - Ambiente de produção (Docker, Nginx, backup, deploy, CI)
+  - Responsividade e identidade visual da empresa
+
+Paridade com o sistema legado
+  - Análise de paridade funcional (279 itens)
+  - Aproximação visual módulo a módulo
+  - Novas integrações (Power BI, assistente IA, pesquisa global)
+  - Reforço de segurança (OWASP Top 10)
+
+"Versão Actual" do legado
+  - Reimportação a partir do backup mais recente
+  - RH avançado (suspensão/cessação, empréstimos)
+  - Projectos avançado (metas, dependências, Gantt)
+  - Activos avançado (edifícios, manutenção)
+  - Unificação de formulários de criação/edição (~80 ecrãs)
+
+Plataforma SaaS
+  - Autenticação pública, landing page e preços
+  - Portal administrativo SaaS (clientes, planos, suporte)
+  - Isolamento por empresa (multi-empresa)
+  - Gateways de pagamento angolanos (Referência, Multicaixa Express)
+  - Notificações, integração AGT, emails automáticos
+  - Páginas legais e serviços adicionais
+
+===============================================================================
+TRABALHO MAIS RECENTE
+===============================================================================
+
+  - SAF-T: adicionadas as guias de transporte (remessa/devolução) à
+    exportação; corrigido um erro de conformidade com o validador da AGT
+  - Segurança: corrigida uma vulnerabilidade de uma biblioteca; activadas
+    actualizações automáticas de segurança (Dependabot)
+  - Landing page: nova secção sobre o enquadramento legal (Decreto 71/25)
+
+===============================================================================
+TAREFAS PENDENTES — ATÉ À LEGALIZAÇÃO E ENTRADA EM PRODUÇÃO
+===============================================================================
+
+Certificação AGT (bloqueador legal principal)
+  - Submeter o software à certificação da AGT
+  - Obter o número oficial de certificação
+  - Gerar e instalar as chaves de segurança de produção
+  - Validar os ficheiros SAF-T no validador oficial da AGT
+  - Registar a Consulvolt como produtora de software de facturação
+
+Protecção de dados e conformidade legal
+  - Rever Política de Privacidade e Termos de Utilização com advogado
+  - Preparar contrato/termos de serviço para clientes SaaS
+  - Avaliar o registo da marca "Consulvolt ERP"
+  - Confirmar obrigações junto do regulador de protecção de dados
+
+Infraestrutura de produção
+  - Contratar o servidor (VPS ou dedicado)
+  - Reforçar a segurança do servidor
+  - Configurar o domínio e o certificado de segurança (HTTPS)
+  - Publicar o sistema em produção com credenciais reais
+  - Criar processo automático de publicação (deploy)
+  - Testar a cópia de segurança (backup) e a sua recuperação
+  - Configurar monitorização e alertas
+
+Serviços externos
+  - Activar o envio real de emails (fora do modo de teste)
+  - Contratar os gateways de pagamento reais
+  - Manter a disciplina de nunca gravar credenciais no código
+
+Antes do primeiro cliente real
+  - Migrar os dados de testes/piloto para o ambiente definitivo
+  - Realizar teste de carga
+  - Simular um fecho mensal completo com exportação SAF-T real
+  - Preparar a equipa e o processo de suporte ao cliente

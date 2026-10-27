@@ -1,0 +1,246 @@
+===============================================================================
+CONSULVOLT ERP — ROADMAP E PROGRESSO
+Actualizado em: 2026-10-24
+===============================================================================
+
+Este ficheiro junta: (1) o historial de fases já percorridas na migração do
+sistema legado (payroll_system_web) para o ERP actual; (2) o que foi feito
+nesta sessão de trabalho mais recente; (3) as tarefas que faltam até à
+legalização/licenciamento do sistema e à entrada em produção numa hospedagem
+dedicada (servidor dedicado ou VPS).
+
+-------------------------------------------------------------------------------
+PARTE 1 — HISTORIAL: DO LEGADO AO ERP ACTUAL
+-------------------------------------------------------------------------------
+
+PONTO DE PARTIDA (payroll_system_web)
+  SPA em Vanilla JS/HTML/CSS, persistência só no browser (IndexedDB), sem
+  validação no servidor, 154 tabelas / ~205 mil registos, contadores e stock
+  calculados no cliente (risco de duplicação), chaves estrangeiras em texto
+  livre.
+
+FASE 1 — Fundação técnica
+  - Infraestrutura Docker (Laravel + React/Vite + PostgreSQL + Redis + Nginx)
+  - Modelação das 154 tabelas do legado em PostgreSQL
+  - Importação (ETL) integral do backup do legado para a nova base de dados
+
+FASE 2 — Motores de negócio por módulo (backend)
+  - Núcleo transversal, validações e Contabilidade geral
+  - Terceiros e Produtos
+  - Vendas e Facturação certificada AGT (documentos, recibos, contabilização,
+    SAF-T, QR, multi-moeda)
+  - Compras (pedido -> deliberação -> adjudicação -> encomenda -> recepção ->
+    factura; contratos e encomendas)
+  - Tesouraria (pagamentos, recebimentos, reconciliação bancária, folha de
+    caixa, câmbios)
+  - RH/Salários (motor salarial, cadastros, IBAN, assiduidade/férias,
+    estrutura orgânica, portal do colaborador, avaliação de desempenho)
+  - Logística (stock, armazéns, transferências, inventário, CMV, guias)
+  - Orçamento (rubricas, versões, controlo em documentos, previsões e desvios)
+  - POS (terminais, sessões, prestação de contas, lavandaria, hotelaria)
+  - Activos fixos, Projectos, Acréscimos/Diferimentos, CRM
+  - Fecho/consolidação contabilística, painéis de gestão e relatórios
+
+FASE 3 — Frontend React
+  - Base do frontend e piloto (Vendas/Facturação)
+  - Ecrãs de todos os módulos
+  - Fecho de lacunas de API entre backend e frontend
+  - Biblioteca de componentes e utilitários partilhados
+
+FASE 4 — Qualidade, segurança, desempenho e produção
+  - Testes ponta-a-ponta (145 testes, 116 ecrãs)
+  - Segurança: controlo de acesso, limites de login/API
+  - Optimizações de desempenho
+  - Ambiente de produção (Docker multi-stage, Nginx com CSP/HSTS,
+    backup/restauro, deploy com rollback, CI)
+  - Responsividade total, identidade visual da empresa, motor de
+    impressão/PDF comum
+
+FASE 5 — Paridade com o sistema legado
+  - Ronda 1: análise de paridade funcional (279 itens), correcção de regras
+    de negócio
+  - Ronda 2: aproximação visual módulo a módulo, novas integrações (Power BI,
+    assistente IA, ajuda, favoritos, Ctrl+K)
+  - Reforço de segurança (OWASP Top 10, SSRF)
+  - Comparação lado a lado de todos os módulos e correcções
+
+FASE 6 — "Versão Actual" do legado
+  - Reimportação a partir de backup mais recente e regeneração do esquema
+  - Novas funcionalidades: base contabilística, RH avançado
+    (suspensão/cessação, empréstimos), repartição por centro de custo,
+    Projectos avançado (metas, dependências, Gantt), Activos avançado
+    (edifícios, manutenção)
+  - Unificação de modais de criação/edição (Grade/Linhas) em ~80 formulários
+  - Paridade visual final por módulo
+  - Afinações finais em todos os módulos e na interface (pesquisa global,
+    menu compacto)
+
+FASE 7 — Plataforma SaaS e presença pública
+  - Autenticação pública (login, recuperação de password, registo de empresa)
+  - Landing page institucional e tabela de preços
+  - Portal administrativo SaaS (clientes, planos, activação, suporte,
+    auditoria)
+  - Activação/gestão SaaS multi-tenant com isolamento por empresa
+  - Gateways de pagamento angolanos (Referência e Multicaixa Express)
+  - Centro de notificações e integração AGT com máquina de estados
+  - Emails transaccionais e portal de suporte
+  - Páginas legais públicas e serviços adicionais (lavandaria)
+
+-------------------------------------------------------------------------------
+PARTE 2 — TRABALHO FEITO NESTA SESSÃO (desde a última entrega)
+-------------------------------------------------------------------------------
+
+2.1. SAF-T — Documentos de Transporte (guias GR/GD)
+  - Concluída a extensão do exportador de Facturação
+    (backend/app/Services/Vendas/ServicoExportacaoSaft.php) para incluir
+    guias de remessa (GR) e devolução (GD) como <MovementOfGoods> /
+    <StockMovement>, com Hash/HashControl "0" (sem assinatura digital,
+    conforme o regime legal de guias).
+  - BUG REAL ENCONTRADO E CORRIGIDO: a ordem dos elementos
+    <CustomerID>/<SourceID>/<MovementStartTime> dentro de <StockMovement>
+    não respeitava a sequência exacta (xs:sequence) do XSD oficial
+    SAF-T(AO) 1.01_01 — confirmado directamente no XSD da AGT/ASSOFT. Um
+    ficheiro XML nessa ordem seria bem-formado mas REJEITADO pelo validador
+    oficial da AGT. Corrigido para: ...SystemEntryDate, CustomerID,
+    SourceID, MovementStartTime, Line..., DocumentTotals.
+  - Novo campo "guias" devolvido por validar()/gerar() e exposto no
+    cabeçalho HTTP X-Saft-Guias (FaturacaoEletronicaController::saft()).
+  - Frontend (EcraSaft.tsx, Relatorios.tsx, kpis.ts) actualizado para
+    mostrar a contagem de guias na mensagem de sucesso.
+  - Novo teste de integração cobrindo GR + conversão para GD, incluindo a
+    ordem correcta dos campos no XML.
+  - Suite completa do backend confirmada limpa: 900/900 testes,
+    14.555 assertions.
+
+2.2. Segurança — hardening (Fase 4/6 da lista acima)
+  - Verificado que já estava implementado (nada a construir de novo):
+      * Logout automático por inactividade (15 min, configurável por env) e
+        validade absoluta de sessão (12h) — Sanctum::authenticateAccessTokensUsing.
+      * Limite de tentativas de login: 5/min por utilizador+IP e 60/min por
+        IP (anti password-spraying) — RateLimiter 'entrar'.
+      * `composer audit` e `npm audit` já corriam como gate obrigatório no CI.
+  - Corrigida 1 CVE real e actual, classificada "high": follow-redirects
+    1.16.0 (dependência transitiva do axios) — corrigida com
+    `npm audit fix` (sem alterações disruptivas); confirmado tsc/build
+    limpos depois da actualização.
+  - Identificada 1 CVE "moderate" remanescente em react-router (só se
+    resolve com upgrade major para 7.18.4) — não aplicada por ser risco
+    desnecessário sem pedido explícito; a decidir numa janela de manutenção
+    dedicada.
+  - Criado .github/dependabot.yml (não existia): ecossistemas composer,
+    npm, docker e github-actions, actualização semanal.
+
+2.3. Landing page
+  - Nova secção "Sem sistema certificado vs. Com o Consulvolt ERP" com
+    tabela comparativa, citando o Decreto Presidencial n.º 71/25: coima de
+    7% do valor de cada factura não emitida (15% em caso de reincidência) e
+    multas até 600.000 Kz por infracção relacionada com SAF-T/declarações
+    electrónicas — valores verificados por pesquisa antes de publicar.
+  - Novo item de FAQ sobre o Decreto 71/25 (PT e EN).
+  - O CTA "Teste grátis" já era dinâmico (lê dias_teste_padrao do backend,
+    actualmente com 30 dias por omissão) — mantido dinâmico em vez de fixar
+    "14 dias", para nunca divergir da configuração real do sistema.
+  - Verificado visualmente no browser; tsc e build de produção limpos.
+
+-------------------------------------------------------------------------------
+PARTE 3 — TAREFAS ATÉ À LEGALIZAÇÃO/LICENCIAMENTO E ENTRADA EM PRODUÇÃO
+-------------------------------------------------------------------------------
+(Secção nova. Baseada no estado REAL do código a 2026-10-24 — não em
+suposições. Sempre que relevante, indico o que já existe pronto a activar
+e o que ainda não foi começado.)
+
+3.1. Certificação AGT / facturação electrónica — BLOQUEADOR LEGAL PRINCIPAL
+  Estado actual: config/erp.php tem agt.driver = "desligado" por omissão, e
+  todos os campos de software (productId, softwareValidationNumber,
+  productCompanyTaxId) são lidos de variáveis de ambiente vazias — ou seja,
+  são placeholders, sem nenhum número de certificação real. As chaves RSA
+  usadas nos testes são geradas em runtime (pasta temporária) e nunca
+  commitadas; a pasta de chaves de produção (/run/segredos/agt) é
+  explicitamente externa ao repositório.
+  Falta:
+    - Submeter o software à AGT para certificação como sistema de
+      facturação (processo ao abrigo do Decreto Presidencial n.º 71/25 e do
+      Decreto Executivo n.º 683/25, que define a estrutura de dados e as
+      regras de validação).
+    - Obter o número oficial de certificação (SoftwareValidationNumber) e
+      preencher productCompanyTaxId/productId reais em produção.
+    - Gerar e instalar as chaves RSA de produção (produtor + por
+      contribuinte) em /run/segredos/agt, fora do Git, com controlo de
+      acesso restrito.
+    - Validar os quatro ficheiros SAF-T (Facturação, Contabilidade,
+      Inventário, Documentos de Transporte) no validador oficial da AGT
+      antes de qualquer cliente real entrar em produção.
+    - Confirmar o enquadramento da Consulvolt como produtora/fornecedora de
+      software de facturação junto da AGT (registo próprio, distinto do
+      registo comercial da empresa).
+
+3.2. Protecção de dados pessoais e conformidade legal
+    - Rever a Política de Privacidade e os Termos de Utilização (já
+      existem com conteúdo substantivo em
+      frontend/src/paginas/publico/PoliticaPrivacidade.tsx e
+      TermosUtilizacao.tsx) com um advogado, à luz da Lei de Protecção de
+      Dados Pessoais angolana (Lei n.º 22/11) — especial atenção aos dados
+      de RH/salários, que são dados sensíveis.
+    - Preparar contrato/termos de serviço SaaS para clientes (SLA, limites
+      de responsabilidade, propriedade dos dados em caso de cancelamento).
+    - Avaliar necessidade de registo da marca "Consulvolt ERP".
+    - Confirmar se é necessário notificar/registar o tratamento de dados
+      junto da entidade reguladora angolana de protecção de dados.
+
+3.3. Produção — infraestrutura (já há base pronta, falta activar)
+  Estado actual: existe docker-compose.prod.yml, docker/php/Dockerfile.prod
+  e configuração de Nginx em docker/nginx/producao/ já com CSP e HSTS
+  prontos. Existe um script de backup (ferramentas/operacao/backup.sh). NÃO
+  existe nenhum workflow de deploy automático — o único workflow em
+  .github/workflows/ é o CI de testes (ci.yml), sem CD para nenhum host.
+  Falta:
+    - Escolher e contratar o servidor (VPS ou dedicado) com especificações
+      dimensionadas à carga esperada (CPU/RAM/disco, considerando
+      Postgres + Redis + PHP-FPM + Nginx no mesmo stack).
+    - Hardening do sistema operativo do host: firewall, SSH só por chave,
+      fail2ban, actualizações automáticas de segurança.
+    - Apontar o domínio (consulvolt.ao e/ou consulvolt.pt — hoje só
+      aparecem como texto/mockup no código, sem DNS configurado) para o
+      servidor e emitir certificado TLS (Let's Encrypt ou comercial).
+    - Subir a stack com docker-compose.prod.yml, usando segredos reais
+      (não os do .env.example) geridos fora do Git (ex.: cofre de
+      segredos, variáveis de CI/CD protegidas).
+    - Escrever e testar um workflow de deploy (CD) com rollback — hoje não
+      existe nenhum, apesar de a infraestrutura de produção estar pronta.
+    - Agendar e testar a execução real do backup.sh (backup + restauro
+      verificado, não só o script a existir).
+    - Configurar monitorização e alertas (disponibilidade, erros 5xx,
+      espaço em disco, uso de Redis/Postgres).
+
+3.4. Produção — serviços externos (hoje em modo de teste/placeholder)
+    - Email transaccional: MAIL_MAILER está em "log" por omissão (não
+      envia nada); o .env.example já tem o SMTP real pré-preenchido
+      (smtp.stackmail.com, remetente nao-responder@consulvolt.ao) mas sem
+      utilizador/password — falta obter credenciais reais e configurar
+      SPF/DKIM/DMARC no domínio para o email não cair em spam.
+    - Gateways de pagamento (Multicaixa Express / Referência): a
+      integração lê merchant_id/terminal_id/chave_api de uma tabela de
+      configuração em runtime; sem esses dados preenchidos, o sistema cai
+      num fluxo simulado. Falta contratar o acesso real junto do banco/
+      processador e preencher as credenciais de produção no portal admin
+      SaaS.
+    - Confirmar que o repositório é público (está documentado no próprio
+      CI) e que nenhuma credencial real é alguma vez commitada — só
+      .env.example com placeholders, o que hoje está correcto; manter esta
+      disciplina ao preencher segredos de produção (nunca no Git).
+
+3.5. Antes do primeiro cliente real em produção
+    - Migrar/validar os dados de qualquer piloto ou cliente beta para o
+      ambiente de produção definitivo.
+    - Teste de carga básico (concorrência de POS/facturação, geração de
+      SAF-T com volumes reais).
+    - Ensaio geral do fecho mensal e da exportação SAF-T num exercício
+      fiscal completo, com os ficheiros efectivamente aceites no
+      validador da AGT.
+    - Plano de suporte ao cliente (canal, SLA de resposta) — o portal de
+      suporte já existe (Fase 7); falta operacionalizar a equipa por trás
+      dele.
+
+===============================================================================
+FIM DO FICHEIRO
+===============================================================================
