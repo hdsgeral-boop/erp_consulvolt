@@ -36,6 +36,7 @@ Route::prefix('projetos')->name('projetos.')->group(function () {
             Route::delete('tarefas/{tarefa}', 'eliminarTarefa')->whereNumber('tarefa')->name('tarefas.destroy');
             Route::post('tarefas/{tarefa}/execucao', 'execucao')->whereNumber('tarefa')->name('tarefas.execucao');
             Route::post('tarefas/{tarefa}/mover', 'mover')->whereNumber('tarefa')->name('tarefas.mover');
+            Route::post('marcos/{marco}/mover', 'moverMarco')->whereNumber('marco')->name('marcos.mover');
             Route::get('kanban', 'kanban')->name('kanban');
             Route::put('kanban/colunas', 'colunasKanban')->name('kanban.colunas');
             Route::post('kanban/mover', 'moverKanban')->name('kanban.mover');
@@ -78,6 +79,7 @@ Route::prefix('projetos')->name('projetos.')->group(function () {
             Route::delete('equipamentos/{movimento}', 'eliminarEquipamento')->whereNumber('movimento')->name('equipamentos.destroy');
             Route::get('requisicoes', 'requisicoes')->name('requisicoes');
             Route::post('requisicoes', 'requisitar')->name('requisicoes.store');
+            Route::get('backlog', 'backlog')->name('backlog');
             Route::get('revisoes', 'revisoes')->name('revisoes');
             Route::get('revisoes/simulacao', 'simular')->name('revisoes.simulacao');
             Route::post('revisoes', 'executar')->name('revisoes.store');

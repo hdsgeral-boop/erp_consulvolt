@@ -92,6 +92,10 @@ final class ServicoProjetos
         if (array_key_exists('descricao', $d)) {
             $campos['descricao'] = trim((string) $d['descricao']) ?: null;
         }
+        if (array_key_exists('tags', $d)) {
+            // texto livre, sem ecrã de gestão central: aparadas, sem vazias, sem duplicadas
+            $campos['tags'] = array_values(array_unique(array_filter(array_map(fn ($t) => trim((string) $t), (array) $d['tags']))));
+        }
 
         return DB::transaction(function () use ($d, $p, $empresa, $tipo, $nome, $estado, $campos) {
             $codigo = trim((string) ($d['codigo'] ?? $p?->codigo ?? ''));

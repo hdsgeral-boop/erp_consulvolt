@@ -13,6 +13,8 @@ interface Cliente { id: number; nome: string }
 
 const ESTADOS = ['ABERTO', 'EM_CURSO', 'RESOLVIDO', 'FECHADO'];
 const PRIORIDADES = ['BAIXA', 'NORMAL', 'ALTA', 'URGENTE'];
+/** Categorias (ADR-077): decidem qual especialização do backoffice de suporte vê o ticket — ver TicketSuporte::CHAVE_POR_CATEGORIA. */
+const CATEGORIAS = ['GERAL', 'PLANO', 'FACTURACAO', 'MARKETING'];
 const CHAVE = ['plataforma', 'suporte'];
 const opcoes = (l: string[]) => l.map((v) => ({ value: v, label: v }));
 
@@ -38,6 +40,7 @@ export default function PlataformaSuporte() {
           columns={[
             { title: 'Cliente', dataIndex: 'cliente', render: (v: string | null) => v || <Tag>—</Tag> },
             { title: 'Assunto', dataIndex: 'assunto', render: (v: string) => <strong>{v}</strong> },
+            { title: 'Categoria', dataIndex: 'categoria', render: (v: string) => <Tag>{v}</Tag> },
             { title: 'Prioridade', render: (_, t) => <Tag color={t.prioridade === 'URGENTE' ? 'red' : t.prioridade === 'ALTA' ? 'orange' : t.prioridade === 'BAIXA' ? 'default' : 'blue'}>{t.prioridade}</Tag> },
             { title: 'Estado', render: (_, t) => <Select size="small" style={{ width: 140 }} value={t.estado} options={opcoes(ESTADOS)} onChange={(e) => mudar.mutate({ id: t.id, estado: e })} /> },
             { title: 'Criado', render: (_, t) => formatarDataHora(t.criado_em) },
@@ -62,7 +65,7 @@ export default function PlataformaSuporte() {
           <Form.Item name="assunto" label="Assunto" rules={[{ required: true }]}><Input maxLength={200} /></Form.Item>
           <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={3} maxLength={5000} /></Form.Item>
           <Form.Item name="prioridade" label="Prioridade"><Select options={opcoes(PRIORIDADES)} /></Form.Item>
-          <Form.Item name="categoria" label="Categoria"><Select options={opcoes(['GERAL', 'PLANO', 'FACTURACAO'])} /></Form.Item>
+          <Form.Item name="categoria" label="Categoria"><Select options={opcoes(CATEGORIAS)} /></Form.Item>
         </Form>
       </Modal>
     </>

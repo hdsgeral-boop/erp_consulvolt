@@ -66,6 +66,17 @@ body {
   padding: 14px 6px;
 }
 
+/* Botão «Esconder menu» no canto superior do menu, ao lado da marca */
+.erp-menu-esconder {
+  margin-left: auto;
+  flex: none;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.erp-menu-esconder:hover {
+  color: #ffffff;
+}
+
 .erp-sider-topo,
 :root .erp-gaveta-menu .ant-drawer-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);

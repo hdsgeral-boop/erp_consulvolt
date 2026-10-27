@@ -171,6 +171,15 @@ final class ExecucaoController extends Controller
         return RespostaApi::sucesso($this->requisicoes->listar(Projeto::query()->findOrFail($projeto)), 'Requisições de material.');
     }
 
+    /** Backlog: requisições pendentes/fechadas e a estimativa de activos totais do escopo. */
+    public function backlog(int $projeto, ServicoAnaliticoProjetos $analitico): JsonResponse
+    {
+        $this->exigir(...ProjetoController::LER);
+        $p = Projeto::query()->findOrFail($projeto);
+
+        return RespostaApi::sucesso($analitico->backlog($p) + ['requisicoes' => $this->requisicoes->listar($p)], 'Backlog do projecto.');
+    }
+
     public function requisitar(Request $r, int $projeto): JsonResponse
     {
         $this->exigir('proj_requisitar', 'proj_gerir');

@@ -1,4 +1,4 @@
-import { Button, Dropdown, Modal, Result, Space, Spin, Tabs } from 'antd';
+import { Button, Dropdown, Modal, Result, Space, Spin, Tabs, Tag } from 'antd';
 import { ArrowLeftOutlined, DownOutlined, EditOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -19,6 +19,7 @@ import { SeparadorKanban } from './separadores/Kanban';
 import { SeparadorEquipa } from './separadores/Equipa';
 import { SeparadorOrganigrama } from './separadores/Organigrama';
 import { SeparadorOrcamento } from './separadores/Orcamento';
+import { SeparadorBacklog } from './separadores/Backlog';
 import { SeparadorHoras } from './separadores/Horas';
 import { SeparadorRequisicoes } from './separadores/Requisicoes';
 import { SeparadorRevisoes } from './separadores/Revisoes';
@@ -82,6 +83,7 @@ export function DetalheProjecto() {
             {p.codigo} — {p.nome}
             <EtiquetaProjectos valor={p.tipo} />
             <EtiquetaProjectos valor={p.estado} />
+            {(p.tags ?? []).map((t) => <Tag key={t} color="blue">{t}</Tag>)}
           </Space>
         }
         subtitulo={
@@ -120,6 +122,7 @@ export function DetalheProjecto() {
           { key: 'revisoes', label: <span><IconeFa nome="file-invoice-dollar" /> Autos e facturação</span>, children: <SeparadorRevisoes {...props} /> },
           { key: 'requisicoes', label: <span><IconeFa nome="shopping-cart" /> Requisições</span>, children: <SeparadorRequisicoes {...props} /> },
           { key: 'orcamento', label: <span><IconeFa nome="calculator" /> Orçamento e aditamentos</span>, children: <SeparadorOrcamento {...props} /> },
+          { key: 'backlog', label: <span><IconeFa nome="layer-group" /> Backlog</span>, children: <SeparadorBacklog {...props} /> },
           { key: 'horas', label: <span><IconeFa nome="clock" /> Horas e equipamentos</span>, children: <SeparadorHoras {...props} /> },
           // auditoria backend×frontend: registo de actividade (GET /projetos/{id}/atividade) e configuração dos projectos (GET/PUT /projetos/configuracao)
           { key: 'actividade', label: <span><IconeFa nome="history" /> Actividade</span>, children: <SeparadorActividade {...props} /> },

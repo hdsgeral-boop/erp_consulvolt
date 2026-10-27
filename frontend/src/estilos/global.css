@@ -99,6 +99,27 @@ canvas {
   transition: none !important;
 }
 
+/* Esconder o menu por completo (botão no topo do menu): a largura vai a 0 (o conteúdo ocupa o espaço todo, como o
+   recolher normal, mas sem sobrar a barra de ícones) e o conteúdo desliza para cima enquanto desaparece. O botão de
+   repor (.erp-menu-repor) fica fixo, fora do menu escondido. */
+.erp-sider.erp-sider-escondido {
+  min-width: 0 !important;
+}
+
+.erp-sider.erp-sider-escondido > .ant-layout-sider-children {
+  transform: translateY(-16px);
+  opacity: 0;
+  transition: transform 0.2s ease-in, opacity 0.15s ease-in;
+}
+
+.erp-menu-repor {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 102;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
 .erp-cabecalho {
   position: sticky;
   top: 0;
@@ -326,22 +347,8 @@ canvas {
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
-   Ronda 2 (R2-G4): ajuda contextual, pesquisa de ecrãs, operações em segundo plano, botão «Voltar»
+   Ronda 2 (R2-G4): ajuda contextual, pesquisa de ecrãs, operações em segundo plano
    ------------------------------------------------------------------------------------------------------------------ */
-
-/* Botão flutuante «Voltar» (legado #nav-back-button) */
-.erp-botao-voltar {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 1000;
-  font-weight: 700;
-  border: 2px solid #ffffff;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.12), 0 4px 6px -2px rgb(0 0 0 / 0.06);
-}
-@media (max-width: 767.98px) {
-  .erp-botao-voltar { right: 12px; bottom: 12px; }
-}
 
 /* Gestor de operações em segundo plano (legado js/tarefas.js) */
 .erp-operacoes {
@@ -388,6 +395,12 @@ canvas {
 .erp-pesquisa-lupa { color: #94a3b8; }
 .erp-pesquisa-atalho { padding: 1px 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #ffffff; color: #64748b; font: 500 11px/1.4 inherit; white-space: nowrap; }
 .erp-pesquisa-cabecalho.flutuante { position: absolute; inset-inline: 8px; top: 50%; z-index: 20; padding: 4px; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgb(15 23 42 / 0.18); transform: translateY(-50%); }
+
+/* Pesquisa global flutuante e arrastável (pega à esquerda do campo, ver posicaoFlutuante.ts) */
+.erp-pesquisa-pega { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 36px; color: #94a3b8; cursor: grab; border-radius: 4px; touch-action: none; }
+.erp-pesquisa-pega:hover { color: #475569; background: #f1f5f9; }
+.erp-pesquisa-pega.a-arrastar { cursor: grabbing; color: #2563eb; }
+.erp-pesquisa-cabecalho.erp-pesquisa-flutuante { padding: 8px; border-radius: 10px; background: #ffffff; box-shadow: 0 12px 32px rgb(15 23 42 / 0.22); border: 1px solid #e2e8f0; }
 .erp-pesquisa-popup .ant-select-item-group { padding: 8px 10px 4px; }
 .erp-pesquisa-grupo { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #64748b; }
 :root .erp-pesquisa-popup .ant-select-item-option { padding: 6px 10px; border-radius: 6px; }

@@ -1,5 +1,5 @@
 import { Alert, AutoComplete, Button, Card, Col, DatePicker, Divider, Dropdown, Flex, Form, Input, InputNumber, List, Modal, Row, Segmented, Select, Slider, Space, Switch, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { BranchesOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FlagOutlined, MoreOutlined, NodeIndexOutlined, PlusOutlined, AimOutlined, TableOutlined, UnorderedListOutlined, AppstoreAddOutlined, LinkOutlined, ShrinkOutlined, ArrowsAltOutlined } from '@ant-design/icons';
+import { BranchesOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FlagOutlined, MoreOutlined, NodeIndexOutlined, PlusOutlined, AimOutlined, TableOutlined, UnorderedListOutlined, AppstoreAddOutlined, LinkOutlined, ShrinkOutlined, ArrowsAltOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -18,6 +18,7 @@ import { ESCALAS, formatarQtd, pctDaMeta, ritmoExigido, rotuloDependencia, texto
 import type { MapaQuantidades, Marco, TarefaWbs } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { descricaoMover, descricaoNivelFase, pedidoMover, pedidoNivelFase } from '../comum/arrastar';
+import { SeletorFlag } from '../comum/FlagTarefa';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { ModalFolhaMedicao, ModalMedicao, ModalTarefasQuantidade } from './planeamento/ModaisMetas';
@@ -100,6 +101,9 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
   const arvore: LinhaArvore[] = ordenarGruposWbs(w.data?.grupos)
     .filter((g) => g.marco || g.tarefas.length)
     .map((g) => ({ chave: `m-${g.marco?.id ?? 'sem'}`, grupo: true as const, marco: g.marco, execucao: g.execucao, meta: g.meta, children: g.tarefas.length ? g.tarefas.map(paraArvore) : undefined }));
+  // reordenar marcos (botões ↑/↓): posição de cada marco entre os outros, pela mesma ordem da árvore
+  const idsMarcosOrdenados = useMemo(() => arvore.filter((l) => 'grupo' in l && l.marco).map((l) => (l as { marco: Marco }).marco.id), [arvore]);
+  const accMoverMarco = useAccao({ invalidar: [['projectos']], tituloErro: 'Não foi possível mover o milestone' });
   const linhasGantt = useMemo(() => linhasGanttWbs(w.data, {
     periodo: periodo ? { de: periodo[0]?.format('YYYY-MM-DD'), ate: periodo[1]?.format('YYYY-MM-DD') } : undefined,
     nivelMaximo: soFases === 'fases' ? 0 : soFases === 'tarefas' ? 1 : undefined,
@@ -196,6 +200,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
         </Space>
       ) : (
         <Space wrap size={4}>
+          {acc.gerir && <SeletorFlag projecto={projecto.id} tarefa={l.id} flag={l.flag} />}
           {l.codigo && <Typography.Text type="secondary">{l.codigo}</Typography.Text>}
           {l.nome}
           {tarefaAtrasada(l) && <Tag color="red">Atrasada</Tag>}
@@ -238,8 +243,21 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
           if (!l.marco) return null;
           const m = l.marco;
           const nTarefas = (l.children ?? []).length;
+          const iMarco = idsMarcosOrdenados.indexOf(m.id);
           return (
             <Space wrap>
+              {acc.gerir && (
+                <Space.Compact>
+                  <Tooltip title="Subir milestone">
+                    <Button size="small" icon={<ArrowUpOutlined />} disabled={iMarco <= 0}
+                      onClick={() => accMoverMarco.mutate({ url: `/projetos/${projecto.id}/marcos/${m.id}/mover`, dados: { direcao: 'CIMA' } })} />
+                  </Tooltip>
+                  <Tooltip title="Descer milestone">
+                    <Button size="small" icon={<ArrowDownOutlined />} disabled={iMarco < 0 || iMarco >= idsMarcosOrdenados.length - 1}
+                      onClick={() => accMoverMarco.mutate({ url: `/projetos/${projecto.id}/marcos/${m.id}/mover`, dados: { direcao: 'BAIXO' } })} />
+                  </Tooltip>
+                </Space.Compact>
+              )}
               {acc.gerir && <Tooltip title="Nova tarefa neste milestone"><Button size="small" icon={<PlusOutlined />} onClick={() => setTarefa({ marco_projeto_id: m.id })} /></Tooltip>}
               {acc.gerir && <Button size="small" icon={<EditOutlined />} onClick={() => setMarco(m)} />}
               {acc.gerir && (

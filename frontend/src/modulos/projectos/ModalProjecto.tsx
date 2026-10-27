@@ -27,6 +27,7 @@ interface Valores {
   cal_horas?: number;
   cal_dias?: number[];
   descricao?: string;
+  tags?: string[];
 }
 
 interface EncomendaNe { id: number; numero_documento: string; data_emissao?: string; total_liquido?: string; estado?: string | null; cliente_id?: number | null; cliente?: { nome: string } | null }
@@ -101,8 +102,8 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
         ? { codigo: projecto.codigo ?? undefined, nome: projecto.nome, tipo: projecto.tipo as Valores['tipo'], estado: projecto.estado, unidade_negocio_id: projecto.unidade_negocio_id ?? undefined,
             centro_custo_id: projecto.centro_custo_id ?? undefined, cliente_id: projecto.cliente_id ?? undefined, encomenda_venda_id: projecto.encomenda_venda_id ?? undefined,
             cal_modelo: modeloDe(diasDoCalendario(projecto.calendario)), cal_horas: projecto.calendario?.horas_dia ?? 8, cal_dias: diasDoCalendario(projecto.calendario),
-            descricao: projecto.descricao ?? undefined }
-        : { tipo: 'INTERNO', estado: 'PREPARACAO', cal_modelo: 'SEG_SEX', cal_horas: 8, cal_dias: MODELOS_CAL.SEG_SEX.dias },
+            descricao: projecto.descricao ?? undefined, tags: projecto.tags ?? [] }
+        : { tipo: 'INTERNO', estado: 'PREPARACAO', cal_modelo: 'SEG_SEX', cal_horas: 8, cal_dias: MODELOS_CAL.SEG_SEX.dias, tags: [] },
     );
   }, [aberto, projecto, form]);
 
@@ -210,6 +211,9 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
           <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>O calendário não conhece feriados nem turnos: é uma repartição linear pelos dias de trabalho.</Typography.Paragraph>
         </SeccaoFormulario>
         <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={5000} /></Form.Item>
+        <Form.Item name="tags" label="Tags" tooltip="Texto livre: escreva e prima Enter para criar uma tag">
+          <Select mode="tags" tokenSeparators={[',']} maxTagTextLength={40} placeholder="Sem tags" />
+        </Form.Item>
       </Form>
     </ModalFormulario>
   );

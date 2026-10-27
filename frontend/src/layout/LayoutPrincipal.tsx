@@ -2,7 +2,6 @@ import { Avatar, Button, ConfigProvider, Drawer, Dropdown, Flex, Input, Layout, 
 import {
   ApiOutlined,
   AppstoreOutlined,
-  ArrowLeftOutlined,
   AuditOutlined,
   CheckOutlined,
   DownOutlined,
@@ -20,10 +19,11 @@ import {
   SunOutlined,
   SwapOutlined,
   UnorderedListOutlined,
+  UpOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
 import { useEcra } from '@/componentes/responsivo/useEcra';
@@ -47,6 +47,7 @@ import { semIcones, type ItemMenu } from './filtroMenu';
 import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
+import { useMenuEscondido } from './menuEscondido';
 import './telaNocturna.css';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
@@ -110,7 +111,7 @@ const setaGrupo = ({ isOpen }: { isOpen?: boolean }) => (
  * friso do bordo direito (220–800 px, guardada por utilizador, duplo clique repõe — larguraMenu.ts/PuxadorMenu.tsx);
  * botões do aspecto da árvore e «Expandir/Recolher tudo» entre os itens do topo e os grupos; barra superior branca com o
  * botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Ajuda», «Trocar empresa»,
- * o utilizador e o botão vermelho de sair à direita; botão flutuante «Voltar» (ronda 2, botões do legado em falta).
+ * o utilizador e o botão vermelho de sair à direita.
  *
  * Funcionalidades transversais (ronda 2, R2-G4): ajuda contextual (botão «Ajuda» e F1), pesquisa «Procurar» no
  * cabeçalho (ecrãs e funções a que o utilizador tem acesso, Ctrl+K — PesquisaEcras.tsx),
@@ -155,7 +156,6 @@ function Estrutura() {
   const identidade = useIdentidade();
   const navegar = useNavigate();
   const local = useLocation();
-  const tipoNavegacao = useNavigationType();
   const ecra = useEcra();
   const { favoritos, eFavorito, alternar, renomear } = useFavoritos();
   // renomear favorito (lápis no menu «⋮» do item): rótulo próprio guardado com a preferência
@@ -177,12 +177,12 @@ function Estrutura() {
   const idUtilizador = utilizador?.id ?? utilizador?.nome_utilizador ?? null;
   const { aspecto, definir } = useAspecto(idUtilizador);
   const { largura: larguraMenu, puxador } = useLarguraMenu(idUtilizador);
+  const { escondido: menuEscondido, definir: definirMenuEscondido } = useMenuEscondido(idUtilizador);
   const escuro = aspecto.tema === 'escuro';
   const recolhido = aspecto.menu === 'icones';
   const colapsado = recolhido && !ecra.pequeno;
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const [painel, setPainel] = useState<'powerbi' | 'ia' | null>(null);
-  const [historico, setHistorico] = useState<string[]>([]);
 
   // «Recolher menu» (botão a meio do bordo do menu) alterna entre «só símbolos» e o último aspecto expandido
   const anteriorExpandido = useRef<AspectoMenu>(aspecto.menu === 'icones' ? 'completo' : aspecto.menu);
@@ -288,14 +288,6 @@ function Estrutura() {
   useEffect(() => {
     if (!ecra.pequeno) setGavetaAberta(false);
   }, [ecra.pequeno]);
-
-  // histórico de navegação dentro da aplicação, para o botão flutuante «Voltar» (legado navigationBack)
-  useEffect(() => {
-    setHistorico((h) => {
-      if (tipoNavegacao === 'POP' && h.length > 1 && h[h.length - 2] === local.pathname) return h.slice(0, -1);
-      return h[h.length - 1] === local.pathname ? h : [...h, local.pathname].slice(-50);
-    });
-  }, [local.pathname, tipoNavegacao]);
 
   // Ctrl+Shift+N (legado) ou Alt+Shift+N: tela nocturna (o Ctrl+K da pesquisa está em PesquisaCabecalho)
   useEffect(() => {
@@ -446,24 +438,37 @@ function Estrutura() {
       <Layout style={{ minHeight: '100vh' }}>
         {!ecra.pequeno && (
           <Layout.Sider
-            className={`erp-sider${puxador.aArrastar ? ' erp-sider-a-redimensionar' : ''}`}
+            className={`erp-sider${puxador.aArrastar ? ' erp-sider-a-redimensionar' : ''}${menuEscondido ? ' erp-sider-escondido' : ''}`}
             collapsible
-            collapsed={recolhido}
-            collapsedWidth={LARGURA_MENU_RECOLHIDO}
+            collapsed={recolhido || menuEscondido}
+            collapsedWidth={menuEscondido ? 0 : LARGURA_MENU_RECOLHIDO}
             trigger={null}
             width={larguraMenu}
             theme="dark"
+            aria-hidden={menuEscondido}
           >
             <div className={`erp-sider-topo${recolhido ? ' recolhido' : ''}`}>
               <MarcaEmpresa soIcone={recolhido} tamanho={36} comProduto escuro />
+              {!recolhido && (
+                <Tooltip title="Esconder menu" placement="right">
+                  <Button type="text" size="small" className="erp-menu-esconder" icon={<UpOutlined />} aria-label="Esconder menu"
+                    aria-controls={ID_MENU_LATERAL} onClick={() => definirMenuEscondido(true)} />
+                </Tooltip>
+              )}
             </div>
-            <nav id={ID_MENU_LATERAL} className="erp-sider-rolagem" aria-label="Menu principal">
+            <nav id={ID_MENU_LATERAL} className="erp-sider-rolagem" aria-label="Menu principal" aria-hidden={menuEscondido} tabIndex={menuEscondido ? -1 : undefined}>
               {menuTopo}
               {controlosMenu}
               {menuGrupos}
             </nav>
-            <PuxadorMenu largura={larguraMenu} puxador={puxador} recolhido={recolhido} aoAlternar={alternarRecolhido} controla={ID_MENU_LATERAL} />
+            <PuxadorMenu largura={larguraMenu} puxador={puxador} recolhido={recolhido || menuEscondido} aoAlternar={alternarRecolhido} controla={ID_MENU_LATERAL} />
           </Layout.Sider>
+        )}
+        {!ecra.pequeno && menuEscondido && (
+          <Tooltip title="Mostrar menu" placement="right">
+            <Button type="primary" shape="circle" size="small" className="erp-menu-repor" icon={<DownOutlined />} aria-label="Mostrar menu"
+              aria-controls={ID_MENU_LATERAL} onClick={() => definirMenuEscondido(false)} />
+          </Tooltip>
         )}
 
         {ecra.pequeno && (
@@ -523,7 +528,7 @@ function Estrutura() {
               </Flex>
               {ecra.lg && (
                 <div className="erp-cabecalho-pesquisa">
-                  <PesquisaCabecalho />
+                  <PesquisaCabecalho idUtilizador={idUtilizador} />
                 </div>
               )}
               <Flex align="center" gap={ecra.md ? 8 : 4} style={{ flex: 'none', minWidth: 0 }}>
@@ -573,11 +578,6 @@ function Estrutura() {
           </Layout.Content>
         </Layout>
 
-        {historico.length > 1 && local.pathname !== '/' && (
-          <Button className="erp-botao-voltar no-print" type="primary" shape="round" icon={<ArrowLeftOutlined />} onClick={() => navegar(-1)} title="Voltar ao ecrã anterior">
-            Voltar
-          </Button>
-        )}
         <Modal
           title="Renomear favorito"
           open={aRenomear !== null}

@@ -7,6 +7,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { formatarData } from '@/utilitarios/formatacao';
 import { BarraExecucao } from '../comum/componentes';
 import { tarefaAtrasada } from '../comum/regras';
+import { SeletorFlag } from '../comum/FlagTarefa';
 import type { ColunaKanban, Kanban, TarefaKanban } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -37,7 +38,10 @@ export function SeparadorKanban({ projecto, acc }: PropsSeparador) {
       styles={{ body: { padding: 10 } }}
     >
       <Flex justify="space-between" gap={4}>
-        <Typography.Text strong style={{ fontSize: 13 }}>{t.codigo ? `${t.codigo} · ` : ''}{t.nome}</Typography.Text>
+        <Typography.Text strong style={{ fontSize: 13 }}>
+          {acc.gerir && <SeletorFlag projecto={projecto.id} tarefa={t.id} flag={t.flag} />}
+          {t.codigo ? `${t.codigo} · ` : ''}{t.nome}
+        </Typography.Text>
         {podeMover && (
           <Dropdown trigger={['click']} menu={{ items: colunas.filter((c) => c.id !== actual).map((c) => ({ key: c.id, label: `Mover para «${c.titulo}»` })), onClick: ({ key }) => moverPara(t.id, key) }}>
             <Button size="small" type="text" icon={<MoreOutlined />} />

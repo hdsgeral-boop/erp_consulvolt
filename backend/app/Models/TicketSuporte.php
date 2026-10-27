@@ -20,7 +20,15 @@ class TicketSuporte extends ModeloBase
 
     public const PRIORIDADES = ['BAIXA', 'NORMAL', 'ALTA', 'URGENTE'];
 
-    public const CATEGORIAS = ['GERAL', 'PLANO', 'FACTURACAO'];
+    public const CATEGORIAS = ['GERAL', 'PLANO', 'FACTURACAO', 'MARKETING'];
+
+    /** Categoria → chave de gestão do catálogo (módulo `suporte`, ADR-077): quem especializa no financeiro trata PLANO e FACTURACAO. */
+    public const CHAVE_POR_CATEGORIA = [
+        'GERAL' => 'suporte_tickets_geral_gerir',
+        'PLANO' => 'suporte_tickets_financeiro_gerir',
+        'FACTURACAO' => 'suporte_tickets_financeiro_gerir',
+        'MARKETING' => 'suporte_tickets_marketing_gerir',
+    ];
 
     protected $table = 'tickets_suporte';
 

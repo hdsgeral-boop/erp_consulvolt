@@ -1,5 +1,5 @@
-import { CloseOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
-import { AutoComplete, Button, Input, type InputRef } from 'antd';
+import { CloseOutlined, HolderOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
+import { AutoComplete, Button, Input, Tooltip, type InputRef } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ModuloMenu } from '@/api/tipos';
@@ -8,6 +8,10 @@ import { iconeModulo } from '@/componentes/icones/iconesModulos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import type { EntradaIndicePesquisa } from './indicePesquisa.gerado';
 import { nomeModulo, rotuloEcra } from './menuLegado';
+import { temPosicaoFlutuante, usePosicaoFlutuante } from './posicaoFlutuante';
+
+const PESQUISA_LARGURA = 460;
+const PESQUISA_ALTURA = 48;
 
 /**
  * Pesquisa da barra superior «Procurar» (Ctrl+K / ⌘K; legado ui_dashboard.js:950-1008, «Ir para»): campo no próprio
@@ -291,7 +295,7 @@ const ROTULO_TIPO = { botao: 'Botão', separador: 'Separador' } as const;
  * Campo «Procurar» da barra superior. `compacto` (ecrãs estreitos): só o ícone, que abre o mesmo campo por cima da barra.
  * O atalho Ctrl+K / ⌘K foca o campo (registado aqui).
  */
-export function PesquisaCabecalho({ compacto = false }: { compacto?: boolean }) {
+export function PesquisaCabecalho({ compacto = false, idUtilizador }: { compacto?: boolean; idUtilizador?: number | string | null }) {
   const { menu, pode } = useSessao();
   const { eFavorito } = useFavoritos();
   const navegar = useNavigate();
@@ -300,6 +304,12 @@ export function PesquisaCabecalho({ compacto = false }: { compacto?: boolean }) 
   const entrada = useRef<InputRef>(null);
   const visivel = !compacto || aberta;
   const atalho = eMac() ? '⌘K' : 'Ctrl+K';
+
+  // flutuante e arrastável (pega à esquerda do campo): nasce ancorada no cabeçalho; só flutua depois de arrastada
+  // uma vez (ou se já estava flutuante numa sessão anterior — posição guardada por utilizador).
+  const padraoPosicao = useMemo(() => ({ x: Math.max(16, (typeof window !== 'undefined' ? window.innerWidth : 1200) - PESQUISA_LARGURA - 24), y: 64 }), []);
+  const { posicao, repor: reporPosicao, pega } = usePosicaoFlutuante('pesquisa', padraoPosicao, { largura: PESQUISA_LARGURA, altura: PESQUISA_ALTURA }, idUtilizador);
+  const [flutuante, setFlutuante] = useState(() => !compacto && temPosicaoFlutuante('pesquisa', idUtilizador));
 
   // índice dos botões e separadores (≈ 90 kB): só se carrega quando o utilizador usa a pesquisa
   const [indice, setIndice] = useState<readonly EntradaIndicePesquisa[] | null>(null);
@@ -385,7 +395,31 @@ export function PesquisaCabecalho({ compacto = false }: { compacto?: boolean }) 
     return <Button className="erp-botao-pesquisa" icon={<SearchOutlined />} onClick={focar} aria-label="Abrir a pesquisa" title={`Procurar funções e ecrãs (${atalho})`} />;
 
   return (
-    <div className={`erp-pesquisa-cabecalho${compacto ? ' flutuante' : ''}`} role="search">
+    <div
+      className={`erp-pesquisa-cabecalho${compacto ? ' flutuante' : ''}${flutuante ? ' erp-pesquisa-flutuante' : ''}`}
+      role="search"
+      style={flutuante ? { position: 'fixed', left: posicao.x, top: posicao.y, width: PESQUISA_LARGURA, zIndex: 1050 } : undefined}
+    >
+      {!compacto && (
+        <Tooltip title="Arraste para mover (duplo clique repõe)">
+          <span
+            className={`erp-pesquisa-pega${pega.aArrastar ? ' a-arrastar' : ''}`}
+            role="button"
+            tabIndex={0}
+            aria-label="Mover a pesquisa"
+            onPointerDown={(e) => {
+              if (!flutuante) setFlutuante(true);
+              pega.onPointerDown(e);
+            }}
+            onDoubleClick={() => {
+              reporPosicao();
+              setFlutuante(false);
+            }}
+          >
+            <HolderOutlined aria-hidden />
+          </span>
+        </Tooltip>
+      )}
       <AutoComplete
         value={termo}
         options={opcoes}

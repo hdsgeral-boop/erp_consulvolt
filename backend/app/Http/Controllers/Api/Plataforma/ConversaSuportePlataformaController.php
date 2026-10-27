@@ -13,18 +13,25 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
-/** Conversa de um ticket, do lado da plataforma (middleware `plataforma`). Responder passa um ticket aberto a em curso. */
+/**
+ * Conversa de um ticket, reaproveitada por /api/plataforma/suporte/* (super-administrador) e
+ * /api/suporte/tickets/* (agente — ADR-077: só a categoria que o seu perfil de especialização concede).
+ * Responder passa um ticket aberto a em curso.
+ */
 final class ConversaSuportePlataformaController extends Controller
 {
     public function __construct(private readonly ContextoTenant $tenant) {}
 
     public function index(TicketSuporte $ticket): JsonResponse
     {
+        $this->exigir(TicketSuporte::CHAVE_POR_CATEGORIA[$ticket->categoria] ?? TicketSuporte::CHAVE_POR_CATEGORIA['GERAL']);
+
         return RespostaApi::sucesso(self::mensagens($ticket), 'Mensagens obtidas com sucesso.');
     }
 
     public function responder(Request $r, TicketSuporte $ticket): JsonResponse
     {
+        $this->exigir(TicketSuporte::CHAVE_POR_CATEGORIA[$ticket->categoria] ?? TicketSuporte::CHAVE_POR_CATEGORIA['GERAL']);
         $d = $r->validate(['mensagem' => ['required', 'string', 'max:5000']]);
         $m = MensagemSuporte::query()->create([
             'ticket_id' => $ticket->id, 'autor_tipo' => MensagemSuporte::PLATAFORMA,

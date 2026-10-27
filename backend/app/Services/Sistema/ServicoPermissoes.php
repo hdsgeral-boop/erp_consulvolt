@@ -98,7 +98,7 @@ final class ServicoPermissoes
         if ($this->total($utilizador)) {
             return true;
         }
-        if ($this->administrador($utilizador) && in_array($k, ['notificacoes_centro_view', 'notificacoes_centro_ver', 'notificacoes_centro_gerir', 'notificacoes_view'], true)) {
+        if ($this->administrador($utilizador) && in_array($k, ['notificacoes_centro_view', 'notificacoes_centro_gerir'], true)) {
             return true;
         }
         if (($this->permissoes($utilizador)[$k] ?? null) === true) {
@@ -377,10 +377,21 @@ final class ServicoPermissoes
         return false;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     *
+     * ADR-077: `notificacoes_centro_ver` e `notificacoes_view` foram descontinuadas (triplicavam a mesma consulta de
+     * "ver notificações" — só `notificacoes_centro_view`, automática, fica). Perfis antigos que ainda tenham a chave
+     * velha gravada continuam a funcionar por esta alcunha, até serem voltados a gravar pelo editor.
+     */
     private function permissoes(Utilizador $utilizador): array
     {
-        return $utilizador->perfil?->permissoes ?? [];
+        $p = $utilizador->perfil?->permissoes ?? [];
+        if (($p['notificacoes_centro_ver'] ?? false) === true || ($p['notificacoes_view'] ?? false) === true) {
+            $p['notificacoes_centro_view'] ??= true;
+        }
+
+        return $p;
     }
 
     private function ligadoAColaborador(Utilizador $utilizador, int $empresaId): bool

@@ -53,13 +53,20 @@ final class ServicoPerfis
             ]);
     }
 
-    /** @return list<array<string, mixed>> */
-    public function listar(): array
+    /**
+     * `$soSuporte`: false (omissão) devolve os perfis normais, das empresas clientes — usado pelo selector de Perfil
+     * de cada empresa (GET /sistema/perfis); true devolve só os perfis do backoffice de suporte (ADR-077), para o
+     * selector de especialização dos agentes (GET /plataforma/perfis-suporte). `perfis_utilizador` é uma tabela
+     * global (sem tenant_id/empresa_id) — esta flag só separa as duas listas, não é uma fronteira de segurança.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listar(bool $soSuporte = false): array
     {
         $utilizadores = DB::table('utilizadores')->whereNull('eliminado_em')->selectRaw('perfil_utilizador_id, COUNT(*) AS n')
             ->groupBy('perfil_utilizador_id')->pluck('n', 'perfil_utilizador_id');
 
-        return PerfilUtilizador::query()->ordenarPorNome()->get()
+        return PerfilUtilizador::query()->where('restrito_plataforma', $soSuporte)->ordenarPorNome()->get()
             ->map(fn (PerfilUtilizador $p) => $this->resumo($p) + ['utilizadores' => (int) ($utilizadores[$p->id] ?? 0)])->all();
     }
 
@@ -208,13 +215,21 @@ final class ServicoPerfis
         if (! $simular && $novos) {
             DB::transaction(function () use ($novos) {
                 foreach ($novos as $m) {
-                    PerfilUtilizador::create(['nome' => $m['nome'], 'permissoes' => $m['permissoes']]);
+                    PerfilUtilizador::create(['nome' => $m['nome'], 'permissoes' => $m['permissoes'], 'restrito_plataforma' => self::soBackoffice($m['permissoes'])]);
                 }
                 $this->auditoria->registar('Sistema/Perfis', 'Criar perfis-modelo', count($novos).' perfil(is)-modelo criado(s): '.implode(', ', array_column($novos, 'nome')).'.');
             });
         }
 
         return array_column($novos, 'nome');
+    }
+
+    /** Um perfil-modelo é só do backoffice de suporte (ADR-077) se TODAS as suas chaves forem do módulo `suporte`. */
+    private static function soBackoffice(array $permissoes): bool
+    {
+        $chaves = array_keys(array_filter($permissoes, fn ($v, $k) => $v === true && ! in_array($k, ['all', '_v2'], true), ARRAY_FILTER_USE_BOTH));
+
+        return $chaves !== [] && collect($chaves)->every(fn ($k) => str_starts_with($k, 'suporte_'));
     }
 
     /**

@@ -207,8 +207,6 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
     fireEvent.keyDown(entrada, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
     expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
     expect(entrada).toHaveValue('');
-    // depois de navegar aparece o botão flutuante «Voltar»
-    expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
   });
 
   it('a barra superior já não tem o botão «Modo responsivo» nem o botão sair ao lado do nome', () => {

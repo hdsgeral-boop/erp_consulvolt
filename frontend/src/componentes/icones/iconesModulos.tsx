@@ -8,6 +8,7 @@ import {
   BookOutlined,
   CalendarOutlined,
   ContactsOutlined,
+  CustomerServiceOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   FileProtectOutlined,
@@ -57,6 +58,7 @@ export const ICONES_MODULOS: Readonly<Record<string, ComponenteIcone>> = {
   orcamento: AccountBookOutlined, // Gestão Orçamental (legado: fa-file-invoice-dollar)
   estrutura: ApartmentOutlined, // Estrutura Orgânica (legado: fa-sitemap)
   config: SettingOutlined, // Configurações (legado: fa-cog)
+  suporte: CustomerServiceOutlined, // Backoffice de Suporte (ADR-077): tickets dos clientes da plataforma
 };
 
 /** Sinónimos que possam aparecer noutros pontos (rotas antigas, textos) → id do catálogo. */

@@ -2,6 +2,8 @@
 
 export type EstadoProjecto = 'PREPARACAO' | 'ACTIVO' | 'EM_CURSO' | 'ENCERRADO' | 'CANCELADO';
 export type EstadoTarefa = 'PENDENTE' | 'EM_CURSO' | 'CONCLUIDA' | 'BLOQUEADA';
+/** Bandeira de atenção manual, ver `./flags.ts`. */
+export type CorFlag = 'verde' | 'amarelo' | 'vermelho' | 'preto';
 
 export interface Projecto {
   id: number;
@@ -17,6 +19,8 @@ export interface Projecto {
   cliente?: { id: number; nome: string; nif?: string | null } | null;
   /** Na carteira: indicadores de prazo e orçamento para o semáforo (ver comum/regraSemaforo.ts). */
   semaforo?: IndicadoresSemaforo | null;
+  /** Tags do projecto: texto livre, sem ecrã de gestão central. */
+  tags?: string[] | null;
 }
 
 /** GET /projetos (carteira): os números dos alertas de prazo e orçamento do Resumo, por projecto. */
@@ -115,6 +119,8 @@ export interface Marco {
   data_inicio?: string | null;
   meta_unidade?: string | null;
   meta_quantidade?: string | null;
+  /** Ordem entre os marcos do projecto (botões ↑/↓); nulo nos marcos antigos (caem no fim, pela criação). */
+  ordem?: number | null;
 }
 
 export interface TarefaWbs {
@@ -151,6 +157,8 @@ export interface TarefaWbs {
   mede_se?: boolean;
   n_medicoes?: number;
   precedencia?: Precedencia;
+  /** Bandeira de atenção manual (tarefas e subtarefas), ver `../comum/flags.ts`. */
+  flag?: CorFlag | null;
 }
 
 export interface Wbs {
@@ -170,6 +178,7 @@ export interface TarefaKanban {
   execucao: number;
   data_inicio: string | null;
   data_fim: string | null;
+  flag?: CorFlag | null;
 }
 
 export interface ColunaKanban {

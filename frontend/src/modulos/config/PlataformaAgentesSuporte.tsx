@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Avatar, Button, Card, Form, Input, Modal, Popconfirm, Space, Switch, Table, Typography, message } from 'antd';
+import { Alert, Avatar, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from 'antd';
 import { CustomerServiceOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
@@ -14,6 +14,12 @@ interface Agente {
   email: string | null;
   ativo: boolean;
   ultimo_acesso_em: string | null;
+  perfil: { id: number; nome: string } | null;
+}
+
+/** Perfis de especialização do backoffice (ADR-077): técnico, financeiro, marketing — GET /plataforma/perfis-suporte. */
+function usePerfisSuporte() {
+  return useQuery({ queryKey: ['plataforma', 'perfis_suporte'], queryFn: () => obter<{ id: number; nome: string }[]>('/plataforma/perfis-suporte'), staleTime: 300_000 });
 }
 
 const CHAVE = ['plataforma', 'agentes_suporte'];
@@ -27,6 +33,7 @@ export default function PlataformaAgentesSuporte() {
   const [aberto, setAberto] = useState<Agente | 'novo' | null>(null);
   const [form] = Form.useForm();
   const lista = useQuery({ queryKey: CHAVE, queryFn: () => obter<Agente[]>('/plataforma/agentes-suporte') });
+  const perfis = usePerfisSuporte();
   const refrescar = () => qc.invalidateQueries({ queryKey: CHAVE });
 
   const criar = useMutation({
@@ -52,7 +59,7 @@ export default function PlataformaAgentesSuporte() {
 
   const abrirEdicao = (a: Agente) => {
     form.resetFields();
-    form.setFieldsValue({ nome_completo: a.nome_completo, email: a.email });
+    form.setFieldsValue({ nome_completo: a.nome_completo, email: a.email, perfil_utilizador_id: a.perfil?.id });
     setAberto(a);
   };
   const abrirCriacao = () => {
@@ -89,6 +96,10 @@ export default function PlataformaAgentesSuporte() {
               ),
             },
             {
+              title: 'Especialização',
+              render: (_, a) => (a.perfil ? <Tag color="purple">{a.perfil.nome}</Tag> : <Typography.Text type="danger">Por definir</Typography.Text>),
+            },
+            {
               title: 'Estado',
               render: (_, a) => (
                 <Switch checked={a.ativo} checkedChildren="Activo" unCheckedChildren="Inactivo" onChange={(v) => estado.mutate({ id: a.id, ativo: v })} />
@@ -121,7 +132,7 @@ export default function PlataformaAgentesSuporte() {
         destroyOnClose
       >
         {aberto === 'novo' && (
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Acesso isolado" description="Este utilizador só vê o backoffice de suporte (/suporte) — tickets de todos os clientes. Nunca alcança clientes, planos, licenciamento nem definições da plataforma." />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Acesso isolado e por especialização" description="Este utilizador só vê o backoffice de suporte (/suporte) — tickets das categorias da especialização escolhida. Nunca alcança clientes, planos, licenciamento nem definições da plataforma." />
         )}
         <Form form={form} layout="vertical">
           {aberto === 'novo' && (
@@ -141,6 +152,9 @@ export default function PlataformaAgentesSuporte() {
             rules={aberto === 'novo' ? [{ required: true, min: 10, message: 'Mínimo de 10 caracteres.' }] : [{ min: 10, message: 'Mínimo de 10 caracteres.' }]}
           >
             <Input.Password maxLength={255} autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="perfil_utilizador_id" label="Especialização" tooltip="Decide que categorias de tickets este agente vê e pode responder (técnico, financeiro, marketing)" rules={[{ required: true, message: 'Escolha a especialização.' }]}>
+            <Select showSearch optionFilterProp="label" loading={perfis.isLoading} options={(perfis.data ?? []).map((p) => ({ value: p.id, label: p.nome }))} placeholder="Escolha a especialização" />
           </Form.Item>
         </Form>
       </Modal>

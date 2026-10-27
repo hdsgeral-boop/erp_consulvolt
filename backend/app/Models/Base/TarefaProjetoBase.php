@@ -31,7 +31,7 @@ abstract class TarefaProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'projeto_id', 'tarefa_pai_id', 'codigo', 'nome', 'data_inicio', 'data_fim', 'estado', 'estado_original', 'marco_projeto_id', 'atribuido_a_id', 'percentagem_execucao', 'valor_contrato', 'tarefa_predecessora_id', 'tipo_dependencia', 'desfasamento_dias', 'meta_unidade', 'meta_quantidade', 'meta_realizado', 'concluida_em', 'ordem', 'meta_execucoes',
+        'empresa_id', 'projeto_id', 'tarefa_pai_id', 'codigo', 'nome', 'data_inicio', 'data_fim', 'estado', 'estado_original', 'marco_projeto_id', 'atribuido_a_id', 'percentagem_execucao', 'valor_contrato', 'tarefa_predecessora_id', 'tipo_dependencia', 'desfasamento_dias', 'meta_unidade', 'meta_quantidade', 'meta_realizado', 'concluida_em', 'ordem', 'meta_execucoes', 'flag',
     ];
 
     protected function casts(): array

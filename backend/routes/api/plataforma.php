@@ -70,6 +70,7 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
 
     Route::controller(AgentesSuporteController::class)->group(function () {
         Route::get('agentes-suporte', 'index')->name('agentes_suporte.index');
+        Route::get('perfis-suporte', 'perfis')->name('perfis_suporte.index');
         Route::post('agentes-suporte', 'store')->name('agentes_suporte.store');
         Route::put('agentes-suporte/{agente}/estado', 'estado')->whereNumber('agente')->name('agentes_suporte.estado');
         Route::put('agentes-suporte/{agente}', 'atualizar')->whereNumber('agente')->name('agentes_suporte.atualizar');

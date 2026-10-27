@@ -26,6 +26,16 @@ describe('FJ: ordem das fases como no legado (ordem de criação, não datas)', 
     expect(wbs.grupos[0].marco).toBeNull();
   });
 
+  it('R4: um marco com «ordem» própria (botões ↑/↓) passa à frente dos marcos antigos sem valor', () => {
+    const comOrdem: Wbs['grupos'] = [
+      { marco: { ...marco(6, 'Aluguer de casa', '2026-09-20'), ordem: null }, execucao: 0, tarefas: [] },
+      { marco: { ...marco(7, 'Comprar casso', '2026-09-08'), ordem: null }, execucao: 0, tarefas: [] },
+      { marco: { ...marco(8, 'Alimentação', '2026-09-08'), ordem: 5 }, execucao: 0, tarefas: [] },
+    ];
+    // marco 8 subiu para o topo (ordem 5 < 1 000 000 + 6/7, o fallback dos marcos sem ordem)
+    expect(ordenarGruposWbs(comOrdem).map((g) => g.marco?.id)).toEqual([8, 6, 7]);
+  });
+
   it('o Gantt e a numeração WBS seguem a mesma ordem', () => {
     const fases = linhasGanttWbs(wbs).filter((l) => l.tipo === 'marco');
     expect(fases.map((l) => l.nome)).toEqual(['Aluguer de casa', 'Comprar casso', 'Alimentação', 'Sem milestone']);

@@ -11,7 +11,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Backoffice de suporte (/api/suporte/*): tenant da plataforma, super-administrador OU agente de suporte
  * (ADR-076, fase 4 fatia 3). Isolado de /api/plataforma/* (ExigirPlataforma, só super-administrador): um agente
- * nunca alcança clientes, planos, licenciamento nem definições globais — só tickets, aqui.
+ * nunca alcança clientes, planos, licenciamento nem definições globais — só tickets, aqui. Esta continua a ser só a
+ * fronteira grossa (entra/não entra); QUAIS categorias de tickets vê é decidido por baixo, pelo perfil de
+ * especialização do agente (ADR-077, ver SuporteController).
  */
 final class ExigirSuporte
 {

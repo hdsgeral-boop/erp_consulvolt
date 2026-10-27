@@ -199,6 +199,7 @@ final class ProjetoController extends Controller
             'calendario' => ['nullable', 'array'], 'calendario.modelo' => ['nullable', Rule::in([...array_keys(RegrasMetasProjetos::MODELOS_CAL), 'PERSONALIZADO'])],
             'calendario.horas_dia' => ['nullable', 'numeric', 'between:0.5,24'], 'calendario.dias' => ['nullable', 'array', 'size:7'],
             'calendario.dias.*' => ['numeric', Rule::in(['0', '0.5', '1'])], 'descricao' => ['nullable', 'string', 'max:5000'],
+            'tags' => ['nullable', 'array'], 'tags.*' => ['nullable', 'string', 'max:40'],
         ]);
     }
 }

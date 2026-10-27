@@ -148,8 +148,8 @@ final class ServicoPlaneamentoProjetos
     {
         $tarefas = $this->tarefas($p);
         $porId = $tarefas->keyBy('id');
-        // fases pela ordem de criação (id), como o legado (project_milestones.where('project_id') no Dexie, ui_projects.js:753)
-        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderBy('id')->get();
+        // fases pela ordem própria (ordem ↑/↓, R4); marcos antigos sem valor caem no fim, pela ordem de criação (id)
+        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderByRaw('COALESCE(ordem, 1000000 + id)')->get();
         $prog = self::progresso($tarefas);
         $cal = RegrasMetasProjetos::calendario($p->calendario);
         $horas = FolhaHorasProjeto::query()->where('projeto_id', $p->id)->groupBy('tarefa_projeto_id')->selectRaw('tarefa_projeto_id, SUM(horas) AS h')->pluck('h', 'tarefa_projeto_id');
@@ -168,7 +168,7 @@ final class ServicoPlaneamentoProjetos
             $meta = RegrasMetasProjetos::metaDoRamo($filhos, $t);
             $temFilhoComMeta = ($filhos[$t->id] ?? collect())->contains(fn ($f) => $f->temMeta());
 
-            return $t->only(['id', 'codigo', 'nome', 'tarefa_pai_id', 'marco_projeto_id', 'atribuido_a_id', 'valor_contrato', 'ordem', 'estado_original',
+            return $t->only(['id', 'codigo', 'nome', 'tarefa_pai_id', 'marco_projeto_id', 'atribuido_a_id', 'valor_contrato', 'ordem', 'estado_original', 'flag',
                 'tarefa_predecessora_id', 'desfasamento_dias', 'meta_unidade', 'meta_quantidade', 'meta_realizado'])
                 + ['estado' => $t->estadoEfetivo(), 'data_inicio' => $t->data_inicio?->toDateString(), 'data_fim' => $t->data_fim?->toDateString(),
                     'tipo_dependencia' => $t->tarefa_predecessora_id ? ($t->tipo_dependencia ?: 'FS') : $t->tipo_dependencia,
@@ -185,7 +185,7 @@ final class ServicoPlaneamentoProjetos
         $grupos = $marcos->map(function ($m) use ($raiz, $filhos, $prog, $no, $ordenar) {
             $ts = $raiz->where('marco_projeto_id', $m->id);
 
-            return ['marco' => $m->only(['id', 'nome', 'estado', 'meta_unidade', 'meta_quantidade']) + ['data' => $m->data?->toDateString(), 'data_inicio' => $m->data_inicio?->toDateString()],
+            return ['marco' => $m->only(['id', 'nome', 'estado', 'meta_unidade', 'meta_quantidade', 'ordem']) + ['data' => $m->data?->toDateString(), 'data_inicio' => $m->data_inicio?->toDateString()],
                 'execucao' => $prog['por_marco'][$m->id] ?? 0, 'meta' => self::metaDaFase($m, $filhos, $ts),
                 'tarefas' => $ordenar($ts)->map(fn ($t) => $no($t))->values()->all()];
         })->all();
@@ -401,7 +401,8 @@ final class ServicoPlaneamentoProjetos
                 'valor_contrato' => $valor === null || $valor === '' ? null : number_format((float) $valor, 2, '.', ''),
                 'tarefa_predecessora_id' => $predT?->id, 'tipo_dependencia' => $predT ? $tipoDep : null, 'desfasamento_dias' => $predT ? $desf : null,
                 'meta_unidade' => $metaQ > 0 ? mb_substr($metaUn, 0, 20) : null, 'meta_quantidade' => $metaQ > 0 ? $metaQ : null, 'meta_realizado' => $metaQ > 0 ? $metaF : null,
-                'concluida_em' => self::concluidaEm($estado, $t)] + $this->colunasEstado($estado, $t);
+                'concluida_em' => self::concluidaEm($estado, $t),
+                'flag' => array_key_exists('flag', $d) ? ($d['flag'] ?: null) : $t?->flag] + $this->colunasEstado($estado, $t);
             $acerto = $t && $t->temMeta() && $metaQ > 0 && abs((float) $t->meta_realizado - $metaF) > 0.0005 && $filhosComMeta->isEmpty();
             if ($t) {
                 $t->update($dados);
@@ -565,6 +566,35 @@ final class ServicoPlaneamentoProjetos
     }
 
     /**
+     * Reordena um marco entre os irmãos do mesmo projecto (botões ↑/↓ do WBS). As tarefas ligam-se ao marco por FK
+     * (marco_projeto_id), não por posição física — por isso mover o marco já "leva consigo" as suas tarefas na
+     * árvore, sem tocar em nenhuma tarefa.
+     */
+    public function moverMarco(MarcoProjeto $m, string $direcao): MarcoProjeto
+    {
+        return DB::transaction(function () use ($m, $direcao) {
+            $ordem = fn (MarcoProjeto $x) => $x->ordem !== null ? (int) $x->ordem : 1_000_000 + $x->id;
+            $irmaos = MarcoProjeto::query()->where('projeto_id', $m->projeto_id)->lockForUpdate()->get()->sortBy($ordem)->values();
+            $i = $irmaos->search(fn ($x) => $x->id === $m->id);
+            $j = $direcao === 'CIMA' ? $i - 1 : $i + 1;
+            if ($i === false || $j < 0 || $j >= $irmaos->count()) {
+                return $m;   // já está na ponta: nada a fazer
+            }
+            $lista = $irmaos->all();
+            [$lista[$i], $lista[$j]] = [$lista[$j], $lista[$i]];
+            foreach ($lista as $k => $x) {
+                $nova = ($k + 1) * 10;
+                if ((int) $ordem($x) !== $nova) {
+                    MarcoProjeto::query()->whereKey($x->id)->update(['ordem' => $nova]);
+                }
+            }
+            $this->projetos->registar($m->projeto_id, 'Mover milestone', trim((string) $m->nome).' → '.($direcao === 'CIMA' ? 'para cima' : 'para baixo'));
+
+            return $m->refresh();
+        });
+    }
+
+    /**
      * Registos que impedem a eliminação (projRegistosDaTarefa, ui_projects.js:1968-1984).
      *
      * @param  list<int>  $ids
@@ -665,7 +695,7 @@ final class ServicoPlaneamentoProjetos
         $idsCols = array_column($cols, 'id');
         $coluna = fn (TarefaProjeto $t) => in_array($t->estado_original, $idsCols, true) ? $t->estado_original
             : (in_array($t->estadoEfetivo(), $idsCols, true) ? $t->estadoEfetivo() : null);
-        $cartao = fn (TarefaProjeto $t) => $t->only(['id', 'codigo', 'nome', 'marco_projeto_id', 'atribuido_a_id', 'valor_contrato'])
+        $cartao = fn (TarefaProjeto $t) => $t->only(['id', 'codigo', 'nome', 'marco_projeto_id', 'atribuido_a_id', 'valor_contrato', 'flag'])
             + ['estado' => $t->estadoEfetivo(), 'execucao' => $exec[$t->id], 'data_inicio' => $t->data_inicio?->toDateString(), 'data_fim' => $t->data_fim?->toDateString()];
         $saida = array_map(fn ($c) => $c + ['tarefas' => $tarefas->filter(fn ($t) => $coluna($t) === $c['id'])->map($cartao)->values()->all()], $cols);
         $soltas = $tarefas->filter(fn ($t) => $coluna($t) === null);

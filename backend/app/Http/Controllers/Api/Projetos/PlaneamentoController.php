@@ -61,6 +61,8 @@ final class PlaneamentoController extends Controller
             'tarefa_pai_id' => ['nullable', 'integer'], 'marco_projeto_id' => ['nullable', 'integer'], 'atribuido_a_id' => ['nullable', 'integer'],
             'data_inicio' => ['nullable', 'date'], 'data_fim' => ['nullable', 'date'], 'estado' => ['nullable', Rule::in(TarefaProjeto::ESTADOS)],
             'percentagem_execucao' => ['nullable', 'integer', 'between:0,100'], 'valor_contrato' => ['nullable', 'numeric', 'min:0'],
+            // bandeira de atenção manual (tarefas e subtarefas)
+            'flag' => ['nullable', Rule::in(TarefaProjeto::FLAGS)],
             // Versão Actual: meta por quantidade, dependência, posição do organigrama e encaixe das datas (ui_projects.js:2188-2258)
             'meta_unidade' => ['nullable', 'string', 'max:20'], 'meta_quantidade' => ['nullable', 'numeric', 'min:0', 'max:1000000000'],
             'meta_realizado' => ['nullable', 'numeric', 'min:0', 'max:1000000000'], 'tarefa_predecessora_id' => ['nullable', 'integer'],
@@ -92,6 +94,15 @@ final class PlaneamentoController extends Controller
         $res = $this->planeamento->moverComDatas($t, $d, (bool) ($d['encaixar_datas'] ?? true));
 
         return RespostaApi::sucesso($res['tarefa']->toArray() + ['avisos' => $res['avisos']], 'Tarefa movida.');
+    }
+
+    public function moverMarco(Request $r, int $projeto, int $marco): JsonResponse
+    {
+        $this->exigir('proj_gerir');
+        $d = $r->validate(['direcao' => ['required', Rule::in(['CIMA', 'BAIXO'])]]);
+        $m = MarcoProjeto::query()->where('projeto_id', $projeto)->findOrFail($marco);
+
+        return RespostaApi::sucesso($this->planeamento->moverMarco($m, $d['direcao'])->toArray(), 'Milestone movido.');
     }
 
     public function eliminarTarefa(Request $r, int $projeto, int $tarefa): JsonResponse

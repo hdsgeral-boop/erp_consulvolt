@@ -59,7 +59,7 @@ abstract class ProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'estado', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'cliente_id', 'encomenda_venda_id', 'calendario', 'descricao', 'origem', 'assunto_metodo_id',
+        'empresa_id', 'codigo', 'nome', 'estado', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'cliente_id', 'encomenda_venda_id', 'calendario', 'descricao', 'origem', 'assunto_metodo_id', 'tags',
     ];
 
     protected function casts(): array
@@ -72,6 +72,7 @@ abstract class ProjetoBase extends ModeloBase
             'encomenda_venda_id' => 'integer',
             'calendario' => 'array',
             'assunto_metodo_id' => 'integer',
+            'tags' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',

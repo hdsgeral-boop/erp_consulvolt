@@ -2701,13 +2701,62 @@
           "nota": "Central unificada de notificações, alertas operacionais e processos pendentes do sistema por empresa.",
           "tarefas": [
             {
-              "chave": "notificacoes_centro_ver",
-              "rotulo": "Consultar notificações e alertas do sistema",
-              "sensivel": false
-            },
-            {
               "chave": "notificacoes_centro_gerir",
               "rotulo": "Marcar como lidas e gerir notificações e alertas",
+              "sensivel": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "suporte",
+      "nome": "Backoffice de Suporte",
+      "ecras": [
+        {
+          "id": "suporte_tickets_geral",
+          "nome": "Tickets — Geral",
+          "vistas": [
+            "suporte_tickets_geral"
+          ],
+          "pai": null,
+          "nota": "Tickets de suporte da categoria Geral (ADR-077). Nunca alcança clientes, planos, licenciamento nem definições da plataforma — isso continua exclusivo de /api/plataforma/*.",
+          "tarefas": [
+            {
+              "chave": "suporte_tickets_geral_gerir",
+              "rotulo": "Responder e gerir tickets gerais",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "suporte_tickets_financeiro",
+          "nome": "Tickets — Financeiro",
+          "vistas": [
+            "suporte_tickets_financeiro"
+          ],
+          "pai": null,
+          "nota": "Tickets de suporte das categorias Plano e Facturação (ADR-077).",
+          "tarefas": [
+            {
+              "chave": "suporte_tickets_financeiro_gerir",
+              "rotulo": "Responder e gerir tickets de plano e facturação",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "suporte_tickets_marketing",
+          "nome": "Tickets — Marketing e Comunicação",
+          "vistas": [
+            "suporte_tickets_marketing"
+          ],
+          "pai": null,
+          "nota": "Tickets de suporte da categoria Marketing e Comunicação (ADR-077).",
+          "tarefas": [
+            {
+              "chave": "suporte_tickets_marketing_gerir",
+              "rotulo": "Responder e gerir tickets de marketing e comunicação",
               "sensivel": false
             }
           ]
@@ -3612,6 +3661,30 @@
         "orc_controlo_view": true,
         "relatorios_contabeis_view": true,
         "contab_mapa_extrato_view": true
+      }
+    },
+    {
+      "nome": "Agente de Suporte Técnico",
+      "permissoes": {
+        "_v2": true,
+        "suporte_tickets_geral_view": true,
+        "suporte_tickets_geral_gerir": true
+      }
+    },
+    {
+      "nome": "Agente de Suporte Financeiro",
+      "permissoes": {
+        "_v2": true,
+        "suporte_tickets_financeiro_view": true,
+        "suporte_tickets_financeiro_gerir": true
+      }
+    },
+    {
+      "nome": "Agente de Suporte Marketing e Comunicação",
+      "permissoes": {
+        "_v2": true,
+        "suporte_tickets_marketing_view": true,
+        "suporte_tickets_marketing_gerir": true
       }
     }
   ]

@@ -23,7 +23,7 @@ abstract class MarcoProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'projeto_id', 'nome', 'data', 'estado', 'data_inicio', 'meta_unidade', 'meta_quantidade',
+        'empresa_id', 'projeto_id', 'nome', 'data', 'estado', 'data_inicio', 'meta_unidade', 'meta_quantidade', 'ordem',
     ];
 
     protected function casts(): array
@@ -34,6 +34,7 @@ abstract class MarcoProjetoBase extends ModeloBase
             'data' => 'date',
             'data_inicio' => 'date',
             'meta_quantidade' => 'decimal:3',
+            'ordem' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

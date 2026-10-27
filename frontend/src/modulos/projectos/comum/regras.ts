@@ -355,12 +355,14 @@ export function pct1(v: number | null | undefined): string {
 }
 
 /**
- * Ordem das fases na WBS e no Gantt, como no legado (renderProjectPlaneamento, ui_projects.js:753 e 2036-2046): as
- * fases vêm de `project_milestones.where('project_id')`, que o Dexie devolve pela chave primária — a ordem de criação
- * (id). Não é a data de início nem a data alvo. As tarefas sem fase ficam no fim.
+ * Ordem das fases na WBS e no Gantt: a ordem própria do marco (botões ↑/↓, R4), com o mesmo query de fallback do
+ * backend para marcos antigos sem valor — `ordem ?? 1 000 000 + id` (criação, como o legado: project_milestones.
+ * where('project_id'), que o Dexie devolve pela chave primária). Não é a data de início nem a data alvo. As tarefas
+ * sem fase ficam no fim.
  */
-export function ordenarGruposWbs<G extends { marco: { id: number } | null }>(grupos: G[] | undefined): G[] {
-  return [...(grupos ?? [])].sort((a, b) => (a.marco ? a.marco.id : Number.MAX_SAFE_INTEGER) - (b.marco ? b.marco.id : Number.MAX_SAFE_INTEGER));
+export function ordenarGruposWbs<G extends { marco: { id: number; ordem?: number | null } | null }>(grupos: G[] | undefined): G[] {
+  const chave = (m: { id: number; ordem?: number | null } | null) => (m ? (m.ordem ?? 1_000_000 + m.id) : Number.MAX_SAFE_INTEGER);
+  return [...(grupos ?? [])].sort((a, b) => chave(a.marco) - chave(b.marco));
 }
 
 /** Nº de tarefas de uma fase, com as subtarefas (coluna «Responsável» da linha da fase no Gantt: «N tarefa(s)»). */

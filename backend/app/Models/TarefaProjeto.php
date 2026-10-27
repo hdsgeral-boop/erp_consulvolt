@@ -21,6 +21,9 @@ class TarefaProjeto extends TarefaProjetoBase
 
     public const TIPOS_DEPENDENCIA = ['FS', 'SS', 'FF'];
 
+    /** Bandeira de atenção manual (tarefas e subtarefas, mesma tabela): marcação do utilizador, não calculada. */
+    public const FLAGS = ['verde', 'amarelo', 'vermelho', 'preto'];
+
     /** Estado efectivo: o código, ou o texto original quando o código não pôde ser gravado (BLOQUEADA, ver ServicoPlaneamentoProjetos). */
     public function estadoEfetivo(): string
     {

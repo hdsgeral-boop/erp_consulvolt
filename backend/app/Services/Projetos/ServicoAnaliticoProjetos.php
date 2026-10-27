@@ -399,6 +399,27 @@ final class ServicoAnaliticoProjetos
         ];
     }
 
+    // ───────────── Backlog ─────────────
+
+    /**
+     * Backlog do projecto: requisições por estado (fechada = já saiu de PENDENTE — foi para COMPRAS ou STOCK, sem
+     * precisar de um estado novo) e a estimativa de activos totais do escopo (soma do valor de contrato de todas as
+     * tarefas — é o único valor monetário já existente ao nível da tarefa, coluna «Valor Contrato» do WBS).
+     */
+    public function backlog(Projeto $p): array
+    {
+        $estados = RequisicaoMaterialProjeto::query()->where('projeto_id', $p->id)->selectRaw('estado, COUNT(*) AS n')->groupBy('estado')->pluck('n', 'estado');
+        $pendentes = (int) ($estados['PENDENTE'] ?? 0);
+        $total = (int) $estados->sum();
+
+        return [
+            'requisicoes_pendentes' => $pendentes,
+            'requisicoes_fechadas' => $total - $pendentes,
+            'requisicoes_total' => $total,
+            'estimativa_activos' => self::dinheiro(TarefaProjeto::query()->where('projeto_id', $p->id)->sum('valor_contrato')),
+        ];
+    }
+
     /** Prazo a partir das datas das tarefas (projectos_dashboard.js:156-169). */
     public static function prazo(Collection $tarefas, int $progresso, string $hoje): array
     {
