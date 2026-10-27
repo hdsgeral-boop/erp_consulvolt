@@ -5,11 +5,13 @@ namespace App\Services\Tesouraria;
 use App\Exceptions\ErroNegocio;
 use App\Models\LiquidacaoPOS;
 use App\Models\MovimentoCaixa;
+use App\Models\Produto;
 use App\Models\SessaoCaixa;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Logistica\ContasProduto;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -59,12 +61,17 @@ final class ServicoCaixa
         });
     }
 
-    /** @param  array{tipo: string, data_documento: string, conta_contrapartida: string, valor: float|string, descricao: string, terceiro_id?: ?int, numero_documento?: ?string, venda_id?: ?int, fatura_compra_id?: ?int}  $d */
+    /** @param  array{tipo: string, data_documento: string, conta_contrapartida?: ?string, produto_id?: ?int, valor: float|string, descricao: string, terceiro_id?: ?int, numero_documento?: ?string, venda_id?: ?int, fatura_compra_id?: ?int}  $d */
     public function registarMovimento(SessaoCaixa $sessao, array $d): MovimentoCaixa
     {
         $empresa = $this->contexto->obrigatorio();
         $data = substr($d['data_documento'], 0, 10);
         $this->exercicios->exigirAberto($empresa, $data);
+        // contrapartida por bem/serviço (ecrã para não-contabilistas): o servidor resolve e substitui sempre a conta
+        // de custo (classe 7) do produto, ignorando o que vier em conta_contrapartida — nunca confia no valor do cliente.
+        if (! empty($d['produto_id'])) {
+            $d['conta_contrapartida'] = $this->contaCustoProduto((int) $d['produto_id']);
+        }
         $this->plano->contaDeMovimento($d['conta_contrapartida']);
         $valor = number_format((float) $d['valor'], 2, '.', '');
         if (bccomp($valor, '0', 2) <= 0) {
@@ -98,7 +105,7 @@ final class ServicoCaixa
                 'sessao_caixa_id' => $sessao->id, 'tipo' => $d['tipo'], 'data_documento' => $data, 'numero_documento' => $numero, 'referencia' => $d['referencia'] ?? null,
                 'terceiro_id' => $d['terceiro_id'] ?? null, 'conta_debito' => $rec ? $sessao->codigo_conta : $d['conta_contrapartida'],
                 'conta_credito' => $rec ? $d['conta_contrapartida'] : $sessao->codigo_conta, 'descricao' => $d['descricao'], 'valor' => $valor,
-                'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null,
+                'produto_id' => $d['produto_id'] ?? null, 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null,
                 'tipo_origem' => ($d['venda_id'] ?? null) || ($d['fatura_compra_id'] ?? null) ? 'CONTABILIDADE' : 'MANUAL', 'contabilizado' => false,
                 'codigo_moeda' => 'AOA', 'valor_kz' => $valor, 'venda_id' => $d['venda_id'] ?? null, 'fatura_compra_id' => $d['fatura_compra_id'] ?? null,
             ]);
@@ -225,6 +232,18 @@ final class ServicoCaixa
     {
         return $movimentos->filter(fn ($m) => $m->venda_id || $m->fatura_compra_id)
             ->map(fn ($m) => ['venda_id' => $m->venda_id, 'fatura_compra_id' => $m->fatura_compra_id, 'tipo_dc' => $m->tipo === 'REC' ? 'C' : 'D', 'valor' => $m->valor])->values()->all();
+    }
+
+    /** Conta de custo (classe 7) herdada do bem/serviço — categoria > produto (ContasProduto::de) —, para a despesa da folha de caixa. */
+    private function contaCustoProduto(int $produtoId): string
+    {
+        $produto = Produto::query()->findOrFail($produtoId);
+        $conta = ContasProduto::de($produto)->custo;
+        if (! $conta || ! str_starts_with($conta, '7')) {
+            throw new ErroNegocio("\"{$produto->nome}\" não tem conta de custo (classe 7) configurada.", 'PRODUTO_SEM_CONTA_CUSTO', 422);
+        }
+
+        return $conta;
     }
 
     private function exigirContaCaixa(string $conta): void

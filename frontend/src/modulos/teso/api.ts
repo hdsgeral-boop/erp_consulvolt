@@ -192,6 +192,14 @@ export interface MeioPagamento {
 
 export type EstadoSessao = 'ABERTA' | 'FECHADA' | 'CONTABILIZADA';
 
+/** Bem/serviço disponível para a contrapartida automática da despesa na folha de caixa (conta de custo já resolvida). */
+export interface ProdutoDespesa {
+  id: number;
+  nome: string;
+  e_servico: boolean;
+  conta_custo: string | null;
+}
+
 export interface MovimentoCaixa {
   id: number;
   tipo: 'REC' | 'PAG';
@@ -200,6 +208,7 @@ export interface MovimentoCaixa {
   referencia: string | null;
   terceiro_id: number | null;
   terceiro?: RefTerceiro | null;
+  produto_id?: number | null;
   conta_debito: string;
   conta_credito: string;
   descricao: string | null;

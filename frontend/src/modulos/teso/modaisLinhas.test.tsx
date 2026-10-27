@@ -124,7 +124,8 @@ describe('Folha de caixa — «Registar movimento de caixa» em Grade | Linhas',
     expect(screen.getAllByText('-50,00').length).toBeGreaterThan(0);
     expect(screen.getByText('Movimentos da Sessão (2)')).toBeInTheDocument();
     clicarTexto('Registar Saída / Despesa');
-    await colar('Saída\t16/10/2026\t1.500,00\t62.1\tCompra de material\nEntrada\t16/10/2026\t200\t62.1\tDevolução');
+    // coluna nova «Bem/Serviço» entre a conta e a descrição (IBAN automático): tabulação vazia para a saltar
+    await colar('Saída\t16/10/2026\t1.500,00\t62.1\t\tCompra de material\nEntrada\t16/10/2026\t200\t62.1\t\tDevolução');
     await waitFor(() => expect(screen.getByLabelText('Descrição, linha 2')).toHaveValue('Devolução'));
     await registar();
     await waitFor(() => expect(posts('/tesouraria/caixa/sessoes/7/movimentos')).toHaveLength(2));

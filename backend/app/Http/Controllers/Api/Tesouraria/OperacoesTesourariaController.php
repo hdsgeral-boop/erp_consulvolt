@@ -8,6 +8,7 @@ use App\Models\LinhaExtratoBancario;
 use App\Models\MovimentoCaixa;
 use App\Models\SessaoCaixa;
 use App\Services\Compras\RelacoesNomes;
+use App\Services\Logistica\ServicoProdutos;
 use App\Services\Tesouraria\ServicoCaixa;
 use App\Services\Tesouraria\ServicoCaixaAjustes;
 use App\Services\Tesouraria\ServicoConferenciaCaixa;
@@ -29,6 +30,7 @@ final class OperacoesTesourariaController extends Controller
         private readonly ServicoConferenciaCaixa $conferencia,
         private readonly ServicoConfigTesouraria $config,
         private readonly ServicoCaixaAjustes $ajustesCaixa,
+        private readonly ServicoProdutos $produtos,
     ) {}
 
     // ─────────── Reconciliação bancária ───────────
@@ -190,13 +192,23 @@ final class OperacoesTesourariaController extends Controller
         return RespostaApi::criado($this->sessaoArray($res['sessao']) + ['aviso' => $res['aviso']], 'Sessão de caixa aberta.');
     }
 
+    /** GET caixa/produtos-despesa — bens/serviços activos com a conta de custo já resolvida, para a contrapartida por produto. */
+    public function produtosDespesa(): JsonResponse
+    {
+        $this->exigir('teso_caixa_operar');
+
+        return RespostaApi::sucesso($this->produtos->produtosDespesa(), 'Bens e serviços obtidos com sucesso.');
+    }
+
     public function registarMovimento(Request $r, int $id): JsonResponse
     {
         $this->exigir('teso_caixa_operar');
         $empresa = app(ContextoEmpresa::class)->obrigatorio();
         $daEmpresa = fn (string $t) => Rule::exists($t, 'id')->where('empresa_id', $empresa);
         $d = $r->validate(['tipo' => ['required', Rule::in(['REC', 'PAG'])], 'data_documento' => ['required', 'date_format:Y-m-d'],
-            'conta_contrapartida' => ['required', 'string', 'max:20'], 'valor' => ['required', 'numeric', 'gt:0'], 'descricao' => ['required', 'string', 'min:3', 'max:1000'],
+            // conta manual OU bem/serviço (produto_id): o servidor recalcula sempre a contrapartida a partir do produto, nunca confia na enviada pelo cliente
+            'conta_contrapartida' => ['required_without:produto_id', 'nullable', 'string', 'max:20'], 'produto_id' => ['nullable', 'integer', $daEmpresa('produtos')],
+            'valor' => ['required', 'numeric', 'gt:0'], 'descricao' => ['required', 'string', 'min:3', 'max:1000'],
             'terceiro_id' => ['nullable', 'integer', $daEmpresa('terceiros')], 'numero_documento' => ['nullable', 'string', 'max:100'], 'referencia' => ['nullable', 'string', 'max:100'],
             'venda_id' => ['nullable', 'integer', $daEmpresa('vendas')], 'fatura_compra_id' => ['nullable', 'integer', $daEmpresa('faturas_compra')],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],

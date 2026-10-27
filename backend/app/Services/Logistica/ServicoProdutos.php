@@ -71,6 +71,23 @@ final class ServicoProdutos
                 ->toArray());
     }
 
+    /**
+     * Bens e serviços activos com a sua conta de custo (classe 7) já resolvida — categoria > produto (ContasProduto::de) —,
+     * para a contrapartida automática da despesa na folha de caixa (ecrã para não-contabilistas). Sem cache: a conta tem
+     * de reflectir de imediato uma categoria recém-editada.
+     *
+     * @return list<array{id: int, nome: string, e_servico: bool, conta_custo: ?string}>
+     */
+    public function produtosDespesa(): array
+    {
+        // ContasProduto::de() lê todas as colunas de conta do produto (modo estrito de atributos do Eloquent: têm de estar no select)
+        return Produto::query()->where(fn ($q) => $q->whereNull('bloqueado')->orWhere('bloqueado', false))
+            ->with(['categoriaProduto' => fn ($q) => $q->withTrashed()])->ordenarPorNome()
+            ->get(['id', 'nome', 'e_servico', 'categoria_produto_id', ...Produto::CAMPOS_CONTA])
+            ->map(fn (Produto $p) => ['id' => $p->id, 'nome' => $p->nome, 'e_servico' => (bool) $p->e_servico, 'conta_custo' => ContasProduto::de($p)->custo])
+            ->values()->all();
+    }
+
     /** @param  array<string, mixed>  $dados */
     public function guardar(array $dados, ?Produto $produto = null): Produto
     {

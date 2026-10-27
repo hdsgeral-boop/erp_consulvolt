@@ -180,8 +180,8 @@ export default function Conciliacao() {
       <Card style={{ marginBottom: 12 }} title={<><IconeFa nome="plus-circle" /> Nova conciliação ou Reprocessamento</>}
         extra={
           <Space wrap>
-            <Button size="small" icon={<IconeFa nome="balance-scale" />} disabled={!conta} onClick={() => setSeparador('manual')}>Gerir Divergências (Pendentes)</Button>
-            <Button size="small" icon={<IconeFa nome="university" />} disabled={!conta} onClick={() => setSeparador('extrato')}>Extratos Carregados</Button>
+            <Button size="small" icon={<IconeFa nome="balance-scale" />} disabled={!conta} title={conta ? undefined : 'Escolha primeiro a conta bancária'} onClick={() => setSeparador('manual')}>Gerir Divergências (Pendentes)</Button>
+            <Button size="small" icon={<IconeFa nome="university" />} disabled={!conta} title={conta ? undefined : 'Escolha primeiro a conta bancária'} onClick={() => setSeparador('extrato')}>Extratos Carregados</Button>
             <Button size="small" icon={<IconeFa nome="edit" />} style={{ color: '#d97706', borderColor: '#d97706' }} onClick={() => setVerRascunhos(true)}>Rascunhos</Button>
             <Button size="small" icon={<IconeFa nome="file-excel" />} style={{ color: 'var(--ant-color-primary)', borderColor: 'var(--ant-color-primary)' }} onClick={descarregarModeloExtrato}>Modelo</Button>
           </Space>
@@ -394,14 +394,19 @@ function Separadores({ conta, data, separador, setSeparador, rascunho, aoAplicar
   const manual = (
     <Card
       title={<><IconeFa nome="hand-pointer" /> Espaço de Tratamento Manual</>}
-      extra={podeConfirmar && (
-        <PainelRascunhos
-          conta={conta}
-          extrato={selExt}
-          lancamentos={selDia}
-          aoAbrir={abrirRascunho}
-        />
-      )}
+      extra={
+        <Space wrap>
+          <BotoesExportar tamanho="small" obterPedido={() => pedidoMapaReconciliacao(mapa.data!)} desactivado={!mapa.data} />
+          {podeConfirmar && (
+            <PainelRascunhos
+              conta={conta}
+              extrato={selExt}
+              lancamentos={selDia}
+              aoAbrir={abrirRascunho}
+            />
+          )}
+        </Space>
+      }
     >
       <Flex wrap gap={16} align="center" justify="space-between" style={{ marginBottom: 12 }}>
         <Space wrap size={16}>

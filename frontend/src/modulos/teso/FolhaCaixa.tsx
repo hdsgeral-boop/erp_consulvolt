@@ -1,8 +1,8 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Select, Skeleton, Space, Tabs, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, TagsOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -19,7 +19,7 @@ import { ModalMotivo } from '@/componentes/Accoes';
 import { ModalLiquidarFacturas } from './caixa/ModalLiquidarFacturas';
 import { ModalClassificarMovimentos } from './caixa/ModalClassificarMovimentos';
 import type { ModoLiquidacao } from './caixaLiquidacao';
-import type { MovimentoCaixa, SessaoCaixa } from './api';
+import type { MovimentoCaixa, ProdutoDespesa, SessaoCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { accoesSessao, sessaoAbertaRecente, valorComMoeda } from './regras';
 import { eContaCaixa, PREFIXOS_CAIXA } from './ronda3';
@@ -299,6 +299,11 @@ export function AccoesLinhaSessao({ sessao: r }: { sessao: SessaoCaixa }) {
 
 const TIPOS_MOVIMENTO = [{ value: 'REC', label: 'Entrada (recebimento)' }, { value: 'PAG', label: 'Saída (pagamento)' }];
 
+/** Bens/serviços activos com conta de custo resolvida, para a contrapartida automática da despesa (não exige permissões de Vendas). */
+function useProdutosDespesa(activo: boolean) {
+  return useQuery({ queryKey: ['teso', 'caixa', 'produtos-despesa'], queryFn: () => obter<ProdutoDespesa[]>('/tesouraria/caixa/produtos-despesa'), staleTime: 5 * 60_000, enabled: activo });
+}
+
 /** Totais de entradas e saídas dos movimentos da sessão (resumo do legado). */
 export function totaisMovimentos(movs: Pick<MovimentoCaixa, 'tipo' | 'valor'>[]): { entradas: number; saidas: number } {
   let e = 0;
@@ -331,12 +336,24 @@ function useCamposMovimento(activo: boolean): CampoFormulario[] {
   const cc = useTabelaAux('centros-custo', activo);
   const nd = useTabelaAux('notas-demonstracao', activo);
   const nf = useTabelaAux('notas-fluxo-caixa', activo);
+  const produtosDespesa = useProdutosDespesa(activo);
   return useMemo<CampoFormulario[]>(() => [
     { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: [{ value: 'REC', label: 'Entrada' }, { value: 'PAG', label: 'Saída' }], largura: 110, aliases: ['Entrada/Saída'] },
     { nome: 'data_documento', rotulo: 'Data', tipo: 'data', obrigatorio: true, largura: 140 },
     { nome: 'valor', rotulo: 'Valor (Kz)', tipo: 'numero', obrigatorio: true, min: 0.01, precisao: 2, largura: 130, aliases: ['Valor'] },
-    { nome: 'conta_contrapartida', rotulo: 'Conta de contrapartida', tipo: 'select', obrigatorio: true, largura: 230, aliases: ['Contrapartida', 'Conta'],
-      opcoes: (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` })) },
+    // conta manual OU bem/serviço (preenche um dos dois): o servidor recalcula sempre a conta a partir do produto quando
+    // produto_id vem preenchido (ServicoCaixa::registarMovimento), por isso aqui só se valida que pelo menos um ficou preenchido
+    // e que, havendo produto escolhido, ele tem conta de custo — a mesma regra do formulário em Grade.
+    { nome: 'conta_contrapartida', rotulo: 'Conta de contrapartida', tipo: 'select', largura: 230, aliases: ['Contrapartida', 'Conta'],
+      opcoes: (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` })),
+      validar: (valor, registo) => {
+        const produtoId = registo.produto_id as number | null | undefined;
+        if (!valor && !produtoId) return 'Escolha a conta de contrapartida ou um bem/serviço.';
+        const produto = produtoId ? (produtosDespesa.data ?? []).find((p) => p.id === produtoId) : undefined;
+        return produto && !produto.conta_custo ? `"${produto.nome}" não tem conta de custo configurada.` : null;
+      } },
+    { nome: 'produto_id', rotulo: 'Bem/Serviço', tipo: 'select', largura: 220, aliases: ['Bem/Serviço', 'Serviço', 'Produto'],
+      opcoes: (produtosDespesa.data ?? []).map((p) => ({ value: p.id, label: `${p.nome} (${p.e_servico ? 'Serviço' : 'Bem'})` })) },
     { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 240, maxLength: 1000, validar: (d) => (typeof d === 'string' && d.trim() && d.trim().length < 3 ? 'A descrição tem de ter pelo menos 3 caracteres.' : null) },
     { nome: 'terceiro_id', rotulo: 'Terceiro', tipo: 'personalizado', largura: 220, emLinhas: 'opcional', seccao: 'Terceiro e documento',
       celula: ({ valor, aoMudar, rotulo }) => <div aria-label={rotulo}><SeletorTerceiro value={(valor as number | undefined) ?? undefined} onChange={(x) => aoMudar(x ?? null)} style={{ width: '100%' }} /></div>,
@@ -348,13 +365,14 @@ function useCamposMovimento(activo: boolean): CampoFormulario[] {
     { nome: 'centro_custo_id', rotulo: 'Centro de custo', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['CC'], opcoes: opcoesAux(cc.data) },
     { nome: 'nota_demonstracao_id', rotulo: 'Nota DEMO', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['Nota às demonstrações'], opcoes: opcoesAux(nd.data) },
     { nome: 'nota_fluxo_caixa_id', rotulo: 'Nota fluxo', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['Nota de fluxo de caixa'], opcoes: opcoesAux(nf.data) },
-  ], [plano.data, un.data, cc.data, nd.data, nf.data]);
+  ], [plano.data, un.data, cc.data, nd.data, nf.data, produtosDespesa.data]);
 }
 
 interface ValoresMovimento {
   tipo: 'REC' | 'PAG';
   data_documento: Dayjs;
   conta_contrapartida: string;
+  produto_id?: number;
   valor: number;
   descricao: string;
   terceiro_id?: number;
@@ -390,6 +408,21 @@ function DetalheSessao() {
   const contado = Form.useWatch('saldo_fisico', formFecho);
   const consulta = useQuery({ queryKey: ['teso', 'caixa', 'sessao', id], queryFn: () => obter<SessaoCaixa>(`/tesouraria/caixa/sessoes/${id}`) });
 
+  // Contrapartida da despesa: conta manual (omissão) ou herdada de um bem/serviço (ecrã para não-contabilistas) — só para saídas (PAG).
+  const [modoContrapartida, setModoContrapartida] = useState<'manual' | 'produto'>('manual');
+  const produtosDespesa = useProdutosDespesa(movimento);
+  const plano = usePlanoContas(movimento);
+  const tipoAtual = Form.useWatch('tipo', formMov);
+  const produtoIdAtual = Form.useWatch('produto_id', formMov);
+  const produtoSelecionado = (produtosDespesa.data ?? []).find((p) => p.id === produtoIdAtual);
+  useEffect(() => {
+    if (tipoAtual !== 'PAG' && modoContrapartida !== 'manual') {
+      setModoContrapartida('manual');
+      formMov.setFieldsValue({ produto_id: undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoAtual]);
+
   const accao = useAccaoSessaoCaixa(({ caminho, metodo }) => {
     setMovimento(false);
     setFecho(false);
@@ -397,6 +430,7 @@ function DetalheSessao() {
     setClassificar(false);
     setReabrir(false);
     setSeleccionados([]);
+    setModoContrapartida('manual');
     formMov.resetFields();
     formMotivo.resetFields();
     if (metodo === 'delete' && caminho === '') navegar('..');
@@ -407,7 +441,7 @@ function DetalheSessao() {
   if (!s) return <Alert type="error" message="Sessão não encontrada." />;
   const a = accoesSessao(s, pode);
   const totais = totaisMovimentos(s.movimentos ?? []);
-  const registar = (tipo: 'REC' | 'PAG') => { formMov.setFieldsValue({ tipo, data_documento: dayjs(s.data_abertura) }); setMovimento(true); };
+  const registar = (tipo: 'REC' | 'PAG') => { formMov.setFieldsValue({ tipo, data_documento: dayjs(s.data_abertura) }); setModoContrapartida('manual'); setMovimento(true); };
   const diferencaFecho = contado !== undefined && contado !== null && s.saldo_sistema !== undefined ? deCentimos(paraCentimos(contado) - paraCentimos(s.saldo_sistema)) : null;
 
   return (
@@ -525,7 +559,7 @@ function DetalheSessao() {
 
       <ModalFormulario chave="teso.caixa_movimentos" titulo="Registar movimento de caixa" aberto={movimento} aoFechar={() => setMovimento(false)} criacao form={formMov} campos={camposMov}
         nomeRegistos="movimentos de caixa" invalidar={[['teso'], ['contab']]} gravarLinha={(r) => enviar('post', `/tesouraria/caixa/sessoes/${id}/movimentos`, dadosMovimento(r))}
-        nota="Um movimento por linha (entrada ou saída desta sessão), com a conta de contrapartida. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário. Campos com * são obrigatórios."
+        nota="Um movimento por linha (entrada ou saída desta sessão), com a conta de contrapartida ou um bem/serviço (a conta de custo é herdada automaticamente). Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário. Campos com * são obrigatórios."
         okText="Registar" confirmLoading={accao.isPending} onOk={() => formMov.submit()} width={larguraModal(720)}>
         <Form form={formMov} layout="vertical" onFinish={(v) => accao.mutate({ id: id!, caminho: '/movimentos', dados: dadosMovimento(v as unknown as Record<string, unknown>) })}>
           <Row gutter={12}>
@@ -545,7 +579,46 @@ function DetalheSessao() {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="conta_contrapartida" label="Conta de contrapartida" rules={[{ required: true }]}>
+          {tipoAtual === 'PAG' && (
+            <Form.Item label="Contrapartida por">
+              <Segmented
+                size="small"
+                options={[{ label: 'Conta manual', value: 'manual' }, { label: 'Bem/Serviço', value: 'produto' }]}
+                value={modoContrapartida}
+                onChange={(v) => { setModoContrapartida(v as 'manual' | 'produto'); formMov.setFieldsValue({ produto_id: undefined, conta_contrapartida: undefined }); }}
+              />
+            </Form.Item>
+          )}
+          {modoContrapartida === 'produto' && tipoAtual === 'PAG' && (
+            <>
+              <Form.Item name="produto_id" label="Bem/Serviço" rules={[{ required: true, message: 'Escolha um bem ou serviço.' }]}>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Escolher bem ou serviço"
+                  loading={produtosDespesa.isLoading}
+                  style={{ width: '100%' }}
+                  options={(produtosDespesa.data ?? []).map((p) => ({ value: p.id, label: `${p.nome} (${p.e_servico ? 'Serviço' : 'Bem'})` }))}
+                  onChange={(valorId: number) => {
+                    const p = (produtosDespesa.data ?? []).find((x) => x.id === valorId);
+                    formMov.setFieldsValue({ conta_contrapartida: p?.conta_custo ?? undefined });
+                  }}
+                />
+              </Form.Item>
+              {produtoSelecionado && !produtoSelecionado.conta_custo && (
+                <Alert type="error" showIcon style={{ marginBottom: 12 }}
+                  message={`"${produtoSelecionado.nome}" não tem conta de custo configurada. Escolha outro bem/serviço ou mude para "Conta manual".`} />
+              )}
+              {produtoSelecionado?.conta_custo && (
+                <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
+                  Conta de custo: <strong>{produtoSelecionado.conta_custo}</strong>
+                  {plano.data?.find((c) => c.codigo === produtoSelecionado.conta_custo)?.descricao ? ` — ${plano.data.find((c) => c.codigo === produtoSelecionado.conta_custo)?.descricao}` : ''}
+                </Typography.Paragraph>
+              )}
+            </>
+          )}
+          <Form.Item name="conta_contrapartida" label="Conta de contrapartida" hidden={modoContrapartida === 'produto' && tipoAtual === 'PAG'}
+            rules={[{ required: true, message: 'Escolha a conta de contrapartida ou um bem/serviço com conta de custo.' }]}>
             <SeletorConta style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="descricao" label="Descrição" rules={[{ required: true, min: 3 }]}>

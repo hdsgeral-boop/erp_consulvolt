@@ -180,6 +180,35 @@ final class TesourariaOperacoesTest extends TestCase
     }
 
     #[Test]
+    public function despesa_na_folha_de_caixa_por_bem_ou_servico_herda_a_conta_de_custo(): void
+    {
+        [$produtoComConta, $produtoSemConta] = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => [
+            Produto::create(['codigo' => 'SRV1', 'nome' => 'Manutenção de equipamento', 'preco_unitario' => 500, 'taxa_imposto' => 14, 'e_servico' => true, 'conta_custo' => '752'])->id,
+            Produto::create(['codigo' => 'SRV2', 'nome' => 'Serviço sem conta', 'preco_unitario' => 300, 'taxa_imposto' => 14, 'e_servico' => true])->id,
+        ]);
+
+        $s = $this->postJson('/api/tesouraria/caixa/sessoes', ['codigo_conta' => '4511', 'data' => $this->hoje], $this->s)->assertCreated()->json('dados.id');
+        $mov = fn (array $d) => $this->postJson("/api/tesouraria/caixa/sessoes/{$s}/movimentos", $d + ['tipo' => 'PAG', 'data_documento' => $this->hoje, 'descricao' => 'Despesa'], $this->s);
+
+        // bem/serviço com conta de custo (classe 7): a contrapartida é herdada, sem o utilizador escolher a conta
+        $r = $mov(['produto_id' => $produtoComConta, 'valor' => 150])->assertCreated();
+        $m = collect($r->json('dados.movimentos'))->firstWhere('produto_id', $produtoComConta);
+        $this->assertSame('752', $m['conta_debito']);
+        $this->assertSame('4511', $m['conta_credito']);
+
+        // o servidor recalcula sempre a conta a partir do produto: ignora uma conta manual enviada junto com produto_id
+        $r2 = $mov(['produto_id' => $produtoComConta, 'conta_contrapartida' => '3111', 'valor' => 80])->assertCreated();
+        $m2 = collect($r2->json('dados.movimentos'))->sortByDesc('id')->first();
+        $this->assertSame('752', $m2['conta_debito']);
+
+        // bem/serviço sem conta de custo configurada: bloqueado com erro de negócio explícito
+        $mov(['produto_id' => $produtoSemConta, 'valor' => 50])->assertStatus(422)->assertJsonPath('codigo', 'PRODUTO_SEM_CONTA_CUSTO');
+
+        // nem conta manual nem bem/serviço: a contrapartida continua obrigatória
+        $mov(['valor' => 50])->assertStatus(422);
+    }
+
+    #[Test]
     public function conferencia_de_caixa_com_regularizacao_assinatura_e_reabertura(): void
     {
         $this->putJson('/api/tesouraria/configuracao/contas', ['contas' => ['caixa_sobras' => '6881', 'caixa_quebras' => '7881']], $this->s)->assertOk();
