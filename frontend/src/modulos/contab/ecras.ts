@@ -30,6 +30,7 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   contab_mapa_fluxo: relatorios('fluxo'),
   contab_mapa_evolucao: relatorios('evolucao'),
   relatorio_contas: lazy(() => import('./RelatorioContas')),
+  saft_contabilidade: lazy(() => import('./SaftContabilidade')),
   contab_rotinas: rotinas(),
   imposto_selo: rotinas('selo'),
   consolidacao: lazy(() => import('./Consolidacao')),

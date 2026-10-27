@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Contabilidade\CompensacaoController;
 use App\Http\Controllers\Api\Contabilidade\DemonstracoesFinanceirasController;
+use App\Http\Controllers\Api\Contabilidade\ExportacaoSaftController;
 use App\Http\Controllers\Api\Contabilidade\ImportacaoLancamentosController;
 use App\Http\Controllers\Api\Contabilidade\NotasPorContaController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
@@ -28,6 +29,11 @@ Route::prefix('contabilidade')->name('contabilidade.')->group(function () {
             Route::get('iva', 'mapaIva')->name('iva');
             Route::post('iva/reconciliacao-agt', 'reconciliacaoAgt')->name('iva.reconciliacao-agt');
         });
+    });
+
+    Route::controller(ExportacaoSaftController::class)->prefix('saft')->name('saft.')->group(function () {
+        Route::get('validar', 'validar')->name('validar');
+        Route::get('/', 'gerar')->name('gerar');
     });
 
     Route::controller(CompensacaoController::class)->prefix('compensacoes')->name('compensacoes.')->group(function () {
