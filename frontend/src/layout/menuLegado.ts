@@ -60,6 +60,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
       e('stock', 'inventario_sessoes', 'Sessões de Inventário', 'tasks'),
       e('stock', 'inventario_contagem', 'Efetuar Contagem', 'list-ol'),
       e('stock', 'inventario_revisao', 'Revisão e Regularização', 'balance-scale'),
+      e('stock', 'inventario_agt', 'Exportar Inventário (AGT)', 'file-excel'),
     ]),
   ]),
   g('vendas', 'Vendas', 'shopping-cart', [
@@ -102,7 +103,6 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     e('rh', 'infotipos', 'Infotipos', 'tags'),
     e('rh', 'calcular', 'Calcular', 'calculator'),
     e('rh', 'processamento', 'Processamentos', 'file-invoice-dollar'),
-    e('rh', 'bancario', 'Coordenadas Bancárias', 'university'),
     e('rh', 'relatorios', 'Relatórios e Recibos', 'chart-pie'),
   ]),
   // Versão Actual (ADR-071, Fase G): módulo novo, entre o RH e a Tesouraria como no legado novo
@@ -124,6 +124,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
       e('teso', 'teso_gestao_mapas', 'Extratos', 'file-invoice'),
       e('teso', 'teso_gestao_conciliacao', 'Reconciliação', 'balance-scale'),
       e('teso', 'teso_meios_pagamento', 'Meios de Pagamento', 'credit-card'),
+      e('rh', 'bancario', 'Coordenadas Bancárias', 'university'),   // ecrã do RH (IBAN dos colaboradores); só a secção do menu mudou
       e('teso', 'teso_gestao_conferencia', 'Conferência de Caixa', 'cash-register'),
     ]),
   ]),
@@ -136,6 +137,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     e('contab', 'encerramento', 'Encerramento', 'door-closed'),
     e('contab', 'relatorios_contabeis', 'Mapas e Relatórios', 'chart-line'),
     e('contab', 'relatorio_contas', 'Relatório e Contas', 'file-contract'),
+    e('contab', 'saft_contabilidade', 'Exportar SAFT-AO (Contabilidade)', 'file-code'),
     e('contab', 'contab_rotinas', 'Rotinas (inclui Imposto de Selo)', 'magic'),
     e('contab', 'consolidacao', 'Consolidação de Empresas', 'sitemap'),
     e('contab', 'tabelas_aux', 'Terceiros e Tabelas', 'address-book'),
