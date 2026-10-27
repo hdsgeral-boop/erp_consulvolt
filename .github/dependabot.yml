@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Backend (Laravel) — composer.json em backend/
+  - package-ecosystem: "composer"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      laravel:
+        patterns: ["laravel/*"]
+      dev-dependencies:
+        dependency-type: "development"
+
+  # Frontend (React/Vite) — package.json em frontend/
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      antd:
+        patterns: ["antd", "@ant-design/*"]
+      dev-dependencies:
+        dependency-type: "development"
+
+  # Imagem base PHP (produção)
+  - package-ecosystem: "docker"
+    directory: "/docker/php"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions do CI
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
