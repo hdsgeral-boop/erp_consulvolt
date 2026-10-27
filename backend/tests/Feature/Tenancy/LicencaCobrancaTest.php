@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Services\Pagamentos\ProcessadorPagamentos;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -102,7 +103,7 @@ class LicencaCobrancaTest extends TestCase
         // sem nada definido pela plataforma: vazio (o ecrã explica; não há IBAN escrito no código)
         $this->getJson('/api/licenca/dados-bancarios', $this->sessaoGestor($empresa))->assertOk()->assertJsonPath('dados.iban', '');
 
-        app(\App\Services\Pagamentos\ProcessadorPagamentos::class)->guardarConfiguracoes(['dados_bancarios' => [
+        app(ProcessadorPagamentos::class)->guardarConfiguracoes(['dados_bancarios' => [
             'banco' => 'Banco Ficticio', 'titular' => 'MEU ERP, Lda', 'iban' => 'AO06000000000000000000001', 'swift' => 'BFICAOLU']]);
         $r = $this->getJson('/api/licenca/dados-bancarios', $this->sessaoGestor($empresa))->assertOk();
         $this->assertSame(['Banco Ficticio', 'MEU ERP, Lda', 'AO06000000000000000000001'], [$r->json('dados.banco'), $r->json('dados.titular'), $r->json('dados.iban')]);

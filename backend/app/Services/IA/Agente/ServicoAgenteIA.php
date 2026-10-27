@@ -4,7 +4,6 @@ namespace App\Services\IA\Agente;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Utilizador;
-use App\Services\IA\Agente\Fornecedores\FornecedorIA;
 use App\Services\IA\Agente\Fornecedores\GeminiIA;
 use App\Services\Sistema\ServicoLeituraFolha;
 use App\Support\Email\EnviarEmail;

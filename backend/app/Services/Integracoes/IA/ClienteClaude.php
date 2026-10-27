@@ -100,18 +100,18 @@ final class ClienteClaude
         $anexos = [];
         foreach ($conteudo as $b) {
             if (($b['type'] ?? '') === 'text') {
-                $texto .= ($texto === '' ? '' : "
+                $texto .= ($texto === '' ? '' : '
 
-").($b['text'] ?? '');
+').($b['text'] ?? '');
             } elseif (in_array($b['type'] ?? '', ['document', 'image'], true)) {
                 $anexos[] = ['nome' => (string) ($b['title'] ?? (($b['type'] === 'document') ? 'documento.pdf' : 'imagem')), 'mime' => (string) $b['source']['media_type'], 'base64' => (string) $b['source']['data']];
             }
         }
         $cliente = $this->plataforma->cliente($d['fornecedor']);
-        $r = $cliente->conversar($d['modelo'], $sistema."
+        $r = $cliente->conversar($d['modelo'], $sistema.'
 
 Responde APENAS com um objecto JSON válido que cumpra este JSON Schema, sem markdown nem texto antes ou depois:
-"
+'
             .json_encode($esquema, JSON_UNESCAPED_UNICODE), $cliente->mensagemUtilizador($texto, $anexos), [], false);
         if ($r->recusa !== null) {
             throw new ErroNegocio('O serviço de IA recusou analisar este conteúdo. Lance manualmente ou use uma regra interna.', 'IA_RECUSA', 422);

@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Support\Tenancy\IsolamentoRls;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -32,7 +33,7 @@ class PlataformaSaasRlsRealTest extends TestCase
         $alheia = $this->criarEmpresa(['nif' => '5000000102']);
         $outro = Tenant::query()->create(['nome' => 'Cliente Alheio', 'slug' => 'cliente-alheio']);
         DB::table('empresas')->where('id', $alheia->id)->update(['tenant_id' => $outro->id]);
-        app(\App\Services\Plataforma\ServicoLicencaCliente::class)->definir((int) $outro->id, 'TESTE', now()->startOfDay(), now()->addDays(5)->startOfDay());
+        app(ServicoLicencaCliente::class)->definir((int) $outro->id, 'TESTE', now()->startOfDay(), now()->addDays(5)->startOfDay());
         config(['erp.saas.ativo' => true]);
 
         return [$sessao, (int) $propria->id, (int) $alheia->id];

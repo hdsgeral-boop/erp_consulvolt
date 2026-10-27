@@ -8,6 +8,7 @@ use App\Models\MensagemSuporte;
 use App\Models\PlanoLicenca;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
+use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Services\Plataforma\ServicoLimitesPlano;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +30,7 @@ final class MinhaContaController extends Controller
         return RespostaApi::sucesso([
             'cliente' => ['id' => $c->id, 'nome' => $c->nome, 'slug' => $c->slug, 'estado' => $c->estado, 'nome_sistema' => $c->nome_sistema],
             'uso' => $this->limites->uso($c),
-            'licenca' => app(\App\Services\Plataforma\ServicoLicencaCliente::class)->estado($c),
+            'licenca' => app(ServicoLicencaCliente::class)->estado($c),
             'empresas' => Empresa::query()->where('tenant_id', $c->id)->orderBy('id')->get()->map(fn (Empresa $e) => [
                 'id' => $e->id, 'nome' => $e->nome, 'licenca_origem' => $e->licenca_origem,
                 'licenca_fim' => $e->licenca_fim?->toDateString(), 'expirada' => $e->licencaExpirada(),

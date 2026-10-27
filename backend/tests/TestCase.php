@@ -8,8 +8,8 @@ use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoLicencaCliente;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Carbon;
 
 abstract class TestCase extends BaseTestCase
 {

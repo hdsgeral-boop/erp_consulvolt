@@ -9,9 +9,7 @@ use App\Models\Tenant;
 use App\Services\Plataforma\ServicoClientes;
 use App\Services\Plataforma\ServicoLicencaCliente;
 use App\Support\Api\RespostaApi;
-use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\IsolamentoRls;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -135,7 +133,7 @@ final class PlataformaSaasController extends Controller
         $tenants = Tenant::query()->get()->keyBy('id');
         $hoje = now()->startOfDay();
 
-        $empresas = $this->licencasDeTodas()->map(function ($emp) use ($tenants, $hoje) {
+        $empresas = $this->licencasDeTodas()->map(function ($emp) use ($tenants) {
             $t = $tenants[$emp->tenant_id] ?? null;
             $estado = $t ? app(ServicoLicencaCliente::class)->estado($t) : ['origem' => Empresa::LICENCA_SEM_LIMITE, 'inicio' => null, 'fim' => null, 'dias_restantes' => null, 'expirada' => false, 'somente_leitura' => false];
 

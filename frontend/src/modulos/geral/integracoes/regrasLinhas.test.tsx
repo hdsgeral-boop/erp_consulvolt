@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { reporPreferenciasColunasLocal, reporPreferenciasVistaLocal } from '@/componentes/vistas';
 
-/** Assistente IA › «Nova regra interna» com as vistas Grade | Linhas (o modelo JSON é validado em cada linha). */
+/** Regras internas do assistente IA › «Nova regra interna» com as vistas Grade | Linhas (o modelo JSON é validado em cada linha). */
 const obter = vi.fn();
 const enviar = vi.fn();
 vi.mock('@/api/cliente', async (original) => ({
@@ -17,7 +17,7 @@ vi.mock('@/sessao/SessaoContexto', () => ({ useSessao: () => ({ pode: () => true
 
 vi.setConfig({ testTimeout: 420_000 });
 
-import { AssistenteIA, dadosRegra } from './AssistenteIA';
+import { Regras, dadosRegra } from './AssistenteIA';
 
 beforeEach(() => {
   reporPreferenciasVistaLocal();
@@ -46,11 +46,11 @@ describe('Regras internas do assistente IA', () => {
   it('«Nova regra» em Linhas valida o JSON e grava uma regra por linha', async () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter><AssistenteIA aberto aoFechar={() => undefined} /></MemoryRouter>
+        <MemoryRouter><Regras /></MemoryRouter>
       </QueryClientProvider>,
     );
-    fireEvent.click(await screen.findByRole('tab', { name: 'Regras internas' }, { timeout: 60_000 }));
-    fireEvent.click(await screen.findByRole('button', { name: /Nova regra/ }));
+    // o separador «Regras internas» saiu do AssistenteIA (afcc9d5): monta-se a lista de regras directamente
+    fireEvent.click(await screen.findByRole('button', { name: /Nova regra/ }, { timeout: 60_000 }));
     const dialogo = (await screen.findByText('Nova regra interna')).closest('.ant-modal') as HTMLElement;
     fireEvent.click(within(dialogo).getByRole('button', { name: /Linhas/ }));
     await screen.findByTestId('painel-linhas');
