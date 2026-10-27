@@ -23,6 +23,17 @@ export function limparNomeFicheiro(nome: string): string {
 }
 
 /**
+ * Rodapé de cada página com a identificação do documento (título + data/hora de emissão) sempre acrescentada: o
+ * cabeçalho nativo do browser (que também mostra data/hora) não é controlável pela aplicação, por isso só fica
+ * garantido ao imprimir ou guardar como PDF — mesmo que o utilizador desligue «Cabeçalhos e rodapés» — através do
+ * rodapé próprio (`paginacao.ts`). `rodapeBase` é o rodapé da empresa (ou a sobreposição do pedido), se houver.
+ */
+export function rodapeComIdentificacao(rodapeBase: string | null | undefined, titulo: string, emitidoEm: Date): string | null {
+  const identificacao = [titulo, dayjs(emitidoEm).format('DD/MM/YYYY HH:mm')].filter(Boolean).join(' — ');
+  return [rodapeBase, identificacao].filter(Boolean).join(' · ') || null;
+}
+
+/**
  * CSS base dos documentos impressos. Regras principais:
  *  - nada de barras de deslocação: overflow visível em tudo, sem max-height/scroll das tabelas Ant Design;
  *  - cabeçalho das tabelas repetido em cada página e linhas que não se partem;

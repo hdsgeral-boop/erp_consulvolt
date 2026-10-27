@@ -80,8 +80,10 @@ describe('TabelaApi — impressão', () => {
       </QueryClientProvider>,
     );
     await screen.findByText('Artigo 1');
-    const pdf = screen.getByRole('button', { name: /PDF/ });
-    await waitFor(() => expect(pdf).not.toBeDisabled());
+    const imprimirBotao = screen.getByRole('button', { name: /Imprimir/ });
+    await waitFor(() => expect(imprimirBotao).not.toBeDisabled());
+    fireEvent.click(imprimirBotao);
+    const pdf = await screen.findByRole('button', { name: /PDF/ });
     obterPagina.mockClear();
     fireEvent.click(pdf);
     await waitFor(() => expect(imprimirDocumento).toHaveBeenCalledTimes(1), { timeout: 45_000 });

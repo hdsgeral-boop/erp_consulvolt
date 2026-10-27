@@ -1,4 +1,4 @@
-import { construirDocumento, estiloConteudo, limparNomeFicheiro, nomeFicheiroPadrao } from './documento';
+import { construirDocumento, estiloConteudo, limparNomeFicheiro, nomeFicheiroPadrao, rodapeComIdentificacao } from './documento';
 import { clonarParaImpressao, contarColunas, estilosDaPagina } from './dom';
 import { cssPagina, decidirFormato, FORMATO_PADRAO, mmParaPx } from './formato';
 import { paginarDocumento } from './paginacao';
@@ -114,7 +114,7 @@ async function preparar(o: OpcoesDocumento): Promise<Preparacao> {
   const nomeFicheiro = limparNomeFicheiro(o.nomeFicheiro || nomeFicheiroPadrao(o.titulo, o.identidade?.nome, emitidoEm));
   const opcoes = { ...o, conteudo, emitidoEm, nomeFicheiro };
   const estilos = comEstilos ? estilosParaImpressao(estilosDaPagina()) : '';
-  const rodape = o.rodape ?? o.identidade?.rodape ?? null;
+  const rodape = rodapeComIdentificacao(o.rodape ?? o.identidade?.rodape, o.titulo, emitidoEm);
 
   const iframe = criarIframe();
   try {

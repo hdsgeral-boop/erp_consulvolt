@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { construirDocumento, logotipoSeguro, nomeFicheiroPadrao } from './documento';
+import { construirDocumento, logotipoSeguro, nomeFicheiroPadrao, rodapeComIdentificacao } from './documento';
 import { clonarParaImpressao, contarColunas } from './dom';
 import { candidatos, cssPagina, decidirFormato, ESCALA_MINIMA, FORMATO_PADRAO, mmParaPx } from './formato';
 import { tabelaHtml } from './tabela';
@@ -128,6 +128,13 @@ describe('documento', () => {
     expect(html).not.toContain('imp-logotipo"');
     expect(logotipoSeguro('data:text/html;base64,AAAA')).toBeNull();
     expect(nomeFicheiroPadrao('Mapa: IRT/2026', 'Empresa', new Date(2026, 1, 3))).toBe('Mapa IRT 2026 - Empresa - 2026-02-03');
+  });
+
+  it('rodapé: acrescenta sempre o título e a data/hora de emissão, com ou sem rodapé da empresa', () => {
+    const quando = new Date(2026, 9, 23, 17, 8);
+    expect(rodapeComIdentificacao('Rodapé da empresa', 'Factura FA 2026/20', quando)).toBe('Rodapé da empresa · Factura FA 2026/20 — 23/10/2026 17:08');
+    expect(rodapeComIdentificacao(null, 'Factura FA 2026/20', quando)).toBe('Factura FA 2026/20 — 23/10/2026 17:08');
+    expect(rodapeComIdentificacao(undefined, 'Factura FA 2026/20', quando)).toBe('Factura FA 2026/20 — 23/10/2026 17:08');
   });
 });
 

@@ -74,9 +74,9 @@ describe('CadastroSimples', { timeout: 30_000 }, () => {
     const cabecalho = document.querySelector('.cabecalho-pagina') as HTMLElement;
     expect(within(cabecalho).getByRole('button', { name: 'Template' })).toBeInTheDocument();
     expect(within(cabecalho).getByRole('button', { name: /Nova Função/ })).toBeInTheDocument();
-    // sem a pesquisa geral (o DataTables do antigo não a tinha); Excel/PDF/Imprimir na caixa da lista
+    // sem a pesquisa geral (o DataTables do antigo não a tinha); um único botão «Imprimir» abre as opções (Excel/PDF/Imprimir) numa modal
     expect(screen.queryByPlaceholderText(/Pesquisar/i)).toBeNull();
-    expect(screen.getByRole('button', { name: /Excel/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Imprimir/ })).toBeInTheDocument();
     const nomes = screen.getAllByRole('row').map((l) => l.textContent ?? '').filter((t) => /Director|Assistente|Contabilista/.test(t));
     expect(nomes.map((t) => t.match(/Director|Assistente|Contabilista/)![0])).toEqual(['Director', 'Assistente', 'Contabilista']);
   });

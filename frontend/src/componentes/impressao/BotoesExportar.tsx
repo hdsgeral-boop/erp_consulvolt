@@ -1,7 +1,6 @@
 import { CheckOutlined, DownOutlined, FileExcelOutlined, FilePdfOutlined, LayoutOutlined, PrinterOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Space, Tooltip, type ButtonProps, type MenuProps } from 'antd';
+import { Button, Dropdown, Modal, Space, Tooltip, type ButtonProps, type MenuProps } from 'antd';
 import { useMemo, useState, type ReactNode } from 'react';
-import { useEcraPequeno } from '@/componentes/responsivo/useEcra';
 import {
   aplicarPreferencia, chavePorOmissao, descreverPreferencia, gravarPreferencia, lerPreferencia, ROTULOS_ORIENTACAO, ROTULOS_PAPEL,
 } from './preferencias';
@@ -109,11 +108,52 @@ export function BotaoImprimir({ obterPedido, modo = 'imprimir', texto, desactiva
   return modo === 'imprimir' ? botao : <Tooltip title={modo === 'pdf' ? DICA_PDF : DICA_EXCEL}>{botao}</Tooltip>;
 }
 
+interface PropsConteudoOpcoes {
+  textoImprimir: string;
+  textoPdf: string;
+  excel: boolean;
+  textoExcel: string;
+  seletorPagina: boolean;
+  tamanho?: ButtonProps['size'];
+  pref: PreferenciaPagina;
+  mudar: (p: PreferenciaPagina) => void;
+  ocupado: Modo | null;
+  executar: (m: Modo) => Promise<void>;
+  /** Fecha a modal depois de a opção escolhida terminar (sucesso ou falha). */
+  aoConcluir: () => void;
+}
+
+/** Opções dentro da modal «Imprimir»: um botão grande por opção, cheio à largura. */
+function ConteudoOpcoesExportar({ textoImprimir, textoPdf, excel, textoExcel, seletorPagina, tamanho, pref, mudar, ocupado, executar, aoConcluir }: PropsConteudoOpcoes) {
+  const outro = (m: Modo) => ocupado !== null && ocupado !== m;
+  const executarEFechar = (m: Modo) => void executar(m).finally(aoConcluir);
+  return (
+    <Space direction="vertical" style={{ width: '100%' }}>
+      <Button block size={tamanho} icon={<PrinterOutlined />} disabled={outro('imprimir')} loading={ocupado === 'imprimir'} onClick={() => executarEFechar('imprimir')}>
+        {textoImprimir}
+      </Button>
+      <Tooltip title={DICA_PDF} placement="right">
+        <Button block size={tamanho} icon={<FilePdfOutlined />} disabled={outro('pdf')} loading={ocupado === 'pdf'} onClick={() => executarEFechar('pdf')}>
+          {textoPdf}
+        </Button>
+      </Tooltip>
+      {seletorPagina && <SeletorPagina valor={pref} aoMudar={mudar} tamanho={tamanho} desactivado={ocupado !== null} />}
+      {excel && (
+        <Tooltip title={DICA_EXCEL} placement="right">
+          <Button block size={tamanho} icon={<FileExcelOutlined />} disabled={outro('excel')} loading={ocupado === 'excel'} onClick={() => executarEFechar('excel')}>
+            {textoExcel}
+          </Button>
+        </Tooltip>
+      )}
+    </Space>
+  );
+}
+
 /**
- * Botões «Imprimir» + «PDF» + «Excel» (o mesmo documento; o PDF sugere o nome do ficheiro e mostra a dica; o Excel gera
- * um .xlsx com o cabeçalho da empresa, os filtros e as tabelas — números como números, datas como datas, totais), e o
- * selector da página («Automática» / «Vertical» / «Horizontal», papel A4/A3), lembrado por documento.
- * `excel={false}` esconde o botão Excel (ex.: documentos comerciais em que só faz sentido o PDF);
+ * Um único botão «Imprimir», que abre uma modal com as opções Imprimir / PDF / Automática (orientação e papel) /
+ * Excel (o mesmo documento; o PDF sugere o nome do ficheiro e mostra a dica; o Excel gera um .xlsx com o cabeçalho da
+ * empresa, os filtros e as tabelas — números como números, datas como datas, totais), lembradas por documento.
+ * `excel={false}` esconde a opção Excel (ex.: documentos comerciais em que só faz sentido o PDF);
  * `seletorPagina={false}` esconde o selector (a orientação fica a do ecrã/motor).
  */
 export function BotoesExportar({
@@ -130,38 +170,26 @@ export function BotoesExportar({
   const chaveFinal = useMemo(() => chave ?? chavePorOmissao(caminhoActual(), textoImprimir), [chave, textoImprimir]);
   const { pref, mudar } = usePreferenciaPagina(chaveFinal);
   const { executar, ocupado } = useExecutar(obterPedido, pref);
-  const outro = (m: Modo) => ocupado !== null && ocupado !== m;
-  // Telemóvel: só ícones (o grupo completo tem ~420 px); o nome acessível mantém-se («Imprimir», «PDF», «Excel»).
-  const compacto = useEcraPequeno('sm');
-  const rotulo = (t: string) => (compacto ? { 'aria-label': t } : {});
+  const [aberto, setAberto] = useState(false);
   return (
-    <Space.Compact>
-      <Tooltip title={compacto ? textoImprimir : undefined}>
-        <Button size={tamanho} icon={<PrinterOutlined />} disabled={desactivado || outro('imprimir')} loading={ocupado === 'imprimir'} onClick={() => void executar('imprimir')} {...rotulo(textoImprimir)}>
-          {compacto ? null : textoImprimir}
-        </Button>
-      </Tooltip>
-      <Tooltip title={DICA_PDF}>
-        <Button size={tamanho} icon={<FilePdfOutlined />} disabled={desactivado || outro('pdf')} loading={ocupado === 'pdf'} onClick={() => void executar('pdf')} {...rotulo(textoPdf)}>
-          {compacto ? null : textoPdf}
-        </Button>
-      </Tooltip>
-      {seletorPagina && <SeletorPagina valor={pref} aoMudar={mudar} tamanho={tamanho} desactivado={desactivado || ocupado !== null} compacto={compacto} />}
-      {excel && (
-        <Tooltip title={DICA_EXCEL}>
-          <Button size={tamanho} icon={<FileExcelOutlined />} disabled={desactivado || outro('excel')} loading={ocupado === 'excel'} onClick={() => void executar('excel')} {...rotulo(textoExcel)}>
-            {compacto ? null : textoExcel}
-          </Button>
-        </Tooltip>
-      )}
-    </Space.Compact>
+    <>
+      <Button size={tamanho} icon={<PrinterOutlined />} disabled={desactivado} onClick={() => setAberto(true)}>
+        {textoImprimir}
+      </Button>
+      <Modal title={textoImprimir} open={aberto} onCancel={() => setAberto(false)} footer={null} width={300} destroyOnHidden>
+        <ConteudoOpcoesExportar
+          textoImprimir={textoImprimir} textoPdf={textoPdf} excel={excel} textoExcel={textoExcel} seletorPagina={seletorPagina}
+          tamanho={tamanho} pref={pref} mudar={mudar} ocupado={ocupado} executar={executar} aoConcluir={() => setAberto(false)}
+        />
+      </Modal>
+    </>
   );
 }
 
 /**
- * Botões da barra das listas na ordem e com os ícones do sistema anterior (DataTables Buttons): **Excel · PDF ·
- * Imprimir**, mais o selector da página (orientação/papel, só o ícone, colado ao «Imprimir»). Mesmo motor e mesma
- * preferência de página que `BotoesExportar`.
+ * Um único botão «Imprimir» (ícone do sistema anterior), que abre a mesma modal de opções de `BotoesExportar` — em
+ * vez dos botões separados do antigo (DataTables Buttons: Excel · PDF · Imprimir). Mesmo motor e mesma preferência
+ * de página.
  */
 export function BotoesExportarLegado({
   obterPedido,
@@ -175,31 +203,18 @@ export function BotoesExportarLegado({
   const chaveFinal = useMemo(() => chave ?? chavePorOmissao(caminhoActual(), textoImprimir), [chave, textoImprimir]);
   const { pref, mudar } = usePreferenciaPagina(chaveFinal);
   const { executar, ocupado } = useExecutar(obterPedido, pref);
-  const outro = (m: Modo) => ocupado !== null && ocupado !== m;
-  const compacto = useEcraPequeno('sm');
-  const rotulo = (t: string) => (compacto ? { 'aria-label': t } : {});
+  const [aberto, setAberto] = useState(false);
   return (
     <>
-      {excel && (
-        <Tooltip title={DICA_EXCEL}>
-          <Button size={tamanho} icon={<IconeFa nome="file-excel" className="erp-icone-excel" />} disabled={desactivado || outro('excel')} loading={ocupado === 'excel'} onClick={() => void executar('excel')} {...rotulo('Excel')}>
-            {compacto ? null : 'Excel'}
-          </Button>
-        </Tooltip>
-      )}
-      <Tooltip title={DICA_PDF}>
-        <Button size={tamanho} icon={<IconeFa nome="file-pdf" className="erp-icone-pdf" />} disabled={desactivado || outro('pdf')} loading={ocupado === 'pdf'} onClick={() => void executar('pdf')} {...rotulo('PDF')}>
-          {compacto ? null : 'PDF'}
-        </Button>
-      </Tooltip>
-      <Space.Compact>
-        <Tooltip title={compacto ? textoImprimir : undefined}>
-          <Button size={tamanho} icon={<IconeFa nome="print" />} disabled={desactivado || outro('imprimir')} loading={ocupado === 'imprimir'} onClick={() => void executar('imprimir')} {...rotulo(textoImprimir)}>
-            {compacto ? null : textoImprimir}
-          </Button>
-        </Tooltip>
-        {seletorPagina && <SeletorPagina valor={pref} aoMudar={mudar} tamanho={tamanho} desactivado={desactivado || ocupado !== null} compacto />}
-      </Space.Compact>
+      <Button size={tamanho} icon={<IconeFa nome="print" />} disabled={desactivado} onClick={() => setAberto(true)}>
+        {textoImprimir}
+      </Button>
+      <Modal title={textoImprimir} open={aberto} onCancel={() => setAberto(false)} footer={null} width={300} destroyOnHidden>
+        <ConteudoOpcoesExportar
+          textoImprimir={textoImprimir} textoPdf="PDF" excel={excel} textoExcel="Excel" seletorPagina={seletorPagina}
+          tamanho={tamanho} pref={pref} mudar={mudar} ocupado={ocupado} executar={executar} aoConcluir={() => setAberto(false)}
+        />
+      </Modal>
     </>
   );
 }
