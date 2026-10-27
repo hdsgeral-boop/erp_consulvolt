@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tag, theme, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tag, message, theme, Typography } from 'antd';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { CartaoKpi, CORES_KPI, EstadoVazio, GrelhaKpi, type PropsEstadoVazio } from '@/componentes/vistas';
@@ -7,8 +7,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import { useArmazens } from '@/modulos/compras/comum/referencias';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ClipboardEvent } from 'react';
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { obter, obterPagina } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -398,6 +401,67 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
   const editarRevisao = a.rever && modo !== 'sessoes';
   const editarContagem = a.contar && modo !== 'revisao';
 
+  // Colagem do Excel na contagem: só a quantidade e as observações — a lista de artigos é fixa (uma folha de
+  // contagem já tem o produto de cada linha), sem "acrescentar linha" pela colagem; o código/produto fica de fora
+  // porque corresponde a resolver um registo existente, não a reconhecer texto. O caso mais comum (centenas de
+  // artigos já na grelha, só falta colar a coluna das quantidades) cobre-se colando sobre as linhas visíveis, pela
+  // ordem em que aparecem.
+  const camposColagemContagem: CampoFormulario[] = [
+    { nome: 'quantidade_contada', rotulo: 'Quantidade contada', tipo: 'numero', min: 0 },
+    { nome: 'observacoes', rotulo: 'Observações', maxLength: 500 },
+  ];
+
+  const avisoColagemContagem = (r: ResultadoColagemGrade, aplicadas: number, excedentes: number) => {
+    if (!aplicadas && !excedentes) return;
+    const partes = [`${aplicadas} linha(s) actualizada(s)${r.comCabecalho ? ' (colunas pelo cabeçalho)' : ''}.`];
+    if (excedentes) partes.push(`${excedentes} valor(es) colado(s) a mais não coube(ram) na folha (sem mais artigos para colar).`);
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${partes.join(' ')} ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de gravar: ${det}`);
+    } else if (excedentes) {
+      void message.warning(partes.join(' '));
+    } else {
+      void message.success(partes.join(' '));
+    }
+  };
+
+  /** Aplica a colagem às linhas visíveis a partir de `aPartirDoIndice`; o que sobrar além da última linha visível fica por aplicar. */
+  const aplicarColagemContagem = (linhasColadas: Record<string, unknown>[], aPartirDoIndice: number) => {
+    let aplicadas = 0;
+    const novasEdicoes: Record<number, EdicaoContagem> = {};
+    linhasColadas.forEach((valores, i) => {
+      const l = visiveis[aPartirDoIndice + i];
+      if (!l) return;
+      aplicadas += 1;
+      novasEdicoes[l.produto_id] = {
+        quantidade_contada: edicoes[l.produto_id]?.quantidade_contada,
+        observacoes: edicoes[l.produto_id]?.observacoes,
+        ...('quantidade_contada' in valores ? { quantidade_contada: valores.quantidade_contada as number | null } : {}),
+        ...('observacoes' in valores ? { observacoes: valores.observacoes as string | null } : {}),
+      };
+    });
+    if (Object.keys(novasEdicoes).length) setEdicoes((e) => ({ ...e, ...novasEdicoes }));
+    return { aplicadas, excedentes: linhasColadas.length - aplicadas };
+  };
+
+  const colarBlocoContagem = (texto: string) => {
+    const r = colagemParaLinhas(texto, camposColagemContagem);
+    const { aplicadas, excedentes } = aplicarColagemContagem(r.linhas, 0);
+    avisoColagemContagem(r, aplicadas, excedentes);
+  };
+
+  // Colagem directa numa célula (Ctrl+V): preenche a partir da linha/coluna clicadas.
+  const aoColarCelulaContagem = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColagemContagem, pos.coluna);
+    const { aplicadas, excedentes } = aplicarColagemContagem(r.linhas, pos.linha);
+    avisoColagemContagem(r, aplicadas, excedentes);
+  };
+
   const terminarContagem = () => {
     const enviar = (zero: boolean) => concluir.mutateAsync({ url: `/logistica/inventarios/${s.id}/concluir-contagem`, dados: { por_contar_como_zero: zero } });
     if (alteradas.length) {
@@ -431,25 +495,30 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
       key: 'q',
       render: (_, l) => {
         const valor = edicoes[l.produto_id]?.quantidade_contada !== undefined ? edicoes[l.produto_id].quantidade_contada : l.quantidade_contada == null ? null : Number(l.quantidade_contada);
-        return editarContagem ? (
-          <InputNumber min={0} value={valor} style={{ width: 140 }} placeholder="por contar" onChange={(v) => setEdicoes((e) => ({ ...e, [l.produto_id]: { ...e[l.produto_id], quantidade_contada: v } }))} />
-        ) : valor == null ? <Typography.Text type="secondary">por contar</Typography.Text> : formatarNumero(valor);
+        if (!editarContagem) return valor == null ? <Typography.Text type="secondary">por contar</Typography.Text> : formatarNumero(valor);
+        return (
+          <div data-colar-linha={visiveis.findIndex((x) => x.id === l.id)} data-colar-coluna={0}>
+            <InputNumber min={0} value={valor} style={{ width: 140 }} placeholder="por contar" onChange={(v) => setEdicoes((e) => ({ ...e, [l.produto_id]: { ...e[l.produto_id], quantidade_contada: v } }))} />
+          </div>
+        );
       },
     };
   const colunaObservacoes: ColumnsType<LinhaInventario>[number] = {
       title: 'Observações',
       key: 'o',
-      render: (_, l) =>
-        editarContagem ? (
-          <Input
-            maxLength={500}
-            style={{ width: 260, maxWidth: '100%' }}
-            value={edicoes[l.produto_id]?.observacoes ?? l.observacoes ?? ''}
-            onChange={(ev) => setEdicoes((e) => ({ ...e, [l.produto_id]: { ...e[l.produto_id], observacoes: ev.target.value } }))}
-          />
-        ) : (
-          l.observacoes || '—'
-        ),
+      render: (_, l) => {
+        if (!editarContagem) return l.observacoes || '—';
+        return (
+          <div data-colar-linha={visiveis.findIndex((x) => x.id === l.id)} data-colar-coluna={1}>
+            <Input
+              maxLength={500}
+              style={{ width: 260, maxWidth: '100%' }}
+              value={edicoes[l.produto_id]?.observacoes ?? l.observacoes ?? ''}
+              onChange={(ev) => setEdicoes((e) => ({ ...e, [l.produto_id]: { ...e[l.produto_id], observacoes: ev.target.value } }))}
+            />
+          </div>
+        );
+      },
     };
   const colunasContagem: ColumnsType<LinhaInventario> = [
     { title: 'Código', dataIndex: 'codigo', render: (v) => v || '—' },
@@ -653,6 +722,7 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
             {editarContagem && (
               <>
                 <Button size="small" type={soPorContar ? 'primary' : 'default'} onClick={() => setSoPorContar((x) => !x)}>Só por contar</Button>
+                <ColarExcelBotao tamanho="small" colunas={camposColagemContagem.map((c) => c.rotulo)} aoColar={colarBlocoContagem} />
                 <SeletorProduto apenasStock allowClear placeholder="Acrescentar produto não listado" style={{ width: 300, maxWidth: '100%' }} value={novoProduto} onChange={setNovoProduto} />
                 <Button size="small" icon={<PlusOutlined />} disabled={!novoProduto} loading={acrescentar.isPending} onClick={acrescentarProduto}>Acrescentar</Button>
               </>
@@ -661,15 +731,17 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
           </BarraFiltros>
           {/* legado: todos os artigos numa só folha com deslocamento vertical (500 px na contagem, 450 px na revisão —
               ui_inventory.js:441, 773); virtualizada para continuar rápida com milhares de artigos */}
-          <Table<LinhaInventario>
-            virtual
-            rowKey="id"
-            size="small"
-            scroll={{ x: revisaoFolha ? LARGURA_FOLHA_REVISAO : LARGURA_FOLHA_CONTAGEM, y: revisaoFolha ? 450 : 500 }}
-            dataSource={visiveis}
-            columns={colunasFolha}
-            pagination={false}
-          />
+          <div onPaste={aoColarCelulaContagem}>
+            <Table<LinhaInventario>
+              virtual
+              rowKey="id"
+              size="small"
+              scroll={{ x: revisaoFolha ? LARGURA_FOLHA_REVISAO : LARGURA_FOLHA_CONTAGEM, y: revisaoFolha ? 450 : 500 }}
+              dataSource={visiveis}
+              columns={colunasFolha}
+              pagination={false}
+            />
+          </div>
           <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: '0.8rem' }}>
             {visiveis.length === linhas.length ? `${linhas.length} artigo(s)` : `${visiveis.length} de ${linhas.length} artigo(s)`}
           </Typography.Text>
@@ -794,6 +866,7 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
               >
                 Acrescentar
               </Button>
+              <ColarExcelBotao colunas={camposColagemContagem.map((c) => c.rotulo)} aoColar={colarBlocoContagem} />
             </Space>
           )
         }
@@ -806,14 +879,16 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
             </Button>
           )}
         </BarraFiltros>
-        <Table<LinhaInventario>
-          rowKey="id"
-          size="small"
-          scroll={scrollTabela()}
-          dataSource={visiveis}
-          columns={emContagem ? colunasContagem : colunasRevisao}
-          pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} artigo(s)` }}
-        />
+        <div onPaste={aoColarCelulaContagem}>
+          <Table<LinhaInventario>
+            rowKey="id"
+            size="small"
+            scroll={scrollTabela()}
+            dataSource={visiveis}
+            columns={emContagem ? colunasContagem : colunasRevisao}
+            pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} artigo(s)` }}
+          />
+        </div>
       </Card>
       <ModalMotivo
         aberto={modal === 'reabrir'}

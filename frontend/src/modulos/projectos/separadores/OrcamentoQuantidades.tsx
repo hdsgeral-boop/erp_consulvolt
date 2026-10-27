@@ -1,9 +1,12 @@
-import { Alert, Button, Card, Checkbox, Col, Empty, Form, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Empty, Form, InputNumber, message, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Typography } from 'antd';
 import { CheckCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ClipboardEvent } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useWbs } from '../comum/componentes';
@@ -49,6 +52,34 @@ export function ModalMapearQuantidade({ projectoId, linha, aoFechar }: { project
   const tarefasDaUnidade = achatarWbs(w.data).filter((t) => (t.meta_unidade || '') === v?.unidade && Number(t.meta_quantidade ?? 0) > 0);
   const fechada = !!rub?.totalmente_mapeada;
 
+  // Colagem do Excel (só quando «escopo = tarefas que eu escolher»): uma coluna, «Tarefa» (código ou nome) — há aqui
+  // um mapa local fiável (tarefasDaUnidade) para reconhecer o texto colado; acrescenta à selecção, não a substitui
+  // (não há «linhas» na grelha para sobrepor — é uma lista de marcação, não uma grelha de valores).
+  const camposColagemTarefas: CampoFormulario[] = [
+    { nome: 'tarefa', rotulo: 'Tarefa (código ou nome)', tipo: 'select', opcoes: tarefasDaUnidade.map((t) => ({ value: t.id, label: `${t.codigo ? `${t.codigo} ` : ''}${t.nome}` })) },
+  ];
+  const avisoColagemTarefas = (r: ResultadoColagemGrade, n: number) => {
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${n} tarefa(s) acrescentada(s) à selecção. ${r.naoReconhecidos} valor(es) não reconhecido(s): ${det}`);
+    } else if (n) {
+      void message.success(`${n} tarefa(s) acrescentada(s) à selecção.`);
+    }
+  };
+  const colarTarefas = (texto: string) => {
+    const res = colagemParaLinhas(texto, camposColagemTarefas);
+    const novos = res.linhas.map((l) => l.tarefa).filter((x): x is number => typeof x === 'number');
+    const actuais = (form.getFieldValue('tarefas') as number[] | undefined) ?? [];
+    if (novos.length) form.setFieldValue('tarefas', Array.from(new Set([...actuais, ...novos])));
+    avisoColagemTarefas(res, novos.length);
+  };
+  const aoColarTarefas = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!texto.trim()) return;
+    e.preventDefault();
+    colarTarefas(texto);
+  };
+
   return (
     <Modal title="Mapear o orçamento pelas quantidades" open={!!linha} onCancel={aoFechar} width={larguraModal(860)} destroyOnHidden
       okText="Mapear o saldo" cancelText={fechada ? 'Fechar' : 'Cancelar'} onOk={() => form.submit()} okButtonProps={{ disabled: fechada || !previsao?.linhas.length }} confirmLoading={accao.isPending}>
@@ -87,8 +118,13 @@ export function ModalMapearQuantidade({ projectoId, linha, aoFechar }: { project
             </Form.Item>
             {v?.escopo === 'FASE' && <Form.Item name="fases"><Checkbox.Group options={(w.data?.grupos ?? []).filter((g) => g.marco).map((g) => ({ value: g.marco!.id, label: g.marco!.nome }))} /></Form.Item>}
             {v?.escopo === 'TAREFAS' && (
-              <Form.Item name="tarefas"><Checkbox.Group style={{ display: 'flex', flexDirection: 'column' }}
-                options={tarefasDaUnidade.map((t) => ({ value: t.id, label: `${t.codigo ? `${t.codigo} ` : ''}${t.nome} — ${formatarQtd(t.meta_quantidade)} ${t.meta_unidade} (feitos ${formatarQtd(t.meta_realizado)})` }))} /></Form.Item>
+              <div onPaste={aoColarTarefas}>
+                <Space style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                  <ColarExcelBotao colunas={camposColagemTarefas.map((c) => c.rotulo)} aoColar={colarTarefas} tamanho="small" />
+                </Space>
+                <Form.Item name="tarefas"><Checkbox.Group style={{ display: 'flex', flexDirection: 'column' }}
+                  options={tarefasDaUnidade.map((t) => ({ value: t.id, label: `${t.codigo ? `${t.codigo} ` : ''}${t.nome} — ${formatarQtd(t.meta_quantidade)} ${t.meta_unidade} (feitos ${formatarQtd(t.meta_realizado)})` }))} /></Form.Item>
+              </div>
             )}
           </Form>
         )}

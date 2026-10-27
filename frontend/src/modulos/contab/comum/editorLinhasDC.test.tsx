@@ -49,6 +49,26 @@ describe('EditorLinhasDC — colunas como cada legado', () => {
     expect(screen.getByRole('button', { name: 'Equilibrar' })).toBeInTheDocument();
   }, 60_000);
 
+  it('botão «Colar do Excel»: acrescenta linhas no fim, lendo conta/D-C/valor/descrição pela ordem das colunas', () => {
+    const { container } = montar('lancamentos', {});
+    expect(container.querySelectorAll('[role="row"]').length).toBe(2); // cabeçalho + 1 linha inicial
+    fireEvent.click(screen.getByRole('button', { name: /Colar do Excel/ }));
+    fireEvent.change(screen.getByLabelText('Linhas a colar'), { target: { value: '43101001\tD\t1 000,00\tRenda\n62100000\tC\t1000' } });
+    fireEvent.click(screen.getByRole('button', { name: /Acrescentar linhas/ }));
+    expect(container.querySelectorAll('[role="row"]').length).toBe(4); // cabeçalho + linha inicial + 2 coladas
+    expect(formulario.getFieldValue(['linhas', 1])).toMatchObject({ codigo_conta: '43101001', tipo_dc: 'D', valor: 1000, descricao: 'Renda' });
+    expect(formulario.getFieldValue(['linhas', 2])).toMatchObject({ codigo_conta: '62100000', tipo_dc: 'C', valor: 1000 });
+  }, 60_000);
+
+  it('colagem directa numa célula: preenche a partir da coluna/linha clicada e cria linhas se faltarem', () => {
+    const { container } = montar('lancamentos', {});
+    const celulaConta = container.querySelector('[data-colar-linha="0"] [data-colar-coluna="0"] input') as HTMLElement;
+    fireEvent.paste(celulaConta, { clipboardData: { getData: () => '43101001\tD\t500\n62100000\tC\t500' } });
+    expect(formulario.getFieldValue(['linhas', 0])).toMatchObject({ codigo_conta: '43101001', tipo_dc: 'D', valor: 500 });
+    expect(formulario.getFieldValue(['linhas', 1])).toMatchObject({ codigo_conta: '62100000', tipo_dc: 'C', valor: 500 });
+    expect(container.querySelectorAll('[role="row"]').length).toBe(3); // cabeçalho + 2 linhas (a 2.ª criada pela colagem)
+  }, 60_000);
+
   it('Tesouraria por omissão: «Adicionar Linha» antes da grelha e a linha nova herda o terceiro', () => {
     const { container } = montar();
     const cab = container.querySelector('.cabecalho-linhas') as HTMLElement;

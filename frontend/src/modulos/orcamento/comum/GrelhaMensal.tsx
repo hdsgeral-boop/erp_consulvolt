@@ -1,7 +1,10 @@
-import { Button, Dropdown, Input, InputNumber, Modal, Space, Table, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, Input, InputNumber, message, Modal, Space, Table, Tooltip, Typography, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ClipboardEvent } from 'react';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { useEcra } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { Kz } from './componentes';
@@ -114,6 +117,62 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
     aoMudar?.(r.id, { ...actual, valores: novos });
   };
 
+  // Colagem do Excel: só os valores mensais (e as notas) — a coluna «Rubrica» fica de fora porque as linhas já
+  // correspondem às rubricas existentes do orçamento (geridas em Rubricas Orçamentais); a colagem nunca cria linhas
+  // novas, só preenche, pela ordem em que aparecem na grelha, os valores das rubricas já presentes.
+  const linhasRubrica = useMemo(() => linhas.filter((l) => l.tipo === 'rubrica'), [linhas]);
+  const indiceLinhaColagem = useMemo(() => new Map(linhasRubrica.map((l, i) => [l.chave, i])), [linhasRubrica]);
+  const camposColagem = useMemo((): CampoFormulario[] => {
+    const meses: CampoFormulario[] = rotulosMeses.map((m, i) => ({ nome: `m${i}`, rotulo: m, tipo: 'numero', precisao: 2 }));
+    return comNotas ? [...meses, { nome: 'notas', rotulo: 'Notas', maxLength: 2000 }] : meses;
+  }, [rotulosMeses, comNotas]);
+
+  const aplicarColagem = (linhasColadas: Record<string, unknown>[], aPartirDaLinha: number) => {
+    linhasColadas.forEach((v, i) => {
+      const l = linhasRubrica[aPartirDaLinha + i];
+      if (!l?.rubrica) return;
+      const actual = valores[l.rubrica.id] ?? { valores: Array(12).fill(0), notas: null };
+      const novos = [...actual.valores];
+      while (novos.length < 12) novos.push(0);
+      for (let m = 0; m < 12; m++) {
+        const x = v[`m${m}`];
+        if (x !== undefined) novos[m] = typeof x === 'number' ? x : 0;
+      }
+      const notas = comNotas && v.notas !== undefined ? (typeof v.notas === 'string' && v.notas ? v.notas : null) : actual.notas;
+      aoMudar?.(l.rubrica.id, { valores: novos, notas });
+    });
+  };
+
+  const avisoColagem = (r: ResultadoColagemGrade, n: number) => {
+    if (!n) return;
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${n} rubrica(s) actualizada(s)${r.comCabecalho ? ' (colunas pelo cabeçalho)' : ''}. ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de gravar: ${det}`);
+    } else {
+      void message.success(`${n} rubrica(s) actualizada(s)${r.comCabecalho ? ' (colunas reconhecidas pelo cabeçalho)' : ''}.`);
+    }
+  };
+
+  const colarBloco = (texto: string) => {
+    const r = colagemParaLinhas(texto, camposColagem);
+    const n = Math.min(r.linhas.length, linhasRubrica.length);
+    aplicarColagem(r.linhas.slice(0, n), 0);
+    avisoColagem(r, n);
+  };
+
+  // Colagem directa numa célula (Ctrl+V): preenche a partir dessa rubrica/mês, pela ordem das rubricas na grelha.
+  const aoColarCelula = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColagem, pos.coluna);
+    const n = Math.max(0, Math.min(r.linhas.length, linhasRubrica.length - pos.linha));
+    aplicarColagem(r.linhas.slice(0, n), pos.linha);
+    avisoColagem(r, n);
+  };
+
   const colunas: ColumnsType<Linha> = [
     {
       title: 'Rubrica', key: 'r', fixed: telemovel ? undefined : 'left', width: telemovel ? 180 : 260,
@@ -151,7 +210,14 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
       onCell: juntar,
       render: (_: unknown, l: Linha) => {
         if (l.tipo === 'natureza') return null;
-        if (editavel && l.rubrica) return <InputNumber size="small" value={l.valores[i] ?? 0} precision={2} style={{ width: 112 }} controls={false} onChange={(v) => mudarMes(l.rubrica!, i, v)} aria-label={`${l.rubrica.codigo} ${m}`} />;
+        if (editavel && l.rubrica) {
+          const idx = indiceLinhaColagem.get(l.chave);
+          return (
+            <span {...(idx !== undefined ? { 'data-colar-linha': idx, 'data-colar-coluna': i } : {})} style={{ display: 'inline-block' }}>
+              <InputNumber size="small" value={l.valores[i] ?? 0} precision={2} style={{ width: 112 }} controls={false} onChange={(v) => mudarMes(l.rubrica!, i, v)} aria-label={`${l.rubrica.codigo} ${m}`} />
+            </span>
+          );
+        }
         return <Kz valor={l.valores[i] ?? 0} forte={l.tipo !== 'rubrica'} />;
       },
     })),
@@ -174,24 +240,35 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
       render: (_, l) => {
         if (!l.rubrica) return null;
         const v = valores[l.rubrica.id];
-        return editavel
-          ? <Input size="small" value={v?.notas ?? ''} maxLength={2000} placeholder="Justificação" onChange={(e) => aoMudar?.(l.rubrica!.id, { valores: v?.valores ?? Array(12).fill(0), notas: e.target.value || null })} />
-          : <Tooltip title={v?.notas}><Typography.Text ellipsis style={{ maxWidth: 200 }}>{v?.notas ?? ''}</Typography.Text></Tooltip>;
+        if (!editavel) return <Tooltip title={v?.notas}><Typography.Text ellipsis style={{ maxWidth: 200 }}>{v?.notas ?? ''}</Typography.Text></Tooltip>;
+        const idx = indiceLinhaColagem.get(l.chave);
+        return (
+          <span {...(idx !== undefined ? { 'data-colar-linha': idx, 'data-colar-coluna': rotulosMeses.length } : {})} style={{ display: 'inline-block', width: '100%' }}>
+            <Input size="small" value={v?.notas ?? ''} maxLength={2000} placeholder="Justificação" onChange={(e) => aoMudar?.(l.rubrica!.id, { valores: v?.valores ?? Array(12).fill(0), notas: e.target.value || null })} />
+          </span>
+        );
       },
     });
 
   return (
     <>
-      <Table<Linha>
-        rowKey="chave"
-        size="small"
-        pagination={false}
-        dataSource={linhas}
-        columns={colunas}
-        scroll={{ x: 'max-content', y: 620 }}
-        rowClassName={(l) => `erp-grelha-${l.tipo}`}
-        onRow={(l) => ({ style: l.tipo === 'natureza' || l.tipo === 'grupo' ? { background: token.colorFillAlter, fontWeight: 700 } : l.tipo !== 'rubrica' ? { background: token.colorFillSecondary, fontWeight: 800 } : undefined })}
-      />
+      {editavel && (
+        <Space style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <ColarExcelBotao colunas={camposColagem.map((c) => c.rotulo)} aoColar={colarBloco} tamanho="small" />
+        </Space>
+      )}
+      <div onPaste={aoColarCelula}>
+        <Table<Linha>
+          rowKey="chave"
+          size="small"
+          pagination={false}
+          dataSource={linhas}
+          columns={colunas}
+          scroll={{ x: 'max-content', y: 620 }}
+          rowClassName={(l) => `erp-grelha-${l.tipo}`}
+          onRow={(l) => ({ style: l.tipo === 'natureza' || l.tipo === 'grupo' ? { background: token.colorFillAlter, fontWeight: 700 } : l.tipo !== 'rubrica' ? { background: token.colorFillSecondary, fontWeight: 800 } : undefined })}
+        />
+      </div>
       <Modal
         title={`Repartir ${repartir?.rubrica.codigo ?? ''} por 12 meses`}
         open={!!repartir}

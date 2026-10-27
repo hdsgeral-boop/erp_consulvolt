@@ -1,8 +1,11 @@
 import { Alert, Button, Col, Form, InputNumber, Radio, Row, Select, Space, Typography, message } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ClipboardEvent } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { ItemProdutividade } from '../api';
@@ -42,6 +45,47 @@ export function ProdutividadeMassa({ contratos = [], aoConcluir }: { contratos?:
   const [plano, setPlano] = useState<ResultadoProdutividadeMassa | null>(null);
   const [aEnviar, setAEnviar] = useState(false);
 
+  // Colagem do Excel nos itens: item (pelo código ou descrição, da lista de itens activos) e preço unitário.
+  const camposColaveis: CampoFormulario[] = [
+    { nome: 'item_id', rotulo: 'Item', tipo: 'select', opcoes: activos.map((i) => ({ value: i.id, label: `${i.codigo} - ${i.descricao}` })) },
+    { nome: 'preco_unitario', rotulo: 'Preço unitário', tipo: 'numero', min: 0, precisao: 4 },
+  ];
+  const aplicarColagemItens = (linhasColadas: Record<string, unknown>[], aPartirDoIndice?: number) => {
+    const actuais = [...((form.getFieldValue('itens') as Valores['itens'] | undefined) ?? [])];
+    const inicio = aPartirDoIndice ?? actuais.length;
+    linhasColadas.forEach((valores, i) => {
+      const idx = inicio + i;
+      if (idx < actuais.length) actuais[idx] = { ...actuais[idx], ...valores };
+      else actuais.push({ ...valores } as Valores['itens'][number]);
+    });
+    form.setFieldValue('itens', actuais);
+    setPlano(null);
+  };
+  const avisoColagemItens = (r: ResultadoColagemGrade, n: number) => {
+    if (!n) return;
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas pelo cabeçalho)' : ''}. ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de aplicar: ${det}`);
+    } else {
+      void message.success(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas reconhecidas pelo cabeçalho)' : ''}.`);
+    }
+  };
+  const colarItensBloco = (texto: string) => {
+    const r = colagemParaLinhas(texto, camposColaveis);
+    aplicarColagemItens(r.linhas);
+    avisoColagemItens(r, r.linhas.length);
+  };
+  const aoColarCelulaItem = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColaveis, pos.coluna);
+    aplicarColagemItens(r.linhas, pos.linha);
+    avisoColagemItens(r, r.linhas.length);
+  };
+
   const executar = async (simular: boolean) => {
     const v = await form.validateFields();
     if (!contratos.length && !(v.colaboradores ?? []).length) {
@@ -79,23 +123,28 @@ export function ProdutividadeMassa({ contratos = [], aoConcluir }: { contratos?:
       <Form form={form} layout="vertical" initialValues={{ modo: 'ACRESCENTAR', preco_existente: 'SUBSTITUIR', itens: [{}] }} onValuesChange={() => setPlano(null)}>
         <Form.List name="itens">{(campos, { add, remove }) => (
           <>
-            {campos.map(({ key, name }) => (
-              <Row key={key} gutter={8} align="middle">
-                <Col xs={24} sm={14}>
-                  <Form.Item name={[name, 'item_id']} rules={[{ required: true, message: 'Item.' }]}>
-                    <Select showSearch optionFilterProp="label" placeholder="Item de produtividade" loading={itens.isLoading}
-                      options={activos.map((i) => ({ value: i.id, label: `${i.codigo} — ${i.descricao} (${formatarKz(Number(i.preco_unitario))}${i.unidade ? `/${i.unidade}` : ''})` }))} />
-                  </Form.Item>
-                </Col>
-                <Col xs={20} sm={8}>
-                  <Form.Item name={[name, 'preco_unitario']}>
-                    <InputNumber min={0} precision={4} decimalSeparator="," placeholder="igual ao item" disabled={modo === 'RETIRAR'} style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col xs={4} sm={2}>{campos.length > 1 && <Button type="text" danger icon={<MinusCircleOutlined />} aria-label="Retirar item" onClick={() => remove(name)} />}</Col>
-              </Row>
-            ))}
-            <Button size="small" icon={<PlusOutlined />} onClick={() => add({})} style={{ marginBottom: 12 }}>Acrescentar item</Button>
+            <div onPaste={aoColarCelulaItem}>
+              {campos.map(({ key, name }) => (
+                <Row key={key} gutter={8} align="middle" data-colar-linha={name}>
+                  <Col xs={24} sm={14} data-colar-coluna={0}>
+                    <Form.Item name={[name, 'item_id']} rules={[{ required: true, message: 'Item.' }]}>
+                      <Select showSearch optionFilterProp="label" placeholder="Item de produtividade" loading={itens.isLoading}
+                        options={activos.map((i) => ({ value: i.id, label: `${i.codigo} — ${i.descricao} (${formatarKz(Number(i.preco_unitario))}${i.unidade ? `/${i.unidade}` : ''})` }))} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={20} sm={8} data-colar-coluna={1}>
+                    <Form.Item name={[name, 'preco_unitario']}>
+                      <InputNumber min={0} precision={4} decimalSeparator="," placeholder="igual ao item" disabled={modo === 'RETIRAR'} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={4} sm={2}>{campos.length > 1 && <Button type="text" danger icon={<MinusCircleOutlined />} aria-label="Retirar item" onClick={() => remove(name)} />}</Col>
+                </Row>
+              ))}
+            </div>
+            <Space size={8} wrap style={{ marginBottom: 12 }}>
+              <Button size="small" icon={<PlusOutlined />} onClick={() => add({})}>Acrescentar item</Button>
+              <ColarExcelBotao tamanho="small" colunas={camposColaveis.map((c) => c.rotulo)} aoColar={colarItensBloco} />
+            </Space>
           </>
         )}</Form.List>
         <Form.Item name="modo" label="O que fazer nos contratos escolhidos">

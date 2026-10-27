@@ -2,8 +2,11 @@ import { Alert, Button, Checkbox, Col, DatePicker, Form, InputNumber, Modal, Rad
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ClipboardEvent } from 'react';
 import { enviar } from '@/api/cliente';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { larguraModal } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
 import { useColaboradores, useInfotipos } from './consultas';
@@ -47,6 +50,47 @@ export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial =
   const [plano, setPlano] = useState<Resultado | null>(null);
   const [aEnviar, setAEnviar] = useState(false);
 
+  // Colagem do Excel nas rubricas: rubrica de vencimento (pelo nome, da lista de infotipos já carregada) e valor mensal.
+  const camposColaveis: CampoFormulario[] = [
+    { nome: 'infotipo_salarial_id', rotulo: 'Rubrica', tipo: 'select', opcoes: infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome })) },
+    { nome: 'valor_mes', rotulo: 'Valor mensal (Kz)', tipo: 'numero', min: 0, precisao: 2 },
+  ];
+  const aplicarColagemRubricas = (linhasColadas: Record<string, unknown>[], aPartirDoIndice?: number) => {
+    const actuais = [...((form.getFieldValue('rubricas') as Valores['rubricas'] | undefined) ?? [])];
+    const inicio = aPartirDoIndice ?? actuais.length;
+    linhasColadas.forEach((valores, i) => {
+      const idx = inicio + i;
+      if (idx < actuais.length) actuais[idx] = { ...actuais[idx], ...valores };
+      else actuais.push({ ...valores } as Valores['rubricas'][number]);
+    });
+    form.setFieldValue('rubricas', actuais);
+    setPlano(null);
+  };
+  const avisoColagemRubricas = (r: ResultadoColagemGrade, n: number) => {
+    if (!n) return;
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas pelo cabeçalho)' : ''}. ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de aplicar: ${det}`);
+    } else {
+      void message.success(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas reconhecidas pelo cabeçalho)' : ''}.`);
+    }
+  };
+  const colarRubricasBloco = (texto: string) => {
+    const r = colagemParaLinhas(texto, camposColaveis);
+    aplicarColagemRubricas(r.linhas);
+    avisoColagemRubricas(r, r.linhas.length);
+  };
+  const aoColarCelulaRubrica = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColaveis, pos.coluna);
+    aplicarColagemRubricas(r.linhas, pos.linha);
+    avisoColagemRubricas(r, r.linhas.length);
+  };
+
   const executar = async (simular: boolean) => {
     const v = await form.validateFields();
     setAEnviar(true);
@@ -86,16 +130,21 @@ export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial =
         <Button size="small" style={{ marginTop: -12, marginBottom: 12 }} onClick={() => form.setFieldsValue({ colaboradores: colaboradores.lista.filter((c) => c.estado === 'ACTIVO').map((c) => c.id) as never })}>Todos os activos</Button>
         <Form.List name="rubricas">{(campos, { add, remove }) => (
           <>
-            {campos.map(({ key, name }) => (
-              <Row key={key} gutter={8} align="middle">
-                <Col xs={24} sm={14}><Form.Item name={[name, 'infotipo_salarial_id']} rules={[{ required: true, message: 'Rubrica.' }]}>
-                  <Select showSearch optionFilterProp="label" placeholder="Rubrica de vencimento" options={infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome }))} />
-                </Form.Item></Col>
-                <Col xs={20} sm={8}><Form.Item name={[name, 'valor_mes']} rules={[{ required: true, message: 'Valor.' }]}><InputNumber min={0} precision={2} decimalSeparator="," placeholder="Valor mensal (Kz)" style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={4} sm={2}>{campos.length > 1 && <Button type="text" danger icon={<MinusCircleOutlined />} aria-label="Retirar rubrica" onClick={() => remove(name)} />}</Col>
-              </Row>
-            ))}
-            <Button size="small" icon={<PlusOutlined />} onClick={() => add({})} style={{ marginBottom: 12 }}>Acrescentar rubrica</Button>
+            <div onPaste={aoColarCelulaRubrica}>
+              {campos.map(({ key, name }) => (
+                <Row key={key} gutter={8} align="middle" data-colar-linha={name}>
+                  <Col xs={24} sm={14} data-colar-coluna={0}><Form.Item name={[name, 'infotipo_salarial_id']} rules={[{ required: true, message: 'Rubrica.' }]}>
+                    <Select showSearch optionFilterProp="label" placeholder="Rubrica de vencimento" options={infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome }))} />
+                  </Form.Item></Col>
+                  <Col xs={20} sm={8} data-colar-coluna={1}><Form.Item name={[name, 'valor_mes']} rules={[{ required: true, message: 'Valor.' }]}><InputNumber min={0} precision={2} decimalSeparator="," placeholder="Valor mensal (Kz)" style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={4} sm={2}>{campos.length > 1 && <Button type="text" danger icon={<MinusCircleOutlined />} aria-label="Retirar rubrica" onClick={() => remove(name)} />}</Col>
+                </Row>
+              ))}
+            </div>
+            <Space size={8} wrap style={{ marginBottom: 12 }}>
+              <Button size="small" icon={<PlusOutlined />} onClick={() => add({})}>Acrescentar rubrica</Button>
+              <ColarExcelBotao tamanho="small" colunas={camposColaveis.map((c) => c.rotulo)} aoColar={colarRubricasBloco} />
+            </Space>
           </>
         )}</Form.List>
         <Form.Item name="modo" label="Se o contrato já tiver a rubrica">

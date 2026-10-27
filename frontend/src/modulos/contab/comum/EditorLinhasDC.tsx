@@ -1,6 +1,9 @@
 import { Button, Flex, Form, Input, InputNumber, Select, Space, Typography, message, theme } from 'antd';
 import { ApartmentOutlined, CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { useState, type ReactNode } from 'react';
+import { useState, type ClipboardEvent, type ReactNode } from 'react';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { ModalRepartirLinha, linhasRepartidas } from '@/componentes/reparticao';
 import { useEcra } from '@/componentes/responsivo';
 import { SeletorAux, SeletorConta, SeletorTerceiro, SeletorUnidade } from './Seletores';
@@ -229,6 +232,69 @@ export function EditorLinhasDC({
     },
   };
   const colunas = colunasEditor(disposicao, campos);
+
+  // Colagem do Excel: só as colunas de texto/número/D-C simples (conta, D/C, valor, doc, descrição) — terceiro, notas
+  // e unidade/centro de custo pedem escolher um registo da lista (sem uma tabela local para reconhecer o texto colado).
+  const descritorColagem = (chave: string): CampoFormulario | null => {
+    switch (chave) {
+      case 'conta':
+        return { nome: 'codigo_conta', rotulo: celulas.conta.titulo };
+      case 'dc':
+        return { nome: 'tipo_dc', rotulo: celulas.dc.titulo, tipo: 'select', opcoes: tesouraria ? [{ value: 'D', label: 'D (DÉBITO)' }, { value: 'C', label: 'C (CRÉDITO)' }] : [{ value: 'D', label: 'D' }, { value: 'C', label: 'C' }] };
+      case 'valor':
+        return { nome: 'valor', rotulo: rotuloValor, tipo: 'numero', min: 0.01, precisao: 2 };
+      case 'doc':
+        return { nome: 'numero_documento', rotulo: celulas.doc.titulo, maxLength: 100 };
+      case 'descricao':
+        return { nome: 'descricao', rotulo: celulas.descricao.titulo, maxLength: 1000 };
+      default:
+        return null;
+    }
+  };
+  const colaveis = colunas.map((chave) => ({ chave, campo: descritorColagem(chave) })).filter((x): x is { chave: string; campo: CampoFormulario } => x.campo !== null);
+  const camposColaveis = colaveis.map((x) => x.campo);
+  const indiceColagem = Object.fromEntries(colaveis.map((x, i) => [x.chave, i]));
+
+  const avisoColagem = (r: ResultadoColagemGrade, n: number) => {
+    if (!n) return;
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas pelo cabeçalho)' : ''}. ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de gravar: ${det}`);
+    } else {
+      void message.success(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas reconhecidas pelo cabeçalho)' : ''}.`);
+    }
+  };
+
+  // Aplica as linhas coladas a partir de `aPartirDoIndice` (colagem numa célula) ou no fim (botão «Colar do Excel»).
+  const aplicarColagem = (linhasColadas: Record<string, unknown>[], aPartirDoIndice?: number) => {
+    const actuais = [...((forma.getFieldValue(nome) as LinhaEditor[] | undefined) ?? [])];
+    const inicio = aPartirDoIndice ?? actuais.length;
+    linhasColadas.forEach((valores, i) => {
+      const idx = inicio + i;
+      if (idx < actuais.length) actuais[idx] = { ...actuais[idx], ...valores };
+      else actuais.push({ tipo_dc: 'D', ...valores });
+    });
+    forma.setFieldValue(nome, actuais);
+  };
+
+  const colarBloco = (texto: string) => {
+    const r = colagemParaLinhas(texto, camposColaveis);
+    aplicarColagem(r.linhas);
+    avisoColagem(r, r.linhas.length);
+  };
+
+  // Colagem directa numa célula (Ctrl+V): preenche a partir dessa linha/coluna, criando linhas se for preciso.
+  const aoColarCelula = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColaveis, pos.coluna);
+    aplicarColagem(r.linhas, pos.linha);
+    avisoColagem(r, r.linhas.length);
+  };
+
   const grelha = colunas.map((c) => celulas[c].largura).join(' ');
   const estiloGrelha: React.CSSProperties = telemovel
     ? { display: 'grid', gridTemplateColumns: '1fr', gap: 6 }
@@ -246,9 +312,12 @@ export function EditorLinhasDC({
           add(tesouraria && ultima?.terceiro_id ? { tipo_dc: 'D', terceiro_id: ultima.terceiro_id, _terceiro: ultima._terceiro } : { tipo_dc: 'D' });
         };
         const botaoAdicionar = (
-          <Button icon={<PlusOutlined />} onClick={acrescentar}>
-            Adicionar Linha
-          </Button>
+          <Space size={8} wrap>
+            <Button icon={<PlusOutlined />} onClick={acrescentar}>
+              Adicionar Linha
+            </Button>
+            {camposColaveis.length > 0 && <ColarExcelBotao colunas={camposColaveis.map((c) => c.rotulo)} aoColar={colarBloco} />}
+          </Space>
         );
         const accoes = (name: number) => (
           <Space size={2}>
@@ -275,7 +344,7 @@ export function EditorLinhasDC({
                 {botaoAdicionar}
               </Flex>
             )}
-            <div style={{ overflowX: telemovel ? undefined : 'auto' }} data-disposicao={disposicao}>
+            <div style={{ overflowX: telemovel ? undefined : 'auto' }} data-disposicao={disposicao} onPaste={aoColarCelula}>
               {!telemovel && (
                 <div className="cabecalho-linhas" style={{ ...estiloGrelha, background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, padding: '6px 4px', marginBottom: 6 }} role="row">
                   {colunas.map((c) => (
@@ -286,9 +355,9 @@ export function EditorLinhasDC({
                 </div>
               )}
               {linhas.map(({ key, name }) => (
-                <div key={key} role="row" style={{ ...estiloGrelha, borderBottom: `1px dashed ${token.colorBorderSecondary}`, padding: '4px 4px 8px', marginBottom: 6 }}>
+                <div key={key} role="row" data-colar-linha={name} style={{ ...estiloGrelha, borderBottom: `1px dashed ${token.colorBorderSecondary}`, padding: '4px 4px 8px', marginBottom: 6 }}>
                   {colunas.map((c) => (
-                    <div key={c} style={{ minWidth: 0 }}>
+                    <div key={c} style={{ minWidth: 0 }} {...(indiceColagem[c] !== undefined ? { 'data-colar-coluna': indiceColagem[c] } : {})}>
                       {telemovel && c !== 'accoes' && (
                         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                           {celulas[c].titulo}

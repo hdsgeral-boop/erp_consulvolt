@@ -1,11 +1,13 @@
-import { Alert, Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Row, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect } from 'react';
+import { useEffect, type ClipboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { totaisLinhas } from '../comum/calculos';
@@ -88,6 +90,36 @@ export function NovaProposta() {
   const acima = avaliacao.filter((a) => a.nivel === 'acima');
   const perto = avaliacao.filter((a) => a.nivel === 'aviso');
   const temReferencia = avaliacao.length > 0;
+
+  // Colagem do Excel: só preço e IVA (as linhas vêm fixas dos artigos do pedido — sem botão «Colar do Excel» para
+  // acrescentar linhas, porque uma linha nova não teria `item_pedido_id`/`produto_id`). Colagem directa numa célula
+  // (Ctrl+V), posicional a partir da coluna clicada, preenchendo só as linhas que já existem.
+  const camposColaveis: CampoFormulario[] = [
+    { nome: 'preco_unitario', rotulo: `Preço unit. (${moeda.toUpperCase()})`, tipo: 'numero', min: 0, precisao: 2 },
+    { nome: 'taxa_imposto', rotulo: 'IVA %', tipo: 'numero', min: 0, max: 100 },
+  ];
+  const aoColarCelula = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColaveis, pos.coluna);
+    const actuais = [...((form.getFieldValue('linhas') as LinhaProposta[] | undefined) ?? [])];
+    let aplicadas = 0;
+    r.linhas.forEach((valores, i) => {
+      const idx = pos.linha + i;
+      if (idx < actuais.length) {
+        actuais[idx] = { ...actuais[idx], ...valores };
+        aplicadas += 1;
+      }
+    });
+    if (!aplicadas) return;
+    form.setFieldValue('linhas', actuais);
+    if (r.naoReconhecidos) void message.warning(`Preços actualizados em ${aplicadas} linha(s). ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de gravar.`);
+    else void message.success(`Preços actualizados em ${aplicadas} linha(s).`);
+  };
+
   return (
     <>
       <CabecalhoPagina titulo="Registar proposta de fornecedor" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
@@ -167,53 +199,60 @@ export function NovaProposta() {
           <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Escolha um pedido com artigos.'))) }]}>
             {(campos, _op, { errors }) => (
               <>
-                <Table scroll={scrollTabela()}
-                  rowKey="key"
-                  size="small"
-                  pagination={false}
-                  loading={pedido.isFetching}
-                  dataSource={campos}
-                  locale={{ emptyText: 'Escolha o pedido para ver os artigos.' }}
-                  columns={[
-                    {
-                      title: 'Artigo',
-                      render: (_, c) => {
-                        const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
-                        return l ? <NomeProduto id={l.produto_id} descricao={l.descricao} /> : null;
+                <div onPaste={aoColarCelula}>
+                  <Table scroll={scrollTabela()}
+                    rowKey="key"
+                    size="small"
+                    pagination={false}
+                    loading={pedido.isFetching}
+                    dataSource={campos}
+                    locale={{ emptyText: 'Escolha o pedido para ver os artigos.' }}
+                    onRow={(c) => ({ 'data-colar-linha': c.name }) as unknown as React.HTMLAttributes<HTMLElement>}
+                    columns={[
+                      {
+                        title: 'Artigo',
+                        render: (_, c) => {
+                          const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
+                          return l ? <NomeProduto id={l.produto_id} descricao={l.descricao} /> : null;
+                        },
                       },
-                    },
-                    { title: 'Qtd.', align: 'right', render: (_, c) => formatarNumero((form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined)?.quantidade) },
-                    {
-                      title: `Preço unit. (${moeda.toUpperCase()}, s/ IVA)`,
-                      render: (_, c) => (
-                        <Form.Item name={[c.name, 'preco_unitario']} rules={[{ required: true, message: 'Preço' }]} style={{ margin: 0 }}>
-                          <InputNumber min={0} precision={2} style={{ width: 160 }} />
-                        </Form.Item>
-                      ),
-                    },
-                    ...(temReferencia
-                      ? [
-                          {
-                            title: 'Valor da encomenda (Kz, s/ IVA)',
-                            align: 'right' as const,
-                            render: (_: unknown, c: { name: number }) => {
-                              const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
-                              const a = l ? porProduto.get(l.produto_id) : undefined;
-                              return a ? <CelulaReferencia a={a} /> : <Typography.Text type="secondary">—</Typography.Text>;
+                      { title: 'Qtd.', align: 'right', render: (_, c) => formatarNumero((form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined)?.quantidade) },
+                      {
+                        title: `Preço unit. (${moeda.toUpperCase()}, s/ IVA)`,
+                        render: (_, c) => (
+                          <div data-colar-coluna={0}>
+                            <Form.Item name={[c.name, 'preco_unitario']} rules={[{ required: true, message: 'Preço' }]} style={{ margin: 0 }}>
+                              <InputNumber min={0} precision={2} style={{ width: 160 }} />
+                            </Form.Item>
+                          </div>
+                        ),
+                      },
+                      ...(temReferencia
+                        ? [
+                            {
+                              title: 'Valor da encomenda (Kz, s/ IVA)',
+                              align: 'right' as const,
+                              render: (_: unknown, c: { name: number }) => {
+                                const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
+                                const a = l ? porProduto.get(l.produto_id) : undefined;
+                                return a ? <CelulaReferencia a={a} /> : <Typography.Text type="secondary">—</Typography.Text>;
+                              },
                             },
-                          },
-                        ]
-                      : []),
-                    {
-                      title: 'IVA %',
-                      render: (_, c) => (
-                        <Form.Item name={[c.name, 'taxa_imposto']} style={{ margin: 0 }}>
-                          <InputNumber min={0} max={100} style={{ width: 90 }} />
-                        </Form.Item>
-                      ),
-                    },
-                  ]}
-                />
+                          ]
+                        : []),
+                      {
+                        title: 'IVA %',
+                        render: (_, c) => (
+                          <div data-colar-coluna={1}>
+                            <Form.Item name={[c.name, 'taxa_imposto']} style={{ margin: 0 }}>
+                              <InputNumber min={0} max={100} style={{ width: 90 }} />
+                            </Form.Item>
+                          </div>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
                 <Form.ErrorList errors={errors} />
                 {temReferencia && cambio === null && (
                   <Alert style={{ marginTop: 12 }} type="info" showIcon message="Indique o câmbio para comparar a proposta com o valor da encomenda do cliente." />

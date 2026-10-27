@@ -1,8 +1,10 @@
-import { Alert, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Table, Typography } from 'antd';
+import { Alert, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Table, Typography, message } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ClipboardEvent } from 'react';
 import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { numero, pendente } from './calculos';
 import { NomeProduto, useMapaProdutos } from './referencias';
 import { numeroOuId, type EncomendaCompra, type FaturaCompra, type ItemCompra, type RececaoCompra } from './tipos';
@@ -48,6 +50,32 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
     });
   }, [aberto, form, encomenda]);
 
+  // Colagem do Excel: só a quantidade recebida é editável (as linhas vêm fixas dos artigos da encomenda — sem botão
+  // «Colar do Excel» para acrescentar linhas, porque uma linha nova não teria `item_encomenda_id` correcto). Colagem
+  // directa numa célula (Ctrl+V), posicional a partir da coluna clicada, preenchendo só as linhas que já existem.
+  const camposColaveis: CampoFormulario[] = [{ nome: 'quantidade', rotulo: 'Recebido agora', tipo: 'numero', min: 0 }];
+  const aoColarCelula = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColaveis, pos.coluna);
+    const actuais = [...((form.getFieldValue('linhas') as LinhaQtd[] | undefined) ?? [])];
+    let aplicadas = 0;
+    r.linhas.forEach((valores, i) => {
+      const idx = pos.linha + i;
+      if (idx < actuais.length) {
+        actuais[idx] = { ...actuais[idx], ...valores };
+        aplicadas += 1;
+      }
+    });
+    if (!aplicadas) return;
+    form.setFieldValue('linhas', actuais);
+    if (r.naoReconhecidos) void message.warning(`Quantidades actualizadas em ${aplicadas} linha(s). ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de gravar.`);
+    else void message.success(`Quantidades actualizadas em ${aplicadas} linha(s).`);
+  };
+
   return (
     <Modal
       title={`Registar recepção — encomenda ${numeroOuId(encomenda.numero_encomenda, encomenda.id)}`}
@@ -86,25 +114,30 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
         </Row>
         <Form.List name="linhas">
           {(campos) => (
-            <Table scroll={scrollTabela()}
-              rowKey="key"
-              size="small"
-              pagination={false}
-              dataSource={campos}
-              columns={[
-                { title: 'Artigo', render: (_, c) => <NomeProduto id={linhasEnc[c.name]?.produto_id} produto={linhasEnc[c.name]?.produto} descricao={linhasEnc[c.name]?.descricao} /> },
-                { title: 'Encomendado', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade) },
-                { title: 'Já recebido', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade_recebida ?? 0) },
-                {
-                  title: 'Recebido agora',
-                  render: (_, c) => (
-                    <Form.Item name={[c.name, 'quantidade']} style={{ margin: 0 }}>
-                      <InputNumber min={0} style={{ width: 120 }} />
-                    </Form.Item>
-                  ),
-                },
-              ]}
-            />
+            <div onPaste={aoColarCelula}>
+              <Table scroll={scrollTabela()}
+                rowKey="key"
+                size="small"
+                pagination={false}
+                dataSource={campos}
+                onRow={(c) => ({ 'data-colar-linha': c.name }) as unknown as React.HTMLAttributes<HTMLElement>}
+                columns={[
+                  { title: 'Artigo', render: (_, c) => <NomeProduto id={linhasEnc[c.name]?.produto_id} produto={linhasEnc[c.name]?.produto} descricao={linhasEnc[c.name]?.descricao} /> },
+                  { title: 'Encomendado', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade) },
+                  { title: 'Já recebido', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade_recebida ?? 0) },
+                  {
+                    title: 'Recebido agora',
+                    render: (_, c) => (
+                      <div data-colar-coluna={0}>
+                        <Form.Item name={[c.name, 'quantidade']} style={{ margin: 0 }}>
+                          <InputNumber min={0} style={{ width: 120 }} />
+                        </Form.Item>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </div>
           )}
         </Form.List>
         <Typography.Text type="secondary">A recepção fica por validar no armazém; só a validação dá entrada em stock e contabiliza.</Typography.Text>
