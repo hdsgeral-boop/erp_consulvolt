@@ -22453,6 +22453,15 @@
           "dominio": null
         },
         {
+          "coluna": "tags",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -22585,6 +22594,15 @@
           "tipo": "numeric(15,3)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "ordem",
+          "legado": null,
+          "tipo": "integer",
+          "nulo": true,
+          "origem": "codigo",
           "fk": null,
           "dominio": null
         },
@@ -22848,6 +22866,15 @@
           "dominio": null
         },
         {
+          "coluna": "flag",
+          "legado": null,
+          "tipo": "varchar(10)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -22868,7 +22895,8 @@
       ],
       "unicos": [],
       "checks": [
-        "ck_tarefas_projeto_estado"
+        "ck_tarefas_projeto_estado",
+        "ck_tarefas_projeto_flag"
       ]
     },
     {
