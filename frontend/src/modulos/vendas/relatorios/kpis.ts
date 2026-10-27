@@ -30,6 +30,7 @@ export interface ValidacaoSaft {
   nome: string;
   documentos: number;
   recibos: number;
+  guias: number;
   avisos: string[];
 }
 

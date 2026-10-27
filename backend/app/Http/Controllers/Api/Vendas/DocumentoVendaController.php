@@ -5,13 +5,16 @@ namespace App\Http\Controllers\Api\Vendas;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vendas\EmitirDocumentoRequest;
 use App\Http\Resources\Vendas\VendaResource;
+use App\Jobs\Vendas\ContabilizarVendaLoteJob;
 use App\Models\Venda;
 use App\Services\Gestao\ResumoAlocacaoUN;
+use App\Services\Integracoes\Operacoes\ServicoOperacoes;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Services\Vendas\ServicoDocumentosVenda;
 use App\Services\Vendas\ServicoFluxoDocumentoVenda;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,6 +28,8 @@ final class DocumentoVendaController extends Controller
         private readonly ServicoDocumentosVenda $documentos,
         private readonly ServicoContabilizacaoVendas $contabilizacao,
         private readonly ServicoFluxoDocumentoVenda $fluxoDocumento,
+        private readonly ServicoOperacoes $operacoes,
+        private readonly ContextoEmpresa $contexto,
     ) {}
 
     /** GET — documentos com filtros (tipo, cliente, estado, período, contabilizado, pesquisa por n.º). */
@@ -125,25 +130,31 @@ final class DocumentoVendaController extends Controller
         return RespostaApi::criado($this->detalhe($nova), "Factura {$nova->numero_documento} emitida a partir de ".count(array_unique($d['guias'])).' guia(s).');
     }
 
-    /** POST /contabilizar — documentos seleccionados, cada um na sua transacção (M-06, postSelectedSales). */
+    /** POST /contabilizar — documentos seleccionados, um trabalho por documento numa operação em segundo plano (M-05/M-06). */
     public function contabilizarLote(Request $request): JsonResponse
     {
         $this->exigir('vendas_fat_contabilizar');
         $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer']]);
-        $r = $this->contabilizacao->lote('documentos', true, $d['ids']);
+        $ids = array_values(array_unique($d['ids']));
+        $empresa = $this->contexto->obrigatorio();
+        $trabalhos = array_map(fn (int $id) => new ContabilizarVendaLoteJob($empresa, 'documentos', true, $id), $ids);
+        $op = $this->operacoes->despachar('Contabilizar '.count($ids).' documento(s)', $trabalhos, 'alta', $empresa);
 
-        return RespostaApi::sucesso($r, "{$r['ok']} documento(s) contabilizado(s); {$r['erros']} com erro.");
+        return RespostaApi::sucesso($op, 'Contabilização iniciada em segundo plano.');
     }
 
-    /** POST /descontabilizar — estorno dos documentos seleccionados (unpostSelectedSales), com motivo. */
+    /** POST /descontabilizar — estorno dos documentos seleccionados (unpostSelectedSales), com motivo, em segundo plano. */
     public function descontabilizarLote(Request $request): JsonResponse
     {
         $this->exigir('vendas_fat_descontab');
         $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer'],
             'motivo' => ['required', 'string', 'min:5', 'max:500']], [], ['motivo' => 'motivo']);
-        $r = $this->contabilizacao->lote('documentos', false, $d['ids'], $d['motivo']);
+        $ids = array_values(array_unique($d['ids']));
+        $empresa = $this->contexto->obrigatorio();
+        $trabalhos = array_map(fn (int $id) => new ContabilizarVendaLoteJob($empresa, 'documentos', false, $id, $d['motivo']), $ids);
+        $op = $this->operacoes->despachar('Descontabilizar '.count($ids).' documento(s)', $trabalhos, 'alta', $empresa);
 
-        return RespostaApi::sucesso($r, "{$r['ok']} documento(s) descontabilizado(s); {$r['erros']} com erro.");
+        return RespostaApi::sucesso($op, 'Descontabilização iniciada em segundo plano.');
     }
 
     /** POST /{id}/converter — OR/PF → NE/FT, NE → GR/FT, GR → FT/GD, FT/FR → NC. */

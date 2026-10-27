@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Flex, Input, List, Modal, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
+import { Button, Card, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
 import { CheckCircleTwoTone } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { useOperacoes } from '@/componentes/operacoes/Operacoes';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -29,7 +30,7 @@ export const GRUPOS: Record<GrupoDocumentos, { titulo: string; tipos: string[]; 
   guias: { titulo: 'Guias', tipos: ['GR', 'GD'], icone: 'truck' },
 };
 
-interface ResultadoLote { ok: number; erros: number; resultados: { id: number; numero: string | null; sucesso: boolean; mensagem: string }[] }
+interface OperacaoLote { id: string; titulo: string }
 
 /** Percentagem paga de uma factura (barra «Nível recb.» do legado). Estado PAGO = 100 % (as FR do POS migradas têm valor_pago 0). */
 export const percentagemPaga = (d: Pick<DocumentoVenda, 'total_bruto' | 'valor_pago' | 'tipo_documento'> & { estado?: string | null }): number => {
@@ -88,14 +89,15 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
   const imprimirDocumento = useImprimirDocumentoVenda();
 
   const invalidar = () => void consulta.invalidateQueries({ queryKey: ['vendas'] });
-  const [resultado, setResultado] = useState<{ titulo: string; r: ResultadoLote } | null>(null);
+  const operacoes = useOperacoes();
+  // M-05: contabilizar/descontabilizar em lote é uma operação em segundo plano (barra de progresso, pode sair do ecrã);
+  // um erro num documento não impede os outros — o painel de operações mostra o progresso, o detalhe fica em «resultados».
   const lote = useMutation({
-    mutationFn: (p: { url: string; motivo?: string; titulo: string }) => enviar<ResultadoLote>('post', p.url, { ids: seleccao.map((d) => d.id), motivo: p.motivo }),
-    onSuccess: ({ dados, mensagem }, p) => {
-      message[dados.erros ? 'warning' : 'success'](mensagem);
-      setResultado({ titulo: p.titulo, r: dados });
+    mutationFn: (p: { url: string; motivo?: string; titulo: string }) => enviar<OperacaoLote>('post', p.url, { ids: seleccao.map((d) => d.id), motivo: p.motivo }),
+    onSuccess: ({ dados, mensagem }) => {
+      message.success(mensagem);
+      operacoes.acompanharLote(dados.id, dados.titulo, invalidar);
       setSeleccao([]);
-      invalidar();
     },
     onError: (e) => notificarErro(e),
   });
@@ -347,20 +349,6 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
           emitirRecibo: (id) => liquidar(processo?.cliente_id, id),
         }}
       />
-      <Modal open={!!resultado} title={resultado?.titulo} onCancel={() => setResultado(null)} footer={<Button onClick={() => setResultado(null)}>Fechar</Button>}>
-        <List
-          size="small"
-          dataSource={resultado?.r.resultados ?? []}
-          renderItem={(x) => (
-            <List.Item>
-              <Space direction="vertical" size={0}>
-                <Space><Tag color={x.sucesso ? 'green' : 'red'}>{x.sucesso ? 'OK' : 'Erro'}</Tag><strong>{x.numero ?? `#${x.id}`}</strong></Space>
-                <Typography.Text type={x.sucesso ? 'secondary' : 'danger'}>{x.mensagem}</Typography.Text>
-              </Space>
-            </List.Item>
-          )}
-        />
-      </Modal>
     </>
   );
 }

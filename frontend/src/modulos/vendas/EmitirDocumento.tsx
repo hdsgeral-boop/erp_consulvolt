@@ -4,10 +4,13 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ClipboardEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
+import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
+import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { useEcra } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -320,6 +323,78 @@ export function EmitirDocumento() {
     form.setFieldsValue({ baixar_stock: true, linhas: (form.getFieldValue('linhas') as LinhaForm[]).map(({ qtd_guia: _q, ...l }) => l) });
   };
 
+  // Colagem do Excel (ecrã mais usado do sistema): produto (resolvido por código ou nome no catálogo já carregado),
+  // descrição, quantidade, preço (só com a permissão «Alterar o preço de venda») e observação. «Qtd Guia» é só de
+  // leitura e o IVA não tem campo próprio na linha (vem sempre da ficha do produto) — por isso não entram na colagem.
+  const converterProduto = (texto: string): number | undefined => {
+    const t = texto.trim().toLowerCase();
+    if (!t) return undefined;
+    const lista = produtos.data ?? [];
+    const p = lista.find((x) => x.codigo && x.codigo.toLowerCase() === t) ?? lista.find((x) => x.nome.toLowerCase() === t);
+    return p?.id;
+  };
+  const colagemDisponivel: { chave: string; campo: CampoFormulario }[] = [
+    { chave: 'produto', campo: { nome: 'produto_id', rotulo: 'Produto/Serviço', tipo: 'personalizado', converter: converterProduto } },
+    { chave: 'descricao', campo: { nome: 'descricao', rotulo: 'Descrição', maxLength: 1000 } },
+    { chave: 'quantidade', campo: { nome: 'quantidade', rotulo: factura ? 'Qtd Faturar' : 'Quantidade', tipo: 'numero', min: 0.001 } },
+    ...(podeAlterarPreco ? [{ chave: 'preco', campo: { nome: 'preco_unitario', rotulo: `Preço Venda (${estrangeira ? moeda : 'Kz'})`, tipo: 'numero' as const, min: 0, precisao: 2 } }] : []),
+    { chave: 'observacoes', campo: { nome: 'observacoes', rotulo: 'Observação do artigo', tipo: 'textoLongo' as const, maxLength: 2000 } },
+  ];
+  const camposColaveis = colagemDisponivel.map((x) => x.campo);
+  const indiceColagem: Record<string, number> = Object.fromEntries(colagemDisponivel.map((x, i) => [x.chave, i]));
+
+  const avisoColagem = (r: ResultadoColagemGrade, n: number) => {
+    if (!n) return;
+    if (r.naoReconhecidos) {
+      const det = Object.entries(r.exemplos).map(([k, s]) => `${k}: ${s.join(', ')}`).join('; ');
+      void message.warning(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas pelo cabeçalho)' : ''}. ${r.naoReconhecidos} valor(es) não reconhecido(s) — corrija-os antes de gravar: ${det}`);
+    } else {
+      void message.success(`${n} linha(s) acrescentada(s)${r.comCabecalho ? ' (colunas reconhecidas pelo cabeçalho)' : ''}.`);
+    }
+  };
+
+  // Aplica as linhas coladas a partir de `aPartirDoIndice` (colagem numa célula) ou no fim (botão «Colar do Excel»);
+  // ao colar o produto, sugere o preço e a descrição da ficha (como `escolherProduto`), sem sobrepor valores colados.
+  const aplicarColagem = (linhasColadas: Record<string, unknown>[], aPartirDoIndice?: number) => {
+    const actuais = [...((form.getFieldValue('linhas') as LinhaForm[] | undefined) ?? [])];
+    const inicio = aPartirDoIndice ?? actuais.length;
+    linhasColadas.forEach((valores, i) => {
+      const idx = inicio + i;
+      let registo: LinhaForm = { ...(actuais[idx] ?? { quantidade: 1 }), ...valores };
+      if (valores.produto_id != null) {
+        const id = valores.produto_id as number;
+        const ficha = precoFicha(id);
+        registo = {
+          ...registo,
+          preco_ficha: ficha,
+          preco_unitario: valores.preco_unitario != null ? (valores.preco_unitario as number) : ficha,
+          descricao: valores.descricao != null ? (valores.descricao as string) : (porId.get(id)?.nome ?? registo.descricao),
+        };
+      }
+      if (idx < actuais.length) actuais[idx] = registo;
+      else actuais.push(registo);
+    });
+    form.setFieldsValue({ linhas: actuais });
+  };
+
+  const colarBloco = (texto: string) => {
+    const r = colagemParaLinhas(texto, camposColaveis);
+    aplicarColagem(r.linhas);
+    avisoColagem(r, r.linhas.length);
+  };
+
+  // Colagem directa numa célula (Ctrl+V): preenche a partir dessa linha/coluna, criando linhas se for preciso.
+  const aoColarCelula = (e: ClipboardEvent<HTMLDivElement>) => {
+    const texto = e.clipboardData?.getData('text') ?? '';
+    if (!pareceColagemDeGrade(texto)) return;
+    const pos = posicaoColagem(e.target);
+    if (!pos) return;
+    e.preventDefault();
+    const r = colagemParaLinhas(texto, camposColaveis, pos.coluna);
+    aplicarColagem(r.linhas, pos.linha);
+    avisoColagem(r, r.linhas.length);
+  };
+
   const submeter = (v: ValoresForm) => {
     const erro = comModalidade ? erroPlano(modo, plano) : null;
     if (erro) return void message.error(erro);
@@ -507,7 +582,12 @@ export function EmitirDocumento() {
         <Card
           title="Itens da Venda"
           style={{ marginBottom: 16 }}
-          extra={<Button size="small" onClick={() => add({ quantidade: 1 })}>+ Adicionar Linha</Button>}
+          extra={(
+            <Space size={8} wrap>
+              <Button size="small" onClick={() => add({ quantidade: 1 })}>+ Adicionar Linha</Button>
+              <ColarExcelBotao colunas={camposColaveis.map((c) => c.rotulo)} aoColar={colarBloco} tamanho="small" />
+            </Space>
+          )}
         >
           {guia && (
             <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`A facturar a guia de saída ${guia.numero_documento ?? `#${guia.id}`} (o stock já saiu com a guia).`}
@@ -525,7 +605,7 @@ export function EmitirDocumento() {
               <Col md={1} />
             </Row>
           )}
-              <>
+              <div onPaste={aoColarCelula}>
                 {campos.map(({ key, name }, n) => {
                   const l = linhas[name] ?? {};
                   const p = l.produto_id ? porId.get(l.produto_id) : undefined;
@@ -535,6 +615,7 @@ export function EmitirDocumento() {
                       key={key}
                       gutter={8}
                       align="top"
+                      data-colar-linha={name}
                       style={telemovel ? { border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, padding: '8px 4px 0', margin: '0 0 12px' } : undefined}
                     >
                       {telemovel && (
@@ -542,7 +623,7 @@ export function EmitirDocumento() {
                           <Typography.Text type="secondary">Linha {n + 1}</Typography.Text>
                         </Col>
                       )}
-                      <Col xs={24} md={guia ? 7 : 8}>
+                      <Col xs={24} md={guia ? 7 : 8} data-colar-coluna={indiceColagem.produto}>
                         <Form.Item name={[name, 'produto_id']} rules={[{ required: true, message: 'Produto' }]}>
                           <Select
                             showSearch
@@ -554,7 +635,7 @@ export function EmitirDocumento() {
                           />
                         </Form.Item>
                       </Col>
-                      <Col xs={24} md={guia ? 5 : 6}>
+                      <Col xs={24} md={guia ? 5 : 6} data-colar-coluna={indiceColagem.descricao}>
                         <Form.Item name={[name, 'descricao']}>
                           <Input placeholder="Descrição" maxLength={1000} />
                         </Form.Item>
@@ -566,12 +647,12 @@ export function EmitirDocumento() {
                           </Form.Item>
                         </Col>
                       )}
-                      <Col xs={8} md={2}>
+                      <Col xs={8} md={2} data-colar-coluna={indiceColagem.quantidade}>
                         <Form.Item name={[name, 'quantidade']} rules={[{ required: true, message: 'Qtd.' }]}>
                           <InputNumber min={0.001} step={1} placeholder="Qtd." style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
-                      <Col xs={10} md={3}>
+                      <Col xs={10} md={3} {...(indiceColagem.preco !== undefined ? { 'data-colar-coluna': indiceColagem.preco } : {})}>
                         <Form.Item name={[name, 'preco_ficha']} hidden><InputNumber /></Form.Item>
                         <Tooltip title={podeAlterarPreco ? (alterado ? `Preço da ficha: ${formatarKz(l.preco_ficha)}` : undefined) : 'Preço da ficha do produto (alterar exige a permissão «Alterar o preço de venda»).'}>
                           <Form.Item name={[name, 'preco_unitario']}>
@@ -588,7 +669,7 @@ export function EmitirDocumento() {
                       <Col xs={4} md={1}>
                         <Button danger size="small" icon={<IconeFa nome="times" />} onClick={() => remove(name)} aria-label="Remover linha" style={{ marginTop: 4 }} />
                       </Col>
-                      <Col xs={24} md={{ span: guia ? 19 : 20, offset: 0 }}>
+                      <Col xs={24} md={{ span: guia ? 19 : 20, offset: 0 }} data-colar-coluna={indiceColagem.observacoes}>
                         <Form.Item name={[name, 'observacoes']} style={{ marginBottom: 8 }}>
                           <Input.TextArea
                             autoSize={{ minRows: 1, maxRows: 4 }}
@@ -605,7 +686,7 @@ export function EmitirDocumento() {
                   );
                 })}
                 <Form.ErrorList errors={errors} />
-              </>
+              </div>
         </Card>
           )}
         </Form.List>

@@ -7,6 +7,7 @@ import { accoesAgt, svgComoDataUrl } from '../agt/accoesDocumento';
 import type { DocumentoVenda } from '../api';
 import { pedidoDocumentoComercial } from './documentoComercial';
 import { dadosDocumentoVenda, type QrDocumento } from './documentoVenda';
+import { useMeioPagamentoPredefinido } from './meioPredefinido';
 
 /**
  * «Imprimir» na linha da lista (legado: printInvoice(id)): lê o documento completo e imprime-o como no detalhe (A4
@@ -15,6 +16,7 @@ import { dadosDocumentoVenda, type QrDocumento } from './documentoVenda';
 export function useImprimirDocumentoVenda() {
   const { imprimir } = useImpressao();
   const { pode } = useSessao();
+  const obterPredefinido = useMeioPagamentoPredefinido();
   return useCallback(
     async (id: number) => {
       try {
@@ -28,11 +30,11 @@ export function useImprimirDocumentoVenda() {
             qr = null;
           }
         }
-        await imprimir(pedidoDocumentoComercial(dadosDocumentoVenda(d, qr)));
+        await imprimir(pedidoDocumentoComercial(dadosDocumentoVenda(d, qr, await obterPredefinido())));
       } catch (e) {
         notificarErro(e, 'Não foi possível imprimir o documento');
       }
     },
-    [imprimir, pode],
+    [imprimir, pode, obterPredefinido],
   );
 }

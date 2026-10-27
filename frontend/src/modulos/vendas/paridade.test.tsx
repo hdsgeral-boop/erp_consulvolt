@@ -88,6 +88,29 @@ describe('formulário da factura (4.2.9 / 4.2.12)', () => {
     expect(pagamentosImpressos({ tipo_documento: 'FT', total_bruto: '10', contas_pagamento: contas, ocultar_meios_pagamento: true })).toEqual([]);
     expect(pagamentosImpressos({ tipo_documento: 'OR', total_bruto: '10', contas_pagamento: contas, ocultar_meios_pagamento: false })).toEqual([]);
   });
+  it('a conta predefinida da empresa entra sempre na Factura/Factura-recibo, sem duplicar nem aparecer fora delas', () => {
+    const predefinido: MeioPagamentoVenda = { id: 9, nome: 'BAI — Conta principal', codigo_conta: '4311', iban: 'AO06004000001111111111174', swift: 'BAIAAOLU', predefinido: true, codigo_moeda: 'AOA' };
+    const semContas = { tipo_documento: 'FT', total_bruto: '10', contas_pagamento: [], ocultar_meios_pagamento: false };
+    // sem nenhuma conta escolhida manualmente: a predefinida aparece na mesma
+    expect(pagamentosImpressos(semContas, undefined, predefinido)[0].descricao).toBe('BAI — Conta principal — IBAN AO06004000001111111111174 · SWIFT BAIAAOLU');
+    // já escolhida manualmente (mesmo meio_pagamento_id): não duplica
+    const jaEscolhida = { ...semContas, contas_pagamento: [{ meio_pagamento_id: 9, nome: 'BAI — Conta principal', codigo_conta: '4311', iban: predefinido.iban, swift: predefinido.swift }] };
+    expect(pagamentosImpressos(jaEscolhida, undefined, predefinido)).toHaveLength(1);
+    // fora de Factura/Factura-recibo (ex.: Orçamento) não entra, mesmo havendo predefinida
+    expect(pagamentosImpressos({ ...semContas, tipo_documento: 'OR' }, undefined, predefinido)).toEqual([]);
+    // «Ocultar quadro de Meios de Pagamento» continua a esconder tudo, incluindo a predefinida
+    expect(pagamentosImpressos({ ...semContas, ocultar_meios_pagamento: true }, undefined, predefinido)).toEqual([]);
+  });
+  it('conta já escolhida sem IBAN (gravada antes de o IBAN existir em Tesouraria): completa-se com o IBAN actual, sem duplicar', () => {
+    const predefinido: MeioPagamentoVenda = { id: 18, nome: 'BAI -  Conta principal', codigo_conta: '43101001', iban: 'AO06004000007915609310157', swift: null, predefinido: true, codigo_moeda: 'AOA' };
+    const doc = {
+      tipo_documento: 'FT', total_bruto: '10', ocultar_meios_pagamento: false,
+      contas_pagamento: [{ meio_pagamento_id: 18, nome: 'BAI -  Conta principal', codigo_conta: '43101001', iban: null, swift: null }],
+    };
+    const linhas = pagamentosImpressos(doc, undefined, predefinido);
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].descricao).toBe('BAI -  Conta principal — IBAN AO06004000007915609310157');
+  });
 });
 
 describe('SAF-T (4.6.1)', () => {

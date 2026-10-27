@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api\Vendas;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vendas\CriarReciboRequest;
 use App\Http\Resources\Vendas\ReciboVendaResource;
+use App\Jobs\Vendas\ContabilizarVendaLoteJob;
 use App\Models\ReciboVenda;
 use App\Services\Gestao\ResumoAlocacaoUN;
+use App\Services\Integracoes\Operacoes\ServicoOperacoes;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Services\Vendas\ServicoRecibosVenda;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +24,8 @@ final class ReciboVendaController extends Controller
     public function __construct(
         private readonly ServicoRecibosVenda $recibos,
         private readonly ServicoContabilizacaoVendas $contabilizacao,
+        private readonly ServicoOperacoes $operacoes,
+        private readonly ContextoEmpresa $contexto,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -96,9 +101,12 @@ final class ReciboVendaController extends Controller
     {
         $this->exigir('vendas_fat_contabilizar');
         $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer']]);
-        $r = $this->contabilizacao->lote('recibos', true, $d['ids']);
+        $ids = array_values(array_unique($d['ids']));
+        $empresa = $this->contexto->obrigatorio();
+        $trabalhos = array_map(fn (int $id) => new ContabilizarVendaLoteJob($empresa, 'recibos', true, $id), $ids);
+        $op = $this->operacoes->despachar('Contabilizar '.count($ids).' recibo(s)', $trabalhos, 'alta', $empresa);
 
-        return RespostaApi::sucesso($r, "{$r['ok']} recibo(s) contabilizado(s); {$r['erros']} com erro.");
+        return RespostaApi::sucesso($op, 'Contabilização iniciada em segundo plano.');
     }
 
     public function descontabilizarLote(Request $request): JsonResponse
@@ -106,9 +114,12 @@ final class ReciboVendaController extends Controller
         $this->exigir('vendas_fat_unpost');
         $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer'],
             'motivo' => ['required', 'string', 'min:5', 'max:500']], [], ['motivo' => 'motivo']);
-        $r = $this->contabilizacao->lote('recibos', false, $d['ids'], $d['motivo']);
+        $ids = array_values(array_unique($d['ids']));
+        $empresa = $this->contexto->obrigatorio();
+        $trabalhos = array_map(fn (int $id) => new ContabilizarVendaLoteJob($empresa, 'recibos', false, $id, $d['motivo']), $ids);
+        $op = $this->operacoes->despachar('Descontabilizar '.count($ids).' recibo(s)', $trabalhos, 'alta', $empresa);
 
-        return RespostaApi::sucesso($r, "{$r['ok']} recibo(s) descontabilizado(s); {$r['erros']} com erro.");
+        return RespostaApi::sucesso($op, 'Descontabilização iniciada em segundo plano.');
     }
 
     public function anular(Request $request, int $recibo): JsonResponse

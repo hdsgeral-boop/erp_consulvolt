@@ -20,6 +20,7 @@ import { valorPagoMostrado, valorPendenteMostrado } from './ListaDocumentos';
 import { INFO_ESTADO_AGT, estadoAgtDoDocumento } from './agt/estadoAgt';
 import { pedidoDocumentoComercial } from './impressao/documentoComercial';
 import { dadosDocumentoVenda, type QrDocumento } from './impressao/documentoVenda';
+import { useMeioPagamentoPredefinido } from './impressao/meioPredefinido';
 import { CONTABILIZAVEIS, CONVERSOES, CORES_ESTADO, FISCAIS, TIPOS_DOCUMENTO, type DocumentoVenda, type LinhaVenda } from './api';
 import { ModalMotivo } from '@/componentes/Accoes';
 import { ModalCancelarRecebimentos } from './recebimentos/ModalCancelarRecebimentos';
@@ -46,6 +47,7 @@ export function DetalheDocumento() {
   const [qr, setQr] = useState<{ imagem: string; url: string | null } | null>(null);
   const [pedido, setPedido] = useState<unknown>(null);
   const [aCarregarAgt, setACarregarAgt] = useState<string | null>(null);
+  const obterPredefinido = useMeioPagamentoPredefinido();
 
   const consulta = useQuery({ queryKey: ['vendas', 'documento', id], queryFn: () => obter<DocumentoVenda & { alocacao_un?: ResumoAlocacao | null; linhas?: (LinhaVenda & LinhaComUNCC)[] }>(`/vendas/documentos/${id}`) });
   // ADR-071 (R5): colunas «Un. negócio» / «C. custo» por linha
@@ -130,7 +132,7 @@ export function DetalheDocumento() {
         qrDoc = null; // imprime-se sem QR (a série e o hash continuam no documento)
       }
     }
-    return pedidoDocumentoComercial(dadosDocumentoVenda(d, qrDoc));
+    return pedidoDocumentoComercial(dadosDocumentoVenda(d, qrDoc, await obterPredefinido()));
   };
   const verPedido = async () => {
     setACarregarAgt('pedido');

@@ -1,4 +1,4 @@
-import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, type DocumentoVenda } from '../api';
+import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, type DocumentoVenda, type MeioPagamentoVenda } from '../api';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { valoresPrestacoes } from '../condicoes';
 import { dataDoc, type DadosDocumentoComercial } from './documentoComercial';
@@ -31,18 +31,42 @@ export interface QrDocumento {
 
 const SEM_VALOR_FISCAL = ['OR', 'PF', 'NE'];
 const GUIAS = ['GR', 'GD'];
+/** Tipos onde o IBAN da conta predefinida da empresa aparece sempre (Factura e Factura-recibo). */
+const COM_IBAN_PREDEFINIDO = ['FT', 'FR'];
+
+/** Linha «Nome — IBAN xxx · SWIFT yyy» de uma conta (manual ou predefinida). */
+function linhaConta(c: { nome?: string | null; codigo_conta?: string | null; iban?: string | null; swift?: string | null }): { descricao: string } {
+  const banco = [c.iban && `IBAN ${c.iban}`, c.swift && `SWIFT ${c.swift}`].filter(Boolean).join(' · ');
+  return { descricao: [c.nome ?? c.codigo_conta ?? 'Conta', banco].filter(Boolean).join(' — ') };
+}
 
 /**
  * Quadro «Meios de pagamento» impresso (legado: buildDocData, js/ui_sales.js:4645-4653): o meio da factura-recibo e as
  * contas indicadas no documento («Adicionar Conta» — nome, conta, IBAN/SWIFT), salvo nos documentos sem valor fiscal,
- * nas guias e quando se escolheu «Ocultar quadro de Meios de Pagamento na impressão».
+ * nas guias e quando se escolheu «Ocultar quadro de Meios de Pagamento na impressão». A conta predefinida da empresa
+ * entra sempre nas Facturas/Facturas-recibo (para o cliente ter sempre o IBAN para pagar por transferência), mesmo sem
+ * nenhuma conta escolhida manualmente — sem duplicar, se já estiver entre as escolhidas. Se a conta já escolhida for a
+ * mesma do meio predefinido mas tiver sido gravada sem IBAN (ex.: escolhida antes de o IBAN existir em Tesouraria),
+ * usa-se o IBAN actual do meio predefinido nessa linha, em vez de a deixar sem IBAN ou de a duplicar.
  */
-export function pagamentosImpressos(d: Pick<DocumentoVenda, 'tipo_documento' | 'total_bruto' | 'contas_pagamento' | 'ocultar_meios_pagamento'>, meio?: string | null): { descricao: string; valor?: string }[] {
+export function pagamentosImpressos(
+  d: Pick<DocumentoVenda, 'tipo_documento' | 'total_bruto' | 'contas_pagamento' | 'ocultar_meios_pagamento'>,
+  meio?: string | null,
+  predefinido?: MeioPagamentoVenda | null,
+): { descricao: string; valor?: string }[] {
   if (d.ocultar_meios_pagamento || SEM_VALOR_FISCAL.includes(d.tipo_documento) || GUIAS.includes(d.tipo_documento)) return [];
   const linhas: { descricao: string; valor?: string }[] = d.tipo_documento === 'FR' && meio ? [{ descricao: meio, valor: d.total_bruto }] : [];
-  for (const c of d.contas_pagamento ?? []) {
-    const banco = [c.iban && `IBAN ${c.iban}`, c.swift && `SWIFT ${c.swift}`].filter(Boolean).join(' · ');
-    linhas.push({ descricao: [c.nome ?? c.codigo_conta ?? 'Conta', banco].filter(Boolean).join(' — ') });
+  const contas = d.contas_pagamento ?? [];
+  let predefinidoResolvido = false;
+  for (const c of contas) {
+    const mesmoMeio = predefinido && c.meio_pagamento_id === predefinido.id;
+    // conta gravada sem IBAN (nem SWIFT), mas é a mesma do meio predefinido actual: completa-se com os dados de hoje
+    const completar = mesmoMeio && !c.iban && !c.swift && predefinido.iban;
+    linhas.push(linhaConta(completar ? predefinido : c));
+    if (mesmoMeio && (c.iban || completar)) predefinidoResolvido = true;
+  }
+  if (predefinido?.iban && COM_IBAN_PREDEFINIDO.includes(d.tipo_documento) && !predefinidoResolvido) {
+    linhas.push(linhaConta(predefinido));
   }
   return linhas;
 }
@@ -52,7 +76,7 @@ export function pagamentosImpressos(d: Pick<DocumentoVenda, 'tipo_documento' | '
  * elementos do ecrã de detalhe: cliente, datas, linhas, resumo do IVA, totais e, nos documentos do regime de
  * facturação electrónica, a série AGT, o excerto do hash e o QR de consulta (quando existe).
  */
-export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null): DadosDocumentoComercial {
+export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null, predefinido?: MeioPagamentoVenda | null): DadosDocumentoComercial {
   const tipo = d.tipo_documento;
   const fe = d.faturacao_eletronica;
   const guia = GUIAS.includes(tipo);
@@ -98,7 +122,7 @@ export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null):
     totais: d.moeda
       ? { subtotal: d.moeda.total_liquido, imposto: d.moeda.total_imposto, total: d.moeda.total_bruto }
       : { subtotal: d.total_liquido, imposto: d.total_imposto, total: d.total_bruto },
-    pagamentos: pagamentosImpressos(d, meio),
+    pagamentos: pagamentosImpressos(d, meio, predefinido),
     moeda: d.codigo_moeda || 'AOA',
     blocos: [
       ['Motivo da nota de crédito', d.motivo_nota_credito],

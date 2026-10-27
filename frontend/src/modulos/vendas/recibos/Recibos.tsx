@@ -4,8 +4,9 @@ import { CartaoAlocacaoUN, ModalAlocacaoUN, bloqueioAlocacao, type ResumoAlocaca
 import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { somar } from '@/utilitarios/decimal';
 import { pedidoRecibo } from '../impressao/documentoRecibo';
+import { useMeioPagamentoPredefinido } from '../impressao/meioPredefinido';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -13,6 +14,7 @@ import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { useOperacoes } from '@/componentes/operacoes/Operacoes';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
@@ -43,12 +45,19 @@ function ListaRecibos() {
   const [seleccao, setSeleccao] = useState<number[]>([]);
   const [alocar, setAlocar] = useState<ReciboVenda | null>(null);
   const pequeno = useEcraPequeno();
-  // M-06: contabilizar/descontabilizar os recibos seleccionados (postSelectedReceipts / unpostSelectedReceipts do legado)
-  const lote = useAccao<{ ok: number; erros: number; resultados: { numero: string | null; sucesso: boolean; mensagem: string }[] }>({
-    invalidar: [['vendas'], ['teso']],
+  const consulta = useQueryClient();
+  const operacoes = useOperacoes();
+  // M-05/M-06: contabilizar/descontabilizar os recibos seleccionados (postSelectedReceipts / unpostSelectedReceipts do
+  // legado) é uma operação em segundo plano (barra de progresso, pode sair do ecrã); um recibo que falhe não impede os
+  // outros, com o detalhe acessível em GET /sistema/operacoes/{id}/resultados.
+  const lote = useAccao<{ id: string; titulo: string }>({
+    invalidar: [],
     aoSucesso: (r) => {
       setSeleccao([]);
-      if (r.erros) Modal.warning({ title: 'Alguns recibos não foram tratados', content: <ul>{r.resultados.filter((x) => !x.sucesso).map((x, i) => <li key={i}><strong>{x.numero}</strong>: {x.mensagem}</li>)}</ul> });
+      operacoes.acompanharLote(r.id, r.titulo, () => {
+        void consulta.invalidateQueries({ queryKey: ['vendas'] });
+        void consulta.invalidateQueries({ queryKey: ['teso'] });
+      });
     },
   });
   const descontabilizarLote = () => {
@@ -321,6 +330,7 @@ function DetalheRecibo() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [modal, setModal] = useState<'anular' | 'descontabilizar' | 'alocar' | null>(null);
+  const obterPredefinido = useMeioPagamentoPredefinido();
   const consulta = useQuery({ queryKey: ['vendas', 'recibo', id], queryFn: () => obter<ReciboVenda & { alocacao_un?: ResumoAlocacao | null }>(`/vendas/recibos/${id}`) });
   const accao = useAccao<ReciboVenda>({ invalidar: [['vendas'], ['teso']], aoSucesso: () => setModal(null) });
 
@@ -334,7 +344,7 @@ function DetalheRecibo() {
       <CabecalhoPagina
         titulo={`Recibo ${r.numero_recibo}`}
         subtitulo={r.cliente?.nome}
-        impressao={() => pedidoRecibo(r)}
+        impressao={async () => pedidoRecibo(r, await obterPredefinido())}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>

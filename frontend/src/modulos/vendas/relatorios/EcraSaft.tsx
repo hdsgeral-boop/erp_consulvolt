@@ -88,7 +88,8 @@ export function EcraSaft() {
     try {
       const v = await obter<ValidacaoSaft>('/vendas/saft/validar', { inicio, fim });
       const d = await descarregar('/vendas/saft', { inicio, fim }, v.nome || `SAFT_AO_${inicio}_${fim}.xml`);
-      message.success(`SAF-T gerado: ${d.cabecalhos['x-saft-documentos'] ?? v.documentos} documento(s), ${d.cabecalhos['x-saft-recibos'] ?? v.recibos} recibo(s).`);
+      const guias = Number(d.cabecalhos['x-saft-guias'] ?? v.guias ?? 0);
+      message.success(`SAF-T gerado: ${d.cabecalhos['x-saft-documentos'] ?? v.documentos} documento(s), ${d.cabecalhos['x-saft-recibos'] ?? v.recibos} recibo(s)${guias ? `, ${guias} guia(s)` : ''}.`);
       const avisos = d.cabecalhos['x-saft-avisos'] ? decodeURIComponent(d.cabecalhos['x-saft-avisos']) : v.avisos.join(' | ');
       if (avisos) message.warning(`Avisos: ${avisos}`, 10);
     } catch (e) {

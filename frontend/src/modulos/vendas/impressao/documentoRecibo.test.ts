@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { construirDocumento } from '@/componentes/impressao';
+import type { MeioPagamentoVenda } from '../api';
 import type { ReciboVenda } from '../recibos/tipos';
 import { dadosRecibo, pedidoDuasVias, pedidoRecibo } from './documentoRecibo';
 import { htmlDocumentoComercial } from './documentoComercial';
@@ -28,6 +29,15 @@ describe('recibos em duas vias', () => {
     expect(html).toContain('Adiantamento — Sinal da obra');
     expect(html).toContain('Saldo por alocar');
     expect(html).not.toContain('Sem linhas');
+  });
+
+  it('o recibo leva sempre o IBAN da conta predefinida da empresa, a seguir ao meio de pagamento escolhido', () => {
+    const predefinido: MeioPagamentoVenda = { id: 9, nome: 'BAI — Conta principal', codigo_conta: '4311', iban: 'AO06004000001111111111174', swift: 'BAIAAOLU', predefinido: true, codigo_moeda: 'AOA' };
+    const pags = dadosRecibo(recibo, predefinido).pagamentos;
+    expect(pags).toHaveLength(2);
+    expect(pags?.[0].descricao).toBe('Transferência');
+    expect(pags?.[1].descricao).toBe('BAI — Conta principal — IBAN AO06004000001111111111174 · SWIFT BAIAAOLU');
+    expect(dadosRecibo(recibo, null).pagamentos).toHaveLength(1);
   });
 
   it('qualquer documento comercial pode sair em vias com rótulos próprios', () => {

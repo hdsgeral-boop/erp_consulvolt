@@ -230,17 +230,24 @@ final class R2VendasTest extends TestCase
     #[Test]
     public function contabiliza_e_descontabiliza_em_lote_cada_documento_na_sua_transaccao(): void
     {
+        // M-05: cada documento é um trabalho de uma operação em segundo plano (ServicoOperacoes/Bus::batch); no driver
+        // `sync` dos testes corre tudo dentro do próprio pedido, por isso a operação já vem concluída na resposta.
         $s = $this->sessao($this->base());
         $ft1 = $this->emitir([], $s)->json('dados.id');
         $ft2 = $this->emitir([], $s)->json('dados.id');
         $or = $this->emitir(['tipo_documento' => 'OR'], $s)->json('dados.id');
-        $r = $this->postJson('/api/vendas/documentos/contabilizar', ['ids' => [$ft1, $or, $ft2]], $s)->assertOk()
-            ->assertJsonPath('dados.ok', 2)->assertJsonPath('dados.erros', 1)->json('dados.resultados');
+        // uma falha de negócio (NAO_CONTABILIZAVEL) é um resultado normal do trabalho, não uma falha do job: o lote
+        // conclui-se sem «falhados» (essa contagem é para erros do job em si); o detalhe por documento vem de /resultados
+        $op = $this->postJson('/api/vendas/documentos/contabilizar', ['ids' => [$ft1, $or, $ft2]], $s)->assertOk()
+            ->assertJsonPath('dados.total', 3)->assertJsonPath('dados.falhados', 0)->assertJsonPath('dados.estado', 'CONCLUIDA')
+            ->json('dados.id');
+        $r = $this->getJson("/api/sistema/operacoes/{$op}/resultados", $s)->assertOk()->json('dados');
         $this->assertSame([true, false, true], array_column($r, 'sucesso'));
         $this->assertSame('NAO_CONTABILIZAVEL', $r[1]['codigo']);
 
         $this->postJson('/api/vendas/documentos/descontabilizar', ['ids' => [$ft1]], $s)->assertStatus(422);   // motivo obrigatório
-        $this->postJson('/api/vendas/documentos/descontabilizar', ['ids' => [$ft1, $ft2], 'motivo' => 'Correcção em lote'], $s)->assertOk()->assertJsonPath('dados.ok', 2);
+        $this->postJson('/api/vendas/documentos/descontabilizar', ['ids' => [$ft1, $ft2], 'motivo' => 'Correcção em lote'], $s)->assertOk()
+            ->assertJsonPath('dados.total', 2)->assertJsonPath('dados.estado', 'CONCLUIDA');
         $this->postJson('/api/vendas/documentos/contabilizar', ['ids' => [$ft1]], $this->sessao(['vendas_faturacao_view', 'vendas_fat_emitir']))->assertForbidden();
     }
 

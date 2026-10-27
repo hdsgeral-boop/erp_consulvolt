@@ -385,6 +385,35 @@ final class FaturacaoEletronicaTest extends TestCase
     }
 
     #[Test]
+    public function ficheiro_saft_inclui_guias_de_remessa_e_devolucao_como_movimentos_de_bens(): void
+    {
+        $gr = $this->emitir(['tipo_documento' => 'GR'])->assertCreated()->json('dados.id');
+        $this->postJson("/api/vendas/documentos/{$gr}/converter", ['tipo_destino' => 'GD'], $this->cabecalhos)->assertCreated();
+
+        $r = $this->get("/api/vendas/saft?inicio={$this->hoje}&fim={$this->hoje}", $this->cabecalhos)->assertOk();
+        $this->assertSame('2', $r->headers->get('X-Saft-Guias'));
+        $xml = simplexml_load_string($r->getContent());
+        $this->assertNotFalse($xml, 'XML inválido');
+        $xml->registerXPathNamespace('s', 'urn:OECD:StandardAuditFile-Tax:AO_1.01_01');
+        $v = fn (string $caminho) => (string) ($xml->xpath($caminho)[0] ?? '');
+
+        $this->assertSame('2', $v('//s:MovementOfGoods/s:NumberOfMovementLines'));
+        $this->assertSame($this->venda($gr)->numero_documento, $v('//s:StockMovement[s:MovementType="GR"]/s:DocumentNumber'));
+        $this->assertSame('0', $v('//s:StockMovement[s:MovementType="GR"]/s:Hash'));
+        $this->assertSame('0', $v('//s:StockMovement[s:MovementType="GR"]/s:HashControl'));
+        $this->assertSame('N', $v('//s:StockMovement[s:MovementType="GR"]/s:DocumentStatus/s:MovementStatus'));
+        $this->assertSame((string) $this->cliente->id, $v('//s:StockMovement[s:MovementType="GR"]/s:CustomerID'));
+        $this->assertSame('2', $v('//s:StockMovement[s:MovementType="GR"]/s:Line/s:Quantity'));
+        $this->assertSame('2000.00', $v('//s:StockMovement[s:MovementType="GR"]/s:Line/s:CreditAmount'));
+        $this->assertSame('2000.00', $v('//s:StockMovement[s:MovementType="GD"]/s:Line/s:DebitAmount'));
+        $this->assertCount(0, $xml->xpath('//s:SalesInvoices'));
+        // ordem exigida pelo xs:sequence do XSD oficial: CustomerID e SourceID antes de MovementStartTime
+        $nomes = array_map(fn ($n) => $n->getName(), $xml->xpath('//s:StockMovement[s:MovementType="GR"]/*'));
+        $this->assertLessThan(array_search('SourceID', $nomes, true), array_search('CustomerID', $nomes, true));
+        $this->assertLessThan(array_search('MovementStartTime', $nomes, true), array_search('SourceID', $nomes, true));
+    }
+
+    #[Test]
     public function pre_validacao_agt_recusa_a_emissao_sem_consumir_o_numero_da_serie(): void
     {
         $this->ativarRegime();

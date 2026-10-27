@@ -1,16 +1,26 @@
 import type { PedidoImpressao } from '@/componentes/impressao';
 import { formatarKz } from '@/utilitarios/formatacao';
+import type { MeioPagamentoVenda } from '../api';
 import { rotuloMeio, type ReciboVenda } from '../recibos/tipos';
 import { CSS_DOCUMENTO_COMERCIAL, dataDoc, pedidoDocumentoComercial, type DadosDocumentoComercial } from './documentoComercial';
 
-/** Recibo de cliente → documento comercial impresso (facturas liquidadas ou adiantamento, montante, meio de pagamento). */
-export function dadosRecibo(r: ReciboVenda): DadosDocumentoComercial {
+/**
+ * Recibo de cliente → documento comercial impresso (facturas liquidadas ou adiantamento, montante, meio de
+ * pagamento). `predefinido`: conta bancária predefinida da empresa, sempre acrescentada com o IBAN para o cliente
+ * poder pagar por transferência (mesmo sem IBAN no meio de pagamento escolhido no recibo).
+ */
+export function dadosRecibo(r: ReciboVenda, predefinido?: MeioPagamentoVenda | null): DadosDocumentoComercial {
   const meio = rotuloMeio(r.meio_pagamento);
   const adiantamento = r.tipo_recibo === 'ADIANTAMENTO';
   const alocacoes = r.alocacoes ?? [];
   const linhas: (string | null)[][] = alocacoes.map((a) => [a.numero_documento ?? `#${a.venda_id}`, formatarKz(a.montante)]);
   // Adiantamento sem facturas (ainda) alocadas: a linha descreve o adiantamento em vez de «Sem linhas».
   if (adiantamento && !linhas.length) linhas.push([`Adiantamento${r.referencia ? ` — ${r.referencia}` : ''}`, formatarKz(r.montante_total)]);
+  const pagamentos: { descricao: string; valor?: string }[] = meio !== '—' ? [{ descricao: meio, valor: r.montante_total }] : [];
+  if (predefinido?.iban) {
+    const banco = [`IBAN ${predefinido.iban}`, predefinido.swift && `SWIFT ${predefinido.swift}`].filter(Boolean).join(' · ');
+    pagamentos.push({ descricao: [predefinido.nome ?? predefinido.codigo_conta ?? 'Conta', banco].filter(Boolean).join(' — ') });
+  }
   return {
     tipo: adiantamento ? 'Recibo de adiantamento' : 'Recibo',
     numero: r.numero_recibo,
@@ -28,7 +38,7 @@ export function dadosRecibo(r: ReciboVenda): DadosDocumentoComercial {
     colunas: [{ titulo: adiantamento && !alocacoes.length ? 'Descrição' : 'Documento liquidado' }, { titulo: 'Montante (Kz)', alinhar: 'direita' }],
     linhas,
     totais: { total: r.montante_total, rotuloTotal: 'Total recebido' },
-    pagamentos: meio !== '—' ? [{ descricao: meio, valor: r.montante_total }] : [],
+    pagamentos,
     impostos: false,
     legal: ['Documento processado por computador.', adiantamento ? 'Adiantamento a deduzir nas facturas a emitir/alocar.' : null],
     assinaturas: ['O Cliente', 'A Empresa'],
@@ -60,4 +70,4 @@ export function pedidoDuasVias(d: DadosDocumentoComercial, rotulos: string[] = [
 }
 
 /** Recibo de cliente em duas vias. */
-export const pedidoRecibo = (r: ReciboVenda): PedidoImpressao => pedidoDuasVias(dadosRecibo(r));
+export const pedidoRecibo = (r: ReciboVenda, predefinido?: MeioPagamentoVenda | null): PedidoImpressao => pedidoDuasVias(dadosRecibo(r, predefinido));

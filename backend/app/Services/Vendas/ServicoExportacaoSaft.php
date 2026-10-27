@@ -17,12 +17,15 @@ use Illuminate\Support\Facades\DB;
 use XMLWriter;
 
 /**
- * Ficheiro SAF-T(AO) de facturação (TaxAccountingBasis "F"): MasterFiles, SalesInvoices (FT, FR, NC) e Payments (recibos).
- * Substitui exportSaft do legado (js/ui_sales.js:10300-10590), que tinha erros graves:
+ * Ficheiro SAF-T(AO) de facturação (TaxAccountingBasis "F"): MasterFiles, SalesInvoices (FT, FR, NC), MovementOfGoods
+ * (GR, GD — guias de remessa/devolução, confirmado no XSD oficial: MovementType aceita «GR» e «GD» directamente, sem
+ * tradução) e Payments (recibos). Substitui exportSaft do legado (js/ui_sales.js:10300-10590), que tinha erros graves:
  *   - Hash falso (soma de caracteres + texto fixo) recalculado na exportação → aqui o Hash gravado na emissão;
  *   - etiqueta inexistente <InvoiceNao>, <AuditFileSchemaVersion>, <SoftwareValidactionNumber>, n.º de certificação inventado;
  *   - NC subtraídas do TotalCredit em vez de somadas ao TotalDebit; linhas com o valor COM imposto;
- *   - isenção sempre M10; XML sem escape (um "&" no nome do cliente corrompia o ficheiro).
+ *   - isenção sempre M10; XML sem escape (um "&" no nome do cliente corrompia o ficheiro);
+ *   - guias (GR/GD) nunca saíam no ficheiro (não têm hash digital — não são documento fiscal/regime de facturação
+ *     electrónica — por isso saem sempre com Hash/HashControl «0», sem ser considerado documento «sem assinatura»).
  * Os valores são os oficiais em Kz; documentos em moeda estrangeira levam o bloco <Currency>.
  * Documentos anteriores ao sistema novo (sem Hash) saem com Hash "0" e HashControl "0" e são assinalados nos avisos.
  * r4_agt: os documentos integrados de outro sistema (migrados) saem com SourceBilling «I» e, se o n.º original não cumprir
@@ -48,15 +51,16 @@ final class ServicoExportacaoSaft
      * Validação prévia, sem gerar o ficheiro (GET /api/vendas/saft/validar e início de gerar()): período, NIF da empresa
      * e existência de documentos. Lança ErroNegocio (422, envelope JSON) e devolve as contagens e os avisos conhecidos à partida.
      *
-     * @return array{nome: string, documentos: int, recibos: int, avisos: list<string>}
+     * @return array{nome: string, documentos: int, recibos: int, guias: int, avisos: list<string>}
      */
     public function validar(string $inicio, string $fim): array
     {
         $nif = $this->empresaValida($inicio, $fim)[1];
         $documentos = $this->consultaVendas($inicio, $fim)->count();
         $recibos = $this->consultaRecibos($inicio, $fim)->count();
-        if ($documentos === 0 && $recibos === 0) {
-            throw new ErroNegocio('Não há documentos fiscais nem recibos no período.', 'SEM_DOCUMENTOS', 422);
+        $guias = $this->consultaGuias($inicio, $fim)->count();
+        if ($documentos === 0 && $recibos === 0 && $guias === 0) {
+            throw new ErroNegocio('Não há documentos fiscais, guias nem recibos no período.', 'SEM_DOCUMENTOS', 422);
         }
         $avisos = [];
         if ($this->softwarePorConfigurar()) {
@@ -71,10 +75,10 @@ final class ServicoExportacaoSaft
             $avisos[] = "{$importados['documentos']} documento(s) integrado(s) de outro sistema (SourceBilling «I»)".($importados['fora_do_padrao'] ? ", {$importados['fora_do_padrao']} com o n.º original fora do padrão SAF-T (exportados com o n.º SAF-T; ver o relatório de documentos integrados)" : '').'.';
         }
 
-        return ['nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'documentos' => $documentos, 'recibos' => $recibos, 'avisos' => $avisos];
+        return ['nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'documentos' => $documentos, 'recibos' => $recibos, 'guias' => $guias, 'avisos' => $avisos];
     }
 
-    /** @return array{xml: string, nome: string, avisos: list<string>, documentos: int, recibos: int} */
+    /** @return array{xml: string, nome: string, avisos: list<string>, documentos: int, recibos: int, guias: int} */
     public function gerar(string $inicio, string $fim): array
     {
         $this->avisos = [];
@@ -84,12 +88,16 @@ final class ServicoExportacaoSaft
             ->with(['itensVenda' => fn ($q) => $q->orderBy('id')])->orderBy('data_emissao')->orderBy('id')->get();
         $recibos = $this->consultaRecibos($inicio, $fim)
             ->with('itensReciboVenda.venda:id,tipo_documento,numero_documento,numero_documento_saft,saft_source_billing,fe_selado_em,data_emissao')->orderBy('data')->orderBy('id')->get();
-        if ($vendas->isEmpty() && $recibos->isEmpty()) {
-            throw new ErroNegocio('Não há documentos fiscais nem recibos no período.', 'SEM_DOCUMENTOS', 422);
+        $guias = $this->consultaGuias($inicio, $fim)
+            ->with(['itensVenda' => fn ($q) => $q->orderBy('id')])->orderBy('data_emissao')->orderBy('id')->get();
+        if ($vendas->isEmpty() && $recibos->isEmpty() && $guias->isEmpty()) {
+            throw new ErroNegocio('Não há documentos fiscais, guias nem recibos no período.', 'SEM_DOCUMENTOS', 422);
         }
 
-        $clientes = Terceiro::query()->withTrashed()->whereIn('id', $vendas->pluck('cliente_id')->merge($recibos->pluck('cliente_id'))->unique())->get()->keyBy('id');
-        $produtos = Produto::query()->withTrashed()->whereIn('id', $vendas->flatMap(fn ($v) => $v->itensVenda->pluck('produto_id'))->filter()->unique())->get()->keyBy('id');
+        $clientes = Terceiro::query()->withTrashed()->whereIn('id', $vendas->pluck('cliente_id')->merge($recibos->pluck('cliente_id'))->merge($guias->pluck('cliente_id'))->unique())->get()->keyBy('id');
+        $produtos = Produto::query()->withTrashed()
+            ->whereIn('id', $vendas->flatMap(fn ($v) => $v->itensVenda->pluck('produto_id'))->merge($guias->flatMap(fn ($v) => $v->itensVenda->pluck('produto_id')))->filter()->unique())
+            ->get()->keyBy('id');
         $ligacoes = DB::table('vendas_documentos_relacionados as r')->where('r.empresa_id', $empresa->id)
             ->whereIn('r.venda_id', $vendas->where('tipo_documento', 'NC')->pluck('id'))->pluck('r.venda_relacionada_id', 'r.venda_id');
         $origens = Venda::query()->whereIn('id', $ligacoes->values()->unique())
@@ -111,6 +119,9 @@ final class ServicoExportacaoSaft
         if ($vendas->isNotEmpty()) {
             $this->facturas($x, $vendas, $produtos, $referencias);
         }
+        if ($guias->isNotEmpty()) {
+            $this->movimentosDeBens($x, $guias, $produtos);
+        }
         if ($recibos->isNotEmpty()) {
             $this->pagamentos($x, $recibos);
         }
@@ -124,7 +135,7 @@ final class ServicoExportacaoSaft
         }
 
         return ['xml' => $x->outputMemory(), 'nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'avisos' => array_values(array_unique($this->avisos)),
-            'documentos' => $vendas->count(), 'recibos' => $recibos->count()];
+            'documentos' => $vendas->count(), 'recibos' => $recibos->count(), 'guias' => $guias->count()];
     }
 
     /** @return array{0: Empresa, 1: string} */
@@ -154,6 +165,13 @@ final class ServicoExportacaoSaft
     {
         // os anulados também saem (InvoiceStatus «A», fora dos totais)
         return Venda::query()->whereIn('tipo_documento', Venda::FISCAIS)
+            ->where('data_emissao', '>=', $inicio)->where('data_emissao', '<', date('Y-m-d', strtotime("{$fim} +1 day")));
+    }
+
+    /** @return Builder<Venda> guias de remessa/devolução (GR, GD — documentos de transporte, MovementOfGoods) */
+    private function consultaGuias(string $inicio, string $fim): Builder
+    {
+        return Venda::query()->whereIn('tipo_documento', ['GR', 'GD'])
             ->where('data_emissao', '>=', $inicio)->where('data_emissao', '<', date('Y-m-d', strtotime("{$fim} +1 day")));
     }
 
@@ -361,6 +379,74 @@ final class ServicoExportacaoSaft
                 $this->el($x, 'PaymentDate', $v->data_emissao->toDateString());
                 $x->endElement();
             }
+            $x->endElement();
+            $x->endElement();
+        }
+        $x->endElement();
+    }
+
+    /**
+     * Guias de remessa/devolução (GR, GD): MovementOfGoods/StockMovement (confirmado no XSD: MovementType aceita «GR»
+     * e «GD» tal como estão, sem tradução). Documentos de transporte, sem valor fiscal nem regime de facturação
+     * electrónica — Hash/HashControl saem sempre «0» (não têm assinatura digital, ao contrário das facturas); a linha
+     * leva a quantidade e o preço da ficha, sem imposto (não há venda, só movimento de bens).
+     */
+    private function movimentosDeBens(XMLWriter $x, $guias, $produtos): void
+    {
+        $quantidade = $guias->reduce(fn ($t, $g) => bcadd($t, (string) $g->itensVenda->sum('quantidade'), 3), '0.000');
+
+        $x->startElement('MovementOfGoods');
+        $this->el($x, 'NumberOfMovementLines', (string) $guias->sum(fn ($g) => $g->itensVenda->count()));
+        $this->el($x, 'TotalQuantityIssued', rtrim(rtrim($quantidade, '0'), '.') ?: '0');
+        foreach ($guias as $g) {
+            $entrada = ($g->fe_data_entrada_sistema ?? $g->data_emissao)->format('Y-m-d\TH:i:s');
+            $anulado = $g->estado === 'ANULADO';
+            $importado = ServicoDocumentosImportadosSaft::eImportado($g);
+            $numeroSaft = ServicoDocumentosImportadosSaft::numeroSaft($g);
+            if ($numeroSaft !== $g->numero_documento) {
+                $this->avisos[] = "{$g->numero_documento}: integrado de outro sistema; exportado como {$numeroSaft} (n.º original fora do padrão SAF-T).";
+            }
+            $x->startElement('StockMovement');
+            $this->el($x, 'DocumentNumber', $numeroSaft);
+            $x->startElement('DocumentStatus');
+            $this->el($x, 'MovementStatus', $anulado ? 'A' : 'N');
+            $this->el($x, 'MovementStatusDate', $anulado && $g->anulado_em ? Carbon::parse($g->anulado_em)->format('Y-m-d\TH:i:s') : $entrada);
+            if ($anulado) {
+                $this->el($x, 'Reason', mb_substr((string) ($g->motivo_anulacao ?: 'Anulado'), 0, 50));
+            }
+            $this->el($x, 'SourceID', 'ERP');
+            $this->el($x, 'SourceBilling', $importado ? ((string) ($g->getAttribute('saft_source_billing') ?: 'I') === 'M' ? 'M' : 'I') : 'P');
+            $x->endElement();
+            $this->el($x, 'Hash', '0');
+            $this->el($x, 'HashControl', '0');
+            $this->el($x, 'Period', (string) (int) $g->data_emissao->format('m'));
+            $this->el($x, 'MovementDate', $g->data_emissao->toDateString());
+            $this->el($x, 'MovementType', $g->tipo_documento);
+            $this->el($x, 'SystemEntryDate', $entrada);
+            $this->el($x, 'CustomerID', (string) $g->cliente_id);
+            $this->el($x, 'SourceID', 'ERP');
+            $this->el($x, 'MovementStartTime', $entrada);
+
+            foreach ($g->itensVenda->values() as $n => $i) {
+                $p = $produtos[$i->produto_id] ?? null;
+                $valor = $i->total_linha !== null ? number_format((float) $i->total_linha, 2, '.', '')
+                    : CalculadoraDocumento::arredondar(bcmul((string) $i->quantidade, (string) $i->preco_unitario, 8));
+                $x->startElement('Line');
+                $this->el($x, 'LineNumber', (string) ($n + 1));
+                $this->el($x, 'ProductCode', $p?->codigo ?: (string) ($i->produto_id ?? 'SERV'));
+                $this->el($x, 'ProductDescription', $p?->nome ?: ($i->descricao ?: 'Artigo'));
+                $this->el($x, 'Quantity', rtrim(rtrim(number_format((float) $i->quantidade, 3, '.', ''), '0'), '.'));
+                $this->el($x, 'UnitOfMeasure', $p?->unidade_fe ?: 'UN');
+                $this->el($x, 'UnitPrice', number_format((float) $i->preco_unitario, 2, '.', ''));
+                $this->el($x, 'Description', mb_substr($i->descricao ?: ($p?->nome ?: 'Artigo'), 0, 200));
+                $this->el($x, $g->tipo_documento === 'GD' ? 'DebitAmount' : 'CreditAmount', $valor);
+                $x->endElement();
+            }
+
+            $x->startElement('DocumentTotals');
+            $this->el($x, 'TaxPayable', '0.00');
+            $this->el($x, 'NetTotal', number_format((float) $g->total_liquido, 2, '.', ''));
+            $this->el($x, 'GrossTotal', number_format((float) $g->total_bruto, 2, '.', ''));
             $x->endElement();
             $x->endElement();
         }

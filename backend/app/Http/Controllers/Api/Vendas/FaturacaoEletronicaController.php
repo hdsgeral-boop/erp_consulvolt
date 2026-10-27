@@ -151,7 +151,7 @@ final class FaturacaoEletronicaController extends Controller
         return response($r['xml'], 200, [
             'Content-Type' => 'application/xml; charset=utf-8',
             'Content-Disposition' => 'attachment; filename="'.$r['nome'].'"',
-            'X-Saft-Documentos' => (string) $r['documentos'], 'X-Saft-Recibos' => (string) $r['recibos'],
+            'X-Saft-Documentos' => (string) $r['documentos'], 'X-Saft-Recibos' => (string) $r['recibos'], 'X-Saft-Guias' => (string) $r['guias'],
             'X-Saft-Avisos' => rawurlencode(implode(' | ', $r['avisos'])),
         ]);
     }
