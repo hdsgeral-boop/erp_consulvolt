@@ -1531,6 +1531,51 @@
   opacity: 0.5;
 }
 
+/* ── SECÇÃO "SEM SISTEMA VS. COM CONSULVOLT" (RISCO LEGAL) ──────────────── */
+.cv-risk-section {
+  padding: 96px 24px;
+  background: var(--cv-bg-light);
+}
+
+.cv-risk-container {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.cv-risk-table th,
+.cv-risk-table td {
+  text-align: left;
+  vertical-align: top;
+}
+
+.cv-risk-table thead th:first-child {
+  background: transparent;
+}
+
+.cv-risk-cell {
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.cv-risk-cell.sem {
+  color: var(--cv-red-dark);
+}
+
+.cv-risk-cell.sem::before {
+  content: '✕ ';
+  font-weight: 800;
+}
+
+.cv-risk-cell.com {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.cv-risk-cell.com::before {
+  content: '✓ ';
+  font-weight: 800;
+}
+
 /* ── PÁGINAS LEGAIS / INSTITUCIONAIS (Termos, Privacidade, Conformidade) ─ */
 .cv-legal-conteudo h2 {
   font-size: 19px;

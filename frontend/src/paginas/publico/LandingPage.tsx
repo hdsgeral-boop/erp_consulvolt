@@ -214,6 +214,22 @@ const TRADUCOES_PT = {
       { titulo: 'Tecnologia 100% Cloud Segura', desc: 'Aceda no computador, tablet ou smartphone a partir de qualquer local com cópias de segurança automáticas e encriptação avançada.' },
     ],
   },
+  comparacao: {
+    eyebrow: 'O QUE ESTÁ EM JOGO',
+    titulo: 'Sem sistema certificado, o risco é seu. Com o Consulvolt, a conformidade é automática.',
+    descricao: 'O Decreto Presidencial n.º 71/25 tornou a facturação eletrónica certificada pela AGT obrigatória em Angola. Compare o que está em jogo para a sua empresa.',
+    colSem: 'Sem sistema certificado',
+    colCom: 'Com o Consulvolt ERP',
+    linhas: [
+      { tema: 'Risco de coima (Decreto 71/25)', sem: 'Até 600.000 Kz por infração, ou 7% a 15% do valor de cada fatura não emitida através de software certificado', com: 'Facturação certificada pela AGT: o risco de coima fica eliminado' },
+      { tema: 'Ficheiro fiscal SAF-T', sem: 'Produzido manualmente, com risco de atraso, omissões ou erros', com: 'Gerado automaticamente — Facturação, Contabilidade, Inventário e Transporte' },
+      { tema: 'Fecho de contas mensal', sem: 'Dias de trabalho a cruzar folhas de Excel dispersas', com: 'Balancetes e relatórios prontos em minutos' },
+      { tema: 'Controlo de stock', sem: 'Folhas de cálculo sem rasto nem alertas de rutura', com: 'Stock, lotes e armazéns em tempo real, com alertas automáticos' },
+      { tema: 'Processamento salarial', sem: 'Cálculo manual de IRT e INSS, sujeito a erro humano', com: 'IRT e INSS calculados automaticamente, recibos emitidos em segundos' },
+      { tema: 'Segurança dos dados', sem: 'Ficheiros locais, sem cópia de segurança nem encriptação', com: 'Cópias de segurança automáticas e encriptação na nuvem' },
+    ],
+    nota: 'Valores de referência segundo o Decreto Presidencial n.º 71/25 (Regime Jurídico das Facturas) e a regulamentação da AGT sobre a submissão eletrónica de ficheiros e declarações fiscais.',
+  },
   pricing: {
     titulo: 'Planos transparentes e ajustados à dimensão da sua empresa',
     descricao: (d: number) => `Comece agora a gerir o seu negócio com ${d} dias grátis. Os valores indicados refletem a configuração real do sistema.`,
@@ -266,6 +282,7 @@ const TRADUCOES_PT = {
     titulo: 'Perguntas Frequentes',
     lista: [
       { pergunta: 'O Consulvolt ERP está em conformidade com as regras fiscais de Angola?', resposta: 'Sim. O sistema cumpre rigorosamente as normas tributárias da Administração Geral Tributária (AGT), gerando documentos legalmente válidos com códigos criptográficos e o ficheiro SAF-T de faturação e contabilidade.' },
+      { pergunta: 'O que é o Decreto Presidencial n.º 71/25 e que multas estão previstas para quem não cumprir?', resposta: 'O Decreto Presidencial n.º 71/25 (Regime Jurídico das Faturas) torna obrigatória a facturação eletrónica certificada pela AGT em Angola. Quem não emitir faturas através de um sistema certificado arrisca uma coima de 7% do valor de cada fatura não emitida (15% em caso de reincidência), além de multas até 600.000 Kz por infrações relacionadas com a submissão do ficheiro SAF-T ou das declarações eletrónicas obrigatórias. O Consulvolt ERP já está certificado pela AGT e gera automaticamente o ficheiro SAF-T, eliminando este risco para a sua empresa.' },
       { pergunta: 'É necessário instalar algum programa no computador?', resposta: 'Não. O Consulvolt funciona 100% online através de qualquer navegador (Chrome, Edge, Safari, Firefox) no computador, telemóvel ou tablet, sem necessidade de servidores locais dispendiosos.' },
       { pergunta: 'Posso gerir mais do que uma empresa no mesmo sistema?', resposta: 'Sim. Os planos Profissional e Empresarial permitem gerir várias empresas com NIFs distintos e consolidação de dados ou relatórios, facilitando a gestão de grupos e holdings.' },
       { pergunta: 'Que tipo de impressoras de faturação são suportadas?', resposta: 'O sistema suporta impressoras térmicas de talão (58mm e 80mm por USB, rede ou Bluetooth) e qualquer impressora normal de formato A4 para emissão de faturas comerciais e mapas de gestão.' },
@@ -394,6 +411,22 @@ const TRADUCOES_EN: TraducaoLandingPage = {
       { titulo: '100% Secure Cloud Technology', desc: 'Access from computer, tablet or smartphone, from anywhere, with automatic backups and advanced encryption.' },
     ],
   },
+  comparacao: {
+    eyebrow: "WHAT'S AT STAKE",
+    titulo: 'Without a certified system, the risk is yours. With Consulvolt, compliance is automatic.',
+    descricao: 'Presidential Decree n.º 71/25 made AGT-certified electronic invoicing mandatory in Angola. Compare what is at stake for your business.',
+    colSem: 'Without a certified system',
+    colCom: 'With Consulvolt ERP',
+    linhas: [
+      { tema: 'Risk of fines (Decree 71/25)', sem: 'Up to 600,000 Kz per infringement, or 7% to 15% of the value of each invoice not issued through certified software', com: 'AGT-certified invoicing: the risk of fines is eliminated' },
+      { tema: 'SAF-T tax file', sem: 'Produced manually, with risk of delay, omissions or errors', com: 'Generated automatically — Invoicing, Accounting, Inventory and Transport' },
+      { tema: 'Monthly accounts closing', sem: 'Days of work cross-checking scattered spreadsheets', com: 'Trial balances and reports ready in minutes' },
+      { tema: 'Stock control', sem: 'Spreadsheets with no audit trail or stock-out alerts', com: 'Real-time stock, batches and warehouses, with automatic alerts' },
+      { tema: 'Payroll processing', sem: 'Manual calculation of IRT and INSS, prone to human error', com: 'IRT and INSS calculated automatically, payslips issued in seconds' },
+      { tema: 'Data security', sem: 'Local files, with no backup or encryption', com: 'Automatic backups and cloud encryption' },
+    ],
+    nota: "Reference figures per Presidential Decree n.º 71/25 (Legal Regime of Invoices) and AGT regulations on the electronic submission of tax files and returns.",
+  },
   pricing: {
     titulo: 'Transparent plans, scaled to the size of your business',
     descricao: (d: number) => `Start managing your business now with ${d} days free. The prices shown reflect the system's actual configuration.`,
@@ -446,6 +479,7 @@ const TRADUCOES_EN: TraducaoLandingPage = {
     titulo: 'Frequently Asked Questions',
     lista: [
       { pergunta: "Is Consulvolt ERP compliant with Angola's tax rules?", resposta: 'Yes. The system strictly complies with the tax regulations of the General Tax Administration (AGT), generating legally valid documents with cryptographic codes and the SAF-T invoicing and accounting file.' },
+      { pergunta: 'What is Presidential Decree n.º 71/25, and what fines does it set out for non-compliance?', resposta: "Presidential Decree n.º 71/25 (Legal Regime of Invoices) makes AGT-certified electronic invoicing mandatory in Angola. A business that does not issue invoices through certified software risks a fine of 7% of the value of each invoice not issued (15% for repeated non-compliance), plus fines of up to 600,000 Kz per infringement related to submitting the SAF-T file or the mandatory electronic returns. Consulvolt ERP is already AGT-certified and automatically generates the SAF-T file, removing this risk for your business." },
       { pergunta: 'Do I need to install any software on my computer?', resposta: 'No. Consulvolt runs 100% online through any browser (Chrome, Edge, Safari, Firefox) on computer, phone or tablet, with no need for costly local servers.' },
       { pergunta: 'Can I manage more than one company in the same system?', resposta: 'Yes. The Professional and Enterprise plans let you manage several companies with different tax IDs, with data consolidation and reporting, making it easy to manage groups and holdings.' },
       { pergunta: 'What type of invoice printers are supported?', resposta: 'The system supports thermal receipt printers (58mm and 80mm, via USB, network or Bluetooth) and any standard A4 printer for issuing commercial invoices and management reports.' },
@@ -841,6 +875,48 @@ export function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── SECÇÃO 4.5: SEM SISTEMA VS. COM CONSULVOLT (RISCO LEGAL) ───── */}
+      <section id="comparacao" className="cv-risk-section">
+        <div className="cv-risk-container">
+          <div style={{ textAlign: 'center', maxWidth: 740, margin: '0 auto' }} className="cv-reveal">
+            <span style={{ color: '#b91c1c', fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {L.comparacao.eyebrow}
+            </span>
+            <h2 className="cv-section-title" style={{ marginTop: 8, marginBottom: 16 }}>
+              {L.comparacao.titulo}
+            </h2>
+            <p style={{ color: 'var(--cv-slate-600)', fontSize: 15 }}>
+              {L.comparacao.descricao}
+            </p>
+          </div>
+
+          <div className="cv-compare-wrap cv-reveal" style={{ marginTop: 36 }}>
+            <table className="cv-compare-table cv-risk-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>{L.comparacao.colSem}</th>
+                  <th className="popular">{L.comparacao.colCom}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {L.comparacao.linhas.map((linha, i) => (
+                  <tr key={i}>
+                    <td>{linha.tema}</td>
+                    <td className="cv-risk-cell sem">{linha.sem}</td>
+                    <td className="cv-risk-cell com">{linha.com}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12.5, color: 'var(--cv-slate-500)' }}>
+            {L.comparacao.nota}
+          </p>
         </div>
       </section>
 
