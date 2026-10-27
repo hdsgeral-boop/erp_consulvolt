@@ -64,6 +64,42 @@ describe('Gantt (Versão Actual: escala e precedências)', () => {
     expect(getByText('← T1')).toBeInTheDocument();
     expect(container.querySelectorAll('[data-bar]').length).toBe(2);
   });
+
+  it('trocar de escala alarga a área do calendário (não fica preso na mesma largura, só o cabeçalho mudava)', () => {
+    simularLargura(1400);
+    const linhas = [{ chave: 't-1', nome: 'Tarefa', nivel: 0, tipo: 'tarefa' as const, inicio: '2026-09-01', fim: '2026-09-10' }];
+    // "Auto" usa `minWidth` (estica até preencher o contentor); uma escala escolhida usa `width` (largura exacta, a sério)
+    const larguraDe = (container: HTMLElement) => {
+      const el = container.querySelector('.erp-gantt')?.firstElementChild as HTMLElement;
+      return parseInt(el.style.width || el.style.minWidth, 10);
+    };
+
+    const auto = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} />);
+    const larguraAuto = larguraDe(auto.container);
+    auto.unmount();
+
+    const dia = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} escala="dia" />);
+    const larguraDia = larguraDe(dia.container);
+    dia.unmount();
+
+    const ano = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} escala="ano" />);
+    const larguraAno = larguraDe(ano.container);
+
+    // escala "dia" (30 marcas) é bem mais larga que "auto" (semanas); "ano" (1 marca) fica na largura mínima
+    expect(larguraDia).toBeGreaterThan(larguraAuto);
+    expect(larguraAno).toBe(larguraAuto);
+
+    // "Auto" estica (minWidth: preenche o contentor); uma escala escolhida usa largura exacta (width), mesmo que o
+    // contentor seja mais largo — só assim "Ano" fica mesmo mais estreito do que "Dia", em vez de ambos preencherem
+    // o ecrã disponível e parecerem iguais (o 2º bug: a escala só mudava o cabeçalho, não a disposição do gráfico)
+    const estilo = (container: HTMLElement) => (container.querySelector('.erp-gantt')?.firstElementChild as HTMLElement).style;
+    const auto2 = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} />);
+    expect(estilo(auto2.container).width).toBe('');
+    expect(estilo(auto2.container).minWidth).not.toBe('');
+    auto2.unmount();
+    const dia2 = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} escala="dia" />);
+    expect(estilo(dia2.container).width).not.toBe('');
+  });
 });
 
 describe('Gantt (cores: por estado ou por nível)', () => {

@@ -22,6 +22,15 @@ const CENTRO_BARRA = 15;
 const LARGURA_NOMES = 300;
 /** Em telemóvel a coluna dos nomes estreita (o gráfico desloca na horizontal dentro do próprio contentor). */
 const LARGURA_NOMES_TELEMOVEL = 160;
+/** Largura mínima da área do calendário quando não há escala escolhida (Auto): o comportamento de sempre. */
+const LARGURA_GRAFICO_AUTO = 700;
+/**
+ * Largura mínima (px) de cada marca da régua, por escala escolhida. Sem isto, trocar de escala só mudava o texto do
+ * cabeçalho (a área do calendário ficava sempre com a mesma largura, por ser um `<div>` de bloco a ocupar o
+ * contentor): as marcas (e as barras, posicionadas em % da mesma área) ficavam espremidas ou dispersas na mesma
+ * largura fixa, sem o efeito de «aproximar/afastar» esperado ao mudar de escala.
+ */
+const LARGURA_POR_MARCA: Record<Escala, number> = { dia: 36, semana: 90, mes: 100, trimestre: 120, semestre: 130, ano: 140 };
 
 /** Ligação de precedência entre duas linhas (chaves das linhas), desenhada em cotovelo (projDesenharPrecedencias). */
 export interface LigacaoGantt {
@@ -90,6 +99,13 @@ export const Gantt = forwardRef<HTMLDivElement, {
       return { rotulo: m.rotulo, esquerda: (a / escala.dias) * 100, largura: (Math.max(0, b - a) / escala.dias) * 100 };
     }).filter((m) => m.largura > 0);
   }, [escala, escalaEscolhida]);
+  // a área do calendário amplia ou encolhe com a escala escolhida (mais marcas, mais finas = mais largura; poucas
+  // marcas = menos largura): é isto que dá o efeito de «aproximar/afastar» ao gráfico, não só ao texto do cabeçalho.
+  // Tem de ser uma largura (`width`) a sério, não só mínima (`minWidth`): um `<div>` de bloco já ocupa toda a largura
+  // disponível do contentor por omissão, por isso só «minWidth» nunca encolhe, e só alarga quando excede esse espaço
+  // (o que em ecrãs largos pode nunca acontecer) — ficava a parecer que a escala só mudava o texto do cabeçalho.
+  const larguraGrafico = escalaEscolhida ? Math.max(LARGURA_GRAFICO_AUTO, marcas.length * LARGURA_POR_MARCA[escalaEscolhida]) : LARGURA_GRAFICO_AUTO;
+  const larguraTotal = LARGURA_NOMES_ACTUAL + LARGURA_EXTRA + larguraGrafico;
   const hoje = posicaoHoje(escala);
   const porChave = useMemo(() => new Map(linhas.map((l) => [l.chave, l])), [linhas]);
   // posição (em % da largura das barras) e linha de cada item, para as setas de precedência
@@ -147,7 +163,7 @@ export const Gantt = forwardRef<HTMLDivElement, {
 
   return (
     <div ref={ref} className="erp-deslocar-x erp-gantt" style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius }}>
-      <div style={{ minWidth: LARGURA_NOMES_ACTUAL + LARGURA_EXTRA + 700 }}>
+      <div style={escalaEscolhida ? { width: larguraTotal } : { minWidth: larguraTotal }}>
         {/* imp-repetir: na impressão, a linha dos meses/semanas repete-se no topo de cada página (motor comum) */}
         <div className="erp-gantt-cabecalho imp-repetir imp-sem-quebra imp-cor" style={{ display: 'flex', borderBottom: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillAlter, position: 'sticky', top: 0 }}>
           <div style={{ width: LARGURA_NOMES_ACTUAL, flex: 'none', padding: '6px 8px', fontWeight: 600 }}>Item</div>
