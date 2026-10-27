@@ -12,8 +12,9 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Fase A (Versão Actual) — pagamentos e recebimentos só por bancos (legado novo ui_tesouraria.js:653-678 e :861-877).
- * Contas 42/43 nos documentos novos; o numerário (45) vai à Folha de Caixa; documentos anteriores em 45 continuam editáveis.
+ * Fase A (Versão Actual) — pagamentos e recebimentos só por bancos ou cartão (legado novo ui_tesouraria.js:653-678 e
+ * :861-877, estendido pela conta-cartão de tesouraria). Contas 42/43 e contas-cartão (classe 3 marcada) nos
+ * documentos novos; o numerário (45) vai à Folha de Caixa; documentos anteriores em 45 continuam editáveis.
  */
 final class FaTesourariaSoBancosTest extends TestCase
 {
@@ -61,7 +62,7 @@ final class FaTesourariaSoBancosTest extends TestCase
     {
         foreach (['PAGAMENTO', 'RECEBIMENTO'] as $tipo) {
             $this->documento('4511', $tipo)->assertStatus(422)->assertJsonPath('codigo', 'CONTA_FINANCEIRA_SO_BANCOS')
-                ->assertJsonPath('mensagem', 'Os pagamentos e recebimentos só movimentam contas bancárias (42 depósitos a prazo, 43 depósitos à ordem). O numerário (45) passou para a Folha de Caixa.');
+                ->assertJsonPath('mensagem', 'Os pagamentos e recebimentos só movimentam contas bancárias (42 depósitos a prazo, 43 depósitos à ordem) ou um cartão de tesouraria. O numerário (45) passou para a Folha de Caixa.');
         }
         $this->documento('611')->assertStatus(422)->assertJsonPath('codigo', 'CONTA_FINANCEIRA_SO_BANCOS');
         $this->assertSame(0, app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => DocumentoTesouraria::query()->count()));
@@ -72,6 +73,16 @@ final class FaTesourariaSoBancosTest extends TestCase
             $i = $this->postJson("/api/tesouraria/documentos/{$id}/integrar", [], $this->s)->assertOk();
             $this->assertStringStartsWith('BD', $i->json('dados.numero_lan_contabilizacao'));
         }
+    }
+
+    #[Test]
+    public function documento_novo_numa_conta_cartao_e_aceite_e_vai_ao_diario_de_bancos(): void
+    {
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => PlanoConta::create(['codigo' => '3282', 'descricao' => 'Cartão de crédito BAI',
+            'tipo' => 'M', 'cartao_tesouraria' => true, 'cartao_banco' => 'BAI']));
+        $id = $this->documento('3282')->assertCreated()->assertJsonPath('dados.conta_financeira', '3282')->json('dados.id');
+        $i = $this->postJson("/api/tesouraria/documentos/{$id}/integrar", [], $this->s)->assertOk();
+        $this->assertStringStartsWith('BD', $i->json('dados.numero_lan_contabilizacao'));
     }
 
     #[Test]

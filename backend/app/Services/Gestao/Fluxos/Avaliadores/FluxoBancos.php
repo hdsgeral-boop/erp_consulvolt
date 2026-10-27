@@ -2,39 +2,54 @@
 
 namespace App\Services\Gestao\Fluxos\Avaliadores;
 
+use App\Services\Tesouraria\ServicoContasCartao;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Fluxo dos bancos — contas 43 (carregarBancos/avaliarBanco, js/fluxo_tesouraria.js:44-180). Um processo é uma conta 43
- * num mês (até ao mês actual). Etapas: lançamento na Tesouraria → integração na contabilidade → extracto bancário →
- * reconciliação mensal. A reconciliação usa todos os movimentos da conta no razão (Tesouraria, POS, salários, lançamentos
- * directos); conciliado = com reconciliacao_codigo (no extracto, também o estado CONCILIADO*). Um mês só fica em dia se o
- * anterior da mesma conta estiver reconciliado (aviso). Tudo agregado em SQL por conta e mês.
+ * Fluxo dos bancos — contas 43 e contas-cartão de tesouraria, classe 3 marcada (carregarBancos/avaliarBanco,
+ * js/fluxo_tesouraria.js:44-180, estendido pela conta-cartão: "o mesmo fluxo corre agora também para os cartões", não
+ * um fluxo novo). Um processo é uma conta num mês (até ao mês actual). Etapas: lançamento na Tesouraria → integração
+ * na contabilidade → extracto bancário → reconciliação mensal. A reconciliação usa todos os movimentos da conta no
+ * razão (Tesouraria, POS, salários, lançamentos directos); conciliado = com reconciliacao_codigo (no extracto,
+ * também o estado CONCILIADO*). Um mês só fica em dia se o anterior da mesma conta estiver reconciliado (aviso).
+ * Tudo agregado em SQL por conta e mês.
  */
 final class FluxoBancos extends AvaliadorFluxo
 {
+    /** SQL "é 43 ou cartão" para a coluna dada, com os placeholders dos códigos de cartão (bindings à parte). */
+    private function condConta(string $coluna, array $cartoes): string
+    {
+        $ph = $cartoes ? ' OR TRIM('.$coluna.') IN ('.implode(',', array_fill(0, count($cartoes), '?')).')' : '';
+
+        return "(TRIM({$coluna}) LIKE '43%'{$ph})";
+    }
+
     public function temActividade(): bool
     {
         $e = $this->empresa();
+        $cartoes = app(ServicoContasCartao::class)->codigos();
 
-        return DB::table('documentos_tesouraria')->where('empresa_id', $e)->whereRaw("TRIM(conta_financeira) LIKE '43%'")->exists()
-            || DB::table('lancamentos_contabeis')->where('empresa_id', $e)->whereRaw("TRIM(codigo_conta) LIKE '43%'")->exists();
+        return DB::table('documentos_tesouraria')->where('empresa_id', $e)->whereRaw($this->condConta('conta_financeira', $cartoes), $cartoes)->exists()
+            || DB::table('lancamentos_contabeis')->where('empresa_id', $e)->whereRaw($this->condConta('codigo_conta', $cartoes), $cartoes)->exists();
     }
 
     public function avaliar(): array
     {
         $e = $this->empresa();
+        $cartoes = app(ServicoContasCartao::class)->codigos();
         $mesActual = substr(self::hoje(), 0, 7);
-        $nomes = DB::table('plano_contas')->where('empresa_id', $e)->whereNull('eliminado_em')->where('codigo', 'like', '43%')->pluck('descricao', 'codigo')
-            ->mapWithKeys(fn ($d, $c) => [trim((string) $c) => (string) $d]);
-        $docs = DB::table('documentos_tesouraria')->where('empresa_id', $e)->whereRaw("TRIM(conta_financeira) LIKE '43%'")->whereRaw("COALESCE(estado, '') !~* 'ANUL'")->whereNotNull('data_documento')
+        $nomes = DB::table('plano_contas')->where('empresa_id', $e)->whereNull('eliminado_em')
+            ->where(fn ($q) => $q->where('codigo', 'like', '43%')->when($cartoes, fn ($qq) => $qq->orWhereIn('codigo', $cartoes)))
+            ->pluck('descricao', 'codigo')->mapWithKeys(fn ($d, $c) => [trim((string) $c) => (string) $d]);
+        $docs = DB::table('documentos_tesouraria')->where('empresa_id', $e)->whereRaw($this->condConta('conta_financeira', $cartoes), $cartoes)
+            ->whereRaw("COALESCE(estado, '') !~* 'ANUL'")->whereNotNull('data_documento')
             ->groupBy(DB::raw('TRIM(conta_financeira)'), DB::raw("to_char(data_documento, 'YYYY-MM')"))
             ->selectRaw("TRIM(conta_financeira) AS conta, to_char(data_documento, 'YYYY-MM') AS ym, COUNT(*) AS n,
                 COUNT(*) FILTER (WHERE tipo = 'PAGAMENTO') AS n_pag, COALESCE(SUM(valor_total) FILTER (WHERE tipo = 'PAGAMENTO'), 0) AS v_pag,
                 COUNT(*) FILTER (WHERE tipo = 'RECEBIMENTO') AS n_rec, COALESCE(SUM(valor_total) FILTER (WHERE tipo = 'RECEBIMENTO'), 0) AS v_rec,
                 COUNT(*) FILTER (WHERE COALESCE(estado, '') <> 'INTEGRADO') AS n_pend, COALESCE(SUM(valor_total) FILTER (WHERE COALESCE(estado, '') <> 'INTEGRADO'), 0) AS v_pend")
             ->get()->keyBy(fn ($r) => "{$r->conta}|{$r->ym}");
-        $linhas = DB::table('lancamentos_contabeis')->where('empresa_id', $e)->whereRaw("TRIM(codigo_conta) LIKE '43%'")->whereNotNull('data_documento')
+        $linhas = DB::table('lancamentos_contabeis')->where('empresa_id', $e)->whereRaw($this->condConta('codigo_conta', $cartoes), $cartoes)->whereNotNull('data_documento')
             ->groupBy(DB::raw('TRIM(codigo_conta)'), DB::raw("to_char(data_documento, 'YYYY-MM')"))
             ->selectRaw("TRIM(codigo_conta) AS conta, to_char(data_documento, 'YYYY-MM') AS ym, COUNT(*) AS n,
                 COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'D'), 0) AS deb, COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'C'), 0) AS cred,
@@ -43,7 +58,7 @@ final class FluxoBancos extends AvaliadorFluxo
                 (array_agg(DISTINCT reconciliacao_codigo) FILTER (WHERE reconciliacao_codigo IS NOT NULL))[1:6] AS refs")
             ->get()->keyBy(fn ($r) => "{$r->conta}|{$r->ym}");
         $conc = "(reconciliacao_codigo IS NOT NULL OR COALESCE(estado, '') ~* 'CONCILI')";
-        $ext = DB::table('linhas_extrato_bancario')->where('empresa_id', $e)->whereRaw("TRIM(codigo_conta) LIKE '43%'")->whereNotNull('data')
+        $ext = DB::table('linhas_extrato_bancario')->where('empresa_id', $e)->whereRaw($this->condConta('codigo_conta', $cartoes), $cartoes)->whereNotNull('data')
             ->groupBy(DB::raw('TRIM(codigo_conta)'), DB::raw("to_char(data, 'YYYY-MM')"))
             ->selectRaw("TRIM(codigo_conta) AS conta, to_char(data, 'YYYY-MM') AS ym, COUNT(*) AS n, MIN(data) AS de, MAX(data) AS ate,
                 COUNT(*) FILTER (WHERE tipo_dc = 'D') AS n_deb, COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'D'), 0) AS v_deb,
@@ -70,7 +85,7 @@ final class FluxoBancos extends AvaliadorFluxo
         $porConc = array_sum(array_map(fn ($p) => $p['pendentes_razao'] + $p['pendentes_extracto'], $processos));
 
         return ['processos' => $processos, 'kpis' => [
-            self::kpi('contas', 'Contas 43 com movimento', count(array_unique(array_column($processos, 'conta')))),
+            self::kpi('contas', 'Contas 43 ou cartão com movimento', count(array_unique(array_column($processos, 'conta')))),
             self::kpi('por_integrar', 'Documentos por integrar', $porIntegrar, 'num', $porIntegrar > 0),
             self::kpi('sem_extracto', 'Meses sem extracto', $semExt, 'num', $semExt > 0),
             self::kpi('por_conciliar', 'Movimentos por conciliar', $porConc, 'num', $porConc > 0),
@@ -105,8 +120,8 @@ final class FluxoBancos extends AvaliadorFluxo
                 ['tipo' => 'por_conciliar', 'rotulo' => 'Por conciliar'],
                 ['tipo' => 'kz', 'rotulo' => 'Variação do mês', 'campo' => 'valor'],
             ],
-            'vazio' => ['icone' => 'university', 'titulo' => 'Ainda não há movimentos em contas 43',
-                'texto' => 'Registe pagamentos ou recebimentos na Tesouraria com uma conta de depósitos à ordem; o fluxo aparece aqui.', 'botao' => 'Abrir a Tesouraria', 'acao' => 'teso_gestao_pagamentos'],
+            'vazio' => ['icone' => 'university', 'titulo' => 'Ainda não há movimentos em contas 43 ou de cartão',
+                'texto' => 'Registe pagamentos ou recebimentos na Tesouraria com uma conta de depósitos à ordem ou um cartão de tesouraria; o fluxo aparece aqui.', 'botao' => 'Abrir a Tesouraria', 'acao' => 'teso_gestao_pagamentos'],
         ];
     }
 

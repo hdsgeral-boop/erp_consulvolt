@@ -2,6 +2,7 @@
 
 namespace App\Services\Gestao\Paineis;
 
+use App\Services\Tesouraria\ServicoContasCartao;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class PainelTesouraria implements Painel
 {
-    public function __construct(private readonly ConsultasPaineis $consultas) {}
+    public function __construct(private readonly ConsultasPaineis $consultas, private readonly ServicoContasCartao $contasCartao) {}
 
     public function filtraDimensoes(): bool
     {
@@ -26,13 +27,17 @@ final class PainelTesouraria implements Painel
     {
         $empresa = $this->consultas->empresa();
         [$fs, $fp] = ConsultasPaineis::filtroDimensoes('l', $f);
+        $cartoes = $this->contasCartao->codigos();
+        $phCartoes = $cartoes ? ' OR l.codigo_conta IN ('.implode(',', array_fill(0, count($cartoes), '?')).')' : '';
         $contas = DB::select("SELECT l.codigo_conta AS conta, MAX(pc.descricao) AS descricao, COALESCE(MAX(pc.codigo_moeda), 'AOA') AS moeda,
                 SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) AS saldo_kz,
                 SUM(CASE WHEN COALESCE(pc.codigo_moeda, 'AOA') <> 'AOA' AND l.codigo_moeda = pc.codigo_moeda THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor_moeda ELSE -l.valor_moeda END ELSE 0 END) AS saldo_moeda
             FROM lancamentos_contabeis l LEFT JOIN plano_contas pc ON pc.empresa_id = l.empresa_id AND pc.codigo = l.codigo_conta AND pc.eliminado_em IS NULL
-            WHERE l.empresa_id = ? AND l.data_documento <= ? AND (l.codigo_conta LIKE '43%' OR l.codigo_conta LIKE '45%'){$fs}
-            GROUP BY l.codigo_conta ORDER BY l.codigo_conta COLLATE \"C\"", array_merge([$empresa, $p->fimMes], $fp));
+            WHERE l.empresa_id = ? AND l.data_documento <= ? AND (l.codigo_conta LIKE '43%' OR l.codigo_conta LIKE '45%'{$phCartoes}){$fs}
+            GROUP BY l.codigo_conta ORDER BY l.codigo_conta COLLATE \"C\"", array_merge([$empresa, $p->fimMes], $cartoes, $fp));
         $soma = fn (string $px) => array_reduce(array_filter($contas, fn ($c) => str_starts_with($c->conta, $px)), fn ($s, $c) => bcadd($s, Indicadores::dinheiro($c->saldo_kz), 2), '0.00');
+        // saldo das contas-cartão (classe 3 marcada): credor por natureza, entra abatido nas disponibilidades (soma com sinal)
+        $somaCartao = array_reduce(array_filter($contas, fn ($c) => in_array($c->conta, $cartoes, true)), fn ($s, $c) => bcadd($s, Indicadores::dinheiro($c->saldo_kz), 2), '0.00');
         $docs = DB::selectOne("SELECT
                 COALESCE(SUM(valor_total) FILTER (WHERE tipo = 'RECEBIMENTO' AND data_documento BETWEEN ? AND ?), 0) AS recebimentos,
                 COALESCE(SUM(valor_total) FILTER (WHERE tipo = 'PAGAMENTO' AND data_documento BETWEEN ? AND ?), 0) AS pagamentos,
@@ -53,6 +58,8 @@ final class PainelTesouraria implements Painel
             'kpis' => [
                 Indicadores::kpi('saldo_bancos', 'Saldo em Bancos', $soma('43'), 'kz', 'Conta 43 (contravalor Kz)'),
                 Indicadores::kpi('saldo_caixa', 'Saldo em Caixa', $soma('45'), 'kz', 'Conta 45 (contravalor Kz)'),
+                // só aparece quando há saldo (quem não usa cartões não vê caixas novas)
+                ...($somaCartao !== '0.00' ? [Indicadores::kpi('saldo_cartoes', 'Cartões (a abater)', $somaCartao, 'kz', 'Classe 3 marcada; dívida ao emissor')] : []),
                 Indicadores::kpi('recebimentos_mes', 'Recebimentos do Mês', Indicadores::dinheiro($docs->recebimentos)),
                 Indicadores::kpi('pagamentos_mes', 'Pagamentos do Mês', Indicadores::dinheiro($docs->pagamentos)),
                 Indicadores::kpi('documentos_por_integrar', 'Documentos por Integrar', (int) $docs->por_integrar, 'num'),

@@ -477,9 +477,9 @@ final class ServicoReconciliacaoBancaria
 
     private function exigirContaBanco(string $conta): void
     {
-        $this->plano->contaDeMovimento($conta);
-        if (! str_starts_with($conta, '43')) {
-            throw new ErroNegocio('A reconciliação bancária é feita em contas de depósitos bancários (43).', 'CONTA_NAO_BANCARIA', 422);
+        $c = $this->plano->contaDeMovimento($conta);
+        if (! str_starts_with($conta, '43') && ! $c['cartao_tesouraria']) {
+            throw new ErroNegocio('A reconciliação bancária é feita em contas de depósitos bancários (43) ou de cartão de tesouraria.', 'CONTA_NAO_BANCARIA', 422);
         }
     }
 

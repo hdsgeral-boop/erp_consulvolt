@@ -269,9 +269,9 @@ final class ServicoRecibosVenda
 
     public function exigirContaDisponibilidade(string $codigo): void
     {
-        $this->plano->contaDeMovimento($codigo);
-        if (! str_starts_with($codigo, '4')) {
-            throw new ErroNegocio('A conta de disponibilidade tem de ser da classe 4 (meios monetários).', 'CONTA_DISPONIBILIDADE_INVALIDA', 422);
+        $conta = $this->plano->contaDeMovimento($codigo);
+        if (! str_starts_with($codigo, '4') && ! $conta['cartao_tesouraria']) {
+            throw new ErroNegocio('A conta de disponibilidade tem de ser da classe 4 (meios monetários) ou uma conta-cartão de tesouraria.', 'CONTA_DISPONIBILIDADE_INVALIDA', 422);
         }
     }
 }

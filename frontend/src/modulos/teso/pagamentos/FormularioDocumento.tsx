@@ -16,7 +16,7 @@ import { SeletorTerceiro } from '../../contab/comum/Seletores';
 import { ROTULO_TIPO, type DocumentoTesouraria, type OpcoesDocumentoTesouraria, type Pendente, type TipoDocumento } from '../api';
 import { SeletorContaFinanceira } from '../comum';
 import { sentidoPorOmissao, totalDocumento } from '../regras';
-import { AVISO_DOCUMENTO_ANTERIOR, MENSAGEM_SO_BANCOS, PREFIXO_MEIO, contaFinanceiraPermitida, contaParaCopia, documentoAnteriorEmCaixa, meioDaConta, opcoesMeio, type MeioTesouraria } from '../contaFinanceira';
+import { AVISO_DOCUMENTO_ANTERIOR, MENSAGEM_SO_BANCOS, PREFIXO_MEIO, contaCombinaComMeio, contaFinanceiraPermitida, contaParaCopia, documentoAnteriorEmCaixa, meioDaConta, opcoesMeio, useContasCartaoMapa, type MeioTesouraria } from '../contaFinanceira';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { BotoesExportar } from '@/componentes/impressao';
 import { pedidoPendentes, ROTULO_NATUREZA } from '../impressao';
@@ -71,6 +71,7 @@ export function FormularioDocumento() {
   const [pendentes, setPendentes] = useState(false);
   const [meio, setMeio] = useState<MeioTesouraria>('BANCO');
   const total = totalDocumento(tipo, linhas);
+  const cartoes = useContasCartaoMapa();
 
   // copiar documento (copyTesourariaDocument do legado): ?copiar=<id> pré-preenche um documento novo com a data de hoje
   const copiarId = id ? null : procura.get('copiar');
@@ -88,8 +89,8 @@ export function FormularioDocumento() {
   useEffect(() => {
     const d = existente.data;
     if (!d) return;
-    const conta = copiarId ? contaParaCopia(d.conta_financeira) : d.conta_financeira;
-    setMeio(meioDaConta(conta));
+    const conta = copiarId ? contaParaCopia(d.conta_financeira, cartoes.has(d.conta_financeira ?? '')) : d.conta_financeira;
+    setMeio(meioDaConta(conta, cartoes.has(conta ?? '')));
     form.setFieldsValue({
       tipo: d.tipo,
       data_documento: copiarId ? dayjs() : dayjs(d.data_documento),
@@ -204,12 +205,13 @@ export function FormularioDocumento() {
               <Form.Item label="Meio" extra={anteriorEmCaixa ? <Typography.Text style={{ color: '#b45309', fontSize: 12 }}>{AVISO_DOCUMENTO_ANTERIOR}</Typography.Text> : undefined}>
                 <Select<MeioTesouraria>
                   value={meio}
-                  options={opcoesMeio(contaOriginal)}
+                  options={opcoesMeio(contaOriginal, cartoes.size > 0)}
                   popupMatchSelectWidth={false}
                   onChange={(m) => {
                     setMeio(m);
                     // filterContasFinanceiras do legado: a conta passa a ser escolhida entre as do novo meio
-                    if (!String(form.getFieldValue('conta_financeira') ?? '').startsWith(PREFIXO_MEIO[m])) form.setFieldValue('conta_financeira', undefined);
+                    const actual = String(form.getFieldValue('conta_financeira') ?? '');
+                    if (!contaCombinaComMeio(actual, m, cartoes.has(actual))) form.setFieldValue('conta_financeira', undefined);
                   }}
                 />
               </Form.Item>
@@ -219,11 +221,13 @@ export function FormularioDocumento() {
                 name="conta_financeira"
                 label="Conta Financeira"
                 rules={[
-                  { required: true, message: 'Selecione a conta bancária (42 depósitos a prazo, 43 depósitos à ordem).' },
-                  { validator: (_, v?: string) => (!v || contaFinanceiraPermitida(v, contaOriginal) ? Promise.resolve() : Promise.reject(new Error(MENSAGEM_SO_BANCOS))) },
+                  { required: true, message: 'Selecione a conta financeira (bancária ou cartão de tesouraria).' },
+                  { validator: (_, v?: string) => (!v || contaFinanceiraPermitida(v, contaOriginal, cartoes.has(v)) ? Promise.resolve() : Promise.reject(new Error(MENSAGEM_SO_BANCOS))) },
                 ]}
               >
-                <SeletorContaFinanceira style={{ width: '100%' }} prefixos={[PREFIXO_MEIO[meio]]} estrito placeholder={`— contas ${PREFIXO_MEIO[meio]} do plano de contas —`} />
+                {meio === 'CARTAO'
+                  ? <SeletorContaFinanceira style={{ width: '100%' }} prefixos={[]} comCartao estrito placeholder="— cartões de tesouraria do plano de contas —" />
+                  : <SeletorContaFinanceira style={{ width: '100%' }} prefixos={[PREFIXO_MEIO[meio]]} estrito placeholder={`— contas ${PREFIXO_MEIO[meio]} do plano de contas —`} />}
               </Form.Item>
             </Col>
             <Col xs={24} md={4}>

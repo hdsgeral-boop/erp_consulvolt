@@ -31,6 +31,10 @@ final class GuardarContaRequest extends FormRequest
             'banco_iban' => ['nullable', 'string', 'max:50'],   // aceita espaços/pontos; normalizado fica com ≤ 34
             'banco_swift' => ['nullable', 'string', 'max:15'],
             'banco_titular' => ['nullable', 'string', 'max:150'],
+            // conta-cartão de tesouraria (classe 3; normalizada e validada em ServicoContasCartao)
+            'cartao_tesouraria' => ['nullable', 'boolean'],
+            'cartao_numero' => ['nullable', 'string', 'max:20'],
+            'cartao_banco' => ['required_if:cartao_tesouraria,1', 'nullable', 'string', 'max:100'],
         ];
     }
 
@@ -38,6 +42,7 @@ final class GuardarContaRequest extends FormRequest
     public function attributes(): array
     {
         return ['codigo' => 'código', 'descricao' => 'descrição', 'tipo' => 'tipo (M = movimento, T = totalizadora)', 'banco_nome' => 'banco',
-            'banco_balcao' => 'balcão / agência', 'banco_numero_conta' => 'n.º de conta', 'banco_iban' => 'IBAN', 'banco_swift' => 'SWIFT / BIC', 'banco_titular' => 'titular da conta'];
+            'banco_balcao' => 'balcão / agência', 'banco_numero_conta' => 'n.º de conta', 'banco_iban' => 'IBAN', 'banco_swift' => 'SWIFT / BIC', 'banco_titular' => 'titular da conta',
+            'cartao_numero' => 'número do cartão', 'cartao_banco' => 'banco associado ao cartão'];
     }
 }

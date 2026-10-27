@@ -24,6 +24,7 @@ final class ServicoMapasTesouraria
     public function __construct(
         private readonly ServicoRelatoriosContabeis $relatorios,
         private readonly ContextoEmpresa $contexto,
+        private readonly ServicoContasCartao $contasCartao,
     ) {}
 
     /**
@@ -55,16 +56,16 @@ final class ServicoMapasTesouraria
     }
 
     /**
-     * Extracto de uma conta 43/45 (razão da contabilidade): saldo inicial, movimentos com saldo corrido e totais, com o
-     * terceiro {id, nome, nif} de cada movimento (uma consulta, sem N+1).
+     * Extracto de uma conta 43/45 ou cartão (razão da contabilidade): saldo inicial, movimentos com saldo corrido e
+     * totais, com o terceiro {id, nome, nif} de cada movimento (uma consulta, sem N+1).
      *
      * @return array<string, mixed>
      */
     public function extratoConta(string $conta, string $inicio, string $fim): array
     {
         $conta = trim($conta);
-        if (! in_array(substr($conta, 0, 2), self::PREFIXOS, true)) {
-            throw new ErroNegocio('O extracto da Tesouraria só abrange contas de disponibilidades (43 ou 45).', 'CONTA_NAO_DISPONIBILIDADES', 422);
+        if (! in_array(substr($conta, 0, 2), self::PREFIXOS, true) && ! $this->contasCartao->ehCodigoCartao($conta)) {
+            throw new ErroNegocio('O extracto da Tesouraria só abrange contas de disponibilidades (43, 45) ou de cartão.', 'CONTA_NAO_DISPONIBILIDADES', 422);
         }
         $razao = $this->relatorios->razao(['codigo_conta' => $conta, 'data_inicio' => $inicio, 'data_fim' => $fim]);
         $ids = collect($razao['movimentos'])->pluck('terceiro_id')->filter()->unique()->values();

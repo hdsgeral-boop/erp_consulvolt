@@ -14,6 +14,7 @@ import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from '../contab/comum/Componentes';
 import type { Disponibilidades, ExtratoConta } from './api';
 import { SeletorContaFinanceira } from './comum';
+import { useContasCartaoMapa } from './contaFinanceira';
 import { extratoConfere } from './regras';
 import { scrollTabela } from '@/componentes/responsivo';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
@@ -32,13 +33,22 @@ export function linhasExtrato(e: ExtratoConta): LinhaExtrato[] {
   return [anterior, ...e.movimentos];
 }
 
-/** Tipos de Mapa do legado (select teso-map-type): o prefixo da conta. Ambos geram o extracto da conta (razão com saldo corrido). */
-export type TipoMapa = '43' | '45';
+/**
+ * Tipos de Mapa do legado (select teso-map-type): o prefixo da conta. Todos geram o extracto da conta (razão com saldo
+ * corrido). CARTAO não é um prefixo — lista as contas marcadas como cartão de tesouraria (classe 3).
+ */
+export type TipoMapa = '43' | '45' | 'CARTAO';
 export const TIPOS_MAPA: { valor: TipoMapa; rotulo: string; titulo: string }[] = [
   { valor: '43', rotulo: 'Extrato Bancário (Contas 43)', titulo: 'Extrato Bancário' },
   { valor: '45', rotulo: 'Folha de Caixa (Contas 45)', titulo: 'Folha de Caixa' },
+  { valor: 'CARTAO', rotulo: 'Extrato de Cartão (classe 3)', titulo: 'Extrato de Cartão' },
 ];
-const PREFIXOS_MAPA: Record<TipoMapa, string[]> = { '43': ['43'], '45': ['45'] };
+const PREFIXOS_MAPA: Record<'43' | '45', string[]> = { '43': ['43'], '45': ['45'] };
+
+/** A conta combina com o tipo de mapa escolhido? CARTAO depende só da marcação da conta, os outros do prefixo. */
+function contaCombinaComTipoMapa(conta: string, tipo: TipoMapa, cartao: boolean): boolean {
+  return tipo === 'CARTAO' ? cartao : conta.startsWith(tipo);
+}
 
 /** Pedido do «Gerar Mapa»: conta e período (nulo sem conta ou com datas trocadas). */
 export function pedidoMapa(conta: string | undefined, inicio: Dayjs, fim: Dayjs): { conta: string; periodo: [Dayjs, Dayjs] } | null {
@@ -62,6 +72,7 @@ export default function Mapas() {
   const [conta, setConta] = useState<string>();
   const { token } = theme.useToken();
   const { pode } = useSessao();
+  const cartoes = useContasCartaoMapa();
   const [separador, setSeparador] = useSeparadorUrl(pode('teso_gestao_pagamentos_view') ? ['saldos', 'extrato', 'pendentes'] : ['saldos', 'extrato']);
   const p = { data_inicio: dataApi(periodo[0]), data_fim: dataApi(periodo[1]) };
 
@@ -88,11 +99,11 @@ export default function Mapas() {
           <Col xs={24} sm={12} lg={5}>
             <label style={{ fontWeight: 600, fontSize: 13 }}>Tipo de Mapa</label>
             <Select<TipoMapa> style={{ width: '100%' }} value={tipoMapa} aria-label="Tipo de Mapa" options={TIPOS_MAPA.map((t) => ({ value: t.valor, label: t.rotulo }))}
-              onChange={(v) => { setTipoMapa(v); if (contaForm && !contaForm.startsWith(v)) setContaForm(undefined); }} />
+              onChange={(v) => { setTipoMapa(v); if (contaForm && !contaCombinaComTipoMapa(contaForm, v, cartoes.has(contaForm))) setContaForm(undefined); }} />
           </Col>
           <Col xs={24} sm={12} lg={7}>
             <label style={{ fontWeight: 600, fontSize: 13 }}>Conta</label>
-            <SeletorContaFinanceira key={tipoMapa} value={contaForm} onChange={setContaForm} prefixos={PREFIXOS_MAPA[tipoMapa]} placeholder="Nenhuma conta seleccionada" style={{ width: '100%' }} />
+            <SeletorContaFinanceira key={tipoMapa} value={contaForm} onChange={setContaForm} prefixos={tipoMapa === 'CARTAO' ? [] : PREFIXOS_MAPA[tipoMapa]} comCartao={tipoMapa === 'CARTAO'} placeholder="Nenhuma conta seleccionada" style={{ width: '100%' }} />
           </Col>
           <Col xs={12} sm={8} lg={4}>
             <label style={{ fontWeight: 600, fontSize: 13 }}>Data Inicial</label>
@@ -189,7 +200,7 @@ export default function Mapas() {
             children: (
               <Card>
                 <Space style={{ marginBottom: 12 }} wrap>
-                  <SeletorContaFinanceira value={conta} onChange={setConta} />
+                  <SeletorContaFinanceira value={conta} onChange={setConta} comCartao />
                   <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} allowClear={false} onChange={(v) => v?.[0] && v[1] && setPeriodo([v[0], v[1]])} />
                   <Button onClick={() => void extrato.refetch()} disabled={!conta}>Actualizar</Button>
                 </Space>
@@ -198,7 +209,7 @@ export default function Mapas() {
                     {/* cabeçalho do mapa do legado (ui_tesouraria.js:3532-3546): título, conta, período, n.º de movimentos e, à direita, Imprimir/Extrair/Excel */}
                     <Flex wrap gap={12} justify="space-between" align="flex-end" style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `2px solid ${token.colorBorderSecondary}` }}>
                       <div>
-                        <h2 style={{ margin: 0, color: token.colorPrimary }}>{e.codigo_conta.startsWith('45') ? 'Folha de Caixa' : 'Extrato Bancário'}</h2>
+                        <h2 style={{ margin: 0, color: token.colorPrimary }}>{cartoes.has(e.codigo_conta) ? 'Extrato de Cartão' : e.codigo_conta.startsWith('45') ? 'Folha de Caixa' : 'Extrato Bancário'}</h2>
                         <p style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>{e.codigo_conta}{e.descricao ? ` - ${e.descricao}` : ''}</p>
                         <p style={{ margin: '3px 0 0', color: token.colorTextSecondary }}>Periodo: {formatarData(e.data_inicio)} a {formatarData(e.data_fim)}</p>
                         <div style={{ marginTop: 8, fontSize: 13, color: token.colorTextSecondary }}>Exibindo <strong style={{ color: token.colorPrimary }}>{e.movimentos.length}</strong> movimentos</div>

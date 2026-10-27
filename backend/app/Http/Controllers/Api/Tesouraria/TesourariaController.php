@@ -146,13 +146,16 @@ final class TesourariaController extends Controller
         $this->exigir('teso_meios_pagamento_view', 'teso_gestao_pagamentos_view');
 
         $meios = MeioPagamento::query()->orderByDesc('predefinido')->ordenarPorNome()->get();
-        // «Descrição da conta» e «Tipo» (Banco 43 / Caixa 45) do legado (renderMeiosPagamento): uma consulta ao plano
-        $descricoes = $meios->isEmpty() ? collect() : PlanoConta::query()->whereIn('codigo', $meios->pluck('codigo_conta')->unique()->values())->pluck('descricao', 'codigo');
+        // «Descrição da conta» e «Tipo» (Banco 43 / Caixa 45 / Cartão classe 3) do legado (renderMeiosPagamento): uma consulta ao plano
+        $contas = $meios->isEmpty() ? collect() : PlanoConta::query()->whereIn('codigo', $meios->pluck('codigo_conta')->unique()->values())
+            ->get(['codigo', 'descricao', 'cartao_tesouraria'])->keyBy('codigo');
 
-        return RespostaApi::sucesso($meios->map(fn (MeioPagamento $m) => $m->toArray() + [
-            'descricao_conta' => $descricoes[$m->codigo_conta] ?? null,
-            'tipo' => str_starts_with((string) $m->codigo_conta, '43') ? 'BANCO' : 'CAIXA',
-        ])->values(), 'Meios de pagamento.');
+        return RespostaApi::sucesso($meios->map(function (MeioPagamento $m) use ($contas) {
+            $c = $contas[$m->codigo_conta] ?? null;
+
+            return $m->toArray() + ['descricao_conta' => $c?->descricao,
+                'tipo' => $c?->cartao_tesouraria ? 'CARTAO' : (str_starts_with((string) $m->codigo_conta, '43') ? 'BANCO' : 'CAIXA')];
+        })->values(), 'Meios de pagamento.');
     }
 
     public function gravarMeio(Request $r, ?int $id = null): JsonResponse

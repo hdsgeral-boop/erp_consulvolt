@@ -8,6 +8,8 @@ export interface ContaPlano {
   tipo: 'M' | 'T';
   codigo_moeda: string | null;
   natureza_conta?: string | null;
+  /** Conta-cartão de tesouraria (classe 3 marcada pelo utilizador) — ver `cartaoTesouraria.ts`. */
+  cartao_tesouraria: boolean;
 }
 
 export interface Diario {

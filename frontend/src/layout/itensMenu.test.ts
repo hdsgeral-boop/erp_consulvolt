@@ -35,7 +35,7 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
 
   it('itens gerais soltos no topo, depois «Menu Geral» e «Sistema»', () => {
     expect(rotulos(raiz)).toEqual(['Início', 'Dashboard Global', 'Relatórios de Gestão', 'Fluxo de Processos', 'Ecrã geral novo', 'Menu Geral', 'Sistema']);
-    expect(raiz[0]?.key).toBe('/');
+    expect(raiz[0]?.key).toBe('/inicio');
     expect(raiz.find((x) => x?.key === CHAVE_MENU_GERAL)).toBeDefined();
   });
 
@@ -108,7 +108,7 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
     });
     expect(estadoMenu('/m/rh/rh_rel_irt', '', lateral, MENU).seleccionado).toBe('/m/rh/relatorios');
     expect(estadoMenu('/m/contab/imposto_selo', '', lateral, MENU).seleccionado).toBe('/m/contab/contab_rotinas');
-    expect(estadoMenu('/', '', lateral, MENU)).toEqual({ seleccionado: '/', abertos: [] });
+    expect(estadoMenu('/', '', lateral, MENU)).toEqual({ seleccionado: '/inicio', abertos: [] });
   });
 });
 

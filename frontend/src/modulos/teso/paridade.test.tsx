@@ -131,7 +131,7 @@ describe('7.4.1 Histórico / Anulação', () => {
 
 describe('7.5.1 / 7.6.1 / 7.7.1', () => {
   it('«Gerar Mapa»: tipos do legado, conta obrigatória e datas pela ordem', () => {
-    expect(TIPOS_MAPA.map((t) => t.rotulo)).toEqual(['Extrato Bancário (Contas 43)', 'Folha de Caixa (Contas 45)']);
+    expect(TIPOS_MAPA.map((t) => t.rotulo)).toEqual(['Extrato Bancário (Contas 43)', 'Folha de Caixa (Contas 45)', 'Extrato de Cartão (classe 3)']);
     expect(pedidoMapa(undefined, dayjs('2026-01-01'), dayjs('2026-01-31'))).toBeNull();
     expect(pedidoMapa('4311', dayjs('2026-02-01'), dayjs('2026-01-31'))).toBeNull();
     expect(pedidoMapa('4311', dayjs('2026-01-01'), dayjs('2026-01-31'))?.conta).toBe('4311');
@@ -155,6 +155,6 @@ describe('7.5.1 / 7.6.1 / 7.7.1', () => {
       { codigo_conta: '4311', iban: 'AO06000000000000000000000', ativo: true },
       { codigo_conta: '4511', iban: null, ativo: false },
     ] as MeioPagamento[]);
-    expect(r).toEqual({ bancos: 1, caixas: 1, comIban: 1, activos: 1 });
+    expect(r).toEqual({ bancos: 1, caixas: 1, cartoes: 0, comIban: 1, activos: 1 });
   });
 });

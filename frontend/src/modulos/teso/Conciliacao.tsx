@@ -15,6 +15,7 @@ import { enviarFicheiro, ModalImportar } from '../contab/comum/ficheiros';
 import { descarregarModeloExtrato } from './modeloExtrato';
 import type { LinhaExtratoBancario, MapaReconciliacao, MeioPagamento, SugestaoReconciliacao } from './api';
 import { SeletorContaFinanceira, useMeiosPagamento } from './comum';
+import { tipoMeio } from './MeiosPagamento';
 import { CartaoKpi, EstadoVazio, GrelhaKpi } from '@/componentes/vistas';
 import { somaCorrespondencia } from './regras';
 import { BotaoEditarLinha, HistoricoFiltrado, ModalEditarLinhaExtrato, ModalRascunhos, PainelRascunhos, type RascunhoReconciliacao } from './ReconciliacaoExtras';
@@ -76,10 +77,10 @@ const CRITERIOS: Record<string, string> = { MESMA_DATA: 'Mesma data', TOLERANCIA
 
 /**
  * Conta bancária inicial (o legado abria com a 1.ª conta 43 do select já escolhida e mostrava logo o conteúdo):
- * o meio de pagamento predefinido se for de bancos, senão o 1.º meio activo de bancos (43), por código.
+ * o meio de pagamento predefinido se for de bancos ou cartão, senão o 1.º meio activo desses, por código.
  */
 export function contaBancariaInicial(meios: MeioPagamento[] | undefined): string | undefined {
-  const bancos = (meios ?? []).filter((m) => m.ativo && PREFIXO_BANCOS.some((p) => m.codigo_conta?.startsWith(p)));
+  const bancos = (meios ?? []).filter((m) => m.ativo && (PREFIXO_BANCOS.some((p) => m.codigo_conta?.startsWith(p)) || tipoMeio(m) === 'CARTAO'));
   return (bancos.find((m) => m.predefinido) ?? [...bancos].sort((a, b) => a.codigo_conta.localeCompare(b.codigo_conta))[0])?.codigo_conta;
 }
 
@@ -187,7 +188,7 @@ export default function Conciliacao() {
         }>
         <Flex wrap gap={12} align="flex-end" justify="space-between">
           <Space wrap>
-            <SeletorContaFinanceira value={conta} onChange={escolherConta} prefixos={PREFIXO_BANCOS} placeholder="Conta bancária" />
+            <SeletorContaFinanceira value={conta} onChange={escolherConta} prefixos={PREFIXO_BANCOS} comCartao placeholder="Conta Bancária / Cartão" />
             <DatePicker value={data} onChange={(v) => v && setData(v)} format="DD/MM/YYYY" allowClear={false} aria-label="Data de referência" />
           </Space>
           <Space wrap>
@@ -215,7 +216,7 @@ export default function Conciliacao() {
       />
       {!conta ? (
         <EstadoVazio icone="balance-scale" titulo={meios.isLoading ? 'A carregar as contas bancárias…' : 'Escolha a conta bancária'}
-          texto="Seleccione acima a conta bancária (43) e a data de referência para ver a correspondência, o extracto, o mapa e o histórico." />
+          texto="Seleccione acima a conta bancária (43) ou de cartão e a data de referência para ver a correspondência, o extracto, o mapa e o histórico." />
       ) : (
         <>
           <QuadroResumo conta={conta} data={data} aoTratar={() => setSeparador('manual')} />

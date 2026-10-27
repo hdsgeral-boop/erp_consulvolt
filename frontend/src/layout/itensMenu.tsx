@@ -132,7 +132,7 @@ export function construirItensMenu(menu: ModuloMenu[], opts?: { superAdmin?: boo
  * `?tipo=`; Aprovisionamento/Pedidos Internos: `?vista=`. Ecrãs escondidos do menu (ex.: os mapas de Relatórios e Recibos) seleccionam o ecrã pai.
  */
 export function estadoMenu(caminho: string, pesquisa = '', lateral?: MenuLateral, menu: ModuloMenu[] = []): { seleccionado: string; abertos: string[] } {
-  if (!caminho.startsWith('/m/')) return { seleccionado: '/', abertos: [] };
+  if (!caminho.startsWith('/m/')) return { seleccionado: '/inicio', abertos: [] };
   const [, , moduloId, ecraId] = caminho.split('/');
   let seleccionado = rotaEcra(moduloId, ecraId);
   const parametros = new URLSearchParams(pesquisa);

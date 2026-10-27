@@ -231,7 +231,7 @@ export function HistoricoFiltrado({ contaInicial, aoReprocessar }: { contaInicia
           </Space>
         }
       >
-        <SeletorContaFinanceira value={conta} onChange={setConta} prefixos={['43']} placeholder="Conta bancária" allowClear />
+        <SeletorContaFinanceira value={conta} onChange={setConta} prefixos={['43']} comCartao placeholder="Conta Bancária / Cartão" allowClear />
         <Select placeholder="Estado" allowClear style={{ width: 160 }} value={estado} onChange={setEstado} options={[{ value: 'CONCILIADO_BANCO', label: 'Conciliadas' }, { value: 'ANULADA', label: 'Anuladas' }]} />
         <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
       </BarraFiltros>

@@ -186,8 +186,8 @@ export interface MeioPagamento {
   codigo_moeda: string | null;
   /** descrição da conta no plano (GET /tesouraria/meios-pagamento) */
   descricao_conta?: string | null;
-  /** BANCO (43) ou CAIXA (45) */
-  tipo?: 'BANCO' | 'CAIXA';
+  /** BANCO (43), CAIXA (45) ou CARTAO (classe 3 marcada) */
+  tipo?: 'BANCO' | 'CAIXA' | 'CARTAO';
 }
 
 export type EstadoSessao = 'ABERTA' | 'FECHADA' | 'CONTABILIZADA';

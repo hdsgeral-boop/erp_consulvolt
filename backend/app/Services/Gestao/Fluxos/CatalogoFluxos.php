@@ -54,7 +54,7 @@ final class CatalogoFluxos
         'imobilizado' => ['nome' => 'Imobilizado', 'sub' => 'Cada compra de imobilizado, da factura à integração das amortizações, e o que falta para avançar.',
             'vistas' => ['activos'], 'avaliador' => FluxoImobilizado::class,
             'etapas' => ['fact' => 'Factura de compra', 'contab' => 'Contabilização da compra', 'invent' => 'Inventariação do activo', 'cat' => 'Categoria e vida útil', 'calc' => 'Cálculo das amortizações', 'integ' => 'Integração das amortizações']],
-        'bancos' => ['nome' => 'Bancos (43)', 'sub' => 'Cada mês de cada conta de depósitos à ordem (43): lançamento na Tesouraria, integração na contabilidade e reconciliação mensal com o extracto.',
+        'bancos' => ['nome' => 'Bancos (43) e Cartões', 'sub' => 'Cada mês de cada conta de depósitos à ordem (43) ou cartão de tesouraria: lançamento na Tesouraria, integração na contabilidade e reconciliação mensal com o extracto.',
             'vistas' => ['teso_gestao_conciliacao', 'teso_contab_integracao'], 'avaliador' => FluxoBancos::class,
             'etapas' => ['lanc' => 'Lançamento na Tesouraria', 'integ' => 'Integração na contabilidade', 'ext' => 'Extracto bancário', 'conc' => 'Reconciliação mensal']],
         'caixa' => ['nome' => 'Folha de Caixa', 'sub' => 'Cada sessão da Folha de Caixa, da abertura à integração na contabilidade.',

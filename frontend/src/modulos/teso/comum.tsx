@@ -18,23 +18,26 @@ export function useMeiosPagamento() {
  * as restantes contas de movimento 43/45. Sem nenhuma das fontes, texto livre (o servidor valida).
  * `estrito`: os meios de pagamento também são filtrados pelos prefixos e o rótulo é a descrição do plano (ex.: pagamentos/
  * recebimentos só por bancos, Fase A).
+ * `comCartao`: inclui também as contas-cartão de tesouraria (classe 3 marcada) — não são um prefixo, por isso entram
+ * à parte do filtro `prefixos`.
  */
-export function SeletorContaFinanceira({ value, onChange, allowClear, placeholder = 'Conta de banco/caixa', style, prefixos = ['43', '45'], estrito = false }: { value?: string; onChange?: (v: string | undefined) => void; allowClear?: boolean; placeholder?: string; style?: React.CSSProperties; prefixos?: string[]; estrito?: boolean }) {
+export function SeletorContaFinanceira({ value, onChange, allowClear, placeholder = 'Conta de banco/caixa', style, prefixos = ['43', '45'], estrito = false, comCartao = false }: { value?: string; onChange?: (v: string | undefined) => void; allowClear?: boolean; placeholder?: string; style?: React.CSSProperties; prefixos?: string[]; estrito?: boolean; comCartao?: boolean }) {
   const meios = useMeiosPagamento();
   const plano = usePlanoContas();
   const opcoes = useMemo(() => {
     const vistos = new Set<string>();
     const lista: { value: string; label: string }[] = [];
+    const elegivel = (codigo: string, cartao: boolean) => prefixos.some((p) => codigo.startsWith(p)) || (comCartao && cartao);
     const doMeios = () => {
       for (const m of meios.data ?? []) {
-        if (!m.ativo || vistos.has(m.codigo_conta) || (estrito && !prefixos.some((p) => m.codigo_conta.startsWith(p)))) continue;
+        if (!m.ativo || vistos.has(m.codigo_conta) || (estrito && !elegivel(m.codigo_conta, m.tipo === 'CARTAO'))) continue;
         vistos.add(m.codigo_conta);
         lista.push({ value: m.codigo_conta, label: `${m.codigo_conta} - ${m.nome}${m.codigo_moeda && m.codigo_moeda !== 'AOA' ? ` (${m.codigo_moeda})` : ''}` });
       }
     };
     const doPlano = () => {
       for (const c of plano.data ?? []) {
-        if (c.tipo !== 'M' || vistos.has(c.codigo) || !prefixos.some((p) => c.codigo.startsWith(p))) continue;
+        if (c.tipo !== 'M' || vistos.has(c.codigo) || !elegivel(c.codigo, c.cartao_tesouraria)) continue;
         vistos.add(c.codigo);
         lista.push({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` });
       }
@@ -49,7 +52,7 @@ export function SeletorContaFinanceira({ value, onChange, allowClear, placeholde
       doPlano();
     }
     return lista;
-  }, [meios.data, plano.data, prefixos, estrito]);
+  }, [meios.data, plano.data, prefixos, estrito, comCartao]);
 
   if (!opcoes.length && (meios.isError || !meios.data?.length) && plano.isError) {
     return <Input value={value} onChange={(e) => onChange?.(e.target.value || undefined)} placeholder={placeholder} maxLength={20} style={style} />;

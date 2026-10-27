@@ -1102,6 +1102,33 @@
           "dominio": null
         },
         {
+          "coluna": "cartao_tesouraria",
+          "legado": null,
+          "tipo": "boolean",
+          "nulo": false,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cartao_numero",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cartao_banco",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",

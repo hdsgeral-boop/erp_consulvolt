@@ -8,6 +8,7 @@ use App\Models\LinhaPrevisaoOrcamental;
 use App\Models\PedidoExtrapolacaoOrcamento;
 use App\Models\PlanoConta;
 use App\Models\RubricaOrcamental;
+use App\Services\Tesouraria\ServicoContasCartao;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,9 +62,18 @@ final class ServicoRubricasOrcamentais
         return ! empty($b['prefixo']) ? str_starts_with($a['codigo'], $b['codigo']) : $a['codigo'] === $b['codigo'];
     }
 
-    public static function ehDisponibilidade(string $conta): bool
+    /**
+     * 43/45 sempre; cartão (classe 3 marcada) também — é o próprio movimento de tesouraria, como 43/45.
+     * `$cartoes`: códigos já obtidos (ServicoContasCartao::codigos), para quem chama em ciclo evitar repetir a consulta;
+     * omitido, consulta-se aqui (uso pontual, fora de ciclos).
+     */
+    public static function ehDisponibilidade(string $conta, ?array $cartoes = null): bool
     {
-        return str_starts_with($conta, '43') || str_starts_with($conta, '45');
+        if (str_starts_with($conta, '43') || str_starts_with($conta, '45')) {
+            return true;
+        }
+
+        return in_array($conta, $cartoes ?? app(ServicoContasCartao::class)->codigos(), true);
     }
 
     /** @return array{erros: list<string>, avisos: list<string>, contas: list<array{codigo: string, prefixo: bool}>} */
@@ -76,6 +86,7 @@ final class ServicoRubricasOrcamentais
             $erros[] = 'Associe pelo menos uma conta ou prefixo do plano de contas.';
         }
         $plano = PlanoConta::query()->get(['codigo', 'tipo']);
+        $cartoes = $tipo === 'TESOURARIA' ? app(ServicoContasCartao::class)->codigos() : [];
         $rot = fn ($e) => $e['codigo'].($e['prefixo'] ? '*' : '');
         foreach ($lista as $i => $e) {
             $abr = $plano->filter(fn ($a) => self::abrange($e, (string) $a->codigo));
@@ -84,8 +95,8 @@ final class ServicoRubricasOrcamentais
             } elseif (! $e['prefixo'] && $abr->every(fn ($a) => $a->tipo === 'T')) {
                 $avisos[] = "{$e['codigo']} é uma conta totalizadora: use-a como prefixo ({$e['codigo']}*) para incluir as subcontas.";
             }
-            if ($tipo === 'TESOURARIA' && (self::ehDisponibilidade($e['codigo']) || ($e['prefixo'] && (str_starts_with('43', $e['codigo']) || str_starts_with('45', $e['codigo']))))) {
-                $erros[] = "{$rot($e)}: bancos e caixa (43/45) são o próprio movimento de tesouraria; associe as contas de contrapartida.";
+            if ($tipo === 'TESOURARIA' && (self::ehDisponibilidade($e['codigo'], $cartoes) || ($e['prefixo'] && (str_starts_with('43', $e['codigo']) || str_starts_with('45', $e['codigo']))))) {
+                $erros[] = "{$rot($e)}: bancos, caixa (43/45) e cartões de tesouraria são o próprio movimento de tesouraria; associe as contas de contrapartida.";
             }
             if ($tipo === 'EXPLORACAO' && ! preg_match('/^[67]/', $e['codigo'])) {
                 $avisos[] = "{$rot($e)} não é das classes 6 ou 7 (proveitos e custos).";

@@ -21,12 +21,14 @@ abstract class PlanoContaBase extends ModeloBase
 
     protected $fillable = [
         'empresa_id', 'codigo', 'descricao', 'tipo', 'codigo_moeda', 'banco_nome', 'banco_balcao', 'banco_numero_conta', 'banco_iban', 'banco_swift', 'banco_titular', 'natureza_conta',
+        'cartao_tesouraria', 'cartao_numero', 'cartao_banco',
     ];
 
     protected function casts(): array
     {
         return [
             'empresa_id' => 'integer',
+            'cartao_tesouraria' => 'boolean',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',

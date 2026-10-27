@@ -370,13 +370,14 @@ final class ServicoDocumentosTesouraria
     }
 
     /**
-     * Pagamentos e recebimentos só por bancos (legado novo, ui_tesouraria.js:653-678/861-877): a conta financeira tem de ser
-     * 42 (depósitos a prazo) ou 43 (depósitos à ordem). Excepção: a edição de um documento anterior que já estava numa conta
-     * de caixa (45) pode manter uma conta 45 («Caixa (45) — documento anterior»); os históricos não se mexem.
+     * Pagamentos e recebimentos só por bancos ou cartão (legado novo, ui_tesouraria.js:653-678/861-877): a conta
+     * financeira tem de ser 42 (depósitos a prazo), 43 (depósitos à ordem) ou uma conta-cartão de tesouraria
+     * (classe 3 marcada). Excepção: a edição de um documento anterior que já estava numa conta de caixa (45) pode
+     * manter uma conta 45 («Caixa (45) — documento anterior»); os históricos não se mexem.
      */
     public function exigirContaBancaria(string $conta, ?DocumentoTesouraria $doc = null): void
     {
-        if (preg_match('/^4[23]/', $conta)) {
+        if (preg_match('/^4[23]/', $conta) || $this->eContaCartao($conta)) {
             return;
         }
         $anteriorEmCaixa = $doc && str_starts_with((string) $doc->getOriginal('conta_financeira'), self::MEIO_PREFIXO['CAIXA']);
@@ -384,9 +385,19 @@ final class ServicoDocumentosTesouraria
             return;
         }
         throw new ErroNegocio(str_starts_with($conta, '45')
-            ? 'Os pagamentos e recebimentos só movimentam contas bancárias (42 depósitos a prazo, 43 depósitos à ordem). O numerário (45) passou para a Folha de Caixa.'
-            : 'A conta financeira tem de ser uma conta bancária: depósitos à ordem (43) ou depósitos a prazo (42).',
+            ? 'Os pagamentos e recebimentos só movimentam contas bancárias (42 depósitos a prazo, 43 depósitos à ordem) ou um cartão de tesouraria. O numerário (45) passou para a Folha de Caixa.'
+            : 'A conta financeira tem de ser uma conta bancária (depósitos à ordem 43, depósitos a prazo 42) ou um cartão de tesouraria.',
             'CONTA_FINANCEIRA_SO_BANCOS', 422, ['conta_financeira' => $conta]);
+    }
+
+    /** A conta é uma conta-cartão de tesouraria (classe 3 marcada)? Falso se a conta não existir. */
+    private function eContaCartao(string $conta): bool
+    {
+        try {
+            return (bool) ($this->plano->contaDeMovimento($conta)['cartao_tesouraria'] ?? false);
+        } catch (ErroNegocio) {
+            return false;
+        }
     }
 
     /**
@@ -540,8 +551,8 @@ final class ServicoDocumentosTesouraria
     private function moedaDocumento(string $conta, string $data, ?string $manual, ?string $validarManual = null): array
     {
         $c = $this->plano->contaDeMovimento($conta);
-        if (! preg_match('/^4[235]/', $conta)) {
-            throw new ErroNegocio('A conta financeira tem de ser de bancos (42/43) ou de caixa (45).', 'CONTA_FINANCEIRA_INVALIDA', 422);
+        if (! preg_match('/^4[235]/', $conta) && ! $c['cartao_tesouraria']) {
+            throw new ErroNegocio('A conta financeira tem de ser de bancos (42/43), de caixa (45) ou uma conta-cartão de tesouraria.', 'CONTA_FINANCEIRA_INVALIDA', 422);
         }
         $codigo = ($c['codigo_moeda'] ?? null) ?: ServicoCambios::BASE;
         if ($codigo === ServicoCambios::BASE) {
@@ -561,6 +572,7 @@ final class ServicoDocumentosTesouraria
         return ['codigo' => $codigo, 'taxa' => $t['taxa'], 'taxa_id' => $t['id'], 'manual' => false, 'estrangeira' => true];
     }
 
+    /** 42/43 e cartão (classe 3 marcada) liquidam-se pelo banco → diário BD; só a caixa (45) vai ao diário CX. */
     private function diario(string $conta): DiarioContabil
     {
         return str_starts_with($conta, '45') ? $this->localizador->diario('CX', 'Caixa') : $this->localizador->diario('BD', 'Bancos');

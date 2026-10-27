@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Radio, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Radio, Row, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd';
 import type { Key } from 'react';
 import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
@@ -19,8 +19,10 @@ import { IconeFa } from '@/componentes/fluxos';
 import { tituloPlanoContas } from './comum/paridade';
 import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
 import { DadosBancariosConta, useDadosBancariosConta } from './plano/DadosBancariosConta';
+import { CartaoTesourariaConta, useDadosCartaoConta } from './plano/CartaoTesourariaConta';
 import { BarraAccoesMassa } from './plano/AccoesMassaPlano';
 import { CAMPOS_BANCARIOS, dadosBancariosParaApi, ibanContaValido, swiftValido, type DadosBancarios } from './plano/contasBancarias';
+import { CAMPOS_CARTAO, dadosCartaoParaApi, useContasCartaoMapa, type DadosCartao } from './plano/cartaoTesouraria';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
@@ -28,7 +30,8 @@ import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 export function dadosConta(v: Record<string, unknown>): Record<string, unknown> {
   const codigo = String(v.codigo ?? '').trim();
   const tipo = String(v.tipo ?? 'M');
-  return { ...v, codigo, tipo, codigo_moeda: v.codigo_moeda || null, natureza_conta: v.natureza_conta || null, ...dadosBancariosParaApi(codigo, tipo, v as DadosBancarios) };
+  return { ...v, codigo, tipo, codigo_moeda: v.codigo_moeda || null, natureza_conta: v.natureza_conta || null,
+    ...dadosBancariosParaApi(codigo, tipo, v as DadosBancarios), ...dadosCartaoParaApi(v as DadosCartao) };
 }
 
 const TIPOS_CONTA = [{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }];
@@ -111,14 +114,16 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
   const [edicao, setEdicao] = useState<ContaPlano | 'nova' | null>(null);
   const [janela, setJanela] = useState<'copiar' | 'importar' | null>(null);
   const [seleccao, setSeleccao] = useState<Key[]>([]);
-  const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string } & DadosBancarios>();
+  const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string } & DadosBancarios & DadosCartao>();
   const gerir = pode('contab_plano_gerir');
   const eliminar = pode('contab_tabelas_del');
   const accao = useAccao({ invalidar: [['contab', 'plano-contas']], aoSucesso: () => setEdicao(null) });
   const emUso = (c: ContaPlano) => !!uso.data?.has(c.codigo);
-  // dados bancários gravados (não vêm na lista em cache do plano): lidos ao abrir uma conta 42/43
+  const cartoes = useContasCartaoMapa();
+  // dados bancários/cartão gravados (não vêm todos na lista em cache do plano): lidos ao abrir a conta
   const editada = edicao && edicao !== 'nova' ? edicao : undefined;
   const bancarios = useDadosBancariosConta(editada?.codigo, editada?.tipo);
+  const cartao = useDadosCartaoConta(editada?.codigo, editada?.tipo, editada?.cartao_tesouraria);
 
   useEffect(() => {
     if (!edicao) return;
@@ -132,6 +137,12 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
     if (!d || !editada || d.codigo !== editada.codigo) return;
     form.setFieldsValue(Object.fromEntries(CAMPOS_BANCARIOS.map((c) => [c, d[c] ?? undefined])));
   }, [bancarios.data, editada, form]);
+
+  useEffect(() => {
+    const d = cartao.data;
+    if (!d || !editada || d.codigo !== editada.codigo) return;
+    form.setFieldsValue(Object.fromEntries(CAMPOS_CARTAO.map((c) => [c, d[c] ?? undefined])));
+  }, [cartao.data, editada, form]);
 
   const linhas = useMemo(() => {
     const f = filtro.toLowerCase();
@@ -187,7 +198,19 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
         pagination={{ pageSize: 100, showSizeChanger: false, showTotal: (n) => `${n} conta(s)` }}
         columns={[
           { title: 'Código', dataIndex: 'codigo', width: 150, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.replace(/\./g, '').length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : 400, fontFamily: 'monospace' }}>{v}</span> },
-          { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, c) => <span style={{ fontWeight: c.tipo === 'T' ? 600 : 400 }}>{v}</span> },
+          { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, c) => {
+            const cartao = c.cartao_tesouraria ? cartoes.get(c.codigo) : undefined;
+            return (
+              <span style={{ fontWeight: c.tipo === 'T' ? 600 : 400 }}>
+                {v}
+                {c.cartao_tesouraria && (
+                  <Tooltip title={cartao ? `${cartao.cartao_banco ?? ''}${cartao.cartao_numero ? ` · ${cartao.cartao_numero}` : ''}` : 'Cartão de tesouraria'}>
+                    <Tag color="purple" style={{ marginLeft: 6 }} icon={<IconeFa nome="credit-card" />}>Cartão</Tag>
+                  </Tooltip>
+                )}
+              </span>
+            );
+          } },
           {
             title: 'Tipo',
             dataIndex: 'tipo',
@@ -249,6 +272,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
             <Col xs={24} md={14}><Form.Item name="natureza_conta" label="Natureza"><Input maxLength={255} /></Form.Item></Col>
           </Row>
           <DadosBancariosConta />
+          <CartaoTesourariaConta />
         </Form>
       </ModalFormulario>
     </Card>

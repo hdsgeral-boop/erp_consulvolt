@@ -8,6 +8,7 @@ use App\Models\LancamentoContabil;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Sistema\ServicoNumeracao;
+use App\Services\Tesouraria\ServicoContasCartao;
 use App\Services\Vendas\CalculadoraDocumento;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
@@ -33,6 +34,7 @@ final class ServicoLancamentos
         private readonly ServicoPlanoContas $planoContas,
         private readonly ServicoExercicios $exercicios,
         private readonly ServicoNumeracao $numeracao,
+        private readonly ServicoContasCartao $contasCartao,
     ) {}
 
     /**
@@ -161,17 +163,19 @@ final class ServicoLancamentos
             return;
         }
         $linhas = collect($dados['linhas']);
-        if (! $linhas->contains(fn ($l) => str_starts_with((string) $l['codigo_conta'], '4'))) {
+        // disponibilidade: classe 4 (como sempre) OU conta-cartão de tesouraria (classe 3 marcada)
+        $disponibilidade = fn (array $l): bool => str_starts_with((string) $l['codigo_conta'], '4') || $this->contasCartao->ehCodigoCartao((string) $l['codigo_conta']);
+        if (! $linhas->contains($disponibilidade)) {
             return;
         }
-        $sem = $linhas->keys()->filter(fn ($i) => ! str_starts_with((string) $linhas[$i]['codigo_conta'], '4') && empty($linhas[$i]['nota_fluxo_caixa_id']));
+        $sem = $linhas->keys()->filter(fn ($i) => ! $disponibilidade($linhas[$i]) && empty($linhas[$i]['nota_fluxo_caixa_id']));
         if ($sem->isNotEmpty()) {
-            throw new ErroNegocio("No diário {$codigo}, as contrapartidas das contas de disponibilidades (classe 4) têm de ter uma nota de fluxo de caixa.",
+            throw new ErroNegocio("No diário {$codigo}, as contrapartidas das contas de disponibilidades (classe 4 ou cartão de tesouraria) têm de ter uma nota de fluxo de caixa.",
                 'NOTA_FLUXO_OBRIGATORIA', 422, ['linhas' => $sem->map(fn ($i) => $i + 1)->values()->all()]);
         }
-        $com = $linhas->keys()->filter(fn ($i) => str_starts_with((string) $linhas[$i]['codigo_conta'], '4') && ! empty($linhas[$i]['nota_fluxo_caixa_id']));
+        $com = $linhas->keys()->filter(fn ($i) => $disponibilidade($linhas[$i]) && ! empty($linhas[$i]['nota_fluxo_caixa_id']));
         if ($com->isNotEmpty()) {
-            throw new ErroNegocio('A nota de fluxo de caixa não se aplica à conta de disponibilidades (classe 4), mas sim à sua contrapartida.',
+            throw new ErroNegocio('A nota de fluxo de caixa não se aplica à conta de disponibilidades (classe 4 ou cartão de tesouraria), mas sim à sua contrapartida.',
                 'NOTA_FLUXO_NA_DISPONIBILIDADE', 422, ['linhas' => $com->map(fn ($i) => $i + 1)->values()->all()]);
         }
     }

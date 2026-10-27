@@ -509,6 +509,8 @@ final class ServicoMigracaoLegado
                     return "Conta duplicada na mesma empresa ({$chave}); mantida a primeira ocorrência (id {$chavesVistas[$chave]}).";
                 }
                 $chavesVistas[$chave] = $linha['id'];
+                // coluna nova NOT NULL DEFAULT false (o legado não a tem): ninguém vem marcado como cartão da migração
+                $linha['cartao_tesouraria'] ??= false;
                 break;
 
             case 'lancamentos_contabeis':

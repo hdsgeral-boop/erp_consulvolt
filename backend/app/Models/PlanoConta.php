@@ -26,6 +26,12 @@ class PlanoConta extends PlanoContaBase
     /** Dados bancários da conta (bank_* em chart_of_accounts do legado novo); só nas contas 42/43 de movimento. */
     public const CAMPOS_BANCARIOS = ['banco_nome', 'banco_balcao', 'banco_numero_conta', 'banco_iban', 'banco_swift', 'banco_titular'];
 
+    /** Prefixo da classe 3 (dívida a terceiros) elegível para ser marcada como cartão de tesouraria. */
+    public const PREFIXO_CARTAO_ELEGIVEL = '3';
+
+    /** Dados do cartão (conta-cartão de tesouraria, classe 3); só quando `cartao_tesouraria` está ligado. */
+    public const CAMPOS_CARTAO = ['cartao_numero', 'cartao_banco'];
+
     protected static function booted(): void
     {
         $invalidar = fn (PlanoConta $conta) => InvalidacaoCache::esquecer(ChaveCache::empresa((int) $conta->empresa_id, 'contabilidade', 'plano_contas'));   // agora e depois do commit (R2)
@@ -62,5 +68,20 @@ class PlanoConta extends PlanoContaBase
     public function eMovimento(): bool
     {
         return $this->tipo !== self::TIPO_TOTALIZADORA;
+    }
+
+    /**
+     * Conta-cartão de tesouraria (classe 3 marcada pelo utilizador): dívida ao emissor do cartão, não dinheiro
+     * disponível — por isso não é reconhecida por prefixo como 42/43/45, só pela marcação explícita na conta.
+     */
+    public function eCartaoTesouraria(): bool
+    {
+        return $this->eMovimento() && (bool) $this->cartao_tesouraria;
+    }
+
+    /** Conta de disponibilidades: bancos (42/43), caixa (45) ou cartão de tesouraria (classe 3 marcada). */
+    public function eDisponibilidade(): bool
+    {
+        return $this->eBancaria() || ($this->eMovimento() && str_starts_with((string) $this->codigo, '45')) || $this->eCartaoTesouraria();
     }
 }

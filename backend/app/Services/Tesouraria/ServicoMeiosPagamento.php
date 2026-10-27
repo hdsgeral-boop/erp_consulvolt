@@ -20,8 +20,8 @@ final class ServicoMeiosPagamento
     public function gravar(array $d, ?MeioPagamento $meio = null): MeioPagamento
     {
         $conta = $this->plano->contaDeMovimento($d['codigo_conta']);
-        if (! preg_match('/^4[35]/', $d['codigo_conta'])) {
-            throw new ErroNegocio('A conta tem de ser de bancos (43) ou de caixa (45).', 'CONTA_FINANCEIRA_INVALIDA', 422);
+        if (! preg_match('/^4[35]/', $d['codigo_conta']) && ! $conta['cartao_tesouraria']) {
+            throw new ErroNegocio('A conta tem de ser de bancos (43), de caixa (45) ou uma conta-cartão de tesouraria.', 'CONTA_FINANCEIRA_INVALIDA', 422);
         }
         $iban = isset($d['iban']) ? strtoupper(preg_replace('/\s+/', '', (string) $d['iban'])) : null;
         if ($iban !== null && $iban !== '' && ! self::ibanValido($iban)) {

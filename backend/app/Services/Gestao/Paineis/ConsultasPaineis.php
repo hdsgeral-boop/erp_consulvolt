@@ -2,6 +2,7 @@
 
 namespace App\Services\Gestao\Paineis;
 
+use App\Services\Tesouraria\ServicoContasCartao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class ConsultasPaineis
 {
-    public function __construct(private readonly ContextoEmpresa $contexto) {}
+    public function __construct(private readonly ContextoEmpresa $contexto, private readonly ServicoContasCartao $contasCartao) {}
 
     public function empresa(): int
     {
@@ -125,12 +126,14 @@ final class ConsultasPaineis
     public function disponibilidadesPorMes(PeriodoPainel $p, array $f): array
     {
         [$fs, $fp] = $this->filtroDiario($f);
-        $base = "FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND (l.codigo_conta LIKE '43%' OR l.codigo_conta LIKE '45%'){$fs}";
+        $cartoes = $this->contasCartao->codigos();
+        $ph = $cartoes ? ' OR l.codigo_conta IN ('.implode(',', array_fill(0, count($cartoes), '?')).')' : '';
+        $base = "FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND (l.codigo_conta LIKE '43%' OR l.codigo_conta LIKE '45%'{$ph}){$fs}";
         $linhas = DB::select("SELECT to_char(l.data_documento, 'YYYY-MM') AS mes,
                 SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE 0 END) AS entradas, SUM(CASE WHEN l.tipo_dc = 'C' THEN l.valor ELSE 0 END) AS saidas
-            {$base} AND l.data_documento BETWEEN ? AND ? GROUP BY 1", array_merge([$this->empresa()], $fp, [$p->inicioJanela, $p->fimMes]));
+            {$base} AND l.data_documento BETWEEN ? AND ? GROUP BY 1", array_merge([$this->empresa()], $cartoes, $fp, [$p->inicioJanela, $p->fimMes]));
         $inicial = DB::selectOne("SELECT SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) AS s {$base} AND l.data_documento < ?",
-            array_merge([$this->empresa()], $fp, [$p->inicioJanela]))->s;
+            array_merge([$this->empresa()], $cartoes, $fp, [$p->inicioJanela]))->s;
         $r = ['entradas' => [], 'saidas' => [], 'saldo_inicial' => Indicadores::dinheiro($inicial)];
         foreach ($linhas as $l) {
             $r['entradas'][$l->mes] = Indicadores::dinheiro($l->entradas);

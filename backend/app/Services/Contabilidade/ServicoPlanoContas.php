@@ -5,6 +5,7 @@ namespace App\Services\Contabilidade;
 use App\Exceptions\ErroNegocio;
 use App\Models\PlanoConta;
 use App\Services\Tesouraria\ServicoContasBancarias;
+use App\Services\Tesouraria\ServicoContasCartao;
 use App\Support\Cache\CacheComprimida;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -20,18 +21,22 @@ use Illuminate\Support\Facades\DB;
  */
 final class ServicoPlanoContas
 {
-    public function __construct(private readonly ContextoEmpresa $contexto, private readonly ServicoContasBancarias $contasBancarias) {}
+    public function __construct(
+        private readonly ContextoEmpresa $contexto,
+        private readonly ServicoContasBancarias $contasBancarias,
+        private readonly ServicoContasCartao $contasCartao,
+    ) {}
 
-    /** @return array<string, array{id: int, codigo: string, descricao: ?string, tipo: string, codigo_moeda: ?string}> codigo => conta */
+    /** @return array<string, array{id: int, codigo: string, descricao: ?string, tipo: string, codigo_moeda: ?string, cartao_tesouraria: bool}> codigo => conta */
     public function todas(): array
     {
         $empresa = $this->contexto->obrigatorio();
 
         // comprimido pela aplicação (~200 KB -> ~26 KB por empresa; CacheComprimida)
         return CacheComprimida::lembrar(ChaveCache::empresa($empresa, 'contabilidade', 'plano_contas'), (int) config('erp.cache.ttl.plano_contas'), fn () => PlanoConta::query()
-            ->orderBy('codigo')->get(['id', 'codigo', 'descricao', 'tipo', 'codigo_moeda'])
+            ->orderBy('codigo')->get(['id', 'codigo', 'descricao', 'tipo', 'codigo_moeda', 'cartao_tesouraria'])
             ->mapWithKeys(fn (PlanoConta $c) => [$c->codigo => ['id' => $c->id, 'codigo' => $c->codigo, 'descricao' => $c->descricao,
-                'tipo' => $c->tipo ?? PlanoConta::TIPO_MOVIMENTO, 'codigo_moeda' => $c->codigo_moeda]])
+                'tipo' => $c->tipo ?? PlanoConta::TIPO_MOVIMENTO, 'codigo_moeda' => $c->codigo_moeda, 'cartao_tesouraria' => (bool) $c->cartao_tesouraria]])
             ->all());
     }
 
@@ -52,11 +57,13 @@ final class ServicoPlanoContas
     /** @param  array<string, mixed>  $dados */
     public function criar(array $dados): PlanoConta
     {
-        $this->validarMoeda($dados['codigo'], $dados['codigo_moeda'] ?? null);
+        $this->validarMoeda($dados['codigo'], $dados['codigo_moeda'] ?? null, (bool) ($dados['cartao_tesouraria'] ?? false));
         if (PlanoConta::query()->where('codigo', $dados['codigo'])->exists()) {
             throw new ErroNegocio("Já existe a conta {$dados['codigo']}.", 'CONTA_DUPLICADA', 422);
         }
-        $dados = $this->contasBancarias->normalizar($dados, (string) $dados['codigo'], (string) ($dados['tipo'] ?? PlanoConta::TIPO_MOVIMENTO));
+        $tipo = (string) ($dados['tipo'] ?? PlanoConta::TIPO_MOVIMENTO);
+        $dados = $this->contasBancarias->normalizar($dados, (string) $dados['codigo'], $tipo);
+        $dados = $this->contasCartao->normalizar($dados, (string) $dados['codigo'], $tipo);
 
         return PlanoConta::create($dados);
     }
@@ -75,8 +82,12 @@ final class ServicoPlanoContas
         if (($dados['tipo'] ?? $conta->tipo) === PlanoConta::TIPO_TOTALIZADORA && $conta->tipo !== PlanoConta::TIPO_TOTALIZADORA && $this->temMovimentos($conta->codigo)) {
             throw new ErroNegocio('Uma conta com movimentos não pode passar a totalizadora.', 'CONTA_COM_MOVIMENTOS', 422);
         }
-        $this->validarMoeda($dados['codigo'] ?? $conta->codigo, array_key_exists('codigo_moeda', $dados) ? $dados['codigo_moeda'] : $conta->codigo_moeda);
-        $dados = $this->contasBancarias->normalizar($dados, (string) ($dados['codigo'] ?? $conta->codigo), (string) ($dados['tipo'] ?? $conta->tipo ?? PlanoConta::TIPO_MOVIMENTO));
+        $cartaoMarcada = array_key_exists('cartao_tesouraria', $dados) ? (bool) $dados['cartao_tesouraria'] : (bool) $conta->cartao_tesouraria;
+        $this->validarMoeda($dados['codigo'] ?? $conta->codigo, array_key_exists('codigo_moeda', $dados) ? $dados['codigo_moeda'] : $conta->codigo_moeda, $cartaoMarcada);
+        $codigo = (string) ($dados['codigo'] ?? $conta->codigo);
+        $tipo = (string) ($dados['tipo'] ?? $conta->tipo ?? PlanoConta::TIPO_MOVIMENTO);
+        $dados = $this->contasBancarias->normalizar($dados, $codigo, $tipo);
+        $dados = $this->contasCartao->normalizar($dados + ['cartao_tesouraria' => $cartaoMarcada], $codigo, $tipo);
         $conta->update($dados);
 
         return $conta;
@@ -176,10 +187,11 @@ final class ServicoPlanoContas
         return DB::table('lancamentos_contabeis')->where('empresa_id', $this->contexto->obrigatorio())->where('codigo_conta', $codigo)->exists();
     }
 
-    private function validarMoeda(string $codigo, ?string $moeda): void
+    /** Classe 4 (meios monetários) sempre; classe 3 só quando a conta é um cartão de tesouraria (ADR cartão). */
+    private function validarMoeda(string $codigo, ?string $moeda, bool $cartaoTesouraria = false): void
     {
-        if ($moeda !== null && $moeda !== '' && ! str_starts_with($codigo, '4')) {
-            throw new ErroNegocio('Só contas da classe 4 (meios monetários) podem ter moeda estrangeira.', 'MOEDA_SO_CLASSE_4', 422);
+        if ($moeda !== null && $moeda !== '' && ! str_starts_with($codigo, '4') && ! $cartaoTesouraria) {
+            throw new ErroNegocio('Só contas da classe 4 (meios monetários) ou uma conta-cartão de tesouraria podem ter moeda estrangeira.', 'MOEDA_SO_CLASSE_4', 422);
         }
     }
 }

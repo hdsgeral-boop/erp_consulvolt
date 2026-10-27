@@ -29,15 +29,15 @@ use Illuminate\Support\Facades\Schema;
  *     «Desintegrar» descontabiliza-o (estorno); editar e anular fazem-se no recibo (Vendas › Recibos);
  *   - as linhas não têm venda_id (a factura já foi actualizada pelo recibo; ligar a venda contaria o pago duas vezes):
  *     levam o terceiro, a conta de cliente e o n.º da factura — servem a lista e mantêm os pendentes «em curso».
- * Só para contas de disponibilidade da Tesouraria (42/43/45); outras contas da classe 4 ficam de fora (sem espelho).
+ * Só para contas de disponibilidade da Tesouraria (42/43/45 ou cartão); outras contas da classe 4 ficam de fora (sem espelho).
  * As vendas do POS não têm recibo: os seus recebimentos já entram pela prestação de contas (ADR-048).
  */
 final class ServicoRecebimentosVendas
 {
-    /** Contas de disponibilidade que têm espelho na Tesouraria. */
+    /** Contas de disponibilidade que têm espelho na Tesouraria, por prefixo (além das contas-cartão, marcadas na conta). */
     public const PREFIXOS = ['42', '43', '45'];
 
-    public function __construct(private readonly ServicoConfigVendas $configVendas) {}
+    public function __construct(private readonly ServicoConfigVendas $configVendas, private readonly ServicoContasCartao $contasCartao) {}
 
     /** A coluna de ligação existe (migração 2026_10_17_094200)? Sem ela nada é feito (instalações por migrar). */
     public static function activo(): bool
@@ -47,9 +47,11 @@ final class ServicoRecebimentosVendas
         return $existe ??= Schema::hasColumn('documentos_tesouraria', 'recibo_venda_id');
     }
 
-    public static function eContaTesouraria(?string $conta): bool
+    public function eContaTesouraria(?string $conta): bool
     {
-        return $conta !== null && in_array(substr(trim($conta), 0, 2), self::PREFIXOS, true);
+        $conta = trim((string) $conta);
+
+        return $conta !== '' && (in_array(substr($conta, 0, 2), self::PREFIXOS, true) || $this->contasCartao->ehCodigoCartao($conta));
     }
 
     /** Recibo de venda que gerou o documento (null se o documento é da Tesouraria). */
@@ -73,7 +75,7 @@ final class ServicoRecebimentosVendas
         return DB::transaction(function () use ($recibo) {
             $recibo = ReciboVenda::query()->find($recibo->id) ?? $recibo;
             $doc = DocumentoTesouraria::query()->where('recibo_venda_id', $recibo->id)->lockForUpdate()->first();
-            if (! $doc && ! self::eContaTesouraria($recibo->codigo_conta)) {
+            if (! $doc && ! $this->eContaTesouraria($recibo->codigo_conta)) {
                 return null;
             }
             $cliente = Terceiro::query()->withTrashed()->find($recibo->cliente_id);
@@ -172,7 +174,7 @@ final class ServicoRecebimentosVendas
         $limite > 0 && $q->limit($limite);
         foreach ($q->get() as $recibo) {
             $r['recibos']++;
-            if (! self::eContaTesouraria($recibo->codigo_conta)) {
+            if (! $this->eContaTesouraria($recibo->codigo_conta)) {
                 $r['sem_conta_tesouraria']++;
 
                 continue;

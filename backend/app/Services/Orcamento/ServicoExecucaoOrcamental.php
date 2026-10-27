@@ -5,6 +5,7 @@ namespace App\Services\Orcamento;
 use App\Models\LinhaOrcamento;
 use App\Models\OrcamentoAnual;
 use App\Models\RubricaOrcamental;
+use App\Services\Tesouraria\ServicoContasCartao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class ServicoExecucaoOrcamental
 {
-    public function __construct(private readonly ContextoEmpresa $contexto) {}
+    public function __construct(private readonly ContextoEmpresa $contexto, private readonly ServicoContasCartao $contasCartao) {}
 
     /** Lançamento a ignorar (o documento que está a ser validado já está no Diário, dentro da mesma transacção). */
     public ?string $excluirNumeroLan = null;
@@ -49,6 +50,10 @@ final class ServicoExecucaoOrcamental
     {
         $ano ??= $o->ano;
         $rubs = RubricaOrcamental::query()->where('tipo', $o->tipo)->where('ativo', true)->get();
+        // disponibilidade: 43/45 ou cartão de tesouraria (classe 3 marcada) — é o próprio movimento, como 43/45.
+        $cartoes = $this->contasCartao->codigos();
+        $disp = fn ($q, string $alias = 'l') => $q->where(fn ($x) => $x->where("{$alias}.codigo_conta", 'like', '43%')->orWhere("{$alias}.codigo_conta", 'like', '45%')
+            ->when($cartoes, fn ($xx) => $xx->orWhereIn("{$alias}.codigo_conta", $cartoes)));
         $cache = [];
         $rub = function (string $conta) use ($rubs, &$cache) {
             return $cache[$conta] ??= ServicoRubricasOrcamentais::rubricaDaConta($rubs, $conta) ?? false;
@@ -78,17 +83,17 @@ final class ServicoExecucaoOrcamental
         } else {
             // documentos com movimento de disponibilidades; chave = n.º de lançamento (ou diário|documento|data)
             $chave = "COALESCE(l.numero_lan, l.diario_id::text || '|' || COALESCE(l.numero_documento, '') || '|' || l.data_documento::text)";
-            $docs = $this->base($ano)->where(fn ($q) => $q->where('l.codigo_conta', 'like', '43%')->orWhere('l.codigo_conta', 'like', '45%'))->selectRaw("{$chave} AS chave")->distinct()->pluck('chave');
+            $docs = $disp($this->base($ano))->selectRaw("{$chave} AS chave")->distinct()->pluck('chave');
             $linhas = $this->base($ano)->whereIn(DB::raw($chave), $docs)
                 ->get([DB::raw("{$chave} AS chave"), 'l.codigo_conta', 'l.tipo_dc', 'l.valor', 'l.data_documento', 'l.unidade_negocio_id', 'l.centro_custo_id', 'l.projeto_id']);
             foreach ($linhas->groupBy('chave') as $ls) {
-                $caixa = $ls->filter(fn ($l) => ServicoRubricasOrcamentais::ehDisponibilidade((string) $l->codigo_conta));
+                $caixa = $ls->filter(fn ($l) => ServicoRubricasOrcamentais::ehDisponibilidade((string) $l->codigo_conta, $cartoes));
                 $liquido = $caixa->sum(fn ($l) => $l->tipo_dc === 'D' ? (float) $l->valor : -(float) $l->valor);
                 if (abs($liquido) < 0.005) {
                     continue;   // transferência interna ou sem efeito
                 }
                 $mes = (int) substr((string) $caixa->first()->data_documento, 5, 2) - 1;
-                $contrap = $ls->filter(fn ($l) => ! ServicoRubricasOrcamentais::ehDisponibilidade((string) $l->codigo_conta) && $l->tipo_dc === ($liquido > 0 ? 'C' : 'D'));
+                $contrap = $ls->filter(fn ($l) => ! ServicoRubricasOrcamentais::ehDisponibilidade((string) $l->codigo_conta, $cartoes) && $l->tipo_dc === ($liquido > 0 ? 'C' : 'D'));
                 $peso = $contrap->sum(fn ($l) => (float) $l->valor);
                 if (! $peso) {
                     $somar($sem, '(sem contrapartida)', $mes, $liquido);
@@ -111,7 +116,6 @@ final class ServicoExecucaoOrcamental
             'sem_rubrica' => array_values(array_filter(array_map(fn ($k, $v) => ['conta' => (string) $k, 'valores' => $arred($v)], array_keys($sem), $sem),
                 fn ($e) => collect($e['valores'])->contains(fn ($x) => abs($x) >= 0.01)))];
         if ($o->tipo === 'TESOURARIA') {
-            $disp = fn ($q) => $q->where(fn ($x) => $x->where('l.codigo_conta', 'like', '43%')->orWhere('l.codigo_conta', 'like', '45%'));
             $saldo = (float) $disp(DB::table('lancamentos_contabeis as l')->where('l.empresa_id', $this->contexto->obrigatorio())->where('l.data_documento', '<', "{$ano}-01-01"))
                 ->selectRaw("COALESCE(SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END), 0) AS s")->value('s');
             $res['saldo_inicial'] = round($saldo, 2);

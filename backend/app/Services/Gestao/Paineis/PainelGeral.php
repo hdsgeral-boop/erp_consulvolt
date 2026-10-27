@@ -3,6 +3,7 @@
 namespace App\Services\Gestao\Paineis;
 
 use App\Services\Logistica\ServicoArmazens;
+use App\Services\Tesouraria\ServicoContasCartao;
 
 /**
  * Visão geral (CONSTRUTORES.geral, ui_painel_modulos.js:132-165): vendas e compras do mês, resultado do ano, disponibilidades
@@ -17,7 +18,7 @@ use App\Services\Logistica\ServicoArmazens;
  */
 final class PainelGeral implements Painel
 {
-    public function __construct(private readonly ConsultasPaineis $consultas, private readonly ServicoArmazens $armazens) {}
+    public function __construct(private readonly ConsultasPaineis $consultas, private readonly ServicoArmazens $armazens, private readonly ServicoContasCartao $contasCartao) {}
 
     public function filtraDimensoes(): bool
     {
@@ -45,10 +46,12 @@ final class PainelGeral implements Painel
             $kpis[] = Indicadores::kpi('resultado_ano', 'Resultado do Ano', $resultado, 'kz', bccomp($resultado, '0', 2) >= 0 ? 'Lucro acumulado' : 'Prejuízo acumulado', 'contabilidade');
             $series['pc'] = [Indicadores::serie('proveitos', 'Proveitos (classe 6)', $p->serie($pc['proveitos'])), Indicadores::serie('custos', 'Custos (classe 7)', $p->serie($pc['custos']))];
         }
-        $grupos = array_filter(['disp' => $ve('tesouraria') ? ['43', '45'] : null, 'cli' => $ve('vendas') ? ['31'] : null, 'forn' => $ve('compras') ? ['32'] : null]);
+        $cartoes = $ve('tesouraria') ? $this->contasCartao->codigos() : [];
+        $grupos = array_filter(['disp' => $ve('tesouraria') ? array_merge(['43', '45'], $cartoes) : null, 'cli' => $ve('vendas') ? ['31'] : null, 'forn' => $ve('compras') ? ['32'] : null]);
         $saldos = $grupos ? $this->consultas->saldos($p->fimMes, $grupos, $f) : [];
         if (isset($saldos['disp'])) {
-            $kpis[] = Indicadores::kpi('disponibilidades', 'Disponibilidades', $saldos['disp'], 'kz', 'Bancos (43) e Caixa (45)', 'tesouraria');
+            $kpis[] = Indicadores::kpi('disponibilidades', 'Disponibilidades', $saldos['disp'], 'kz',
+                $cartoes ? 'Bancos (43), Caixa (45) e cartões abatidos' : 'Bancos (43) e Caixa (45)', 'tesouraria');
         }
         if (isset($saldos['cli'])) {
             $kpis[] = Indicadores::kpi('clientes_receber', 'Clientes a Receber', $saldos['cli'], 'kz', 'Saldo da conta 31', 'vendas');

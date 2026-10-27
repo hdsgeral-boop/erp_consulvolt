@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contaFinanceiraPermitida, contaParaCopia, documentoAnteriorEmCaixa, meioDaConta, opcoesMeio, PREFIXO_MEIO } from './contaFinanceira';
+import { contaCombinaComMeio, contaFinanceiraPermitida, contaParaCopia, documentoAnteriorEmCaixa, meioDaConta, opcoesMeio, PREFIXO_MEIO } from './contaFinanceira';
 
 describe('tesouraria só por bancos (Fase A)', () => {
   it('meio e prefixo da conta', () => {
@@ -33,5 +33,31 @@ describe('tesouraria só por bancos (Fase A)', () => {
     expect(contaParaCopia('4511')).toBeUndefined();
     expect(contaParaCopia('4311')).toBe('4311');
     expect(contaParaCopia(null)).toBeUndefined();
+  });
+});
+
+describe('conta-cartão de tesouraria (classe 3) na Tesouraria', () => {
+  it('o meio CARTAO só aparece se a empresa tiver contas marcadas; não é um prefixo', () => {
+    expect(opcoesMeio(undefined, false).map((o) => o.value)).toEqual(['BANCO', 'PRAZO']);
+    expect(opcoesMeio(undefined, true).map((o) => o.value)).toEqual(['BANCO', 'PRAZO', 'CARTAO']);
+    expect(meioDaConta('3282', true)).toBe('CARTAO');
+    expect(meioDaConta('3282', false)).toBe('BANCO');   // sem a flag, "3282" não é reconhecida por prefixo
+  });
+
+  it('uma conta-cartão é sempre permitida, mesmo não sendo 42/43', () => {
+    expect(contaFinanceiraPermitida('3282', undefined, true)).toBe(true);
+    expect(contaFinanceiraPermitida('3282', undefined, false)).toBe(false);
+  });
+
+  it('contaCombinaComMeio: CARTAO depende só da marcação, os outros meios do prefixo', () => {
+    expect(contaCombinaComMeio('3282', 'CARTAO', true)).toBe(true);
+    expect(contaCombinaComMeio('3282', 'CARTAO', false)).toBe(false);
+    expect(contaCombinaComMeio('4311', 'BANCO', false)).toBe(true);
+    expect(contaCombinaComMeio('4311', 'CARTAO', false)).toBe(false);
+  });
+
+  it('a cópia de um documento em cartão mantém a conta', () => {
+    expect(contaParaCopia('3282', true)).toBe('3282');
+    expect(contaParaCopia('3282', false)).toBeUndefined();
   });
 });

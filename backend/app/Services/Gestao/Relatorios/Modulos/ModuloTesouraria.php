@@ -32,7 +32,9 @@ final class ModuloTesouraria extends ModuloGestao
     public function calcular(array $p): array
     {
         $e = $this->empresa();
-        $fin = "(TRIM(l.codigo_conta) LIKE '43%' OR TRIM(l.codigo_conta) LIKE '45%')";
+        // Disponibilidades inclui as contas-cartão (classe 3 marcada): EXISTS directo a plano_contas.
+        $cartaoExiste = "EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = TRIM(l.codigo_conta) AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)";
+        $fin = "(TRIM(l.codigo_conta) LIKE '43%' OR TRIM(l.codigo_conta) LIKE '45%' OR {$cartaoExiste})";
         $mov = fn () => ModuloFinancas::diario($e)->whereRaw($fin)->whereBetween('l.data_documento', [$p['inicio'], $p['fim']])->whereRaw(ModuloFinancas::semApuramento());
         $t = $mov()->selectRaw("COALESCE(SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE 0 END), 0) AS ent, COALESCE(SUM(CASE WHEN l.tipo_dc = 'C' THEN l.valor ELSE 0 END), 0) AS sai")->first();
         $entradas = self::dinheiro($t->ent);
@@ -43,13 +45,15 @@ final class ModuloTesouraria extends ModuloGestao
         $saldoFim = $saldoAte($p['fim'], $fin);
         $bancos = $saldoAte($p['fim'], "TRIM(l.codigo_conta) LIKE '43%'");
         $caixa = $saldoAte($p['fim'], "TRIM(l.codigo_conta) LIKE '45%'");
+        $cartoes = $saldoAte($p['fim'], $cartaoExiste);
         $meses = max(1, PeriodosGestao::dias($p) / 30.4375);
         $pend = DB::table('documentos_tesouraria')->where('empresa_id', $e)->whereRaw(self::sqlValido('estado'))->whereBetween('data_documento', [$p['inicio'], $p['fim']])
             ->where('estado', 'ilike', '%PENDENTE%')->count();
         $sessoes = DB::table('sessoes_caixa')->where('empresa_id', $e)->whereBetween('data_abertura', [$p['inicio'], $p['fim']])
             ->selectRaw('COUNT(*) AS n, COALESCE(SUM(CASE WHEN saldo_fisico IS NOT NULL THEN saldo_fisico - COALESCE(saldo_fecho, 0) ELSE 0 END), 0) AS desvio')->first();
         $nomes = DB::table('plano_contas')->where('empresa_id', $e)->whereNull('eliminado_em')
-            ->where(fn ($q) => $q->where('codigo', 'like', '43%')->orWhere('codigo', 'like', '45%'))->pluck('descricao', 'codigo')->mapWithKeys(fn ($d, $c) => [trim((string) $c) => $d]);
+            ->where(fn ($q) => $q->where('codigo', 'like', '43%')->orWhere('codigo', 'like', '45%')->orWhere('cartao_tesouraria', true))
+            ->pluck('descricao', 'codigo')->mapWithKeys(fn ($d, $c) => [trim((string) $c) => $d]);
         $porConta = ModuloFinancas::diario($e)->whereRaw($fin)->where('l.data_documento', '<=', $p['fim'])
             ->groupBy(DB::raw('TRIM(l.codigo_conta)'))
             ->selectRaw('TRIM(l.codigo_conta) AS conta,
@@ -66,13 +70,14 @@ final class ModuloTesouraria extends ModuloGestao
 
         return [
             'kpis' => [
-                self::k('entradas', 'Entradas de disponibilidades', $entradas, 'kz', 'sobe', 'Movimentos a débito em bancos (43) e caixa (45).'),
-                self::k('saidas', 'Saídas de disponibilidades', $saidas, 'kz', 'desce', 'Movimentos a crédito em 43 e 45 (inclui transferências internas).'),
+                self::k('entradas', 'Entradas de disponibilidades', $entradas, 'kz', 'sobe', 'Movimentos a débito em bancos (43), caixa (45) e cartões de tesouraria.'),
+                self::k('saidas', 'Saídas de disponibilidades', $saidas, 'kz', 'desce', 'Movimentos a crédito em 43, 45 e cartões (inclui transferências internas).'),
                 self::k('fluxo', 'Fluxo líquido', bcsub($entradas, $saidas, 2), 'kz', 'sobe', 'Entradas − saídas.'),
-                self::k('saldo_ini', 'Disponibilidades no início', $saldoIni, 'kz', 'neutro', 'Saldo 43+45 no dia anterior ao início.'),
-                self::k('saldo_fim', 'Disponibilidades no fim', $saldoFim, 'kz', 'sobe', 'Saldo 43+45 na data de fim.'),
+                self::k('saldo_ini', 'Disponibilidades no início', $saldoIni, 'kz', 'neutro', 'Saldo 43+45+cartões no dia anterior ao início.'),
+                self::k('saldo_fim', 'Disponibilidades no fim', $saldoFim, 'kz', 'sobe', 'Saldo 43+45+cartões na data de fim.'),
                 self::k('bancos', 'Saldo em bancos', $bancos, 'kz', 'neutro', 'Conta 43 na data de fim.'),
                 self::k('caixa', 'Saldo em caixa', $caixa, 'kz', 'neutro', 'Conta 45 na data de fim. Boa prática: manter numerário baixo.'),
+                ...($cartoes !== '0.00' ? [self::k('cartoes', 'Cartões (a abater)', $cartoes, 'kz', 'neutro', 'Classe 3 marcada como cartão de tesouraria; dívida ao emissor na data de fim.')] : []),
                 self::k('cobertura', 'Meses de cobertura', self::div($saldoFim, $mediaSaidas), 'meses', 'sobe', 'Disponibilidades no fim ÷ saídas médias mensais.', ['casas' => 1]),
                 self::k('docs_pend', 'Documentos por integrar', $pend, 'num', 'desce', 'Pagamentos/recebimentos do período ainda PENDENTES na contabilidade.'),
                 self::k('sessoes', 'Sessões de caixa', (int) $sessoes->n, 'num', 'neutro', 'Folhas de caixa abertas no período.'),
