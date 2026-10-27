@@ -4,7 +4,9 @@ import { usePreferencias } from '@/componentes/preferencias/usePreferencias';
 /**
  * Aspecto da interface por utilizador (Versão Actual: js/tela_noturna.js e js/aspecto_menu.js):
  *  - tema: «claro» ou «escuro» (tela nocturna, botão na barra superior e Ctrl+Shift+N);
- *  - menu: «completo» (símbolo + nome), «icones» (só símbolos, nome ao passar o rato) ou «nomes» (só nomes).
+ *  - menu: «completo» (símbolo + nome), «icones» (só símbolos, nome ao passar o rato) ou «nomes» (só nomes);
+ *  - posicao: «topo» (barra escura com os módulos por cima do cabeçalho, como no legado — por omissão) ou «lado»
+ *    (menu lateral); alternada pelo botão «Menu ao lado» / «Menu no topo» da barra superior.
  *
  * Guardado no servidor (PUT /api/sistema/preferencias/interface/aspecto_nucleo — muda de posto com o utilizador) e com
  * cópia no navegador por utilizador, lida de forma síncrona no arranque do layout para aplicar o tema antes da primeira
@@ -12,14 +14,16 @@ import { usePreferencias } from '@/componentes/preferencias/usePreferencias';
  */
 export type TemaInterface = 'claro' | 'escuro';
 export type AspectoMenu = 'completo' | 'icones' | 'nomes';
+export type PosicaoMenu = 'topo' | 'lado';
 
 export interface AspectoInterface {
   tema: TemaInterface;
   menu: AspectoMenu;
+  posicao: PosicaoMenu;
 }
 
 export const NOME_PREFERENCIA_ASPECTO = 'aspecto_nucleo';
-export const ASPECTO_PADRAO: AspectoInterface = { tema: 'claro', menu: 'completo' };
+export const ASPECTO_PADRAO: AspectoInterface = { tema: 'claro', menu: 'completo', posicao: 'topo' };
 export const CLASSE_TELA_NOCTURNA = 'erp-tela-nocturna';
 
 export const ROTULOS_MENU: Record<AspectoMenu, string> = { completo: 'Completo (símbolos e nomes)', icones: 'Só símbolos', nomes: 'Só nomes' };
@@ -32,6 +36,7 @@ export function normalizarAspecto(v: unknown): AspectoInterface {
   return {
     tema: o.tema === 'escuro' ? 'escuro' : 'claro',
     menu: o.menu === 'icones' || o.menu === 'nomes' ? o.menu : 'completo',
+    posicao: o.posicao === 'lado' ? 'lado' : 'topo',
   };
 }
 
@@ -72,7 +77,7 @@ export function useAspecto(utilizador?: number | string | null): { aspecto: Aspe
     const p = lista.find((x) => x?.nome === NOME_PREFERENCIA_ASPECTO);
     if (!p) return;
     const v = normalizarAspecto(p.valor);
-    setAspecto((a) => (a.tema === v.tema && a.menu === v.menu ? a : v));
+    setAspecto((a) => (a.tema === v.tema && a.menu === v.menu && a.posicao === v.posicao ? a : v));
     gravarLocal(utilizador, v);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consulta.isSuccess, consulta.dataUpdatedAt]);

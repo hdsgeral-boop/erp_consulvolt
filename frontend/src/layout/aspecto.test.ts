@@ -7,17 +7,17 @@ describe('aspecto da interface (tela nocturna e aspecto do menu)', () => {
   });
 
   it('normaliza valores desconhecidos para o padrão', () => {
-    expect(normalizarAspecto(null)).toEqual({ tema: 'claro', menu: 'completo' });
-    expect(normalizarAspecto({ tema: 'escuro', menu: 'nomes' })).toEqual({ tema: 'escuro', menu: 'nomes' });
-    expect(normalizarAspecto({ tema: '<script>', menu: 'outro' })).toEqual({ tema: 'claro', menu: 'completo' });
+    expect(normalizarAspecto(null)).toEqual({ tema: 'claro', menu: 'completo', posicao: 'topo' });
+    expect(normalizarAspecto({ tema: 'escuro', menu: 'nomes', posicao: 'lado' })).toEqual({ tema: 'escuro', menu: 'nomes', posicao: 'lado' });
+    expect(normalizarAspecto({ tema: '<script>', menu: 'outro' })).toEqual({ tema: 'claro', menu: 'completo', posicao: 'topo' });
   });
 
   it('lê a cópia do navegador por utilizador (aplicada antes da primeira pintura)', () => {
     localStorage.setItem(chaveLocalAspecto(7), JSON.stringify({ tema: 'escuro', menu: 'icones' }));
-    expect(lerAspectoLocal(7)).toEqual({ tema: 'escuro', menu: 'icones' });
-    expect(lerAspectoLocal(8)).toEqual({ tema: 'claro', menu: 'completo' });
+    expect(lerAspectoLocal(7)).toEqual({ tema: 'escuro', menu: 'icones', posicao: 'topo' });
+    expect(lerAspectoLocal(8)).toEqual({ tema: 'claro', menu: 'completo', posicao: 'topo' });
     localStorage.setItem(chaveLocalAspecto(9), '{mau json');
-    expect(lerAspectoLocal(9)).toEqual({ tema: 'claro', menu: 'completo' });
+    expect(lerAspectoLocal(9)).toEqual({ tema: 'claro', menu: 'completo', posicao: 'topo' });
   });
 
   it('aplica e retira a classe da tela nocturna no elemento raiz', () => {

@@ -69,6 +69,9 @@ function montar(caminho = '/') {
   );
 }
 
+// os testes do menu lateral começam com «Menu ao lado»; os do menu no topo (padrão) limpam esta escolha
+beforeEach(() => localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'completo', posicao: 'lado' })));
+
 afterEach(() => {
   simularLargura(null);
   logotipo = null;
@@ -206,16 +209,18 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
 
   it('Ctrl+K foca o campo «Procurar» da barra superior e Enter abre o primeiro resultado', async () => {
     montar('/');
-    const entrada = screen.getByRole('combobox', { name: 'Procurar no sistema' });
-    expect(entrada.closest('.erp-cabecalho')).not.toBeNull();
+    // o campo está atrás do botão «Procurar» (caixa «Procurar operação»); Ctrl+K abre-a e foca o campo
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const entrada = await screen.findByRole('combobox', { name: 'Procurar no sistema' });
+    expect(entrada.closest('.erp-cabecalho')).not.toBeNull();
     await waitFor(() => expect(entrada).toHaveFocus());
     fireEvent.change(entrada, { target: { value: 'factur' } });
     expect(await screen.findByText('Ecrãs')).toBeInTheDocument();
     // o AutoComplete (rc-select) lê o código da tecla
     fireEvent.keyDown(entrada, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
     expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
-    expect(entrada).toHaveValue('');
+    // ao abrir o resultado a caixa fecha (o campo volta a ser o botão «Procurar»)
+    expect(screen.queryByRole('combobox', { name: 'Procurar no sistema' })).toBeNull();
     // depois de navegar aparece o botão flutuante «Voltar»
     expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
   });
@@ -269,6 +274,7 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
 
   it('«Procurar» encontra as funções dentro dos ecrãs (sem acentos, várias palavras) com «Módulo › Ecrã» e abre o ecrã', async () => {
     montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir a pesquisa' }));
     const entrada = screen.getByRole('combobox', { name: 'Procurar no sistema' });
     fireEvent.focus(entrada);
     fireEvent.change(entrada, { target: { value: 'ANULAR recibos' } });
@@ -294,9 +300,9 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     await waitFor(() => expect(document.documentElement).toHaveClass('erp-tela-nocturna'));
     expect(screen.getByRole('button', { name: 'Tela nocturna' })).toHaveAttribute('aria-pressed', 'true');
     await waitFor(() =>
-      expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/interface/aspecto_nucleo', { valor: { tema: 'escuro', menu: 'completo' } }),
+      expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/interface/aspecto_nucleo', { valor: { tema: 'escuro', menu: 'completo', posicao: 'lado' } }),
     );
-    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'escuro', menu: 'completo' });
+    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'escuro', menu: 'completo', posicao: 'lado' });
     fireEvent.keyDown(window, { key: 'N', ctrlKey: true, shiftKey: true });
     await waitFor(() => expect(document.documentElement).not.toHaveClass('erp-tela-nocturna'));
   });
@@ -319,7 +325,7 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
   });
 
   it('aspecto do menu do utilizador: «só nomes» retira os símbolos e «só símbolos» recolhe o menu', () => {
-    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'nomes' }));
+    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'nomes', posicao: 'lado' }));
     const { container, unmount } = montar('/');
     let lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     const geral = within(lateral).getByText('Menu Geral').closest('.ant-menu-submenu-title') as HTMLElement;
@@ -327,7 +333,7 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
     unmount();
 
-    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones' }));
+    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones', posicao: 'lado' }));
     const segundo = montar('/');
     lateral = segundo.container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
@@ -452,7 +458,7 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
   });
 
   it('recolhido: cada item de 1.º nível mostra só o ícone e o nome aparece na dica ao passar o rato', async () => {
-    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones' }));
+    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones', posicao: 'lado' }));
     const { container } = montar('/');
     const lateral = lateralDe(container);
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
@@ -497,5 +503,57 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     expect(within(gaveta).getByText('Menu Geral')).toBeInTheDocument();
     expect(within(gaveta).queryByRole('separator')).toBeNull();
     expect(within(gaveta).queryByRole('radiogroup')).toBeNull();
+  });
+});
+
+describe('LayoutPrincipal — menu no topo (padrão, como index_arrumado.html)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    simularLargura(1366);
+  });
+
+  it('por omissão mostra a barra escura no topo com os módulos e a linha «Favoritos», sem menu lateral', async () => {
+    const { container } = montar('/');
+    expect(container.querySelector('.ant-layout-sider')).toBeNull();
+    const barra = screen.getByRole('navigation', { name: 'Menu principal' });
+    expect(barra).toHaveClass('erp-barra-topo');
+    expect(within(barra).getByText('Início')).toBeInTheDocument();
+    // os módulos do «Menu Geral» ficam lado a lado (sem o grupo «Menu Geral»)
+    expect(within(barra).queryByText('Menu Geral')).toBeNull();
+    expect(within(barra).getByText('Sistema')).toBeInTheDocument();
+    expect(within(barra).getByText('Favoritos')).toBeInTheDocument();
+    // o favorito guardado no servidor aparece como atalho
+    fireEvent.click(await within(barra).findByRole('button', { name: /Geral/ }, { timeout: 30_000 }));
+    expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
+  });
+
+  it('«Menu ao lado» passa ao menu lateral e «Menu no topo» volta; a escolha fica guardada', async () => {
+    enviarMock.mockClear();
+    const { container } = montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Menu ao lado' }));
+    expect(container.querySelector('.ant-layout-sider')).not.toBeNull();
+    expect(container.querySelector('.erp-barra-topo')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toMatchObject({ posicao: 'lado' });
+    await waitFor(() =>
+      expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/interface/aspecto_nucleo', { valor: { tema: 'claro', menu: 'completo', posicao: 'lado' } }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Menu no topo' }));
+    expect(container.querySelector('.ant-layout-sider')).toBeNull();
+    expect(container.querySelector('.erp-barra-topo')).not.toBeNull();
+  });
+
+  it('o botão do menu esconde e mostra a barra do topo', () => {
+    const { container } = montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Esconder o menu' }));
+    expect(container.querySelector('.erp-barra-topo')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar o menu' }));
+    expect(container.querySelector('.erp-barra-topo')).not.toBeNull();
+  });
+
+  it('«Procurar» abre a caixa «Procurar operação»', () => {
+    montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir a pesquisa' }));
+    expect(screen.getByText('Procurar operação')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Procurar no sistema' })).toBeInTheDocument();
   });
 });
