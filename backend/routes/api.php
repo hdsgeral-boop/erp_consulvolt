@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Contabilidade\LancamentoController;
 use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
+use App\Http\Controllers\Api\Logistica\ExportacaoInventarioController;
 use App\Http\Controllers\Api\Logistica\GuiasRemessaArmazemController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\Logistica\StockController;
@@ -135,6 +136,11 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
             Route::post('categorias-produtos', [CategoriaProdutoController::class, 'store'])->name('categorias.store');
             Route::put('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'update'])->whereNumber('categoria')->name('categorias.update');
             Route::delete('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'destroy'])->whereNumber('categoria')->name('categorias.destroy');
+
+            Route::controller(ExportacaoInventarioController::class)->prefix('inventario-agt')->name('inventario_agt.')->group(function () {
+                Route::get('validar', 'validar')->name('validar');
+                Route::get('/', 'gerar')->name('gerar');
+            });
 
             // «Emitir Guia de Saída» para clientes: a guia de remessa das Vendas emitida no armazém (ADR-043)
             Route::controller(GuiasRemessaArmazemController::class)->group(function () {

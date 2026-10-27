@@ -24,4 +24,5 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   inventario_sessoes: comBarraInventario(() => import('./InventarioSessoes')),
   inventario_contagem: comBarraInventario(() => import('./InventarioContagem')),
   inventario_revisao: comBarraInventario(() => import('./InventarioRevisao')),
+  inventario_agt: lazy(() => import('./InventarioAgt')),
 };
