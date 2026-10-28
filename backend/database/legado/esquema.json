@@ -22453,15 +22453,6 @@
           "dominio": null
         },
         {
-          "coluna": "tags",
-          "legado": null,
-          "tipo": "jsonb",
-          "nulo": true,
-          "origem": "codigo",
-          "fk": null,
-          "dominio": null
-        },
-        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
