@@ -23,8 +23,8 @@ Route::prefix('projetos')->name('projetos.')->group(function () {
         Route::get('{projeto}', 'show')->whereNumber('projeto')->name('show');
         Route::put('{projeto}', 'update')->whereNumber('projeto')->name('update');
         Route::post('{projeto}/estado', 'estado')->whereNumber('projeto')->name('estado');
-        Route::post('{projeto}/sinalizacoes', 'sinalizar')->whereNumber('projeto')->name('sinalizacoes.store');
-        Route::delete('{projeto}/sinalizacoes/{sinalizacao}', 'removerSinalizacao')->whereNumber('projeto')->whereNumber('sinalizacao')->name('sinalizacoes.destroy');
+        Route::post('{projeto}/sinalizacoes', 'sinalizar')->whereNumber('projeto')->name('sinalizar');
+        Route::delete('{projeto}/sinalizacoes/{sinalizacao}', 'removerSinalizacao')->whereNumber('projeto')->whereNumber('sinalizacao')->name('removerSinalizacao');
         Route::get('{projeto}/resumo', 'resumo')->whereNumber('projeto')->name('resumo');
         Route::get('{projeto}/atividade', 'atividade')->whereNumber('projeto')->name('atividade');
     });
