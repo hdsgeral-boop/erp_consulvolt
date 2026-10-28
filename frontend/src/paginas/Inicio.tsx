@@ -2,21 +2,22 @@ import { Button, Col, Row, Skeleton } from 'antd';
 import { CheckCircleFilled, EnvironmentFilled, StarFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import type { ModuloMenu } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { Lembretes } from '@/componentes/Lembretes';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
-import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
-import { ecrasDeTopo, rotaEcra } from '@/layout/itensMenu';
+import { rotaEcra } from '@/layout/itensMenu';
 import { ResumoHolding, type DadosResumoHolding } from '@/modulos/geral/comum/ResumoHolding';
 
-const SEM_ORDEM: string[] = [];
-
-/** Move `id` para a posição de `destino` (arrastar e largar dos módulos do Início; legado Sortable em ui_dashboard.js:937). */
+/**
+ * Move `id` para a posição de `destino` (arrastar e largar dos módulos; legado Sortable em ui_dashboard.js:937). Já
+ * não é usado na lista do Início (substituída pelos Lembretes), mas fica como utilitário transversal de reordenação
+ * (ver transversais.test.tsx).
+ */
 export function moverModulo(ids: string[], id: string, destino: string): string[] {
   if (id === destino) return ids;
   const sem = ids.filter((x) => x !== id);
@@ -123,19 +124,15 @@ interface DadosInicio {
 /**
  * Página inicial (GET /gestao/inicio, ADR-059) com o desenho do ecrã de boas-vindas do sistema anterior
  * (js/ui_dashboard.js → renderWelcome): saudação grande com o nome a azul, cartão escuro da empresa activa (NIF, data
- * de acesso e processos pendentes em «pílulas»), Dica do dia e, à direita, a lista dos módulos com caixa de ícone.
+ * de acesso e processos pendentes em «pílulas»), Dica do dia e, à direita, a caixa «Lembretes» (notas pessoais do
+ * utilizador) — a navegação directa aos módulos faz-se pelo menu superior.
  */
 export function Inicio() {
   const { menu, empresa, utilizador } = useSessao();
   const identidade = useIdentidade();
   const navegar = useNavigate();
   const consulta = useQuery({ queryKey: ['inicio'], queryFn: () => obter<DadosInicio>('/gestao/inicio') });
-  const { favoritos, eFavorito, alternar } = useFavoritos();
-  // ordem dos módulos guardada no servidor por utilizador (legado: localStorage welcome_modules_order)
-  const [ordem, definirOrdem] = usePreferencia<string[]>('ordem_modulos', 'inicio', SEM_ORDEM);
-  const modulosOrdenados = useMemo(() => ordenarModulos(modulosDoInicio(menu), ordem), [menu, ordem]);
-  const [arrastado, setArrastado] = useState<string | null>(null);
-  const [alvo, setAlvo] = useState<string | null>(null);
+  const { favoritos } = useFavoritos();
 
   // a vista do pendente aponta para o ecrã do catálogo; procura-se o módulo no menu do utilizador
   const rotaDaVista = (vista?: string | null) => {
@@ -288,96 +285,9 @@ export function Inicio() {
           </section>
         </Col>
 
-        {menu.length > 0 && (
-          <Col xs={24} xl={8}>
-            <nav className="erp-inicio-modulos" aria-label="Atalhos dos módulos">
-              <div className="erp-inicio-modulos-cabeca">
-                <h2 className="erp-inicio-modulos-titulo">
-                  <IconeFa nome="th-large" style={{ color: '#2563eb' }} /> Módulos
-                </h2>
-                <span className="erp-inicio-arrastar" title="Arraste os módulos para os reordenar (Alt+↑/↓ com o teclado)">
-                  <IconeFa nome="arrows-alt" /> Arrastar
-                </span>
-              </div>
-              <div className="erp-inicio-lista-modulos">
-                {modulosOrdenados.map((m) => {
-                  const primeiro = ecrasDeTopo(m)[0];
-                  const def = MODULOS_INICIO.find((x) => x.id === m.id);
-                  return (
-                    <div
-                      key={m.id}
-                      className={`erp-modulo-arrastavel${arrastado === m.id ? ' a-arrastar' : ''}${alvo === m.id && arrastado !== m.id ? ' alvo' : ''}`}
-                      draggable
-                      onDragStart={(e) => {
-                        setArrastado(m.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', m.id);
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setAlvo(m.id);
-                      }}
-                      onDragEnd={() => {
-                        setArrastado(null);
-                        setAlvo(null);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (arrastado) definirOrdem(moverModulo(modulosOrdenados.map((x) => x.id), arrastado, m.id));
-                        setArrastado(null);
-                        setAlvo(null);
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="erp-modulo-botao"
-                        disabled={!primeiro}
-                        aria-label={`Abrir ${m.nome}`}
-                        title="Clique para abrir; arraste para reordenar (Alt+↑/↓ com o teclado)"
-                        onClick={primeiro ? () => navegar(rotaEcra(m.id, primeiro.id)) : undefined}
-                        onKeyDown={(e) => {
-                          if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-                            e.preventDefault();
-                            const ids = modulosOrdenados.map((x) => x.id);
-                            const i = ids.indexOf(m.id);
-                            const j = e.key === 'ArrowUp' ? i - 1 : i + 1;
-                            if (j >= 0 && j < ids.length) definirOrdem(moverModulo(ids, m.id, ids[j]));
-                          }
-                        }}
-                      >
-                        <span className="erp-caixa-icone erp-caixa-icone-modulo" aria-hidden>
-                          <IconeFa nome={def?.icone ?? 'circle-regular'} />
-                        </span>
-                        <span className="erp-modulo-textos">
-                          <span className="erp-modulo-nome">{m.nome}</span>
-                          <span className="erp-modulo-descricao">{def?.descricao ?? (m.ecras.length === 1 ? '1 ecrã' : `${m.ecras.length} ecrãs`)}</span>
-                        </span>
-                        <IconeFa nome="grip-vertical" className="erp-modulo-pega" />
-                      </button>
-                      {primeiro && (
-                        <button
-                          type="button"
-                          className={`erp-modulo-estrela${eFavorito(m.id, primeiro.id) ? ' activa' : ''}`}
-                          title="Adicionar/Remover Favorito"
-                          aria-label={`${eFavorito(m.id, primeiro.id) ? 'Remover' : 'Adicionar'} ${m.nome} dos favoritos`}
-                          aria-pressed={eFavorito(m.id, primeiro.id)}
-                          onClick={() => alternar(m.id, primeiro.id)}
-                        >
-                          <IconeFa nome={eFavorito(m.id, primeiro.id) ? 'star' : 'star-regular'} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {ordem.length > 0 && (
-                <Button type="link" size="small" onClick={() => definirOrdem([])} style={{ paddingInline: 0, marginTop: 8 }}>
-                  Repor a ordem original dos módulos
-                </Button>
-              )}
-            </nav>
-          </Col>
-        )}
+        <Col xs={24} xl={8}>
+          <Lembretes />
+        </Col>
       </Row>
     </div>
   );

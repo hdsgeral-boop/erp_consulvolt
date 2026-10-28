@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class ServicoPreferencias
 {
-    public const TIPOS = ['favoritos', 'ordem_modulos', 'visoes_cubo', 'interface'];
+    public const TIPOS = ['favoritos', 'ordem_modulos', 'visoes_cubo', 'interface', 'lembretes'];
 
     public const MAX_BYTES = 65536;
 

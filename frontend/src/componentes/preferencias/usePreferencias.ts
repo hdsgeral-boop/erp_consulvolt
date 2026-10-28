@@ -8,7 +8,7 @@ import { notificarErro } from '@/utilitarios/erros';
  * favoritos, ordem dos módulos no Início, visões guardadas da Análise Dinâmica e preferências de interface. No legado
  * ficavam no localStorage do navegador (perdiam-se ao mudar de posto). Cada utilizador só vê as suas.
  */
-export type TipoPreferencia = 'favoritos' | 'ordem_modulos' | 'visoes_cubo' | 'interface';
+export type TipoPreferencia = 'favoritos' | 'ordem_modulos' | 'visoes_cubo' | 'interface' | 'lembretes';
 
 export interface Preferencia<T = unknown> {
   nome: string;
