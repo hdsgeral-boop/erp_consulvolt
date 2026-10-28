@@ -22,8 +22,6 @@ export const NOME_PREFERENCIA_ASPECTO = 'aspecto_nucleo';
 export const ASPECTO_PADRAO: AspectoInterface = { tema: 'claro', menu: 'completo' };
 export const CLASSE_TELA_NOCTURNA = 'erp-tela-nocturna';
 
-export const ROTULOS_MENU: Record<AspectoMenu, string> = { completo: 'Completo (símbolos e nomes)', icones: 'Só símbolos', nomes: 'Só nomes' };
-
 export const chaveLocalAspecto = (utilizador?: number | string | null) => `erp.aspecto.${utilizador ?? 'anonimo'}`;
 
 /** Valida um valor lido (servidor ou navegador): o que não for conhecido fica com o valor por omissão. */

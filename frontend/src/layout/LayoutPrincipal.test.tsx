@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ModuloMenu } from '@/api/tipos';
 import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
-import { LayoutPrincipal } from './LayoutPrincipal';
+import { achatarGrupoNaBarra, LayoutPrincipal } from './LayoutPrincipal';
 
 // o Ant Design (Menu, Drawer) é lento em jsdom quando a suíte inteira corre em paralelo
 vi.setConfig({ testTimeout: 120_000 });   // AntD no jsdom é lento com a suite toda a correr em paralelo
@@ -290,14 +290,12 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     await waitFor(() => expect(document.documentElement).not.toHaveClass('erp-tela-nocturna'));
   });
 
-  it('o menu do utilizador já não tem a tela nocturna nem o aspecto do menu (ficam no botão da barra e no menu lateral)', async () => {
+  it('o menu do utilizador já não tem a tela nocturna (fica no botão da barra)', async () => {
     montar('/');
     fireEvent.click(screen.getByRole('button', { name: 'Opções do utilizador' }));
     expect(await screen.findByText('Gerir Dados Pessoais')).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /Tela nocturna/ })).toBeNull();
-    expect(screen.queryByText('Aspecto do menu')).toBeNull();
     expect(screen.getByRole('button', { name: 'Tela nocturna' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'Aspecto do menu' })).toBeInTheDocument();
   });
 
   it('em telemóvel a tela nocturna continua no botão da barra superior', () => {
@@ -359,7 +357,7 @@ describe('LayoutPrincipal — fecho Versão Actual: portal autónomo e renomear 
   });
 });
 
-describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, aspecto e expandir/recolher', () => {
+describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, aspecto e modo «menu no topo»', () => {
   beforeEach(() => simularLargura(1366));
 
   const lateralDe = (container: HTMLElement) => container.querySelector('.ant-layout-sider') as HTMLElement;
@@ -456,29 +454,33 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     await waitFor(() => expect(document.querySelector('.ant-menu-inline-collapsed-tooltip')).toHaveTextContent('Início'));
   });
 
-  it('botões do aspecto no próprio menu (completo, só símbolos, só nomes) e «Expandir/Recolher tudo»', async () => {
+  it('seta do grupo (fa-chevron-down) roda quando o grupo abre', async () => {
     const { container } = montar('/');
     const lateral = lateralDe(container);
-    const grupo = within(lateral).getByRole('radiogroup', { name: 'Aspecto do menu' });
-    expect(within(grupo).getByRole('radio', { name: 'Completo (símbolos e nomes)' })).toHaveAttribute('aria-checked', 'true');
-    // «Expandir tudo» abre os grupos e sub-grupos (Menu Geral › Vendas); «Recolher tudo» fecha-os
-    expect(within(lateral).queryByText('Faturação')).toBeNull();
-    fireEvent.click(within(lateral).getByRole('button', { name: 'Expandir tudo' }));
-    expect(await within(lateral).findByText('Faturação')).toBeVisible();
-    fireEvent.click(within(lateral).getByRole('button', { name: 'Recolher tudo' }));
-    await waitFor(() => expect(within(lateral).getByText('Menu Geral').closest('.ant-menu-submenu')).not.toHaveClass('ant-menu-submenu-open'));
-    // seta do grupo (fa-chevron-down) roda quando o grupo abre
     const titulo = within(lateral).getByText('Sistema').closest('.ant-menu-submenu-title') as HTMLElement;
     expect(titulo.querySelector('.erp-menu-seta')).not.toHaveClass('aberta');
     fireEvent.click(titulo);
     await waitFor(() => expect(titulo.querySelector('.erp-menu-seta')).toHaveClass('aberta'));
+  });
 
-    fireEvent.click(within(grupo).getByRole('radio', { name: 'Só símbolos' }));
-    expect(lateral).toHaveClass('ant-layout-sider-collapsed');
-    expect(within(grupo).getByRole('radio', { name: 'Só símbolos' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(within(grupo).getByRole('radio', { name: 'Só nomes' }));
-    expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
-    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'claro', menu: 'nomes' });
+  it('modo «menu no topo»: substitui a barra lateral por uma barra com os módulos de «Menu Geral» soltos', async () => {
+    const { container } = montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Mudar para menu no topo' }));
+    const barra = await waitFor(() => {
+      const b = container.querySelector('.erp-barra-menu-topo') as HTMLElement | null;
+      expect(b).not.toBeNull();
+      return b as HTMLElement;
+    });
+    expect(container.querySelector('.erp-sider')).toBeNull();
+    // «Vendas» (módulo de «Menu Geral», rótulo do legado) passa a dropdown solto na barra — na lateral estava escondido dentro de «Menu Geral» fechado
+    expect(within(barra).getByText('Vendas')).toBeInTheDocument();
+    // «Favoritos» continua como o seu próprio dropdown (a lógica de achatar só mexe no grupo «Menu Geral» — ver achatarGrupoNaBarra.test)
+    expect(await within(barra).findByText('Favoritos')).toBeInTheDocument();
+    expect(localStorage.getItem('erp.menu.modo.1')).toBe('topo');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mudar para menu ao lado' }));
+    await waitFor(() => expect(container.querySelector('.erp-sider')).not.toBeNull());
+    expect(localStorage.getItem('erp.menu.modo.1')).toBeNull();
   });
 
   it('a gaveta dos ecrãs pequenos não tem friso nem botões do aspecto', async () => {
@@ -493,5 +495,25 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     expect(within(gaveta).getByText('Menu Geral')).toBeInTheDocument();
     expect(within(gaveta).queryByRole('separator')).toBeNull();
     expect(within(gaveta).queryByRole('radiogroup')).toBeNull();
+  });
+});
+
+describe('achatarGrupoNaBarra (modo «menu no topo»)', () => {
+  it('substitui o grupo pelos seus próprios filhos, na mesma posição, mantendo o resto da lista', () => {
+    const lista = [
+      { key: 'inicio', label: 'Início' },
+      { key: 'grupo:favoritos', label: 'Favoritos', children: [{ key: 'fav:1', label: 'Um favorito' }] },
+      { key: 'geral', label: 'Menu Geral', children: [{ key: 'vendas', label: 'Vendas' }, { key: 'compras', label: 'Compras' }] },
+      { key: 'sistema', label: 'Sistema', children: [] },
+    ];
+    expect(achatarGrupoNaBarra(lista, 'geral').map((x) => (x as { key: string }).key)).toEqual(['inicio', 'grupo:favoritos', 'vendas', 'compras', 'sistema']);
+    // os itens devolvidos são os mesmos objectos da lista original (nunca recriados, logo nunca ganham os pontos «⋮» que só `itens` tem)
+    const [, , vendas] = achatarGrupoNaBarra(lista, 'geral');
+    expect(vendas).toBe(lista[2]?.children?.[0]);
+  });
+
+  it('sem alteração se a chave do grupo não existir na lista', () => {
+    const lista = [{ key: 'inicio', label: 'Início' }];
+    expect(achatarGrupoNaBarra(lista, 'inexistente')).toBe(lista);
   });
 });

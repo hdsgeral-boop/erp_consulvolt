@@ -1,13 +1,12 @@
 import { Avatar, Button, ConfigProvider, Drawer, Dropdown, Flex, Input, Layout, Menu, Modal, Select, Space, Spin, Tooltip, Typography, type MenuProps } from 'antd';
 import {
   ApiOutlined,
-  AppstoreOutlined,
   AuditOutlined,
   CheckOutlined,
   DownOutlined,
   EditOutlined,
-  FontSizeOutlined,
   IdcardOutlined,
+  LayoutOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -18,8 +17,6 @@ import {
   StarOutlined,
   SunOutlined,
   SwapOutlined,
-  UnorderedListOutlined,
-  UpOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -42,12 +39,12 @@ import { NotificacoesSinoHeader } from './NotificacoesSinoHeader';
 import { classeFundoModulo } from './fundoModulo';
 import { rotuloEmpresa, rotuloPapel } from './marca';
 import { PesquisaCabecalho } from './PesquisaEcras';
-import { ROTULOS_MENU, useAspecto, type AspectoMenu } from './aspecto';
+import { useAspecto, type AspectoMenu } from './aspecto';
 import { semIcones, type ItemMenu } from './filtroMenu';
 import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
-import { useMenuEscondido } from './menuEscondido';
+import { useModoMenu } from './modoMenu';
 import './telaNocturna.css';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
@@ -60,27 +57,18 @@ export const PREFIXO_FAVORITO = 'fav:';
 const ID_MENU_LATERAL = 'erp-menu-lateral';
 type ItemMenuLateral = ItemMenu;
 
-/** Botões do aspecto da árvore no próprio menu (legado: .nav-aspecto — «Símbolo e nome», «Só símbolos», «Só nomes»). */
-const OPCOES_ASPECTO: { menu: AspectoMenu; icone: ReactNode; titulo: string }[] = [
-  { menu: 'completo', icone: <UnorderedListOutlined />, titulo: 'Símbolo e nome' },
-  { menu: 'icones', icone: <AppstoreOutlined />, titulo: 'Só símbolos (passe o rato para ver o nome)' },
-  { menu: 'nomes', icone: <FontSizeOutlined />, titulo: 'Só nomes' },
-];
-
 const temFilhos = (it: ItemMenuLateral): boolean => !!it && typeof it === 'object' && Array.isArray((it as { children?: unknown }).children);
 
-/** Chaves de todos os grupos (para «Expandir tudo»). */
-function chavesDosGrupos(lista: ItemMenuLateral[]): string[] {
-  const r: string[] = [];
-  const percorrer = (l: ItemMenuLateral[]) =>
-    l.forEach((it) => {
-      if (!temFilhos(it)) return;
-      const g = it as { key?: React.Key; children: ItemMenuLateral[] };
-      r.push(String(g.key));
-      percorrer(g.children);
-    });
-  percorrer(lista);
-  return r;
+/**
+ * Modo «menu no topo»: substitui o grupo `chaveGrupo` (ex.: «Menu Geral») pelos seus próprios filhos, na mesma
+ * posição — os módulos passam a dropdowns soltos na barra horizontal, em vez de ficarem dois níveis dentro de um
+ * só grupo. Sem alteração se a chave não existir na lista.
+ */
+export function achatarGrupoNaBarra(itens: ItemMenuLateral[], chaveGrupo: string): ItemMenuLateral[] {
+  const i = itens.findIndex((x) => x && typeof x === 'object' && (x as { key?: string }).key === chaveGrupo);
+  if (i < 0) return itens;
+  const filhos = (itens[i] as { children?: ItemMenuLateral[] }).children ?? [];
+  return [...itens.slice(0, i), ...filhos, ...itens.slice(i + 1)];
 }
 
 /**
@@ -109,9 +97,8 @@ const setaGrupo = ({ isOpen }: { isOpen?: boolean }) => (
  * Aspecto do sistema anterior (index_arrumado.html + css/styles.css): menu lateral escuro (#121212) de 280 px com a
  * marca no topo, item activo com barra azul à esquerda e sub-níveis com guia tracejada; largura ajustável à mão pelo
  * friso do bordo direito (220–800 px, guardada por utilizador, duplo clique repõe — larguraMenu.ts/PuxadorMenu.tsx);
- * botões do aspecto da árvore e «Expandir/Recolher tudo» entre os itens do topo e os grupos; barra superior branca com o
- * botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Ajuda», «Trocar empresa»,
- * o utilizador e o botão vermelho de sair à direita.
+ * barra superior branca com o botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Ajuda», «Trocar
+ * empresa», o utilizador e o botão vermelho de sair à direita.
  *
  * Funcionalidades transversais (ronda 2, R2-G4): ajuda contextual (botão «Ajuda» e F1), pesquisa «Procurar» no
  * cabeçalho (ecrãs e funções a que o utilizador tem acesso, Ctrl+K — PesquisaEcras.tsx),
@@ -121,9 +108,11 @@ const setaGrupo = ({ isOpen }: { isOpen?: boolean }) => (
  * Versão Actual (Fase H, ADR-071):
  *  - a busca no menu (js/busca_menu.js) saiu da árvore (pedido do utilizador, 16/10/2026): a pesquisa faz-se no campo
  *    «Procurar» da barra superior, que também encontra as funções dentro dos ecrãs;
- *  - aspecto do menu (js/aspecto_menu.js): completo, só símbolos (nome ao passar o rato) ou só nomes — preferência do
- *    utilizador guardada no servidor; o botão redondo a meio do bordo do menu (PuxadorMenu) recolhe-o à barra estreita
- *    só com os ícones dos módulos e volta a expandi-lo para o aspecto e a largura anteriores;
+ *  - aspecto do menu (js/aspecto_menu.js): completo ou só símbolos — preferência do utilizador guardada no servidor; o
+ *    botão redondo a meio do bordo do menu (PuxadorMenu) e o botão do cabeçalho recolhem-no à barra estreita só com os
+ *    ícones dos módulos e voltam a expandi-lo para a largura anterior;
+ *  - modo «menu no topo» (28/10/2026): alternativa à barra lateral — os módulos passam a dropdowns numa barra
+ *    horizontal (modoMenu.ts), preferência do utilizador guardada no navegador (botão no cabeçalho);
  *  - menu compacto (16/10/2026): itens de 34–36 px, ícones na mesma coluna, nomes longos com reticências e dica;
  *  - tela nocturna (js/tela_noturna.js): tema escuro por utilizador, botão na barra superior e Ctrl+Shift+N, aplicado
  *    antes da primeira pintura (layout/aspecto.ts, temaNocturno.ts, telaNocturna.css).
@@ -139,7 +128,7 @@ const setaGrupo = ({ isOpen }: { isOpen?: boolean }) => (
  *    empresa; a barra superior mostra o logótipo e o nome da empresa; «Ajuda» e «Procurar» só com o ícone (a lupa abre
  *    o mesmo campo de pesquisa por cima da barra);
  *  - < 768 px: barra compacta (56 px) e menu do utilizador só com o avatar (o nome e a estrela do ecrã passam para dentro
- *    do menu; a tela nocturna fica sempre no botão da barra e o aspecto do menu nos botões do menu lateral — 17/10/2026).
+ *    do menu; a tela nocturna fica sempre no botão da barra — 17/10/2026).
  */
 export function LayoutPrincipal() {
   return (
@@ -177,7 +166,7 @@ function Estrutura() {
   const idUtilizador = utilizador?.id ?? utilizador?.nome_utilizador ?? null;
   const { aspecto, definir } = useAspecto(idUtilizador);
   const { largura: larguraMenu, puxador } = useLarguraMenu(idUtilizador);
-  const { escondido: menuEscondido, definir: definirMenuEscondido } = useMenuEscondido(idUtilizador);
+  const { modo: modoMenu, definir: definirModoMenu } = useModoMenu(idUtilizador);
   const escuro = aspecto.tema === 'escuro';
   const recolhido = aspecto.menu === 'icones';
   const colapsado = recolhido && !ecra.pequeno;
@@ -209,7 +198,6 @@ function Estrutura() {
     const pos = i < 0 ? lista.length : i;
     return [...lista.slice(0, pos), grupo, ...lista.slice(pos)];
   }, [lateral, favoritos]);
-  const todosGrupos = useMemo(() => chavesDosGrupos(base), [base]);
 
   const itens = useMemo(() => {
     // legado (app_v2.js:11119): «⋮» em cada ecrã do menu (excepto Início e Dashboard) abre o menu de contexto com os favoritos
@@ -266,6 +254,9 @@ function Estrutura() {
   // como no legado, os itens soltos (Início, Dashboard Global, …) ficam por cima dos botões do aspecto e os grupos por baixo
   const itensTopo = useMemo(() => itens.filter((i) => !temFilhos(i)), [itens]);
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
+  // modo «menu no topo»: os módulos do grupo «Menu Geral» passam a dropdowns soltos na barra (Favoritos e Sistema mantêm-se como grupo).
+  // Parte de `base` (sem os pontos «⋮» do menu de contexto dos favoritos, que não têm espaço numa dropdown horizontal estreita).
+  const itensBarraTopo = useMemo(() => achatarGrupoNaBarra(base, CHAVE_MENU_GERAL), [base]);
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const [, , moduloActual, ecraActual] = local.pathname.split('/');
   const noEcra = local.pathname.startsWith('/m/') && !!moduloActual && !!ecraActual;
@@ -367,6 +358,16 @@ function Estrutura() {
   };
   const classeMenu = `erp-menu${aspecto.menu === 'nomes' && !ecra.pequeno ? ' erp-menu-so-nomes' : ''}`;
   const menuTopo = itensTopo.length > 0 && <Menu {...propsMenu} className={`${classeMenu} erp-menu-lista-topo`} items={itensTopo} />;
+  const menuBarraTopo = (
+    <Menu
+      theme="dark"
+      mode="horizontal"
+      selectedKeys={[seleccionado, `${PREFIXO_FAVORITO}${seleccionado}`]}
+      onClick={(i) => irPara(i.key)}
+      items={itensBarraTopo}
+      style={{ borderBottom: 'none', background: 'transparent', flex: '1 1 auto', minWidth: 0 }}
+    />
+  );
   const menuGrupos = itensGrupos.length > 0 && (
     <Menu
       {...propsMenu}
@@ -378,38 +379,6 @@ function Estrutura() {
         else setAbertosMenu(chaves);
       }}
     />
-  );
-
-  // aspecto da árvore e «Expandir/Recolher tudo» no próprio menu (legado: .nav-aspecto e os dois botões por baixo)
-  const controlosMenu = !ecra.pequeno && (
-    <div className="erp-menu-controlos">
-      <div className="erp-menu-aspecto" role="radiogroup" aria-label="Aspecto do menu">
-        {OPCOES_ASPECTO.map((o) => (
-          <button
-            key={o.menu}
-            type="button"
-            role="radio"
-            aria-checked={aspecto.menu === o.menu}
-            aria-label={ROTULOS_MENU[o.menu]}
-            title={o.titulo}
-            className="erp-menu-aspecto-botao"
-            onClick={() => definir({ menu: o.menu })}
-          >
-            {o.icone}
-          </button>
-        ))}
-      </div>
-      {!colapsado && todosGrupos.length > 0 && (
-        <div className="erp-menu-expandir">
-          <button type="button" title="Expandir Tudo" aria-label="Expandir tudo" onClick={() => setAbertosMenu(todosGrupos)}>
-            <IconeFa nome="expand-alt" />
-          </button>
-          <button type="button" title="Recolher Tudo" aria-label="Recolher tudo" onClick={() => setAbertosMenu([])}>
-            <IconeFa nome="compress-alt" />
-          </button>
-        </div>
-      )}
-    </div>
   );
 
   const textoFavorito = favoritoActual ? 'Retirar dos favoritos' : 'Adicionar aos favoritos';
@@ -436,39 +405,25 @@ function Estrutura() {
     // tela nocturna: tema escuro do Ant Design só dentro do layout (sem remontar os ecrãs ao mudar)
     <ConfigProvider theme={escuro ? TEMA_NOCTURNO : undefined}>
       <Layout style={{ minHeight: '100vh' }}>
-        {!ecra.pequeno && (
+        {!ecra.pequeno && modoMenu === 'lateral' && (
           <Layout.Sider
-            className={`erp-sider${puxador.aArrastar ? ' erp-sider-a-redimensionar' : ''}${menuEscondido ? ' erp-sider-escondido' : ''}`}
+            className={`erp-sider${puxador.aArrastar ? ' erp-sider-a-redimensionar' : ''}`}
             collapsible
-            collapsed={recolhido || menuEscondido}
-            collapsedWidth={menuEscondido ? 0 : LARGURA_MENU_RECOLHIDO}
+            collapsed={recolhido}
+            collapsedWidth={LARGURA_MENU_RECOLHIDO}
             trigger={null}
             width={larguraMenu}
             theme="dark"
-            aria-hidden={menuEscondido}
           >
             <div className={`erp-sider-topo${recolhido ? ' recolhido' : ''}`}>
               <MarcaEmpresa soIcone={recolhido} tamanho={36} comProduto escuro />
-              {!recolhido && (
-                <Tooltip title="Esconder menu" placement="right">
-                  <Button type="text" size="small" className="erp-menu-esconder" icon={<UpOutlined />} aria-label="Esconder menu"
-                    aria-controls={ID_MENU_LATERAL} onClick={() => definirMenuEscondido(true)} />
-                </Tooltip>
-              )}
             </div>
-            <nav id={ID_MENU_LATERAL} className="erp-sider-rolagem" aria-label="Menu principal" aria-hidden={menuEscondido} tabIndex={menuEscondido ? -1 : undefined}>
+            <nav id={ID_MENU_LATERAL} className="erp-sider-rolagem" aria-label="Menu principal">
               {menuTopo}
-              {controlosMenu}
               {menuGrupos}
             </nav>
-            <PuxadorMenu largura={larguraMenu} puxador={puxador} recolhido={recolhido || menuEscondido} aoAlternar={alternarRecolhido} controla={ID_MENU_LATERAL} />
+            <PuxadorMenu largura={larguraMenu} puxador={puxador} recolhido={recolhido} aoAlternar={alternarRecolhido} controla={ID_MENU_LATERAL} />
           </Layout.Sider>
-        )}
-        {!ecra.pequeno && menuEscondido && (
-          <Tooltip title="Mostrar menu" placement="right">
-            <Button type="primary" shape="circle" size="small" className="erp-menu-repor" icon={<DownOutlined />} aria-label="Mostrar menu"
-              aria-controls={ID_MENU_LATERAL} onClick={() => definirMenuEscondido(false)} />
-          </Tooltip>
         )}
 
         {ecra.pequeno && (
@@ -495,6 +450,12 @@ function Estrutura() {
         )}
 
         <Layout className="erp-layout-coluna">
+          {!ecra.pequeno && modoMenu === 'topo' && (
+            <div className="erp-barra-menu-topo" style={{ background: '#121212', display: 'flex', alignItems: 'center', gap: 20, padding: '0 20px', height: 56 }}>
+              <MarcaEmpresa tamanho={30} comProduto escuro />
+              {menuBarraTopo}
+            </div>
+          )}
           <Layout.Header
             className="erp-cabecalho"
             style={{
@@ -509,7 +470,7 @@ function Estrutura() {
               <Flex align="center" gap={ecra.md ? 14 : 8} style={{ minWidth: 0, flex: '1 1 auto' }}>
                 {ecra.pequeno ? (
                   <Button className="erp-botao-menu" icon={<MenuOutlined />} aria-label="Abrir menu" aria-expanded={gavetaAberta} onClick={() => setGavetaAberta(true)} />
-                ) : (
+                ) : modoMenu === 'lateral' ? (
                   <Button
                     className="erp-botao-menu"
                     icon={recolhido ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
@@ -518,7 +479,7 @@ function Estrutura() {
                     title={recolhido ? 'Expandir menu' : 'Recolher menu'}
                     onClick={alternarRecolhido}
                   />
-                )}
+                ) : null}
                 <div className="erp-cabecalho-empresa" style={{ minWidth: 0, flex: '1 1 auto' }}>
                   <span className="erp-cabecalho-empresa-nome" title={nomeEmpresa || 'Consulvolt'}>
                     {nomeEmpresa || 'Consulvolt'}
@@ -536,6 +497,19 @@ function Estrutura() {
                 <Tooltip title={`${textoTema} (Alt+Shift+N)`}>
                   <Button className="erp-botao-tema" icon={escuro ? <SunOutlined /> : <MoonOutlined />} aria-label="Tela nocturna" aria-pressed={escuro} onClick={alternarTema} />
                 </Tooltip>
+                {!ecra.pequeno && (
+                  <Tooltip title={ecra.lg ? undefined : modoMenu === 'lateral' ? 'Menu no topo' : 'Menu ao lado'}>
+                    <Button
+                      className="erp-botao-modo-menu"
+                      icon={modoMenu === 'lateral' ? <LayoutOutlined /> : <MenuOutlined />}
+                      aria-label={modoMenu === 'lateral' ? 'Mudar para menu no topo' : 'Mudar para menu ao lado'}
+                      aria-pressed={modoMenu === 'topo'}
+                      onClick={() => definirModoMenu(modoMenu === 'lateral' ? 'topo' : 'lateral')}
+                    >
+                      {ecra.lg ? (modoMenu === 'lateral' ? 'Menu no topo' : 'Menu ao lado') : null}
+                    </Button>
+                  </Tooltip>
+                )}
                 <BotaoAjuda compacto={!ecra.xl} />
                 {!ecra.lg && <PesquisaCabecalho compacto />}
                 {ecra.md && noEcra && (
