@@ -20,7 +20,18 @@ export interface ItemCompra {
   preco_unitario_moeda: string | null;
   quantidade_recebida: string | null;
   quantidade_faturada: string | null;
+  /** Só nas linhas de uma proposta (cotação): a linha do pedido a que responde — cobertura parcial. */
+  item_pedido_id?: number | null;
   [chave: string]: unknown;
+}
+
+/** Cobertura parcial (GET /compras/pedidos/{id}: `saldos`) — quanto de cada linha já está adjudicado e quanto falta. */
+export interface SaldoItemPedido {
+  item_pedido_id: number;
+  produto_id: number;
+  quantidade: string;
+  quantidade_adjudicada: string;
+  saldo_pendente: string;
 }
 
 export interface EtapaDeliberacao {
@@ -59,6 +70,8 @@ export interface PedidoCompra {
   anulado_em: string | null;
   motivo_anulacao: string | null;
   linhas?: ItemCompra[];
+  /** Cobertura parcial: quanto de cada linha já está adjudicado e quanto falta (ver SaldoItemPedido). */
+  saldos?: SaldoItemPedido[];
   valor_estimado?: { valor: string; sem_preco: number };
   /** Preço de venda (Kz, s/ IVA, com desconto) por produto_id das encomendas de clientes que originaram o pedido. */
   referencia_encomendas?: Record<string, { preco_kz: string; documentos: string[] }>;

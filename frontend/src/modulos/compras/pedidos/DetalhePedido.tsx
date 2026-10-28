@@ -61,6 +61,9 @@ export function DetalhePedido() {
   const etapa = etapaPendente(p);
   const etapas = p.deliberacao?.etapas ?? [];
   const linhas = p.linhas ?? [];
+  // cobertura parcial: só mostra a coluna «Pendente» quando há mesmo alguma coisa já adjudicada (não polui o ecrã dos pedidos ainda intactos)
+  const saldoPorItem = new Map((p.saldos ?? []).map((s) => [s.item_pedido_id, s]));
+  const comCoberturaParcial = (p.saldos ?? []).some((s) => numero(s.quantidade_adjudicada) > 0);
 
   return (
     <>
@@ -74,7 +77,7 @@ export function DetalhePedido() {
             {a.registarProposta && (
               <Button onClick={() => navegar(`/m/compras/compras_prospeccao/novo?pedido=${p.id}`)}>Registar proposta</Button>
             )}
-            {verPropostas && ['APROVADO', 'ADJUDICADO'].includes(p.estado) && (
+            {verPropostas && ['APROVADO', 'PARCIALMENTE_ADJUDICADO', 'ADJUDICADO'].includes(p.estado) && (
               <Button onClick={() => navegar(`/m/compras/compras_prospeccao/comparacao/${p.id}`)}>Quadro comparativo</Button>
             )}
             {a.decidir && (
@@ -129,6 +132,18 @@ export function DetalhePedido() {
           columns={[
             { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
             { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
+            ...(comCoberturaParcial
+              ? [{
+                  title: 'Pendente', key: 'pendente', align: 'right' as const,
+                  render: (_: unknown, l: ItemCompra) => {
+                    const s = saldoPorItem.get(l.id);
+                    if (!s) return '—';
+                    return numero(s.saldo_pendente) <= 0
+                      ? <Typography.Text type="success">coberto</Typography.Text>
+                      : <Typography.Text type="warning">{formatarNumero(s.saldo_pendente)}</Typography.Text>;
+                  },
+                }]
+              : []),
             { title: 'Preço estimado', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : <Typography.Text type="warning">sem preço</Typography.Text>) },
             { title: 'Total estimado', key: 'total', align: 'right', render: (_, l) => (l.preco_unitario ? formatarKz(numero(l.quantidade) * numero(l.preco_unitario)) : '—') },
             ...colunasUNCC,

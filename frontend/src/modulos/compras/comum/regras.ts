@@ -32,7 +32,8 @@ export function accoesPedido(p: PedidoCompra, pode: Pode) {
   return {
     decidir: p.estado === 'PENDENTE' && (p.pode_decidir ?? porTarefa),
     anular: ['PENDENTE', 'APROVADO', 'REJEITADO'].includes(p.estado) && pode('compras_ped_eliminar'),
-    registarProposta: p.estado === 'APROVADO' && pode('compras_new_proposal'),
+    // cobertura parcial: um pedido parcialmente adjudicado continua a aceitar propostas para o que falta
+    registarProposta: ['APROVADO', 'PARCIALMENTE_ADJUDICADO'].includes(p.estado) && pode('compras_new_proposal'),
   };
 }
 

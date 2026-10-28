@@ -10,6 +10,7 @@ export const ESTADOS: Record<string, { rotulo: string; cor: string }> = {
   RECUSADA: { rotulo: 'Recusada', cor: 'volcano' },
   RECUSADO: { rotulo: 'Recusado', cor: 'volcano' },
   ADJUDICADO: { rotulo: 'Adjudicado', cor: 'blue' },
+  PARCIALMENTE_ADJUDICADO: { rotulo: 'Parcialmente adjudicado', cor: 'gold' },
   PROPOSTA: { rotulo: 'Proposta', cor: 'default' },
   PROPOSTA_ADJUDICACAO: { rotulo: 'Proposta para adjudicação', cor: 'gold' },
   EM_PROCESSAMENTO: { rotulo: 'Em processamento', cor: 'processing' },

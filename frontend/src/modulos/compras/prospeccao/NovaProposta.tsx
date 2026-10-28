@@ -2,32 +2,36 @@ import { Alert, Button, Card, Col, DatePicker, Divider, Flex, Form, Input, Input
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, type ClipboardEvent } from 'react';
+import { useEffect, useState, type ClipboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { obter, obterPagina } from '@/api/cliente';
+import { enviar, obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem } from '@/componentes/formularios/colagemGrade';
 import type { CampoFormulario } from '@/componentes/formularios/tipos';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '@/componentes/Accoes';
+import { notificarErro } from '@/utilitarios/erros';
 import { totaisLinhas } from '../comum/calculos';
 import { NomeProduto, useMapaProdutos } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';
-import { numeroOuId, type ItemCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
+import { numeroOuId, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
 import { scrollTabela } from '@/componentes/responsivo';
 import { avaliarLinhas, cambioKz, LIMIAR_AVISO, type AvaliacaoLinha } from './avisoCusto';
 
 interface LinhaProposta {
+  pedido_compra_id: number;
   item_pedido_id: number;
   produto_id: number;
   descricao: string | null;
-  quantidade: string;
+  /** Quantidade pedida (informativa) e saldo pendente (tecto da quantidade proposta — cobertura parcial). */
+  quantidade_pedido: string;
+  saldo_pendente: string;
+  quantidade: number | null;
   preco_unitario?: number;
   taxa_imposto?: number;
 }
 
 interface ValoresProposta {
-  pedido_compra_id?: number;
+  pedidos_compra_ids: number[];
   fornecedor_id?: number;
   referencia: string;
   data: Dayjs;
@@ -37,62 +41,95 @@ interface ValoresProposta {
   linhas: LinhaProposta[];
 }
 
-/** Linhas da proposta a partir das linhas do pedido (o preço do pedido é só estimativa; o IVA vem do catálogo). */
-export function linhasDoPedido(itens: ItemCompra[], taxaDoProduto: (id: number) => number | undefined): LinhaProposta[] {
-  return itens.map((l) => ({
-    item_pedido_id: l.id,
-    produto_id: l.produto_id,
-    descricao: l.descricao,
-    quantidade: l.quantidade,
-    preco_unitario: undefined,
-    taxa_imposto: taxaDoProduto(l.produto_id),
-  }));
+/**
+ * Linhas da proposta a partir das linhas de UM pedido (o preço do pedido é só estimativa; o IVA vem do catálogo).
+ * Cobertura parcial: a quantidade proposta nasce igual ao saldo pendente de cada linha (não à quantidade pedida —
+ * pode já haver outra proposta a cobrir parte dela) e as linhas já totalmente cobertas nem aparecem (nada a propor).
+ */
+export function linhasDoPedido(p: PedidoCompra, taxaDoProduto: (id: number) => number | undefined): LinhaProposta[] {
+  const saldoPorItem = new Map((p.saldos ?? []).map((s) => [s.item_pedido_id, s]));
+  return (p.linhas ?? [])
+    .map((l) => {
+      const s = saldoPorItem.get(l.id);
+      const saldo = s ? s.saldo_pendente : l.quantidade;
+      return {
+        pedido_compra_id: p.id, item_pedido_id: l.id, produto_id: l.produto_id, descricao: l.descricao,
+        quantidade_pedido: l.quantidade, saldo_pendente: saldo, quantidade: Number(saldo),
+        preco_unitario: undefined, taxa_imposto: taxaDoProduto(l.produto_id),
+      };
+    })
+    .filter((l) => Number(l.saldo_pendente) > 0);
 }
 
-/** Registo de uma proposta de fornecedor para um pedido APROVADO (POST /compras/propostas). */
+/** Pedidos que podem receber uma nova proposta: aprovados ou parcialmente adjudicados (ainda com saldo pendente). */
+const ESTADOS_DISPONIVEIS = new Set(['APROVADO', 'PARCIALMENTE_ADJUDICADO']);
+
+/**
+ * Agrupa as linhas por pedido, pela ordem em que os pedidos foram escolhidos (as linhas a 0 — «não incluir» —
+ * ficam de fora; um pedido sem nenhuma linha com quantidade fica de fora também, sem erro). A estrutura do servidor
+ * é 1 proposta = 1 pedido, por isso é esta função que decide quantas propostas (POST /compras/propostas) se vão
+ * mesmo registar.
+ */
+export function propostasPorPedido(pedidosEscolhidos: number[], linhas: LinhaProposta[]): { pedido_compra_id: number; linhas: LinhaProposta[] }[] {
+  const porPedido = new Map<number, LinhaProposta[]>();
+  linhas.filter((l) => (l.quantidade ?? 0) > 0).forEach((l) => porPedido.set(l.pedido_compra_id, [...(porPedido.get(l.pedido_compra_id) ?? []), l]));
+
+  return pedidosEscolhidos.flatMap((id) => {
+    const doc = porPedido.get(id);
+
+    return doc ? [{ pedido_compra_id: id, linhas: doc }] : [];
+  });
+}
+
+/** Registo de uma proposta de fornecedor para um ou mais pedidos (um por pedido: POST /compras/propostas, um por cada). */
 export function NovaProposta() {
   const navegar = useNavigate();
   const [parametros] = useSearchParams();
   const [form] = Form.useForm<ValoresProposta>();
+  const [aGravar, setAGravar] = useState(false);
   const mapa = useMapaProdutos();
-  const pedidoId = Form.useWatch('pedido_compra_id', form);
+  const pedidosEscolhidos: number[] = Form.useWatch('pedidos_compra_ids', form) ?? [];
   const moeda = Form.useWatch('codigo_moeda', form) ?? 'AOA';
   const linhas = Form.useWatch('linhas', form) ?? [];
-  const estimativa = totaisLinhas(linhas);
+  const estimativa = totaisLinhas(linhas.filter((l) => (l.quantidade ?? 0) > 0));
   const taxaCambio = Form.useWatch('taxa_cambio', form);
 
-  const aprovados = useQuery({
-    queryKey: ['compras', 'pedidos', 'aprovados'],
-    queryFn: () => obterPagina<PedidoCompra>('/compras/pedidos', { estado: 'APROVADO', por_pagina: 200 }),
+  const disponiveis = useQuery({
+    queryKey: ['compras', 'pedidos', 'disponiveis-proposta'],
+    queryFn: () => obterPagina<PedidoCompra>('/compras/pedidos', { disponivel_proposta: 1, por_pagina: 200 }),
   });
-  const pedido = useQuery({
-    queryKey: ['compras', 'pedido', String(pedidoId)],
-    queryFn: () => obter<PedidoCompra>(`/compras/pedidos/${pedidoId}`),
-    enabled: !!pedidoId,
+  const chavePedidos = [...pedidosEscolhidos].sort((a, b) => a - b);
+  const pedidos = useQuery({
+    queryKey: ['compras', 'pedidos', 'detalhe', chavePedidos],
+    queryFn: () => Promise.all(chavePedidos.map((id) => obter<PedidoCompra>(`/compras/pedidos/${id}`))),
+    enabled: chavePedidos.length > 0,
   });
-  const criar = useAccao<PropostaCompra>({ invalidar: [['compras']], aoSucesso: (c) => navegar(`../${c.id}`), tituloErro: 'Não foi possível registar a proposta' });
 
   useEffect(() => {
     const doUrl = Number(parametros.get('pedido'));
-    if (doUrl) form.setFieldValue('pedido_compra_id', doUrl);
+    if (doUrl) form.setFieldValue('pedidos_compra_ids', [doUrl]);
   }, [parametros, form]);
 
   useEffect(() => {
-    if (pedido.data?.linhas) {
-      form.setFieldValue('linhas', linhasDoPedido(pedido.data.linhas, (id) => (mapa.get(id)?.taxa_imposto != null ? Number(mapa.get(id)?.taxa_imposto) : undefined)));
+    if (pedidos.data) {
+      const taxaDoProduto = (id: number) => (mapa.get(id)?.taxa_imposto != null ? Number(mapa.get(id)?.taxa_imposto) : undefined);
+      form.setFieldValue('linhas', pedidos.data.flatMap((p) => linhasDoPedido(p, taxaDoProduto)));
     }
-  }, [pedido.data, mapa, form]);
+  }, [pedidos.data, mapa, form]);
 
-  const p = pedido.data;
+  // a comparação com o valor da encomenda do cliente só faz sentido com um único pedido (cada um tem a sua própria referência)
+  const pedidoUnico = chavePedidos.length === 1 ? pedidos.data?.[0] : undefined;
   const cambio = cambioKz(moeda, taxaCambio);
-  const avaliacao = avaliarLinhas(linhas, p?.referencia_encomendas, cambio);
+  const avaliacao = avaliarLinhas(linhas.map((l) => ({ produto_id: l.produto_id, preco_unitario: l.preco_unitario })), pedidoUnico?.referencia_encomendas, cambio);
   const porProduto = new Map(avaliacao.map((a) => [a.produto_id, a]));
   const acima = avaliacao.filter((a) => a.nivel === 'acima');
   const perto = avaliacao.filter((a) => a.nivel === 'aviso');
   const temReferencia = avaliacao.length > 0;
+  const naoDisponiveis = (pedidos.data ?? []).filter((p) => !ESTADOS_DISPONIVEIS.has(p.estado));
+  const rotuloPedido = (id: number) => numeroOuId(pedidos.data?.find((p) => p.id === id)?.numero_pedido, id);
 
-  // Colagem do Excel: só preço e IVA (as linhas vêm fixas dos artigos do pedido — sem botão «Colar do Excel» para
-  // acrescentar linhas, porque uma linha nova não teria `item_pedido_id`/`produto_id`). Colagem directa numa célula
+  // Colagem do Excel: só preço e IVA (as linhas vêm fixas dos artigos dos pedidos — sem botão «Colar do Excel» para
+  // acrescentar linhas, porque uma linha nova não teria item_pedido_id/produto_id). Colagem directa numa célula
   // (Ctrl+V), posicional a partir da coluna clicada, preenchendo só as linhas que já existem.
   const camposColaveis: CampoFormulario[] = [
     { nome: 'preco_unitario', rotulo: `Preço unit. (${moeda.toUpperCase()})`, tipo: 'numero', min: 0, precisao: 2 },
@@ -120,39 +157,56 @@ export function NovaProposta() {
     else void message.success(`Preços actualizados em ${aplicadas} linha(s).`);
   };
 
+  const submeter = async (v: ValoresProposta) => {
+    const documentos = propostasPorPedido(v.pedidos_compra_ids, v.linhas);
+    if (!documentos.length) {
+      void message.error('Indique a quantidade a propor em pelo menos um artigo.');
+      return;
+    }
+    setAGravar(true);
+    const criadas: PropostaCompra[] = [];
+    const falhas: string[] = [];
+    try {
+      for (const { pedido_compra_id, linhas: linhasDoc } of documentos) {
+        try {
+          const { dados } = await enviar<PropostaCompra>('post', '/compras/propostas', {
+            pedido_compra_id, fornecedor_id: v.fornecedor_id, referencia: v.referencia, data: dataApi(v.data), data_entrega: dataApi(v.data_entrega),
+            codigo_moeda: v.codigo_moeda?.toUpperCase() || undefined, taxa_cambio: v.codigo_moeda && v.codigo_moeda !== 'AOA' ? v.taxa_cambio : undefined,
+            linhas: linhasDoc.map((l) => ({ item_pedido_id: l.item_pedido_id, quantidade: l.quantidade, preco_unitario: l.preco_unitario, taxa_imposto: l.taxa_imposto ?? 0 })),
+          });
+          criadas.push(dados);
+        } catch (e) {
+          falhas.push(`${rotuloPedido(pedido_compra_id)}: ${e instanceof Error ? e.message : 'erro desconhecido'}`);
+        }
+      }
+    } finally {
+      setAGravar(false);
+    }
+    if (criadas.length) void message.success(criadas.length === 1 ? `Proposta ${criadas[0].numero_proposta} registada.` : `${criadas.length} proposta(s) registada(s).`);
+    if (falhas.length) notificarErro(new Error(`Não foi possível registar a proposta para: ${falhas.join('; ')}`), 'Algumas propostas não foram registadas');
+    if (criadas.length && !falhas.length) navegar(criadas.length === 1 ? `../${criadas[0].id}` : '..');
+  };
+
   return (
     <>
       <CabecalhoPagina titulo="Registar proposta de fornecedor" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
       <Form<ValoresProposta>
         form={form}
         layout="vertical"
-        initialValues={{ data: dayjs(), codigo_moeda: 'AOA', linhas: [] }}
-        onFinish={(v) =>
-          criar.mutate({
-            url: '/compras/propostas',
-            dados: {
-              pedido_compra_id: v.pedido_compra_id,
-              fornecedor_id: v.fornecedor_id,
-              referencia: v.referencia,
-              data: dataApi(v.data),
-              data_entrega: dataApi(v.data_entrega),
-              codigo_moeda: v.codigo_moeda?.toUpperCase() || undefined,
-              taxa_cambio: v.codigo_moeda && v.codigo_moeda !== 'AOA' ? v.taxa_cambio : undefined,
-              linhas: v.linhas.map((l) => ({ item_pedido_id: l.item_pedido_id, preco_unitario: l.preco_unitario, taxa_imposto: l.taxa_imposto ?? 0 })),
-            },
-          })
-        }
+        initialValues={{ data: dayjs(), codigo_moeda: 'AOA', linhas: [], pedidos_compra_ids: [] }}
+        onFinish={submeter}
       >
         <Card title="Proposta" style={{ marginBottom: 16 }}>
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name="pedido_compra_id" label="Pedido aprovado" rules={[{ required: true, message: 'Escolha o pedido.' }]}>
+              <Form.Item name="pedidos_compra_ids" label="Pedidos aprovados" tooltip="Pode escolher mais do que um: regista-se uma proposta por cada pedido." rules={[{ required: true, type: 'array', min: 1, message: 'Escolha pelo menos um pedido.' }]}>
                 <Select
+                  mode="multiple"
                   showSearch
                   optionFilterProp="label"
-                  loading={aprovados.isLoading}
-                  placeholder="Pedidos em estado Aprovado"
-                  options={(aprovados.data?.itens ?? []).map((x) => ({
+                  loading={disponiveis.isLoading}
+                  placeholder="Pedidos aprovados ou parcialmente adjudicados"
+                  options={(disponiveis.data?.itens ?? []).map((x) => ({
                     value: x.id,
                     label: `${numeroOuId(x.numero_pedido, x.id)} — ${x.nome_requerente}${x.descricao ? ` — ${x.descricao}` : ''} (${formatarData(x.data)})`,
                   }))}
@@ -192,11 +246,16 @@ export function NovaProposta() {
               </Col>
             )}
           </Row>
-          {p && p.estado !== 'APROVADO' && <Alert type="warning" showIcon message="Só se registam propostas para pedidos aprovados." />}
+          {naoDisponiveis.length > 0 && (
+            <Alert
+              type="warning" showIcon style={{ marginTop: 8 }}
+              message={`Só se registam propostas para pedidos aprovados ou parcialmente adjudicados: ${naoDisponiveis.map((p) => `${numeroOuId(p.numero_pedido, p.id)} está ${p.estado}`).join(', ')}.`}
+            />
+          )}
         </Card>
 
         <Card title="Preços por artigo" style={{ marginBottom: 16 }}>
-          <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Escolha um pedido com artigos.'))) }]}>
+          <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Escolha pelo menos um pedido com artigos por cobrir.'))) }]}>
             {(campos, _op, { errors }) => (
               <>
                 <div onPaste={aoColarCelula}>
@@ -204,11 +263,20 @@ export function NovaProposta() {
                     rowKey="key"
                     size="small"
                     pagination={false}
-                    loading={pedido.isFetching}
+                    loading={pedidos.isFetching}
                     dataSource={campos}
-                    locale={{ emptyText: 'Escolha o pedido para ver os artigos.' }}
+                    locale={{ emptyText: 'Escolha os pedidos para ver os artigos por cobrir.' }}
                     onRow={(c) => ({ 'data-colar-linha': c.name }) as unknown as React.HTMLAttributes<HTMLElement>}
                     columns={[
+                      ...(chavePedidos.length > 1
+                        ? [{
+                            title: 'Pedido', width: 110,
+                            render: (_: unknown, c: { name: number }) => {
+                              const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
+                              return l ? <Tag>{rotuloPedido(l.pedido_compra_id)}</Tag> : null;
+                            },
+                          }]
+                        : []),
                       {
                         title: 'Artigo',
                         render: (_, c) => {
@@ -216,7 +284,31 @@ export function NovaProposta() {
                           return l ? <NomeProduto id={l.produto_id} descricao={l.descricao} /> : null;
                         },
                       },
-                      { title: 'Qtd.', align: 'right', render: (_, c) => formatarNumero((form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined)?.quantidade) },
+                      {
+                        title: 'Pendente',
+                        align: 'right',
+                        render: (_, c) => {
+                          const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
+                          if (!l) return null;
+                          const parcial = Number(l.saldo_pendente) < Number(l.quantidade_pedido);
+                          return (
+                            <span title={parcial ? `Pedido: ${formatarNumero(l.quantidade_pedido)} — já coberto o resto` : undefined}>
+                              {formatarNumero(l.saldo_pendente)}{parcial && <Tag color="gold" style={{ marginLeft: 4 }}>parcial</Tag>}
+                            </span>
+                          );
+                        },
+                      },
+                      {
+                        title: 'Quantidade a propor',
+                        render: (_, c) => {
+                          const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
+                          return (
+                            <Form.Item name={[c.name, 'quantidade']} rules={[{ required: true, message: 'Quantidade' }]} style={{ margin: 0 }} tooltip="0 = não incluir este artigo nesta proposta">
+                              <InputNumber aria-label="Quantidade a propor" min={0} max={l ? Number(l.saldo_pendente) : undefined} precision={3} style={{ width: 120 }} />
+                            </Form.Item>
+                          );
+                        },
+                      },
                       {
                         title: `Preço unit. (${moeda.toUpperCase()}, s/ IVA)`,
                         render: (_, c) => (
@@ -284,11 +376,14 @@ export function NovaProposta() {
             <Statistic title="IVA" value={formatarKz(estimativa.imposto)} />
             <Statistic title="Total" value={formatarKz(estimativa.total)} />
           </Flex>
-          <Typography.Text type="secondary">Estimativa na moeda da proposta; o servidor converte para Kz e grava os totais.</Typography.Text>
+          <Typography.Text type="secondary">
+            Estimativa na moeda da proposta; o servidor converte para Kz e grava os totais.
+            {chavePedidos.length > 1 && ' Regista-se uma proposta por pedido (as linhas a 0 ficam de fora).'}
+          </Typography.Text>
         </Card>
         <Space wrap>
-          <Button type="primary" htmlType="submit" loading={criar.isPending}>
-            Registar proposta
+          <Button type="primary" htmlType="submit" loading={aGravar}>
+            {chavePedidos.length > 1 ? `Registar ${chavePedidos.length} proposta(s)` : 'Registar proposta'}
           </Button>
           <Button onClick={() => navegar('..')}>Cancelar</Button>
         </Space>

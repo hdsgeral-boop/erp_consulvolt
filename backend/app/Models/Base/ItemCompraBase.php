@@ -32,7 +32,7 @@ abstract class ItemCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'tipo_documento_origem', 'tipo_documento_origem_original', 'produto_id', 'quantidade', 'preco_unitario', 'projeto_id', 'codigo_projeto', 'quantidade_recebida', 'quantidade_faturada', 'encomenda_compra_id', 'descricao', 'total', 'tarefa_projeto_id', 'preco_unitario_moeda', 'total_moeda', 'total_kz', 'cambial_recebido_por_faturar_qtd', 'cambial_recebido_por_faturar_kz', 'cambial_faturado_por_receber_qtd', 'cambial_faturado_por_receber_kz', 'taxa_imposto', 'unidade_negocio_id', 'centro_custo_id', 'item_encomenda_id', 'valor_recebido_kz', 'valor_transitoria_kz', 'imposto_kz', 'imposto_moeda', 'pedido_compra_id', 'cotacao_compra_id', 'fatura_compra_id',
+        'empresa_id', 'tipo_documento_origem', 'tipo_documento_origem_original', 'produto_id', 'quantidade', 'preco_unitario', 'projeto_id', 'codigo_projeto', 'quantidade_recebida', 'quantidade_faturada', 'encomenda_compra_id', 'descricao', 'total', 'tarefa_projeto_id', 'preco_unitario_moeda', 'total_moeda', 'total_kz', 'cambial_recebido_por_faturar_qtd', 'cambial_recebido_por_faturar_kz', 'cambial_faturado_por_receber_qtd', 'cambial_faturado_por_receber_kz', 'taxa_imposto', 'unidade_negocio_id', 'centro_custo_id', 'item_encomenda_id', 'item_pedido_id', 'valor_recebido_kz', 'valor_transitoria_kz', 'imposto_kz', 'imposto_moeda', 'pedido_compra_id', 'cotacao_compra_id', 'fatura_compra_id',
     ];
 
     protected function casts(): array
@@ -59,6 +59,7 @@ abstract class ItemCompraBase extends ModeloBase
             'unidade_negocio_id' => 'integer',
             'centro_custo_id' => 'integer',
             'item_encomenda_id' => 'integer',
+            'item_pedido_id' => 'integer',
             'valor_recebido_kz' => 'decimal:2',
             'valor_transitoria_kz' => 'decimal:2',
             'imposto_kz' => 'decimal:2',
@@ -106,6 +107,11 @@ abstract class ItemCompraBase extends ModeloBase
         return $this->belongsTo(ItemCompra::class, 'item_encomenda_id');
     }
 
+    public function itemPedido(): BelongsTo
+    {
+        return $this->belongsTo(ItemCompra::class, 'item_pedido_id');
+    }
+
     public function pedidoCompra(): BelongsTo
     {
         return $this->belongsTo(PedidoCompra::class, 'pedido_compra_id');
@@ -124,6 +130,11 @@ abstract class ItemCompraBase extends ModeloBase
     public function itensCompraPorItemEncomenda(): HasMany
     {
         return $this->hasMany(ItemCompra::class, 'item_encomenda_id');
+    }
+
+    public function itensCompraPorItemPedido(): HasMany
+    {
+        return $this->hasMany(ItemCompra::class, 'item_pedido_id');
     }
 
     public function itensGuiaSaida(): HasMany

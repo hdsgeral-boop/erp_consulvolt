@@ -53,7 +53,10 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_pedidos_view');
 
-        return $this->listar($r, PedidoCompra::query(), 'data', ['numero_pedido', 'nome_requerente'], $this->listagens->pedidos(...));
+        // «Aprovado» ou «Parcialmente adjudicado» (ainda falta cobrir alguma linha): os dois estados onde se pode
+        // registar uma nova proposta — usado pelo selector de pedidos ao registar uma proposta.
+        return $this->listar($r, PedidoCompra::query()->when($r->boolean('disponivel_proposta'), fn ($q) => $q->whereIn('estado', ['APROVADO', 'PARCIALMENTE_ADJUDICADO'])),
+            'data', ['numero_pedido', 'nome_requerente'], $this->listagens->pedidos(...));
     }
 
     public function pedido(int $id): JsonResponse
@@ -65,7 +68,10 @@ final class ComprasController extends Controller
 
         return RespostaApi::sucesso($this->doc($p, 'pedido_compra_id') + ['valor_estimado' => $this->deliberacao->valorEstimado($p),
             'pode_decidir' => $decisao['pode'], 'motivo_decisao' => $decisao['pode'] ? null : $decisao['motivo'],
-            'referencia_encomendas' => (object) $this->listagens->referenciaEncomendas($p)], 'Pedido obtido com sucesso.');
+            'referencia_encomendas' => (object) $this->listagens->referenciaEncomendas($p),
+            // cobertura parcial: quanto de cada linha já está adjudicado e quanto falta — usado ao registar a proposta
+            // (limita a quantidade) e no detalhe do pedido (mostra o progresso).
+            'saldos' => $this->processo->saldosPedido($p)->values()], 'Pedido obtido com sucesso.');
     }
 
     public function criarPedido(Request $r): JsonResponse
@@ -150,6 +156,8 @@ final class ComprasController extends Controller
             'referencia' => ['required', 'string', 'max:50'], 'data' => ['nullable', 'date_format:Y-m-d'], 'data_entrega' => ['nullable', 'date_format:Y-m-d'],
             'codigo_moeda' => ['nullable', 'regex:/^[A-Z]{3}$/'], 'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],
             'linhas' => ['required', 'array', 'min:1', 'max:2000'], 'linhas.*.item_pedido_id' => ['required', 'integer'],
+            // cobertura parcial: vazio = propõe-se para todo o saldo pendente (caso comum); o serviço valida contra o saldo real
+            'linhas.*.quantidade' => ['nullable', 'numeric', 'gt:0'],
             'linhas.*.preco_unitario' => ['required', 'numeric', 'min:0'], 'linhas.*.taxa_imposto' => ['nullable', 'numeric', new TaxaIvaLegal],
         ]);
         $c = $this->processo->criarProposta($d);

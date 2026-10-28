@@ -11,7 +11,7 @@ import { corpoTerceiro } from './GestaoTerceiros';
 import type { ContratoCompra, EncomendaCompra, FaturaCompra, PedidoCompra, PropostaCompra, RececaoCompra } from './tipos';
 import { validarEscaloes } from '../pedidos/ModalEscaloes';
 import { melhorPrecoPorLinha } from '../prospeccao/QuadroComparativo';
-import { linhasDoPedido } from '../prospeccao/NovaProposta';
+import { linhasDoPedido, propostasPorPedido } from '../prospeccao/NovaProposta';
 import { linhasFatura } from '../faturacao/DetalheFatura';
 import { linhasSelecionaveis } from '../EncomendasClientes';
 
@@ -135,9 +135,50 @@ describe('formulários', () => {
     expect(corpoTerceiro('FORNECEDOR', { id: 1, nome: 'X', nif: null, codigo_conta: '32', conta_compra_transitoria: '3281' }).conta_compra_transitoria).toBe('3281');
   });
 
-  it('cria as linhas da proposta a partir do pedido, com o IVA do catálogo', () => {
-    const l = linhasDoPedido([{ id: 7, produto_id: 3, descricao: null, quantidade: '2.000' } as never], (id) => (id === 3 ? 14 : undefined));
-    expect(l).toEqual([{ item_pedido_id: 7, produto_id: 3, descricao: null, quantidade: '2.000', preco_unitario: undefined, taxa_imposto: 14 }]);
+  it('cria as linhas da proposta a partir do pedido, com o IVA do catálogo e a quantidade a propor igual ao saldo pendente', () => {
+    const p = { id: 99, linhas: [{ id: 7, produto_id: 3, descricao: null, quantidade: '2.000' }] } as never as PedidoCompra;
+    const l = linhasDoPedido(p, (id) => (id === 3 ? 14 : undefined));
+    expect(l).toEqual([{ pedido_compra_id: 99, item_pedido_id: 7, produto_id: 3, descricao: null, quantidade_pedido: '2.000', saldo_pendente: '2.000', quantidade: 2, preco_unitario: undefined, taxa_imposto: 14 }]);
+  });
+
+  it('cobertura parcial: a quantidade a propor nasce igual ao saldo pendente (não à quantidade pedida), e uma linha já coberta não aparece', () => {
+    const p = {
+      id: 99,
+      linhas: [{ id: 7, produto_id: 3, descricao: null, quantidade: '10.000' }, { id: 8, produto_id: 4, descricao: null, quantidade: '5.000' }],
+      saldos: [{ item_pedido_id: 7, produto_id: 3, quantidade: '10.000', quantidade_adjudicada: '6.000', saldo_pendente: '4.000' },
+        { item_pedido_id: 8, produto_id: 4, quantidade: '5.000', quantidade_adjudicada: '5.000', saldo_pendente: '0.000' }],
+    } as never as PedidoCompra;
+    const l = linhasDoPedido(p, () => undefined);
+    expect(l).toHaveLength(1);
+    expect(l[0]).toMatchObject({ item_pedido_id: 7, quantidade_pedido: '10.000', saldo_pendente: '4.000', quantidade: 4 });
+  });
+
+  it('propostasPorPedido: uma proposta por pedido escolhido, cada uma só com as suas linhas', () => {
+    const linhas = [
+      { pedido_compra_id: 5, item_pedido_id: 11, produto_id: 1, quantidade: 4 },
+      { pedido_compra_id: 6, item_pedido_id: 21, produto_id: 2, quantidade: 3 },
+      { pedido_compra_id: 5, item_pedido_id: 12, produto_id: 3, quantidade: 2 },
+    ] as never[];
+    expect(propostasPorPedido([5, 6], linhas)).toEqual([
+      { pedido_compra_id: 5, linhas: [linhas[0], linhas[2]] },
+      { pedido_compra_id: 6, linhas: [linhas[1]] },
+    ]);
+  });
+
+  it('propostasPorPedido: linhas a 0 ficam de fora; um pedido sem nenhuma linha qualificada não gera proposta vazia', () => {
+    const linhas = [
+      { pedido_compra_id: 5, item_pedido_id: 11, produto_id: 1, quantidade: 0 },
+      { pedido_compra_id: 6, item_pedido_id: 21, produto_id: 2, quantidade: 3 },
+    ] as never[];
+    expect(propostasPorPedido([5, 6], linhas)).toEqual([{ pedido_compra_id: 6, linhas: [linhas[1]] }]);
+  });
+
+  it('propostasPorPedido: mantém a ordem em que os pedidos foram escolhidos', () => {
+    const linhas = [
+      { pedido_compra_id: 6, item_pedido_id: 21, produto_id: 2, quantidade: 3 },
+      { pedido_compra_id: 5, item_pedido_id: 11, produto_id: 1, quantidade: 4 },
+    ] as never[];
+    expect(propostasPorPedido([5, 6], linhas).map((d) => d.pedido_compra_id)).toEqual([5, 6]);
   });
 
   it('escolhe o menor preço cotado por artigo', () => {

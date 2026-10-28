@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Armazem;
 use App\Models\Empresa;
+use App\Models\EncomendaCompra;
 use App\Models\ItemCompra;
 use App\Models\LancamentoContabil;
 use App\Models\NotaDemonstracao;
@@ -165,6 +166,54 @@ final class ComprasTest extends TestCase
         // anular a encomenda devolve a proposta e o pedido ao estado adjudicável
         $this->postJson("/api/compras/encomendas/{$e}/anular", ['motivo' => 'Fornecedor desistiu'], $this->comprador)->assertOk()->assertJsonPath('dados.estado', 'ANULADA');
         $this->getJson("/api/compras/pedidos/{$p}", $this->comprador)->assertJsonPath('dados.estado', 'APROVADO');
+    }
+
+    #[Test]
+    public function cobertura_parcial_do_pedido_por_mais_do_que_uma_proposta(): void
+    {
+        $p = $this->pedido(10, 100)->json('dados.id');
+        $this->aprovar($p)->assertOk();
+
+        // proposta A cobre só 6 das 10 unidades
+        $c1 = $this->proposta($p, 90, ['linhas' => [['item_pedido_id' => $this->linhaDoPedido($p), 'quantidade' => 6, 'preco_unitario' => 90, 'taxa_imposto' => 14]]])
+            ->assertCreated()->assertJsonPath('dados.montante_total', '540.00')->json('dados.id');
+        $this->getJson("/api/compras/pedidos/{$p}", $this->comprador)->assertOk()
+            ->assertJsonPath('dados.saldos.0.quantidade', '10.000')->assertJsonPath('dados.saldos.0.quantidade_adjudicada', '0.000')->assertJsonPath('dados.saldos.0.saldo_pendente', '10.000');
+        // ainda nada adjudicado: o saldo só desce quando uma proposta é mesmo ADJUDICADA, não ao ser só registada
+
+        // uma 2.ª proposta não pode pedir mais do que o saldo pendente (10, porque nada está adjudicado ainda)
+        $this->proposta($p, 95, ['linhas' => [['item_pedido_id' => $this->linhaDoPedido($p), 'quantidade' => 11, 'preco_unitario' => 95, 'taxa_imposto' => 14]]])
+            ->assertStatus(422)->assertJsonPath('codigo', 'QUANTIDADE_EXCEDE_SALDO');
+
+        // adjudicar a proposta A (6 de 10): o pedido fica parcialmente adjudicado, a 2.ª proposta continua por decidir
+        $this->postJson("/api/compras/propostas/{$c1}/propor", [], $this->comprador)->assertOk();
+        $this->postJson("/api/compras/propostas/{$c1}/adjudicar", ['data' => $this->hoje], $this->comprador)->assertCreated()->assertJsonPath('dados.linhas.0.quantidade', '6.000');
+        $this->getJson("/api/compras/pedidos/{$p}", $this->comprador)->assertOk()->assertJsonPath('dados.estado', 'PARCIALMENTE_ADJUDICADO')
+            ->assertJsonPath('dados.saldos.0.quantidade_adjudicada', '6.000')->assertJsonPath('dados.saldos.0.saldo_pendente', '4.000');
+
+        // o pedido parcialmente adjudicado continua a aceitar novas propostas — e sem indicar quantidade, propõe-se para o que falta (4)
+        $c2 = $this->proposta($p, 92, ['linhas' => [['item_pedido_id' => $this->linhaDoPedido($p), 'preco_unitario' => 92, 'taxa_imposto' => 14]]])
+            ->assertCreated()->assertJsonPath('dados.linhas.0.quantidade', '4.000')->json('dados.id');
+
+        // uma 3.ª proposta concorrente ainda cabe: c2 só propõe-se para o saldo, não o consome — só a ADJUDICAÇÃO decide
+        $c3 = $this->proposta($p, 93, ['linhas' => [['item_pedido_id' => $this->linhaDoPedido($p), 'quantidade' => 1, 'preco_unitario' => 93, 'taxa_imposto' => 14]]])
+            ->assertCreated()->json('dados.id');
+
+        // adjudicar c2: cobre o saldo todo → o pedido fecha (Adjudicado) e as outras propostas por decidir (c3) são recusadas
+        $this->postJson("/api/compras/propostas/{$c2}/propor", [], $this->comprador)->assertOk();
+        $this->postJson("/api/compras/propostas/{$c2}/adjudicar", ['data' => $this->hoje], $this->comprador)->assertCreated();
+        $this->getJson("/api/compras/pedidos/{$p}", $this->comprador)->assertOk()->assertJsonPath('dados.estado', 'ADJUDICADO')->assertJsonPath('dados.saldos.0.saldo_pendente', '0.000');
+        $this->getJson("/api/compras/propostas/{$c3}", $this->comprador)->assertJsonPath('dados.estado', 'RECUSADA');
+
+        // anular a encomenda de c2 reabre exactamente o que ela cobria — o pedido volta a parcialmente adjudicado, não a aprovado
+        $e2 = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => EncomendaCompra::query()->where('cotacao_compra_id', $c2)->value('id'));
+        $this->postJson("/api/compras/encomendas/{$e2}/anular", ['motivo' => 'Fornecedor desistiu'], $this->comprador)->assertOk();
+        $this->getJson("/api/compras/pedidos/{$p}", $this->comprador)->assertJsonPath('dados.estado', 'PARCIALMENTE_ADJUDICADO')->assertJsonPath('dados.saldos.0.saldo_pendente', '4.000');
+    }
+
+    private function linhaDoPedido(int $pedido): int
+    {
+        return $this->getJson("/api/compras/pedidos/{$pedido}", $this->comprador)->json('dados.linhas.0.id');
     }
 
     #[Test]

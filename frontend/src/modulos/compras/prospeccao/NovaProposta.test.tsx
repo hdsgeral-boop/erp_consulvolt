@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,5 +61,32 @@ describe('NovaProposta — colagem directa do preço e IVA (linhas fixas pelo pe
     await screen.findByText(/Preços actualizados em 2 linha\(s\)\./);
     const linhas = container.querySelectorAll('[data-colar-linha]');
     expect(linhas).toHaveLength(2); // a 3.ª linha colada (sem artigo correspondente) é ignorada
+  }, 60_000);
+});
+
+describe('NovaProposta — cobertura parcial', () => {
+  it('a quantidade a propor nasce igual ao saldo pendente (não à quantidade pedida) e mostra «parcial»', async () => {
+    obter.mockReset().mockImplementation((url: string) => {
+      if (url === '/logistica/produtos/catalogo') return Promise.resolve(CATALOGO);
+      if (url === '/compras/pedidos/5') {
+        return Promise.resolve({
+          ...PEDIDO,
+          estado: 'PARCIALMENTE_ADJUDICADO',
+          saldos: [
+            { item_pedido_id: 11, produto_id: 1, quantidade: '10', quantidade_adjudicada: '4', saldo_pendente: '6' },
+            { item_pedido_id: 12, produto_id: 2, quantidade: '5', quantidade_adjudicada: '0', saldo_pendente: '5' },
+          ],
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const { container } = montar();
+    await waitFor(() => expect(container.querySelectorAll('[data-colar-linha]').length).toBe(2));
+    // 1.ª linha: 6 de 10 — parcial; 2.ª linha: 5 de 5 — nada por cobrir ainda, sem a etiqueta
+    const linha0 = container.querySelector('[data-colar-linha="0"]') as HTMLElement;
+    expect(within(linha0).getByText('parcial')).toBeInTheDocument();
+    expect((within(linha0).getByLabelText('Quantidade a propor') as HTMLInputElement).value).toBe('6.000');
+    const linha1 = container.querySelector('[data-colar-linha="1"]') as HTMLElement;
+    expect(within(linha1).queryByText('parcial')).toBeNull();
   }, 60_000);
 });

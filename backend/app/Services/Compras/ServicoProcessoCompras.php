@@ -95,28 +95,73 @@ final class ServicoProcessoCompras
     // ───────────────────────── Propostas ─────────────────────────
 
     /**
+     * Quantidade já adjudicada e saldo pendente de cada linha do pedido — soma das linhas de cotações ADJUDICADO
+     * ligadas por `item_pedido_id` (cobertura parcial: várias cotações, de um ou vários fornecedores, podem repartir
+     * entre si a quantidade de uma mesma linha; só conta o que já foi efectivamente adjudicado, não as propostas
+     * ainda por decidir — essas podem concorrer livremente pelo que falta).
+     *
+     * @return Collection<int, array{item_pedido_id: int, produto_id: int, quantidade: string, quantidade_adjudicada: string, saldo_pendente: string}>
+     */
+    public function saldosPedido(PedidoCompra $pedido): Collection
+    {
+        $itens = ItemCompra::query()->where('pedido_compra_id', $pedido->id)->orderBy('id')->get();
+        $cotacoesAdjudicadas = CotacaoCompra::query()->where('pedido_compra_id', $pedido->id)->where('estado', 'ADJUDICADO')->pluck('id');
+        $adjudicado = ItemCompra::query()->whereIn('cotacao_compra_id', $cotacoesAdjudicadas)->whereNotNull('item_pedido_id')->get()
+            ->groupBy('item_pedido_id')->map(fn ($linhas) => $linhas->reduce(fn ($s, $l) => bcadd($s, (string) $l->quantidade, 3), '0'));
+
+        return $itens->map(function (ItemCompra $ip) use ($adjudicado) {
+            $coberta = $adjudicado[$ip->id] ?? '0.000';
+            $saldo = bcsub((string) $ip->quantidade, $coberta, 3);
+
+            return ['item_pedido_id' => $ip->id, 'produto_id' => $ip->produto_id, 'quantidade' => (string) $ip->quantidade,
+                'quantidade_adjudicada' => $coberta, 'saldo_pendente' => bccomp($saldo, '0', 3) > 0 ? $saldo : '0.000'];
+        })->values();
+    }
+
+    /** ADJUDICADO (saldo pendente zero em todas as linhas) · PARCIALMENTE_ADJUDICADO (alguma coisa coberta, mas não tudo) · APROVADO. */
+    private function recalcularEstadoPedido(PedidoCompra $pedido): string
+    {
+        $saldos = $this->saldosPedido($pedido);
+        if ($saldos->isEmpty() || $saldos->every(fn ($s) => bccomp($s['saldo_pendente'], '0', 3) <= 0)) {
+            return 'ADJUDICADO';
+        }
+
+        return $saldos->contains(fn ($s) => bccomp($s['quantidade_adjudicada'], '0', 3) > 0) ? 'PARCIALMENTE_ADJUDICADO' : 'APROVADO';
+    }
+
+    /**
      * @param  array{pedido_compra_id: int, fornecedor_id: int, referencia: string, data?: string, data_entrega?: ?string,
-     *               codigo_moeda?: ?string, taxa_cambio?: ?float, linhas: list<array{item_pedido_id: int, preco_unitario: float|string, taxa_imposto?: float|string|null}>}  $d
+     *               codigo_moeda?: ?string, taxa_cambio?: ?float, linhas: list<array{item_pedido_id: int, quantidade?: float|string|null, preco_unitario: float|string, taxa_imposto?: float|string|null}>}  $d
      */
     public function criarProposta(array $d): CotacaoCompra
     {
         $empresa = $this->contexto->obrigatorio();
         $data = substr($d['data'] ?? now()->toDateString(), 0, 10);
         $pedido = PedidoCompra::query()->findOrFail($d['pedido_compra_id']);
-        if ($pedido->estado !== 'APROVADO') {
+        if (! in_array($pedido->estado, ['APROVADO', 'PARCIALMENTE_ADJUDICADO'], true)) {
             throw new ErroNegocio("Só se registam propostas para pedidos aprovados (este está {$pedido->estado}).", 'PEDIDO_NAO_APROVADO', 422);
         }
         $fornecedor = $this->fornecedor($d['fornecedor_id']);
         $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $d['codigo_moeda'] ?? $fornecedor->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data, 'Compras proposta');
 
         $itensPedido = ItemCompra::query()->where('pedido_compra_id', $pedido->id)->with('produto')->get()->keyBy('id');
+        $saldos = $this->saldosPedido($pedido)->keyBy('item_pedido_id');
         $linhas = [];
         foreach ($d['linhas'] as $n => $l) {
             $ip = $itensPedido[$l['item_pedido_id']] ?? throw new ErroNegocio('Linha '.($n + 1).': não pertence ao pedido.', 'LINHA_INVALIDA', 422);
+            $saldo = $saldos[$ip->id]['saldo_pendente'] ?? (string) $ip->quantidade;
+            // sem quantidade indicada: propõe-se para o que ainda falta (caso comum — cobrir o pedido todo)
+            $qtd = isset($l['quantidade']) && $l['quantidade'] !== '' && $l['quantidade'] !== null ? (string) $l['quantidade'] : $saldo;
+            if (bccomp($qtd, '0', 3) <= 0) {
+                throw new ErroNegocio('Linha '.($n + 1).': a quantidade tem de ser positiva.', 'QUANTIDADE_INVALIDA', 422);
+            }
+            if (bccomp($qtd, $saldo, 3) > 0) {
+                throw new ErroNegocio('Linha '.($n + 1).": a quantidade ({$qtd}) excede o saldo pendente do pedido ({$saldo}) — outra proposta já cobre o resto.", 'QUANTIDADE_EXCEDE_SALDO', 422);
+            }
             if ((float) $l['preco_unitario'] < 0) {
                 throw new ErroNegocio('Linha '.($n + 1).': o preço não pode ser negativo.', 'PRECO_INVALIDO', 422);
             }
-            $linhas[] = ['item' => $ip, 'quantidade' => (string) $ip->quantidade, 'preco_unitario' => number_format((float) $l['preco_unitario'], 2, '.', ''),
+            $linhas[] = ['item' => $ip, 'quantidade' => $qtd, 'preco_unitario' => number_format((float) $l['preco_unitario'], 2, '.', ''),
                 'taxa_imposto' => (string) ($l['taxa_imposto'] ?? $ip->produto?->taxa_imposto ?? 14)];
         }
         $calc = CalculadoraCompra::calcular($linhas, $moeda['taxa']);
@@ -135,7 +180,7 @@ final class ServicoProcessoCompras
                 'unidade_negocio_id' => $pedido->unidade_negocio_id, 'centro_custo_id' => $pedido->centro_custo_id,
             ]);
             foreach ($linhas as $i => $l) {
-                ItemCompra::create($this->linha('COTACAO', ['cotacao_compra_id' => $cotacao->id], $l, $calc['linhas'][$i], $moeda) + ['projeto_id' => $l['item']->projeto_id]);
+                ItemCompra::create($this->linha('COTACAO', ['cotacao_compra_id' => $cotacao->id, 'item_pedido_id' => $l['item']->id], $l, $calc['linhas'][$i], $moeda) + ['projeto_id' => $l['item']->projeto_id]);
             }
 
             return $cotacao;
@@ -150,6 +195,7 @@ final class ServicoProcessoCompras
         $minimo = $validas->min(fn ($p) => (float) $p->montante_total) ?: 0;
         $itensPedido = ItemCompra::query()->where('pedido_compra_id', $pedido->id)->orderBy('id')->get();
         $linhasPropostas = ItemCompra::query()->whereIn('cotacao_compra_id', $propostas->pluck('id'))->get()->groupBy('cotacao_compra_id');
+        $saldos = $this->saldosPedido($pedido)->keyBy('item_pedido_id');
 
         return [
             'propostas' => $propostas->map(function ($p) use ($minimo, $pedido) {
@@ -165,9 +211,12 @@ final class ServicoProcessoCompras
                     'codigo_moeda' => $p->codigo_moeda ?: 'AOA', 'data_entrega' => $p->data_entrega?->toDateString(),
                     'pontuacao' => ['preco' => $preco, 'prazo' => $prazo, 'total' => round($preco + $prazo, 2)]];
             })->sortByDesc('pontuacao.total')->values(),
+            // item_pedido_id é a ligação correcta (cobre cobertura parcial e dois pedidos com o mesmo produto); produto_id
+            // fica só de recurso para linhas de propostas registadas antes desta ligação existir.
             'matriz' => $itensPedido->map(fn ($ip) => ['item_pedido_id' => $ip->id, 'produto_id' => $ip->produto_id, 'descricao' => $ip->descricao, 'quantidade' => $ip->quantidade,
+                'saldo_pendente' => $saldos[$ip->id]['saldo_pendente'] ?? (string) $ip->quantidade,
                 'precos' => $propostas->mapWithKeys(function ($p) use ($linhasPropostas, $ip) {
-                    $l = ($linhasPropostas[$p->id] ?? collect())->firstWhere('produto_id', $ip->produto_id);
+                    $l = ($linhasPropostas[$p->id] ?? collect())->first(fn ($x) => $x->item_pedido_id ? $x->item_pedido_id === $ip->id : $x->produto_id === $ip->produto_id);
 
                     return [$p->id => $l && (float) $l->preco_unitario > 0 ? $l->preco_unitario : null];   // null = não cotado
                 })]),
@@ -242,6 +291,15 @@ final class ServicoProcessoCompras
                 $cotacao->taxa_cambio_manual ? (string) $cotacao->taxa_cambio : null, $data);
             $origem = ItemCompra::query()->where('cotacao_compra_id', $cotacao->id)->orderBy('id')->get()
                 ->filter(fn ($l) => (float) ($moeda['estrangeira'] ? $l->preco_unitario_moeda : $l->preco_unitario) > 0)->values();
+            // cobertura parcial: dentro do bloqueio, confirma que o saldo pendente de cada linha ainda chega (outra
+            // adjudicação concorrente pode ter consumido entretanto parte do que esta proposta cotou).
+            $saldosAgora = $this->saldosPedido($pedido)->keyBy('item_pedido_id');
+            foreach ($origem as $l) {
+                $saldo = $l->item_pedido_id ? ($saldosAgora[$l->item_pedido_id]['saldo_pendente'] ?? null) : null;
+                if ($saldo !== null && bccomp((string) $l->quantidade, $saldo, 3) > 0) {
+                    throw new ErroNegocio("A quantidade cotada para «{$l->descricao}» ({$l->quantidade}) já não cabe no saldo pendente do pedido ({$saldo}): outra proposta cobriu entretanto parte dele.", 'QUANTIDADE_EXCEDE_SALDO', 409);
+                }
+            }
             $linhas = $origem->map(fn ($l) => ['item' => $l, 'quantidade' => (string) $l->quantidade,
                 'preco_unitario' => (string) ($moeda['estrangeira'] ? $l->preco_unitario_moeda : $l->preco_unitario), 'taxa_imposto' => (string) ($l->taxa_imposto ?? 0)])->all();
             $calc = CalculadoraCompra::calcular($linhas, $moeda['taxa']);
@@ -266,9 +324,15 @@ final class ServicoProcessoCompras
                 app(ServicoControloOrcamental::class)->linhasCompra(ItemCompra::query()->where('encomenda_compra_id', $encomenda->id)->get(), $encomenda),
                 ['encomenda_compra_id' => $encomenda->id]);
             $cotacao->update(['estado' => 'ADJUDICADO']);
-            CotacaoCompra::query()->where('pedido_compra_id', $pedido->id)->where('id', '<>', $cotacao->id)
-                ->whereIn('estado', ['PROPOSTA', 'PROPOSTA_ADJUDICACAO'])->update(['estado' => 'RECUSADA']);
-            $pedido->update(['estado' => 'ADJUDICADO']);
+            // cobertura parcial: só se recusam as outras propostas quando o pedido fica TOTALMENTE coberto por esta
+            // adjudicação (nada mais a cobrir); enquanto sobrar saldo pendente, as outras continuam a poder concorrer
+            // pelo resto — nunca há dupla adjudicação da MESMA quantidade (saldosPedido só conta o já ADJUDICADO).
+            $novoEstado = $this->recalcularEstadoPedido($pedido);
+            if ($novoEstado === 'ADJUDICADO') {
+                CotacaoCompra::query()->where('pedido_compra_id', $pedido->id)->where('id', '<>', $cotacao->id)
+                    ->whereIn('estado', ['PROPOSTA', 'PROPOSTA_ADJUDICACAO'])->update(['estado' => 'RECUSADA']);
+            }
+            $pedido->update(['estado' => $novoEstado]);
 
             return $encomenda;
         });
@@ -349,7 +413,13 @@ final class ServicoProcessoCompras
                 CotacaoCompra::query()->where('pedido_compra_id', $encomenda->pedido_compra_id)->where('estado', 'RECUSADA')->update(['estado' => 'PROPOSTA']);
             }
             if ($encomenda->pedido_compra_id) {
-                PedidoCompra::query()->whereKey($encomenda->pedido_compra_id)->where('estado', 'ADJUDICADO')->update(['estado' => 'APROVADO']);
+                // cobertura parcial: a cotação desta encomenda já voltou a PROPOSTA (linha acima), por isso
+                // saldosPedido() já não a conta como adjudicada — reabre exactamente o que ficou por cobrir, nunca
+                // repõe cegamente «Aprovado» quando outra adjudicação deste mesmo pedido continua de pé.
+                $pedido = PedidoCompra::query()->whereKey($encomenda->pedido_compra_id)->first();
+                if ($pedido && in_array($pedido->estado, ['ADJUDICADO', 'PARCIALMENTE_ADJUDICADO'], true)) {
+                    $pedido->update(['estado' => $this->recalcularEstadoPedido($pedido)]);
+                }
             }
 
             return $encomenda;
@@ -400,7 +470,7 @@ final class ServicoProcessoCompras
 
     private function exigirPedidoAdjudicavel(PedidoCompra $pedido): void
     {
-        if ($pedido->estado !== 'APROVADO') {
+        if (! in_array($pedido->estado, ['APROVADO', 'PARCIALMENTE_ADJUDICADO'], true)) {
             throw new ErroNegocio("O pedido está {$pedido->estado}: não é adjudicável.", 'PEDIDO_NAO_ADJUDICAVEL', 422);
         }
     }
