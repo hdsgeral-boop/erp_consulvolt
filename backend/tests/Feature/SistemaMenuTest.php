@@ -22,7 +22,11 @@ final class SistemaMenuTest extends TestCase
         $this->assertContains('vendas', $modulos);
         $this->assertContains('pos', $modulos);
         $this->assertNotContains('rh', $modulos);
-        $this->assertNotContains('config', $modulos);
+        // «config» aparece, mas só com "Licença e plano" (config_licenca_view é automático para qualquer
+        // utilizador, ECRAS_TODOS_OS_UTILIZADORES) — nenhum outro ecrã de config, que continua a exigir permissão.
+        $this->assertContains('config', $modulos);
+        $ecrasConfig = collect($d['menu'])->firstWhere('id', 'config')['ecras'];
+        $this->assertSame(['config_licenca'], array_column($ecrasConfig, 'id'));
         $this->assertContains('vendas_faturacao_view', $d['permissoes']);
         // cada ecrã traz só as funções (tarefas) que o utilizador pode fazer — índice da pesquisa «Procurar»
         $ecras = collect($d['menu'])->flatMap(fn ($m) => $m['ecras'])->keyBy('id');

@@ -54,6 +54,10 @@ export function ContadorLicencaHeader() {
     }
   }
 
+  // fundo preenchido (não só a borda/texto) em qualquer estado vermelho — expirada ou a expirar em <= 7 dias — para
+  // o aviso se notar e se manter até a licença ser renovada ou expirar, sem depender de o utilizador ter fechado o pop-up.
+  const emAviso = expirada || (dias_restantes !== null && dias_restantes <= 7);
+
   const irParaRenovacao = () => {
     setModalAberto(false);
     navegar('/m/config/config_licenca');
@@ -85,7 +89,7 @@ export function ContadorLicencaHeader() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            background: expirada ? '#fff1f0' : 'transparent',
+            background: emAviso ? '#fff1f0' : 'transparent',
           }}
           icon={icone}
         >

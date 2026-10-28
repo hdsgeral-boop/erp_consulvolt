@@ -2,15 +2,27 @@
 
 namespace App\Http\Controllers\Api\Sistema;
 
+use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
+use App\Mail\TicketCriadoMail;
+use App\Mail\TicketRespostaMail;
+use App\Models\AnexoSuporte;
+use App\Models\MensagemSuporte;
 use App\Models\PlanoLicenca;
+use App\Models\Tenant;
+use App\Models\TicketSuporte;
+use App\Services\Plataforma\ServicoAnexosSuporte;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * /api/licenca — licença da empresa activa e cobrança por plano e tempo (ADR-074).
@@ -18,10 +30,14 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * Estado e planos activos: qualquer utilizador da empresa (alimentam o aviso do cabeçalho). Pedir renovação, ver e cancelar
  * pedidos: `config_licenca_gerir`. Confirmar pagamento e gerir o catálogo de planos: só super-administradores.
  * Estas rotas funcionam também com a licença expirada (é assim que se renova); ver ResolverEmpresaAtiva.
+ *
+ * Suporte (abrir/responder/avaliar pedidos): qualquer utilizador autenticado da empresa — não só o administrador,
+ * ao contrário de `/minha-conta/suporte` (reservado ao administrador, por estar ao lado de dados de plano e
+ * pagamento). Mesmos tickets (tickets_suporte, por tenant_id), só com uma porta de entrada mais aberta.
  */
 final class LicencaController extends Controller
 {
-    public function __construct(private readonly ServicoLicenca $licenca) {}
+    public function __construct(private readonly ServicoLicenca $licenca, private readonly ServicoAnexosSuporte $anexos) {}
 
     public function estado(): JsonResponse
     {
@@ -101,6 +117,102 @@ final class LicencaController extends Controller
             $this->licenca->confirmarPagamento($subscricao, $d['metodo'] ?? null, $d['notas'] ?? null, $request->user()),
             'Pagamento confirmado. Licença prolongada.',
         );
+    }
+
+    public function suporte(Request $request): JsonResponse
+    {
+        $lista = TicketSuporte::query()->where('tenant_id', (int) $request->user()->tenant_id)->orderByDesc('criado_em')->limit(200)->get()
+            ->map(fn (TicketSuporte $t) => [
+                'id' => $t->id, 'assunto' => $t->assunto, 'descricao' => $t->descricao, 'estado' => $t->estado,
+                'prioridade' => $t->prioridade, 'categoria' => $t->categoria, 'criado_em' => $t->criado_em,
+                'csat_nota' => $t->csat_nota, 'csat_comentario' => $t->csat_comentario,
+                'pode_avaliar' => in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true) && $t->csat_nota === null,
+            ])->all();
+
+        return RespostaApi::sucesso($lista, 'Pedidos de suporte obtidos com sucesso.');
+    }
+
+    public function abrirSuporte(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'assunto' => ['required', 'string', 'max:200'],
+            'descricao' => ['nullable', 'string', 'max:5000'],
+            'categoria' => ['nullable', Rule::in(TicketSuporte::CATEGORIAS)],
+        ]);
+        $tenantId = (int) $request->user()->tenant_id;
+        $t = TicketSuporte::query()->create($d + [
+            'tenant_id' => $tenantId, 'categoria' => $d['categoria'] ?? 'GERAL', 'prioridade' => 'NORMAL',
+            'estado' => TicketSuporte::ABERTO, 'criado_por' => $request->user()->nome_utilizador,
+        ]);
+        if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
+            $nomeCliente = Tenant::query()->find($tenantId)?->nome ?? '';
+            Mail::to($emailSuporte)->send(new TicketCriadoMail($t->id, $nomeCliente, $t->assunto, 'NORMAL', $t->categoria, $t->descricao));
+        }
+
+        return RespostaApi::criado(['id' => $t->id, 'assunto' => $t->assunto, 'estado' => 'ABERTO'], 'Pedido de suporte aberto.');
+    }
+
+    public function mensagens(Request $request, int $ticket): JsonResponse
+    {
+        return RespostaApi::sucesso(ConversaSuportePlataformaController::mensagens($this->ticketDoTenant($request, $ticket)), 'Mensagens obtidas com sucesso.');
+    }
+
+    public function responder(Request $request, int $ticket): JsonResponse
+    {
+        $t = $this->ticketDoTenant($request, $ticket);
+        $d = $request->validate([
+            'mensagem' => ['required', 'string', 'max:5000'],
+            'ficheiros' => ['sometimes', 'array', 'max:'.ServicoAnexosSuporte::MAX_FICHEIROS],
+            'ficheiros.*' => ['file', 'max:'.ServicoAnexosSuporte::TAMANHO_MAXIMO_KB],
+        ]);
+        $m = MensagemSuporte::query()->create([
+            'ticket_id' => $t->id, 'autor_tipo' => MensagemSuporte::CLIENTE, 'autor_nome' => $request->user()->nome_utilizador, 'mensagem' => $d['mensagem'],
+        ]);
+        foreach ($request->file('ficheiros', []) as $ficheiro) {
+            $this->anexos->guardar($m, $ficheiro);
+        }
+        if (in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true)) {
+            $t->update(['estado' => TicketSuporte::ABERTO]);
+        }
+        if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
+            Mail::to($emailSuporte)->send(new TicketRespostaMail($t->id, $t->assunto, 'Equipa de suporte', $request->user()->nome_utilizador, $d['mensagem'], rtrim((string) config('app.url'), '/').'/admin/suporte'));
+        }
+
+        return RespostaApi::criado(ConversaSuportePlataformaController::apresentar($m->refresh()), 'Mensagem enviada.');
+    }
+
+    /** Avaliação de satisfação (CSAT): só depois de resolvido/fechado, e só uma vez. */
+    public function avaliacao(Request $request, int $ticket): JsonResponse
+    {
+        $t = $this->ticketDoTenant($request, $ticket);
+        if (! in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true)) {
+            throw new ErroNegocio('Só pode avaliar um pedido já resolvido ou fechado.', 'TICKET_NAO_RESOLVIDO', 422);
+        }
+        if ($t->csat_nota !== null) {
+            throw new ErroNegocio('Este pedido já foi avaliado.', 'TICKET_JA_AVALIADO', 422);
+        }
+        $d = $request->validate(['nota' => ['required', 'integer', 'between:1,5'], 'comentario' => ['nullable', 'string', 'max:1000']]);
+        $t->update(['csat_nota' => $d['nota'], 'csat_comentario' => $d['comentario'] ?? null]);
+
+        return RespostaApi::sucesso(['csat_nota' => $t->csat_nota, 'csat_comentario' => $t->csat_comentario], 'Obrigado pela sua avaliação.');
+    }
+
+    /** Anexo de uma mensagem da conversa do próprio tenant (nunca de outro). */
+    public function baixarAnexo(Request $request, int $anexo): Response
+    {
+        $a = AnexoSuporte::query()->with('mensagem')->findOrFail($anexo);
+        $this->ticketDoTenant($request, (int) $a->mensagem->ticket_id);
+        $f = $this->anexos->conteudo($a) ?? throw new NotFoundHttpException('Anexo não encontrado.');
+
+        return response($f['conteudo'], 200, [
+            'Content-Type' => $f['mime'], 'Content-Disposition' => 'inline; filename="anexo-'.$a->id.'"',
+            'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'; sandbox", 'Cache-Control' => 'private, max-age=600',
+        ]);
+    }
+
+    private function ticketDoTenant(Request $request, int $id): TicketSuporte
+    {
+        return TicketSuporte::query()->where('tenant_id', (int) $request->user()->tenant_id)->findOrFail($id);
     }
 
     private function exigirSuperAdministrador(Request $request): void

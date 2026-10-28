@@ -52,7 +52,8 @@ final class ServicoPermissoesTest extends TestCase
         // config_logs_view fica de fora de efectivas() (Logs de Navegação é reservado a Super Administradores,
         // nenhuma empresa tem Super Administradores) — tem() continua true acima: é a computação em bruto do
         // perfil, quem decide o acesso real é autoriza()/efectivas() (tal como a holding e o plano do cliente).
-        $this->assertSame(['config_migracao_view'], $this->permissoes->efectivas($u));
+        // config_licenca_view entra sempre (ECRAS_TODOS_OS_UTILIZADORES), mesmo sem estar marcado no perfil.
+        $this->assertSame(['config_licenca_view', 'config_migracao_view'], $this->permissoes->efectivas($u));
     }
 
     #[Test]
@@ -79,7 +80,8 @@ final class ServicoPermissoesTest extends TestCase
         $u = $this->criarUtilizador();
 
         $this->assertFalse($this->permissoes->tem($u, 'dashboard_view'));
-        $this->assertSame([], $this->permissoes->efectivas($u));
+        // config_licenca_view entra sempre (ECRAS_TODOS_OS_UTILIZADORES) — estado da própria licença e suporte.
+        $this->assertSame(['config_licenca_view'], $this->permissoes->efectivas($u));
     }
 
     #[Test]
@@ -101,5 +103,50 @@ final class ServicoPermissoesTest extends TestCase
         $plataforma->forceFill(['tenant_id' => (int) config('erp.dominio.plataforma_tenant_id', 1)])->save();
         $this->assertTrue($this->permissoes->tem($plataforma, 'plataforma_clientes_view'));
         $this->assertTrue($this->permissoes->elegivelPlataforma($plataforma));
+    }
+
+    #[Test]
+    public function ecras_de_suporte_ficam_escondidos_de_uma_empresa_cliente_mesmo_com_acesso_total(): void
+    {
+        // O perfil "Acesso Total" (all=true) é atribuído por omissão ao administrador de uma empresa cliente —
+        // o módulo `suporte` (ADR-077, só para especializar agentes do backoffice) não deve aparecer no menu
+        // dessa empresa, mesmo assim (bug relatado: "Backoffice de Suporte" a aparecer no menu de um cliente normal).
+        $outroTenant = \App\Models\Tenant::create(['nome' => 'Outro Cliente', 'slug' => 'outro-cliente-'.random_int(1000, 99999), 'estado' => \App\Models\Tenant::ESTADO_ATIVO]);
+        $cliente = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['all' => true])->id]);
+        $cliente->forceFill(['tenant_id' => $outroTenant->id])->save();
+        $this->assertFalse($this->permissoes->tem($cliente, 'suporte_tickets_geral_gerir'));
+        $this->assertFalse($this->permissoes->tem($cliente, 'suporte_tickets_geral_view'));
+        $this->assertFalse($this->permissoes->elegivelSuporte($cliente));
+        $idsModulos = array_column($this->permissoes->menu($cliente), 'id');
+        $this->assertNotContains('suporte', $idsModulos);
+
+        // Um utilizador SUPER_ADMINISTRADOR de outra empresa (a invariante é que isso nunca acontece, mas a
+        // blindagem não deve depender só disso) também não vê `suporte_*`, apesar de total() ser sempre true.
+        $superDeOutroTenant = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR]);
+        $superDeOutroTenant->forceFill(['tenant_id' => $outroTenant->id])->save();
+        $this->assertFalse($this->permissoes->tem($superDeOutroTenant, 'suporte_tickets_geral_gerir'));
+
+        // Agente de suporte da plataforma, com perfil de especialização «Financeiro»: só vê a sua categoria.
+        $plataformaId = (int) config('erp.dominio.plataforma_tenant_id', 1);
+        $agente = $this->criarUtilizador([
+            'papel' => Utilizador::PAPEL_AGENTE_SUPORTE,
+            'perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'suporte_tickets_financeiro_view' => true, 'suporte_tickets_financeiro_gerir' => true])->id,
+        ]);
+        $agente->forceFill(['tenant_id' => $plataformaId])->save();
+        $this->assertTrue($this->permissoes->elegivelSuporte($agente));
+        $this->assertTrue($this->permissoes->tem($agente, 'suporte_tickets_financeiro_gerir'));
+        $this->assertFalse($this->permissoes->tem($agente, 'suporte_tickets_geral_gerir'));
+    }
+
+    #[Test]
+    public function licenca_e_plano_fica_visivel_a_qualquer_utilizador_mesmo_sem_nenhum_perfil(): void
+    {
+        // config_licenca_view (ECRAS_TODOS_OS_UTILIZADORES): estado da própria licença e suporte, para qualquer
+        // utilizador autenticado da empresa — ao contrário de config_licenca_gerir (pedir renovação, pagamentos).
+        $u = $this->criarUtilizador();
+
+        $this->assertTrue($this->permissoes->tem($u, 'config_licenca_view'));
+        $this->assertFalse($this->permissoes->tem($u, 'config_licenca_gerir'));
+        $this->assertContains('config_licenca_view', $this->permissoes->efectivas($u));
     }
 }

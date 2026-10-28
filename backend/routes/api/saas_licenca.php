@@ -18,6 +18,14 @@ Route::prefix('licenca')->name('licenca.')->group(function () {
         Route::post('renovacao', 'renovar')->name('renovacao');
         Route::delete('subscricoes/{subscricao}', 'cancelar')->whereNumber('subscricao')->name('subscricoes.cancelar');
         Route::post('subscricoes/{subscricao}/confirmar-pagamento', 'confirmarPagamento')->whereNumber('subscricao')->name('subscricoes.confirmar');
+
+        // Suporte: qualquer utilizador autenticado da empresa (não só o administrador — ver /minha-conta/suporte).
+        Route::get('suporte', 'suporte')->name('suporte.index');
+        Route::post('suporte', 'abrirSuporte')->name('suporte.store');
+        Route::get('suporte/{ticket}/mensagens', 'mensagens')->whereNumber('ticket')->name('suporte.mensagens');
+        Route::post('suporte/{ticket}/mensagens', 'responder')->whereNumber('ticket')->name('suporte.responder');
+        Route::post('suporte/{ticket}/avaliacao', 'avaliacao')->whereNumber('ticket')->name('suporte.avaliacao');
+        Route::get('suporte/anexos/{anexo}', 'baixarAnexo')->whereNumber('anexo')->name('suporte.anexos.show');
     });
 
     Route::controller(GatewayPagamentoController::class)->group(function () {

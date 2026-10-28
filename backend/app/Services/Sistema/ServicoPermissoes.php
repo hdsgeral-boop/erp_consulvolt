@@ -28,6 +28,16 @@ use Normalizer;
  * total («all») é por empresa/cliente (ex.: o administrador de uma empresa recém-registada) e não deve, só por isso,
  * ver ou poder listar-se como tendo acesso à gestão de todos os clientes da plataforma.
  *
+ * Ecrãs «suporte_*» (backoffice de suporte, ADR-077: especialização de agentes) seguem a mesma lógica — só ficam
+ * visíveis a quem passaria também o ExigirSuporte (super-administrador ou agente de suporte, no tenant da
+ * plataforma). Sem isto, o perfil "Acesso Total" (atribuído por omissão ao administrador de uma empresa cliente)
+ * fazia aparecer "Backoffice de Suporte" no menu de qualquer empresa — essas chaves existem só para especializar
+ * agentes, nunca para um cliente navegar.
+ *
+ * ECRAS_TODOS_OS_UTILIZADORES: o inverso — ecrãs cuja consulta fica sempre visível a qualquer utilizador autenticado
+ * de uma empresa, mesmo sem nenhuma permissão no perfil (hoje só "Licença e plano", cujo estado e pedido de suporte
+ * o LicencaController já expõe a todos no backend).
+ *
  * Plano do cliente (ModulosPlano): os módulos de negócio que não estejam incluídos no plano em vigor do tenant
  * (planos_licenca_versoes.modulos da versão publicada) ficam bloqueados — no menu (aqui) e no Gate (autoriza),
  * para todos os utilizadores desse tenant, incluindo um perfil de acesso total. Tal como a holding, é bloqueio a
@@ -49,6 +59,17 @@ final class ServicoPermissoes
 
     /** Prefixo dos ecrãs de administração do SaaS (catálogo, módulo `config`) — ver ExigirPlataforma. */
     private const PREFIXO_PLATAFORMA = 'plataforma_';
+
+    /** Prefixo dos ecrãs do backoffice de suporte (catálogo, módulo `suporte`, ADR-077) — ver ExigirSuporte. */
+    private const PREFIXO_SUPORTE = 'suporte_';
+
+    /**
+     * Ecrãs cuja consulta ("<ecrã>_view") fica sempre visível a qualquer utilizador autenticado de uma empresa,
+     * independentemente do perfil — hoje só `config_licenca` (estado da própria licença e pedido de suporte ao
+     * cliente, tal como o LicencaController já expõe `estado()`/`planos()` a qualquer utilizador no backend; só a
+     * gestão — pedir renovação, pagamentos — continua a exigir `config_licenca_gerir`).
+     */
+    private const ECRAS_TODOS_OS_UTILIZADORES = ['config_licenca'];
 
     /**
      * Ecrãs reservados a Super Administradores em qualquer verificação (tem/autoriza/efectivas/menu) — nunca de uma
@@ -95,6 +116,12 @@ final class ServicoPermissoes
         if ($this->ePlataforma($k) && ! $this->elegivelPlataforma($utilizador)) {
             return false;
         }
+        if ($this->eSuporte($k) && ! $this->elegivelSuporte($utilizador)) {
+            return false;
+        }
+        if (in_array($k, self::chavesTodosOsUtilizadores(), true)) {
+            return true;
+        }
         if ($this->total($utilizador)) {
             return true;
         }
@@ -120,6 +147,32 @@ final class ServicoPermissoes
         $ecraId = str_ends_with($k, '_view') ? substr($k, 0, -5) : (CatalogoPermissoes::tarefas()[$k]['ecra'] ?? null);
 
         return $ecraId !== null && str_starts_with($ecraId, self::PREFIXO_PLATAFORMA);
+    }
+
+    /**
+     * Mesma condição do ExigirSuporte: só o backoffice de suporte da plataforma (super-administrador ou agente de
+     * suporte, no tenant da própria plataforma) — nunca uma empresa cliente, mesmo com um perfil de acesso total
+     * («all»). Sem esta blindagem, o módulo `suporte` (ADR-077, usado só para especializar agentes) ficava visível
+     * no menu de qualquer empresa cujo administrador tivesse o perfil "Acesso Total" (o criado por omissão).
+     */
+    public function elegivelSuporte(Utilizador $utilizador): bool
+    {
+        return (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1)
+            && ($utilizador->eSuperAdministrador() || $utilizador->eAgenteSuporte());
+    }
+
+    /** A chave (consulta de ecrã ou tarefa) pertence a um ecrã «suporte_*» (backoffice de suporte)? */
+    private function eSuporte(string $k): bool
+    {
+        $ecraId = str_ends_with($k, '_view') ? substr($k, 0, -5) : (CatalogoPermissoes::tarefas()[$k]['ecra'] ?? null);
+
+        return $ecraId !== null && str_starts_with($ecraId, self::PREFIXO_SUPORTE);
+    }
+
+    /** @return list<string> consultas "<ecrã>_view" de ECRAS_TODOS_OS_UTILIZADORES. */
+    private static function chavesTodosOsUtilizadores(): array
+    {
+        return array_map(fn (string $id) => "{$id}_view", self::ECRAS_TODOS_OS_UTILIZADORES);
     }
 
     /** Tarefa (acção de negócio) — equivalente a window.can / permTem do legado. */
@@ -202,6 +255,7 @@ final class ServicoPermissoes
         if ($empresaId !== null && $this->ligadoAColaborador($utilizador, $empresaId)) {
             $chaves = array_merge($chaves, self::PORTAL_AUTOMATICO);
         }
+        $chaves = array_merge($chaves, self::chavesTodosOsUtilizadores());
         $chaves = array_values(array_unique(array_map(fn ($k) => self::norm($k), $chaves)));
         if ($this->eHolding($empresaId)) {
             $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaNaHolding($k)));

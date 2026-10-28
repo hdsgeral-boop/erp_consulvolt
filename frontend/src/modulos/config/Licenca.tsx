@@ -38,6 +38,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
+import { PainelSuporteCliente } from './comum/PainelSuporteCliente';
 
 const { Text, Paragraph } = Typography;
 
@@ -125,6 +126,7 @@ export default function Licenca() {
   const subs = useQuery({
     queryKey: [...CHAVE_LICENCA, 'subscricoes'],
     queryFn: () => obter<Subscricao[]>('/licenca/subscricoes'),
+    enabled: gerir, // GET /licenca/subscricoes exige config_licenca_gerir — não pedir sem essa permissão
   });
 
   const [planoId, setPlanoId] = useState<number>();
@@ -321,6 +323,7 @@ export default function Licenca() {
                   </Card>
                 )}
 
+                {gerir && (
                 <Card title="Histórico de Subscrições e Pagamentos">
                   <Table<Subscricao>
                     rowKey="id"
@@ -388,8 +391,14 @@ export default function Licenca() {
                     ]}
                   />
                 </Card>
+                )}
               </Space>
             ),
+          },
+          {
+            key: 'suporte',
+            label: 'Suporte',
+            children: <PainelSuporteCliente base="/licenca/suporte" anexosBase="/licenca/suporte/anexos" />,
           },
           ...(superAdmin
             ? [

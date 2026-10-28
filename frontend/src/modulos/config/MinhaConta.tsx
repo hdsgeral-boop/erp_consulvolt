@@ -1,11 +1,11 @@
-import { Button, Card, Descriptions, Form, Input, Modal, Progress, Select, Space, Table, Tabs, Tag, message } from 'antd';
+import { Button, Card, Descriptions, Input, Progress, Space, Table, Tabs, Tag, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
-import { formatarData, formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
-import { ConversaSuporte } from './comum/ConversaSuporte';
+import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
+import { PainelSuporteCliente } from './comum/PainelSuporteCliente';
 
 interface Resumo {
   cliente: { id: number; nome: string; slug: string; estado: string; nome_sistema: string | null };
@@ -13,7 +13,6 @@ interface Resumo {
   empresas: { id: number; nome: string; licenca_origem: string; licenca_fim: string | null; expirada: boolean }[];
 }
 interface PlanoC { codigo: string; nome: string; descricao: string | null; preco_mensal: number; moeda: string; max_empresas: number | null; max_utilizadores: number | null; actual: boolean }
-interface TicketC { id: number; assunto: string; estado: string; categoria: string; criado_em: string }
 
 const CHAVE = ['minha-conta'];
 const pct = (u: number, l: number | null) => (l ? Math.min(100, Math.round((u / l) * 100)) : 0);
@@ -21,14 +20,9 @@ const pct = (u: number, l: number | null) => (l ? Math.min(100, Math.round((u / 
 /** Minha conta (minha_conta): plano e uso, planos disponíveis, nome do sistema e suporte com conversa. Só o administrador do cliente. */
 export default function MinhaConta() {
   const qc = useQueryClient();
-  const [novo, setNovo] = useState(false);
-  const [conversa, setConversa] = useState<TicketC | null>(null);
-  const [form] = Form.useForm();
   const [nomeSistema, setNomeSistema] = useState<string>();
   const resumo = useQuery({ queryKey: [...CHAVE, 'resumo'], queryFn: () => obter<Resumo>('/minha-conta') });
   const planos = useQuery({ queryKey: [...CHAVE, 'planos'], queryFn: () => obter<PlanoC[]>('/minha-conta/planos') });
-  const tickets = useQuery({ queryKey: ['/minha-conta/suporte'], queryFn: () => obter<TicketC[]>('/minha-conta/suporte') });
-  const abrir = useMutation({ mutationFn: (v: Record<string, unknown>) => enviar('post', '/minha-conta/suporte', v), onSuccess: () => { message.success('Pedido aberto.'); setNovo(false); qc.invalidateQueries({ queryKey: ['/minha-conta/suporte'] }); }, onError: (e) => notificarErro(e) });
   const identidade = useMutation({ mutationFn: () => enviar('put', '/minha-conta/identidade', { nome_sistema: nomeSistema ?? resumo.data?.cliente.nome_sistema ?? '' }), onSuccess: () => { message.success('Nome do sistema guardado.'); qc.invalidateQueries({ queryKey: CHAVE }); }, onError: (e) => notificarErro(e) });
   const r = resumo.data;
   return (
@@ -82,26 +76,9 @@ export default function MinhaConta() {
           ),
         },
         {
-          key: 'suporte', label: 'Suporte', children: (
-            <Card extra={<Button type="primary" onClick={() => { form.resetFields(); setNovo(true); }}>Novo pedido</Button>}>
-              <Table<TicketC> rowKey="id" size="small" loading={tickets.isLoading} dataSource={tickets.data ?? []} columns={[
-                { title: 'Assunto', dataIndex: 'assunto' },
-                { title: 'Estado', render: (_, t) => <Tag>{t.estado}</Tag> },
-                { title: 'Aberto em', render: (_, t) => formatarDataHora(t.criado_em) },
-                { title: '', render: (_, t) => <Button size="small" onClick={() => setConversa(t)}>Conversa</Button> },
-              ]} />
-            </Card>
-          ),
+          key: 'suporte', label: 'Suporte', children: <PainelSuporteCliente base="/minha-conta/suporte" anexosBase="/minha-conta/suporte/anexos" />,
         },
       ]} />
-      <Modal open={novo} title="Novo pedido de suporte" okText="Enviar" confirmLoading={abrir.isPending} onCancel={() => setNovo(false)} destroyOnClose onOk={() => form.validateFields().then((v) => abrir.mutate(v))}>
-        <Form form={form} layout="vertical" initialValues={{ categoria: 'GERAL' }}>
-          <Form.Item name="assunto" label="Assunto" rules={[{ required: true }]}><Input maxLength={200} /></Form.Item>
-          <Form.Item name="categoria" label="Categoria"><Select options={[{ value: 'GERAL', label: 'Geral' }, { value: 'PLANO', label: 'Plano / comercial' }, { value: 'FACTURACAO', label: 'Facturação' }]} /></Form.Item>
-          <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={4} maxLength={5000} /></Form.Item>
-        </Form>
-      </Modal>
-      <ConversaSuporte base="/minha-conta/suporte" ticketId={conversa?.id ?? null} titulo={conversa?.assunto} aoFechar={() => setConversa(null)} />
     </>
   );
 }
