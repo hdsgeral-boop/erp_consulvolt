@@ -11,4 +11,5 @@ export { useImpressao, useMensagem, DICA_PDF, type PedidoImpressao } from './use
 export { BotaoImprimir, BotoesExportar, BotoesExportarLegado, SeletorPagina, DICA_EXCEL, DICA_PAGINA, type ObterPedido } from './BotoesExportar';
 export { aplicarPreferencia, chaveDocumento, chavePorOmissao, descreverPreferencia, gravarPreferencia, lerPreferencia, PREFERENCIA_AUTOMATICA } from './preferencias';
 export { descarregarExcel, gerarXlsx, montarFolha, lerNumeroPt, lerDataPt, interpretarCelula, TIPO_XLSX, type CelulaExcel, type FolhaExcel } from './excel';
+export { colunasDoConteudo, copiarTexto, tabelaParaTexto } from './copiar';
 export { CSS_SIMULACAO_COMUM, marcaSimulacao, tabelaLancamentoHtml, type LinhaLancamentoImpressao } from './simulacao';

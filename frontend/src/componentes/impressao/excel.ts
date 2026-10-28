@@ -33,6 +33,8 @@ export interface CelulaExcel {
   papel: PapelCelula;
   colunas?: number;
   linhas?: number;
+  /** Texto tal como mostrado (antes de `interpretarCelula` o converter em número/data) — usado por `copiar.ts`. */
+  texto?: string;
 }
 
 export interface FolhaExcel {
@@ -157,7 +159,7 @@ export function lerTabela(tabela: HTMLTableElement): { linhas: (CelulaExcel | nu
         papel === 'cabecalho' || papel === 'grupo' || celula.classList.contains('imp-vazio')
           ? { valor: texto || null, tipo: 'texto' as const }
           : interpretarCelula(texto, { bruto: celula.getAttribute('data-xv'), tipoBruto: celula.getAttribute('data-xt'), alinhadaDireita: alinhadaDireita(celula) });
-      grelha[r][c] = { ...valor, papel, colunas: colunas > 1 ? colunas : undefined, linhas: linhas > 1 ? linhas : undefined };
+      grelha[r][c] = { ...valor, texto, papel, colunas: colunas > 1 ? colunas : undefined, linhas: linhas > 1 ? linhas : undefined };
       for (let dr = 0; dr < linhas; dr++) {
         ocupado[r + dr] ??= [];
         grelha[r + dr] ??= [];

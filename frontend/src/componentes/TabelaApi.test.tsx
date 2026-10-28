@@ -100,6 +100,48 @@ describe('TabelaApi — impressão', () => {
     expect(opcoes.conteudo).toContain('TOTAL-X');
   }, 60_000);
 
+  it('botão Copiar: copia a tabela inteira para a área de transferência (TSV, pronto a colar no Excel)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    cliente.setQueryData(['sistema', 'identidade', 7], { id: 7, nome: 'Demo E2E Comércio, Lda', logotipo: null });
+    render(
+      <QueryClientProvider client={cliente}>
+        <TabelaApi<Linha> url="/artigos" filtros={{ estado: 'X' }} chaveConsulta={['artigos-copiar']} columns={colunas} impressao={{ titulo: 'Lista de artigos', filtros: ['Estado: X'] }} />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('Artigo 1');
+    fireEvent.click(screen.getByRole('button', { name: /Imprimir/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Copiar$/ }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1), { timeout: 45_000 });
+    const texto = writeText.mock.calls[0][0] as string;
+    expect(texto.split('\n')[0]).toBe('Nome\tEstado\tValor');
+    expect(texto).toContain('Artigo 450');
+    expect(texto).not.toContain('Editar');
+  }, 60_000);
+
+  it('«Copiar só algumas colunas…»: lista os títulos das colunas e copia só a(s) escolhida(s)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    cliente.setQueryData(['sistema', 'identidade', 7], { id: 7, nome: 'Demo E2E Comércio, Lda', logotipo: null });
+    render(
+      <QueryClientProvider client={cliente}>
+        <TabelaApi<Linha> url="/artigos" filtros={{ estado: 'X' }} chaveConsulta={['artigos-copiar-coluna']} columns={colunas} impressao={{ titulo: 'Lista de artigos', filtros: ['Estado: X'] }} />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('Artigo 1');
+    fireEvent.click(screen.getByRole('button', { name: /Imprimir/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Copiar só algumas colunas/ }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Nome' }));
+    fireEvent.click(screen.getByRole('button', { name: /Copiar \(1\)/ }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1), { timeout: 45_000 });
+    const texto = writeText.mock.calls[0][0] as string;
+    expect(texto.split('\n')[0]).toBe('Nome');
+    expect(texto).toContain('Artigo 450');
+    expect(texto).not.toContain('Activo');
+  }, 60_000);
+
   it('sem `impressao` mantém-se a tabela simples (API compatível)', async () => {
     const cliente = new QueryClient();
     render(

@@ -636,7 +636,7 @@ body.imp-paginado .rc-capa { height: calc((var(--imp-altura-pagina) - 7mm - 4mm)
 .rc-capa-orgao-tit { font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; margin-bottom: 1mm; }
 .rc-capa-local { text-align: right; text-transform: uppercase; letter-spacing: .06em; }
 /* cabeçalho corrido (repetido no topo de cada folha a seguir à capa) */
-.rc-corrido { display: flex; align-items: baseline; justify-content: space-between; gap: 6mm; font-size: 7.5pt; color: #475569; border-bottom: 0.3mm solid #1e3a8a; padding-bottom: 1.4mm; margin-bottom: 6.5mm; white-space: nowrap; }
+.rc-corrido { display: flex; align-items: baseline; justify-content: space-between; gap: 6mm; font-size: 7.5pt; color: #475569; border-bottom: 0.3mm solid #1e3a8a; padding-bottom: 1.4mm; margin-bottom: 10mm; white-space: nowrap; }
 .rc-corrido span:first-child { flex: 1 1 auto; min-width: 0; font-weight: 700; color: #1e3a8a; overflow: hidden; text-overflow: ellipsis; }
 .rc-corrido span:last-child { flex: 0 0 auto; }
 .rc-corrido b { color: #b91c1c; }

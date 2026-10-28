@@ -1,17 +1,19 @@
-import { CheckOutlined, DownOutlined, FileExcelOutlined, FilePdfOutlined, LayoutOutlined, PrinterOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Modal, Space, Tooltip, type ButtonProps, type MenuProps } from 'antd';
+import { CheckOutlined, CopyOutlined, DownOutlined, FileExcelOutlined, FilePdfOutlined, LayoutOutlined, PrinterOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Dropdown, Modal, Popover, Space, Spin, Tooltip, type ButtonProps, type MenuProps } from 'antd';
 import { useMemo, useState, type ReactNode } from 'react';
+import { colunasDoConteudo, copiarTexto, tabelaParaTexto } from './copiar';
 import {
   aplicarPreferencia, chavePorOmissao, descreverPreferencia, gravarPreferencia, lerPreferencia, ROTULOS_ORIENTACAO, ROTULOS_PAPEL,
 } from './preferencias';
 import type { Orientacao, Papel, PreferenciaPagina } from './tipos';
-import { DICA_PDF, useImpressao, type PedidoImpressao } from './useImpressao';
+import { DICA_PDF, useImpressao, useMensagem, type PedidoImpressao } from './useImpressao';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { notificarErro } from '@/utilitarios/erros';
 
 /** Opções do documento, calculadas no momento do clique (pode ser assíncrono: ex. ir buscar todas as páginas). */
 export type ObterPedido = () => PedidoImpressao | null | undefined | Promise<PedidoImpressao | null | undefined>;
 
-type Modo = 'imprimir' | 'pdf' | 'excel';
+type Modo = 'imprimir' | 'pdf' | 'excel' | 'copiar';
 
 interface PropsBotao {
   obterPedido: ObterPedido;
@@ -29,6 +31,7 @@ interface PropsBotao {
 
 export const DICA_EXCEL = 'Exporta para Excel (.xlsx) o mesmo conteúdo da impressão, com os filtros aplicados.';
 export const DICA_PAGINA = 'Orientação e papel da impressão/PDF. «Automática»: o sistema escolhe pela largura do conteúdo (mapas com muitas colunas passam a horizontal).';
+export const DICA_COPIAR = 'Copia a tabela para a área de transferência, pronta a colar no Excel ou noutra aplicação.';
 
 const caminhoActual = () => (typeof window !== 'undefined' ? window.location.pathname : '');
 
@@ -42,8 +45,20 @@ function usePreferenciaPagina(chave: string) {
   return { pref, mudar };
 }
 
+/** Copia a tabela inteira do pedido (todas as colunas); avisa se não encontrar nenhuma tabela para copiar. */
+async function copiarTabela(pedido: PedidoImpressao, mensagem: ReturnType<typeof useMensagem>): Promise<void> {
+  const texto = tabelaParaTexto(pedido.conteudo);
+  if (!texto) {
+    mensagem.warning('Não foi encontrada nenhuma tabela para copiar.');
+    return;
+  }
+  const ok = await copiarTexto(texto);
+  mensagem[ok ? 'success' : 'error'](ok ? 'Tabela copiada. Já pode colar no Excel.' : 'Não foi possível copiar: o navegador bloqueou o acesso à área de transferência.');
+}
+
 function useExecutar(obterPedido: ObterPedido, pref: PreferenciaPagina) {
   const { imprimir, exportarExcel } = useImpressao();
+  const mensagem = useMensagem();
   const [ocupado, setOcupado] = useState<Modo | null>(null);
   const executar = async (modo: Modo) => {
     setOcupado(modo);
@@ -51,6 +66,7 @@ function useExecutar(obterPedido: ObterPedido, pref: PreferenciaPagina) {
       const pedido = await obterPedido();
       if (!pedido) return;
       if (modo === 'excel') await exportarExcel(pedido);
+      else if (modo === 'copiar') await copiarTabela(pedido, mensagem);
       else await imprimir({ ...aplicarPreferencia(pedido, pref), modo });
     } finally {
       setOcupado(null);
@@ -59,8 +75,8 @@ function useExecutar(obterPedido: ObterPedido, pref: PreferenciaPagina) {
   return { executar, ocupado };
 }
 
-const ICONES: Record<Modo, ReactNode> = { imprimir: <PrinterOutlined />, pdf: <FilePdfOutlined />, excel: <FileExcelOutlined /> };
-const TEXTOS: Record<Modo, string> = { imprimir: 'Imprimir', pdf: 'PDF', excel: 'Excel' };
+const ICONES: Record<Modo, ReactNode> = { imprimir: <PrinterOutlined />, pdf: <FilePdfOutlined />, excel: <FileExcelOutlined />, copiar: <CopyOutlined /> };
+const TEXTOS: Record<Modo, string> = { imprimir: 'Imprimir', pdf: 'PDF', excel: 'Excel', copiar: 'Copiar' };
 
 /**
  * Selector da página: «Automática» (decisão do motor), «Vertical», «Horizontal» e o papel (A4/A3). Mostra a escolha
@@ -105,7 +121,86 @@ export function BotaoImprimir({ obterPedido, modo = 'imprimir', texto, desactiva
       {texto ?? TEXTOS[modo]}
     </Button>
   );
-  return modo === 'imprimir' ? botao : <Tooltip title={modo === 'pdf' ? DICA_PDF : DICA_EXCEL}>{botao}</Tooltip>;
+  return modo === 'imprimir' ? botao : <Tooltip title={modo === 'pdf' ? DICA_PDF : modo === 'copiar' ? DICA_COPIAR : DICA_EXCEL}>{botao}</Tooltip>;
+}
+
+/**
+ * Link «Copiar só algumas colunas…»: ao abrir, vai buscar o pedido (mesma função do resto da modal) só para ler os
+ * títulos das colunas (`colunasDoConteudo`); a cópia em si reaproveita esse pedido já obtido, sem o pedir outra vez.
+ */
+function SeletorColunasCopiar({ obterPedido, tamanho, desactivado }: { obterPedido: ObterPedido; tamanho?: ButtonProps['size']; desactivado?: boolean }) {
+  const mensagem = useMensagem();
+  const [aberto, setAberto] = useState(false);
+  const [aCarregar, setACarregar] = useState(false);
+  const [pedido, setPedido] = useState<PedidoImpressao | null>(null);
+  const [colunas, setColunas] = useState<string[]>([]);
+  const [escolhidas, setEscolhidas] = useState<number[]>([]);
+
+  const aoAbrir = async (abrir: boolean) => {
+    setAberto(abrir);
+    if (!abrir || pedido) return;
+    setACarregar(true);
+    try {
+      const p = await obterPedido();
+      if (!p) {
+        setAberto(false);
+        return;
+      }
+      const cols = colunasDoConteudo(p.conteudo);
+      if (!cols.length) {
+        mensagem.warning('Não foi encontrada nenhuma tabela para copiar.');
+        setAberto(false);
+        return;
+      }
+      setPedido(p);
+      setColunas(cols);
+    } catch (e) {
+      notificarErro(e, 'Não foi possível obter as colunas');
+      setAberto(false);
+    } finally {
+      setACarregar(false);
+    }
+  };
+
+  const copiar = async () => {
+    if (!pedido || !escolhidas.length) return;
+    const texto = tabelaParaTexto(pedido.conteudo, [...escolhidas].sort((a, b) => a - b));
+    const ok = await copiarTexto(texto);
+    mensagem[ok ? 'success' : 'error'](ok ? `${escolhidas.length} coluna(s) copiada(s). Já pode colar no Excel.` : 'Não foi possível copiar: o navegador bloqueou o acesso à área de transferência.');
+    if (ok) setAberto(false);
+  };
+
+  return (
+    <Popover
+      trigger="click"
+      open={aberto}
+      onOpenChange={aoAbrir}
+      placement="right"
+      content={
+        <div style={{ width: 230 }}>
+          {aCarregar ? (
+            <Spin size="small" />
+          ) : (
+            <>
+              <Checkbox.Group
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}
+                value={escolhidas}
+                onChange={(v) => setEscolhidas(v as number[])}
+                options={colunas.map((c, i) => ({ label: c || `Coluna ${i + 1}`, value: i }))}
+              />
+              <Button type="primary" size="small" block style={{ marginTop: 8 }} disabled={!escolhidas.length} onClick={() => void copiar()}>
+                Copiar{escolhidas.length ? ` (${escolhidas.length})` : ''}
+              </Button>
+            </>
+          )}
+        </div>
+      }
+    >
+      <Button type="link" size={tamanho} disabled={desactivado} style={{ paddingLeft: 0, height: 'auto' }}>
+        Copiar só algumas colunas…
+      </Button>
+    </Popover>
+  );
 }
 
 interface PropsConteudoOpcoes {
@@ -113,18 +208,20 @@ interface PropsConteudoOpcoes {
   textoPdf: string;
   excel: boolean;
   textoExcel: string;
+  copiar: boolean;
   seletorPagina: boolean;
   tamanho?: ButtonProps['size'];
   pref: PreferenciaPagina;
   mudar: (p: PreferenciaPagina) => void;
   ocupado: Modo | null;
   executar: (m: Modo) => Promise<void>;
+  obterPedido: ObterPedido;
   /** Fecha a modal depois de a opção escolhida terminar (sucesso ou falha). */
   aoConcluir: () => void;
 }
 
 /** Opções dentro da modal «Imprimir»: um botão grande por opção, cheio à largura. */
-function ConteudoOpcoesExportar({ textoImprimir, textoPdf, excel, textoExcel, seletorPagina, tamanho, pref, mudar, ocupado, executar, aoConcluir }: PropsConteudoOpcoes) {
+function ConteudoOpcoesExportar({ textoImprimir, textoPdf, excel, textoExcel, copiar, seletorPagina, tamanho, pref, mudar, ocupado, executar, obterPedido, aoConcluir }: PropsConteudoOpcoes) {
   const outro = (m: Modo) => ocupado !== null && ocupado !== m;
   const executarEFechar = (m: Modo) => void executar(m).finally(aoConcluir);
   return (
@@ -145,6 +242,16 @@ function ConteudoOpcoesExportar({ textoImprimir, textoPdf, excel, textoExcel, se
           </Button>
         </Tooltip>
       )}
+      {copiar && (
+        <>
+          <Tooltip title={DICA_COPIAR} placement="right">
+            <Button block size={tamanho} icon={<CopyOutlined />} disabled={outro('copiar')} loading={ocupado === 'copiar'} onClick={() => executarEFechar('copiar')}>
+              Copiar
+            </Button>
+          </Tooltip>
+          <SeletorColunasCopiar obterPedido={obterPedido} tamanho={tamanho} desactivado={ocupado !== null} />
+        </>
+      )}
     </Space>
   );
 }
@@ -164,9 +271,10 @@ export function BotoesExportar({
   textoPdf = 'PDF',
   excel = true,
   textoExcel = 'Excel',
+  copiar = true,
   seletorPagina = true,
   chave,
-}: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { textoImprimir?: string; textoPdf?: string; excel?: boolean; textoExcel?: string; seletorPagina?: boolean }) {
+}: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { textoImprimir?: string; textoPdf?: string; excel?: boolean; textoExcel?: string; copiar?: boolean; seletorPagina?: boolean }) {
   const chaveFinal = useMemo(() => chave ?? chavePorOmissao(caminhoActual(), textoImprimir), [chave, textoImprimir]);
   const { pref, mudar } = usePreferenciaPagina(chaveFinal);
   const { executar, ocupado } = useExecutar(obterPedido, pref);
@@ -178,8 +286,8 @@ export function BotoesExportar({
       </Button>
       <Modal title={textoImprimir} open={aberto} onCancel={() => setAberto(false)} footer={null} width={300} destroyOnHidden>
         <ConteudoOpcoesExportar
-          textoImprimir={textoImprimir} textoPdf={textoPdf} excel={excel} textoExcel={textoExcel} seletorPagina={seletorPagina}
-          tamanho={tamanho} pref={pref} mudar={mudar} ocupado={ocupado} executar={executar} aoConcluir={() => setAberto(false)}
+          textoImprimir={textoImprimir} textoPdf={textoPdf} excel={excel} textoExcel={textoExcel} copiar={copiar} seletorPagina={seletorPagina}
+          tamanho={tamanho} pref={pref} mudar={mudar} ocupado={ocupado} executar={executar} obterPedido={obterPedido} aoConcluir={() => setAberto(false)}
         />
       </Modal>
     </>
@@ -196,10 +304,11 @@ export function BotoesExportarLegado({
   desactivado,
   tamanho = 'small',
   excel = true,
+  copiar = true,
   seletorPagina = true,
   chave,
   textoImprimir = 'Imprimir',
-}: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { excel?: boolean; seletorPagina?: boolean; textoImprimir?: string }) {
+}: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { excel?: boolean; copiar?: boolean; seletorPagina?: boolean; textoImprimir?: string }) {
   const chaveFinal = useMemo(() => chave ?? chavePorOmissao(caminhoActual(), textoImprimir), [chave, textoImprimir]);
   const { pref, mudar } = usePreferenciaPagina(chaveFinal);
   const { executar, ocupado } = useExecutar(obterPedido, pref);
@@ -211,8 +320,8 @@ export function BotoesExportarLegado({
       </Button>
       <Modal title={textoImprimir} open={aberto} onCancel={() => setAberto(false)} footer={null} width={300} destroyOnHidden>
         <ConteudoOpcoesExportar
-          textoImprimir={textoImprimir} textoPdf="PDF" excel={excel} textoExcel="Excel" seletorPagina={seletorPagina}
-          tamanho={tamanho} pref={pref} mudar={mudar} ocupado={ocupado} executar={executar} aoConcluir={() => setAberto(false)}
+          textoImprimir={textoImprimir} textoPdf="PDF" excel={excel} textoExcel="Excel" copiar={copiar} seletorPagina={seletorPagina}
+          tamanho={tamanho} pref={pref} mudar={mudar} ocupado={ocupado} executar={executar} obterPedido={obterPedido} aoConcluir={() => setAberto(false)}
         />
       </Modal>
     </>
