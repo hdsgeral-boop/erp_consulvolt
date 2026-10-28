@@ -23,8 +23,9 @@ export function Entrar() {
     try {
       const u = await entrar(v.nome_utilizador, v.palavra_passe);
       // só este login explícito (a seguir a um logout) cai na consola da plataforma; trocar de empresa a meio da
-      // sessão (LayoutPrincipal) nunca mais passa por aqui — fica sempre dentro do ERP (Destino em App.tsx).
-      if (u.papel === 'SUPER_ADMINISTRADOR') navegar('/admin');
+      // sessão (LayoutPrincipal) nunca mais passa por aqui — fica sempre dentro do ERP (Destino em App.tsx). Quem
+      // entra pelo Portal nunca sai dele, nem um super-administrador (ADR-071: o Portal é o único destino possível).
+      if (u.papel === 'SUPER_ADMINISTRADOR' && !portal) navegar('/admin');
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível entrar.');
     } finally {

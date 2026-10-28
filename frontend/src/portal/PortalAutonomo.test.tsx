@@ -14,10 +14,12 @@ const ecra = (id: string) => ({ id, nome: id, vistas: [], pai: null });
 const SO_PORTAL: ModuloMenu[] = [{ id: 'rh', nome: 'RH', ecras: [ecra('rh_portal')] }];
 const COM_ERP: ModuloMenu[] = [{ id: 'geral', nome: 'Geral', ecras: [ecra('dashboard')] }, ...SO_PORTAL];
 let menu: ModuloMenu[] = SO_PORTAL;
+let empresas: { id: number; nome: string }[] = [{ id: 7, nome: 'Empresa Fictícia, Lda' }];
 
 vi.mock('@/sessao/SessaoContexto', () => ({
   useSessao: () => ({
     empresa: { id: 7, nome: 'Empresa Fictícia, Lda' },
+    empresas,
     utilizador: { id: 3, nome_utilizador: 'joana', nome_completo: 'Joana Utilizadora' },
     largarEmpresa,
     sair,
@@ -52,6 +54,7 @@ describe('Portal autónomo do colaborador', () => {
     largarEmpresa.mockClear();
     sair.mockClear();
     menu = SO_PORTAL;
+    empresas = [{ id: 7, nome: 'Empresa Fictícia, Lda' }];
   });
   afterEach(() => {
     localStorage.clear();
@@ -108,10 +111,19 @@ describe('Portal autónomo do colaborador', () => {
     expect(screen.queryByText('Separadores do portal')).toBeNull();
   });
 
-  it('sem acesso (403 do servidor): mensagem clara e escolher outra empresa', async () => {
+  it('sem acesso (403 do servidor) e só esta empresa: sai sozinho para o login com o motivo (ADR-071, nunca mostra outro ecrã)', async () => {
+    resposta = () => Promise.reject(new ErroApi('O portal do colaborador só está disponível para utilizadores associados a um colaborador desta empresa.', 403, 'SEM_ACESSO_PORTAL'));
+    montar();
+    await waitFor(() => expect(sair).toHaveBeenCalledWith('O portal do colaborador só está disponível para utilizadores associados a um colaborador desta empresa.'));
+    expect(screen.queryByRole('button', { name: /Escolher outra empresa/ })).toBeNull();
+  });
+
+  it('sem acesso (403 do servidor) mas com outras empresas: mensagem clara e escolher outra empresa, sem sair sozinho', async () => {
+    empresas = [{ id: 7, nome: 'Empresa Fictícia, Lda' }, { id: 8, nome: 'Outra Empresa, Lda' }];
     resposta = () => Promise.reject(new ErroApi('O portal do colaborador só está disponível para utilizadores associados a um colaborador desta empresa.', 403, 'SEM_ACESSO_PORTAL'));
     montar();
     expect(await screen.findByText(/só está disponível para utilizadores associados/)).toBeInTheDocument();
+    expect(sair).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /Escolher outra empresa/ }));
     expect(largarEmpresa).toHaveBeenCalled();
   });

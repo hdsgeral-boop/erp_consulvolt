@@ -36,7 +36,7 @@ export const chaveAcessoPortal = (empresaId: number | undefined) => ['portal', '
  * A entrada é decidida pelo servidor (GET /portal/acesso) para a empresa activa; os dados vêm das rotas /rh/portal/*.
  */
 export function PortalAutonomo() {
-  const { empresa, utilizador, largarEmpresa, sair, menu } = useSessao();
+  const { empresa, empresas, utilizador, largarEmpresa, sair, menu } = useSessao();
   const ecra = useEcra();
   const navegar = useNavigate();
   const { aspecto, definir } = useAspecto(utilizador?.id ?? utilizador?.nome_utilizador ?? null);
@@ -60,29 +60,37 @@ export function PortalAutonomo() {
   });
   const nome = acesso.data?.colaborador?.nome_completo || utilizador?.nome_completo || utilizador?.nome_utilizador || '';
   const trocar = () => largarEmpresa();
+  const semAcesso = !acesso.isLoading && (!!acesso.error || !acesso.data);
+  const msgSemAcesso = acesso.error instanceof ErroApi ? acesso.error.message : 'O seu utilizador não está associado a um colaborador. Contacte o administrador da sua empresa para ser associado ao portal.';
+  // sem acesso nenhum (nem colaborador, nem aprovações pendentes) e sem outra empresa para tentar: o portal nunca
+  // mostra o resto da aplicação (ADR-071) — volta ao ecrã de login com o motivo, em vez de ficar num ecrã intermédio.
+  const semAlternativa = semAcesso && empresas.length <= 1;
+  useEffect(() => {
+    if (semAlternativa) void sair(msgSemAcesso);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semAlternativa]);
 
   let conteudo;
-  if (acesso.isLoading) conteudo = <Spin size="large" style={{ display: 'block', marginTop: 80 }} />;
-  else if (acesso.error || !acesso.data) {
-    const msg = acesso.error instanceof ErroApi ? acesso.error.message : 'Não foi possível abrir o portal do colaborador.';
+  if (acesso.isLoading || semAlternativa) conteudo = <Spin size="large" style={{ display: 'block', marginTop: 80 }} />;
+  else if (semAcesso) {
     conteudo = (
       <Result
         status={acesso.error instanceof ErroApi && acesso.error.estado === 403 ? '403' : 'warning'}
         title="Portal do Colaborador"
-        subTitle={msg}
+        subTitle={msgSemAcesso}
         extra={[
           <Button key="trocar" type="primary" icon={<SwapOutlined />} onClick={trocar}>Escolher outra empresa</Button>,
           <Button key="sair" icon={<LogoutOutlined />} onClick={() => void sair()}>Sair</Button>,
         ]}
       />
     );
-  } else if (acesso.data.colaborador) {
+  } else if (acesso.data!.colaborador) {
     conteudo = <Portal />;
   } else {
     // aprovador sem registo de colaborador nesta empresa: só as aprovações à sua espera
     conteudo = (
       <>
-        <CabecalhoPagina titulo={`Olá, ${nome.split(' ')[0]}`} subtitulo={`Portal do Colaborador — aprovações pendentes: ${acesso.data.aprovacoes_pendentes}`} excel={false} />
+        <CabecalhoPagina titulo={`Olá, ${nome.split(' ')[0]}`} subtitulo={`Portal do Colaborador — aprovações pendentes: ${acesso.data!.aprovacoes_pendentes}`} excel={false} />
         <Typography.Paragraph type="secondary">O seu utilizador não está associado a um colaborador desta empresa: aqui só vê os pedidos que aguardam a sua decisão.</Typography.Paragraph>
         <Aprovacoes />
       </>

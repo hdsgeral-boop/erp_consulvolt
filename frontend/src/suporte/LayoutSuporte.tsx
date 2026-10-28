@@ -1,11 +1,13 @@
 import { Avatar, Dropdown, Layout, Menu, Space, Tag, type MenuProps } from 'antd';
-import { CustomerServiceOutlined, DownOutlined, IdcardOutlined, LogoutOutlined } from '@ant-design/icons';
+import { CustomerServiceOutlined, DashboardOutlined, DownOutlined, IdcardOutlined, LogoutOutlined, MessageOutlined } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import '@/plataforma/plataforma.css';
 
 const ITENS_MENU: MenuProps['items'] = [
   { key: '/suporte', icon: <CustomerServiceOutlined />, label: <Link to="/suporte">Tickets de suporte</Link> },
+  { key: '/suporte/dashboard', icon: <DashboardOutlined />, label: <Link to="/suporte/dashboard">Dashboard</Link> },
+  { key: '/suporte/respostas-rapidas', icon: <MessageOutlined />, label: <Link to="/suporte/respostas-rapidas">Respostas rápidas</Link> },
 ];
 
 /**
@@ -19,6 +21,7 @@ export function LayoutSuporte() {
 
   const nome = utilizador?.nome_completo || utilizador?.nome_utilizador || 'Agente';
   const iniciais = nome.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
+  const papel = utilizador?.papel === 'SUPER_ADMINISTRADOR' ? 'SUPER ADMINISTRADOR' : 'AGENTE DE SUPORTE';
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f6f8fb' }}>
@@ -53,7 +56,7 @@ export function LayoutSuporte() {
                 <span style={{ lineHeight: 1.3, textAlign: 'left' }}>
                   <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{nome}</span>
                   <Tag color="geekblue" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 6px' }}>
-                    <CustomerServiceOutlined style={{ marginRight: 3 }} /> AGENTE DE SUPORTE
+                    <CustomerServiceOutlined style={{ marginRight: 3 }} /> {papel}
                   </Tag>
                 </span>
                 <DownOutlined style={{ fontSize: 11, color: '#94a3b8' }} />

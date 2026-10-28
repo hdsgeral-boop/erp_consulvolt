@@ -10,11 +10,14 @@ use App\Http\Controllers\Api\Plataforma\AuditoriaPlataformaController;
 use App\Http\Controllers\Api\Plataforma\ClientesController;
 use App\Http\Controllers\Api\Plataforma\CodigosController;
 use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
+use App\Http\Controllers\Api\Plataforma\DashboardSuporteController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
+use App\Http\Controllers\Api\Plataforma\NotaInternaSuporteController;
 use App\Http\Controllers\Api\Plataforma\PainelController;
 use App\Http\Controllers\Api\Plataforma\PlanosPlataformaController;
 use App\Http\Controllers\Api\Plataforma\PlataformaSaasController;
+use App\Http\Controllers\Api\Plataforma\RespostaRapidaSuporteController;
 use App\Http\Controllers\Api\Plataforma\SessoesController;
 use App\Http\Controllers\Api\Plataforma\SuporteController;
 use App\Http\Controllers\Api\Sistema\GatewayPagamentoController;
@@ -47,6 +50,17 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
 
     Route::get('suporte/{ticket}/mensagens', [ConversaSuportePlataformaController::class, 'index'])->whereNumber('ticket')->name('suporte.mensagens');
     Route::post('suporte/{ticket}/mensagens', [ConversaSuportePlataformaController::class, 'responder'])->whereNumber('ticket')->name('suporte.responder');
+    Route::get('suporte/anexos/{anexo}', [ConversaSuportePlataformaController::class, 'baixarAnexo'])->whereNumber('anexo')->name('suporte.anexos.show');
+    Route::get('suporte/agentes', [SuporteController::class, 'agentes'])->name('suporte.agentes');
+    Route::get('suporte/metricas', [DashboardSuporteController::class, 'metricas'])->name('suporte.metricas');
+    Route::get('suporte/{ticket}/notas', [NotaInternaSuporteController::class, 'index'])->whereNumber('ticket')->name('suporte.notas.index');
+    Route::post('suporte/{ticket}/notas', [NotaInternaSuporteController::class, 'store'])->whereNumber('ticket')->name('suporte.notas.store');
+    Route::controller(RespostaRapidaSuporteController::class)->prefix('suporte/respostas-rapidas')->name('suporte.respostas_rapidas.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('{resposta}', 'update')->whereNumber('resposta')->name('update');
+        Route::delete('{resposta}', 'destroy')->whereNumber('resposta')->name('destroy');
+    });
 
     Route::controller(PlanosPlataformaController::class)->group(function () {
         Route::get('planos', 'index')->name('planos.index');
@@ -107,4 +121,6 @@ Route::prefix('minha-conta')->name('minha_conta.')->middleware('admin_cliente')-
     Route::post('suporte', 'abrirSuporte')->name('suporte.store');
     Route::get('suporte/{ticket}/mensagens', 'mensagens')->whereNumber('ticket')->name('suporte.mensagens');
     Route::post('suporte/{ticket}/mensagens', 'responder')->whereNumber('ticket')->name('suporte.responder');
+    Route::post('suporte/{ticket}/avaliacao', 'avaliacao')->whereNumber('ticket')->name('suporte.avaliacao');
+    Route::get('suporte/anexos/{anexo}', 'baixarAnexo')->whereNumber('anexo')->name('suporte.anexos.show');
 });

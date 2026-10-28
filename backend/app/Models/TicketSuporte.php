@@ -30,7 +30,24 @@ class TicketSuporte extends ModeloBase
         'MARKETING' => 'suporte_tickets_marketing_gerir',
     ];
 
+    /** SLA por prioridade (horas até ao prazo de primeira resposta/resolução). */
+    public const SLA_HORAS = ['URGENTE' => 4, 'ALTA' => 24, 'NORMAL' => 72, 'BAIXA' => 120];
+
     protected $table = 'tickets_suporte';
 
-    protected $fillable = ['tenant_id', 'assunto', 'descricao', 'estado', 'prioridade', 'categoria', 'criado_por'];
+    protected $fillable = [
+        'tenant_id', 'assunto', 'descricao', 'estado', 'prioridade', 'categoria', 'criado_por',
+        'agente_id', 'prazo_sla', 'primeira_resposta_em', 'csat_nota', 'csat_comentario',
+    ];
+
+    protected function casts(): array
+    {
+        return ['prazo_sla' => 'datetime', 'primeira_resposta_em' => 'datetime', 'csat_nota' => 'integer', 'agente_id' => 'integer'];
+    }
+
+    /** Prazo do SLA (ainda não vencido = em dia; estados abertos com prazo vencido = em atraso). */
+    public function emAtraso(): bool
+    {
+        return $this->prazo_sla !== null && ! in_array($this->estado, [self::RESOLVIDO, self::FECHADO], true) && now()->greaterThan($this->prazo_sla);
+    }
 }

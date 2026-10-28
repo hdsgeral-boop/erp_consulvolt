@@ -29,6 +29,8 @@ import PlataformaSessoes from '@/modulos/config/PlataformaSessoes';
 import PlataformaAdministradores from '@/modulos/config/PlataformaAdministradores';
 import PlataformaAgentesSuporte from '@/modulos/config/PlataformaAgentesSuporte';
 import { LayoutSuporte } from '@/suporte/LayoutSuporte';
+import DashboardSuporte from '@/suporte/DashboardSuporte';
+import RespostasRapidasSuporte from '@/suporte/RespostasRapidasSuporte';
 import { SuporteLogin } from '@/suporte/SuporteLogin';
 import SuportePainel from '@/suporte/SuportePainel';
 
@@ -38,7 +40,9 @@ import SuportePainel from '@/suporte/SuportePainel';
  *   gate único para Super Admin e Agente de Suporte, ADR-076: outros utilizadores são rejeitados e reencaminhados
  *   para /entrar), Login Suporte directo (/suporte/login)
  * - Com sessão Super Admin → Consola da Plataforma (/admin) — também pode usar /suporte
- * - Com sessão Agente de Suporte → Backoffice de Suporte (/suporte), isolado de /admin (ADR-076)
+ * - Com sessão Agente de Suporte → Backoffice de Suporte (/suporte), e só isso: /admin, /app, /inicio,
+ *   /dados-pessoais, /m/... e /portal reencaminham sempre para /suporte (ADR-076 — nunca um botão nem um endereço
+ *   directo tiram um agente do backoffice; a barreira real, por detrás, é SuporteController/ExigirSuporte no servidor)
  * - Com sessão Utilizador de Empresa → Selecção ou ERP (/app, /m/...)
  * - /portal: Portal autónomo do colaborador
  * - Em portal.<base> (subdomínio externo dedicado): só os caminhos acima do Portal ficam alcançáveis nesta SPA; tudo
@@ -60,7 +64,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to="/portal" replace />} />
-          <Route path="portal/*" element={estado === 'anonimo' ? <Entrar /> : <PortalAutonomo />} />
+          <Route path="portal/*" element={estado === 'anonimo' ? <Entrar /> : agenteSuporte ? <Navigate to="/suporte" replace /> : !empresa ? <EscolherEmpresa /> : <PortalAutonomo />} />
           <Route
             path="recuperar-password"
             element={estado === 'anonimo' ? <RecuperarPassword /> : <Navigate to="/portal" replace />}
@@ -95,7 +99,7 @@ export function App() {
         />
         <Route
           path="portal/*"
-          element={estado === 'anonimo' ? <Entrar /> : <PortalAutonomo />}
+          element={estado === 'anonimo' ? <Entrar /> : agenteSuporte ? <Navigate to="/suporte" replace /> : !empresa ? <EscolherEmpresa /> : <PortalAutonomo />}
         />
 
         {/* Páginas legais/institucionais: sempre públicas, independentemente da sessão */}
@@ -150,14 +154,18 @@ export function App() {
           }
         >
           <Route index element={<SuportePainel />} />
+          <Route path="dashboard" element={<DashboardSuporte />} />
+          <Route path="respostas-rapidas" element={<RespostasRapidasSuporte />} />
         </Route>
 
-        {/* Área de Aplicação do Cliente ERP */}
+        {/* Área de Aplicação do Cliente ERP — nunca para um agente de suporte (ADR-076: fica só no backoffice) */}
         <Route
           path="app"
           element={
             estado === 'anonimo' ? (
               <Navigate to="/entrar" replace />
+            ) : agenteSuporte ? (
+              <Navigate to="/suporte" replace />
             ) : !empresa ? (
               <EscolherEmpresa />
             ) : (
@@ -169,6 +177,8 @@ export function App() {
           element={
             estado === 'anonimo' ? (
               <Navigate to="/entrar" replace />
+            ) : agenteSuporte ? (
+              <Navigate to="/suporte" replace />
             ) : !empresa ? (
               <EscolherEmpresa />
             ) : (
