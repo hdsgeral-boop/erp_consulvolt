@@ -16,8 +16,11 @@ Route::prefix('licenca')->name('licenca.')->group(function () {
         Route::put('planos/{plano}', 'actualizarPlano')->whereNumber('plano')->name('planos.actualizar');
         Route::get('subscricoes', 'subscricoes')->name('subscricoes');
         Route::post('renovacao', 'renovar')->name('renovacao');
+        Route::post('cupoes/validar', 'validarCupom')->name('cupoes.validar');
         Route::delete('subscricoes/{subscricao}', 'cancelar')->whereNumber('subscricao')->name('subscricoes.cancelar');
         Route::post('subscricoes/{subscricao}/confirmar-pagamento', 'confirmarPagamento')->whereNumber('subscricao')->name('subscricoes.confirmar');
+        Route::post('subscricoes/{subscricao}/comprovativo', 'anexarComprovativo')->whereNumber('subscricao')->name('subscricoes.comprovativo.anexar');
+        Route::get('comprovativos/{anexo}', 'baixarComprovativo')->whereNumber('anexo')->name('comprovativos.baixar');
 
         // Suporte: qualquer utilizador autenticado da empresa (não só o administrador — ver /minha-conta/suporte).
         Route::get('suporte', 'suporte')->name('suporte.index');

@@ -49,9 +49,12 @@ class LicencaCobrancaTest extends TestCase
         $plano = $this->plano(25000);
         $gestor = $this->sessaoGestor($empresa);
 
-        // A empresa está só de leitura, mas pode pedir a renovação.
+        // A empresa está só de leitura, mas pode pedir a renovação. 3 meses = ciclo TRIMESTRAL, 5% de desconto:
+        // 25000 × 3 = 75000 bruto, -5% = 71250 líquido (CalculadoraPrecoPlano).
         $id = $this->postJson('/api/licenca/renovacao', ['plano_id' => $plano->id, 'meses' => 3], $gestor)->assertCreated()
-            ->assertJsonPath('dados.valor', 75000.0)->assertJsonPath('dados.estado', 'PENDENTE')->json('dados.id');
+            ->assertJsonPath('dados.valor', 71250.0)->assertJsonPath('dados.valor_bruto', 75000.0)
+            ->assertJsonPath('dados.ciclo_codigo', 'TRIMESTRAL')->assertJsonPath('dados.desconto_ciclo_percentagem', 5.0)
+            ->assertJsonPath('dados.estado', 'PENDENTE')->json('dados.id');
 
         // Um gestor da empresa não confirma o próprio pagamento.
         $this->postJson("/api/licenca/subscricoes/{$id}/confirmar-pagamento", [], $gestor)->assertForbidden();
@@ -106,6 +109,51 @@ class LicencaCobrancaTest extends TestCase
         $inactivo = $this->plano(100, ['ativo' => false, 'codigo' => 'velho']);
         $this->postJson('/api/licenca/renovacao', ['plano_id' => $inactivo->id, 'meses' => 1], $this->sessaoGestor($empresa))
             ->assertStatus(422)->assertJsonPath('codigo', 'PLANO_INEXISTENTE');
+    }
+
+    /** CalculadoraPrecoPlano: /api/licenca/planos devolve a matriz dos 4 ciclos pré-calculada, sem pedido extra. */
+    public function test_planos_devolvem_a_matriz_de_ciclos_pre_calculada(): void
+    {
+        $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
+        $this->plano(10000);
+
+        $planos = $this->getJson('/api/licenca/planos', $this->sessaoGestor($empresa))->assertOk()->json('dados');
+        $ciclos = $planos[0]['ciclos'];
+
+        $this->assertSame(['ciclo_codigo' => 'MENSAL', 'meses' => 1, 'desconto_percentagem' => 0.0, 'valor_bruto' => 10000.0, 'valor_desconto_ciclo' => 0.0, 'valor_apos_ciclo' => 10000.0, 'preco_mensal_efetivo' => 10000.0, 'rotulo' => 'Mensal'],
+            $ciclos['MENSAL']);
+        // Anual: 10000×12 = 120000 bruto, -20% = 96000 líquido, 8000/mês efectivo.
+        $this->assertSame(120000.0, $ciclos['ANUAL']['valor_bruto']);
+        $this->assertSame(20.0, $ciclos['ANUAL']['desconto_percentagem']);
+        $this->assertSame(96000.0, $ciclos['ANUAL']['valor_apos_ciclo']);
+        $this->assertSame(8000.0, $ciclos['ANUAL']['preco_mensal_efetivo']);
+    }
+
+    /** Ciclo anual (12 meses) aplica 20% e grava o valor líquido exacto na subscrição. */
+    public function test_renovacao_anual_aplica_vinte_por_cento_de_desconto(): void
+    {
+        $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
+        $plano = $this->plano(21000);   // Plano Empresarial
+
+        $this->postJson('/api/licenca/renovacao', ['plano_id' => $plano->id, 'meses' => 12], $this->sessaoGestor($empresa))
+            ->assertCreated()
+            ->assertJsonPath('dados.ciclo_codigo', 'ANUAL')
+            ->assertJsonPath('dados.valor_bruto', 252000.0)
+            ->assertJsonPath('dados.valor_desconto_ciclo', 50400.0)
+            ->assertJsonPath('dados.valor', 201600.0);
+    }
+
+    /** Um nº de meses fora dos 4 ciclos conhecidos (ex.: 2) não aplica nenhum desconto — fica PERSONALIZADO. */
+    public function test_renovacao_fora_dos_ciclos_conhecidos_fica_personalizado_sem_desconto(): void
+    {
+        $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
+        $plano = $this->plano(5000);
+
+        $this->postJson('/api/licenca/renovacao', ['plano_id' => $plano->id, 'meses' => 2], $this->sessaoGestor($empresa))
+            ->assertCreated()
+            ->assertJsonPath('dados.ciclo_codigo', 'PERSONALIZADO')
+            ->assertJsonPath('dados.desconto_ciclo_percentagem', 0.0)
+            ->assertJsonPath('dados.valor', 10000.0);
     }
 
     public function test_catalogo_de_planos_so_o_super_admin_altera(): void

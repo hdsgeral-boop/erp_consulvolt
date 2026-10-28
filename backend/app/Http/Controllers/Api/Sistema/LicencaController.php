@@ -7,11 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
 use App\Mail\TicketCriadoMail;
 use App\Mail\TicketRespostaMail;
+use App\Models\AnexoComprovativoPagamento;
 use App\Models\AnexoSuporte;
 use App\Models\MensagemSuporte;
 use App\Models\PlanoLicenca;
+use App\Models\SubscricaoEmpresa;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
+use App\Services\Pagamentos\ServicoComprovativosPagamento;
 use App\Services\Plataforma\ServicoAnexosSuporte;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
@@ -37,7 +40,11 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class LicencaController extends Controller
 {
-    public function __construct(private readonly ServicoLicenca $licenca, private readonly ServicoAnexosSuporte $anexos) {}
+    public function __construct(
+        private readonly ServicoLicenca $licenca,
+        private readonly ServicoAnexosSuporte $anexos,
+        private readonly ServicoComprovativosPagamento $comprovativos,
+    ) {}
 
     public function estado(): JsonResponse
     {
@@ -96,9 +103,27 @@ final class LicencaController extends Controller
     public function renovar(Request $request): JsonResponse
     {
         $this->exigir('config_licenca_gerir');
-        $d = $request->validate(['plano_id' => ['required', 'integer'], 'meses' => ['required', 'integer', 'between:1,36']]);
+        $d = $request->validate([
+            'plano_id' => ['required', 'integer'], 'meses' => ['required', 'integer', 'between:1,36'],
+            'cupom_codigo' => ['nullable', 'string', 'max:30'],
+        ]);
 
-        return RespostaApi::criado($this->licenca->pedirRenovacao((int) $d['plano_id'], (int) $d['meses'], $request->user()), 'Pedido de renovação criado. Aguarda confirmação do pagamento.');
+        return RespostaApi::criado(
+            $this->licenca->pedirRenovacao((int) $d['plano_id'], (int) $d['meses'], $request->user(), $d['cupom_codigo'] ?? null),
+            'Pedido de renovação criado. Aguarda confirmação do pagamento.',
+        );
+    }
+
+    /** Pré-visualização de cupão para o checkout — nunca bloqueia o fluxo (devolve "valido: false" em vez de erro). */
+    public function validarCupom(Request $request): JsonResponse
+    {
+        $this->exigir('config_licenca_gerir');
+        $d = $request->validate([
+            'codigo' => ['required', 'string', 'max:30'], 'plano_id' => ['required', 'integer'],
+            'ciclo_codigo' => ['required', 'string', 'max:20'],
+        ]);
+
+        return RespostaApi::sucesso($this->licenca->validarCupom($d['codigo'], (int) $d['plano_id'], $d['ciclo_codigo']), 'Cupão validado.');
     }
 
     public function cancelar(int $subscricao): JsonResponse
@@ -106,6 +131,31 @@ final class LicencaController extends Controller
         $this->exigir('config_licenca_gerir');
 
         return RespostaApi::sucesso($this->licenca->cancelar($subscricao), 'Pedido cancelado.');
+    }
+
+    /** Anexa o comprovativo de transferência bancária a um pedido pendente da própria empresa. */
+    public function anexarComprovativo(Request $request, int $subscricao): JsonResponse
+    {
+        $this->exigir('config_licenca_gerir');
+        $s = SubscricaoEmpresa::query()->findOrFail($subscricao);
+        $request->validate(['comprovativo' => ['required', 'file', 'max:'.ServicoComprovativosPagamento::TAMANHO_MAXIMO_KB]]);
+
+        $a = $this->comprovativos->anexar($s, $request->file('comprovativo'), $request->user(), $request->ip());
+
+        return RespostaApi::criado(['id' => $a->id, 'nome_original' => $a->nome_original, 'criado_em' => $a->criado_em], 'Comprovativo anexado. Aguarda validação.');
+    }
+
+    /** Comprovativo da própria empresa (nunca de outra — PertenceEmpresa). */
+    public function baixarComprovativo(int $anexo): Response
+    {
+        $this->exigir('config_licenca_gerir');
+        $a = AnexoComprovativoPagamento::query()->findOrFail($anexo);
+        $f = $this->comprovativos->conteudo($a) ?? throw new NotFoundHttpException('Comprovativo não encontrado.');
+
+        return response($f['conteudo'], 200, [
+            'Content-Type' => $f['mime'], 'Content-Disposition' => 'inline; filename="comprovativo-'.$a->id.'"',
+            'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'; sandbox", 'Cache-Control' => 'private, max-age=600',
+        ]);
     }
 
     public function confirmarPagamento(Request $request, int $subscricao): JsonResponse

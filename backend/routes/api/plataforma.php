@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Plataforma\AuditoriaPlataformaController;
 use App\Http\Controllers\Api\Plataforma\ClientesController;
 use App\Http\Controllers\Api\Plataforma\CodigosController;
 use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
+use App\Http\Controllers\Api\Plataforma\CupoesController;
 use App\Http\Controllers\Api\Plataforma\DashboardSuporteController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\Plataforma\PlataformaSaasController;
 use App\Http\Controllers\Api\Plataforma\RespostaRapidaSuporteController;
 use App\Http\Controllers\Api\Plataforma\SessoesController;
 use App\Http\Controllers\Api\Plataforma\SuporteController;
+use App\Http\Controllers\Api\Plataforma\TransferenciasBancariasController;
 use App\Http\Controllers\Api\Sistema\GatewayPagamentoController;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +108,19 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::put('saas/geral', 'atualizarGeral')->name('saas.geral');
         Route::get('saas/empresas', 'listarEmpresas')->name('saas.empresas');
         Route::put('saas/empresas/{empresa}', 'atualizarEmpresa')->whereNumber('empresa')->name('saas.empresas.atualizar');
+    });
+
+    Route::controller(CupoesController::class)->prefix('cupoes')->name('cupoes.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('{cupom}', 'update')->whereNumber('cupom')->name('update');
+        Route::put('{cupom}/estado', 'estado')->whereNumber('cupom')->name('estado');
+    });
+
+    Route::controller(TransferenciasBancariasController::class)->prefix('transferencias')->name('transferencias.')->group(function () {
+        Route::get('pendentes', 'pendentes')->name('pendentes');
+        Route::get('comprovativo/{anexo}', 'comprovativo')->whereNumber('anexo')->name('comprovativo');
+        Route::post('{subscricao}/confirmar', 'confirmar')->whereNumber('subscricao')->name('confirmar');
     });
 
     Route::get('pagamentos/config', [GatewayPagamentoController::class, 'obterConfig'])->name('pagamentos.config');

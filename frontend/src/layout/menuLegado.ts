@@ -203,6 +203,7 @@ export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
     e('config', 'plataforma_sessoes', 'Plataforma: Sessões activas', 'desktop'),
     e('config', 'plataforma_definicoes', 'Plataforma: Definições', 'sliders-h'),
     e('config', 'plataforma_saas', 'Plataforma: Gestão de SaaS', 'power-off'),
+    e('config', 'plataforma_cupoes', 'Plataforma: Cupões de desconto', 'ticket-alt'),
     e('config', 'minha_conta', 'Minha conta', 'id-card'),
     e('config', 'plataforma_planos', 'Plataforma: Planos e versões', 'tags'),
     e('config', 'plataforma_codigos', 'Plataforma: Manual de códigos', 'book'),

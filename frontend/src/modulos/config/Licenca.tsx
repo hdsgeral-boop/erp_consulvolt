@@ -21,8 +21,10 @@ import {
   Tabs,
   Tag,
   Typography,
+  Upload,
   message,
 } from 'antd';
+import type { UploadFile } from 'antd/es/upload/interface';
 import {
   CreditCardOutlined,
   MobileOutlined,
@@ -31,6 +33,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ThunderboltOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
@@ -56,6 +59,17 @@ export interface EstadoLicenca {
   dias_teste: number;
 }
 
+interface CicloPreco {
+  ciclo_codigo: string;
+  meses: number;
+  desconto_percentagem: number;
+  valor_bruto: number;
+  valor_desconto_ciclo: number;
+  valor_apos_ciclo: number;
+  preco_mensal_efetivo: number;
+  rotulo: string;
+}
+
 interface Plano {
   id: number;
   codigo: string;
@@ -66,6 +80,7 @@ interface Plano {
   max_utilizadores: number | null;
   ativo: boolean;
   ordem: number;
+  ciclos: Record<string, CicloPreco>;
 }
 
 interface Subscricao {
@@ -76,10 +91,27 @@ interface Subscricao {
   moeda: string;
   estado: 'PENDENTE' | 'PAGO' | 'CANCELADO';
   referencia: string;
+  ciclo_codigo: string;
+  valor_bruto: number;
+  desconto_ciclo_percentagem: number;
+  valor_desconto_ciclo: number;
+  valor_apos_ciclo: number;
+  cupom_codigo: string | null;
+  valor_desconto_cupom: number;
   periodo_inicio: string | null;
   periodo_fim: string | null;
   pago_em: string | null;
   metodo: string | null;
+}
+
+const CICLOS_ORDEM = ['MENSAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL'];
+
+interface ResultadoCupom {
+  valido: boolean;
+  mensagem: string | null;
+  cupom: { codigo: string; tipo_desconto: 'PERCENTAGEM' | 'VALOR_FIXO'; valor_desconto: number } | null;
+  valor_desconto_cupom: number;
+  valor_final: number;
 }
 
 interface DadosPagamentoIniciado {
@@ -130,7 +162,9 @@ export default function Licenca() {
   });
 
   const [planoId, setPlanoId] = useState<number>();
-  const [meses, setMeses] = useState<number>(1);
+  const [cicloCodigo, setCicloCodigo] = useState<string>('MENSAL');
+  const [cupomCodigo, setCupomCodigo] = useState('');
+  const [cupomResultado, setCupomResultado] = useState<ResultadoCupom | null>(null);
   const [edicao, setEdicao] = useState<Partial<Plano> | null>(null);
   const [form] = Form.useForm<Plano>();
 
@@ -139,18 +173,35 @@ export default function Licenca() {
   const [metodoSelecionado, setMetodoSelecionado] = useState<'REFERENCIA' | 'EXPRESS' | 'BANCO'>('REFERENCIA');
   const [telemovelExpress, setTelemovelExpress] = useState('');
   const [dadosIniciados, setDadosIniciados] = useState<DadosPagamentoIniciado | null>(null);
+  const [comprovativo, setComprovativo] = useState<UploadFile[]>([]);
 
   const refrescar = () => qc.invalidateQueries({ queryKey: CHAVE_LICENCA });
 
   const renovar = useMutation({
-    mutationFn: () => enviar('post', '/licenca/renovacao', { plano_id: planoId, meses }),
+    mutationFn: () =>
+      enviar('post', '/licenca/renovacao', {
+        plano_id: planoId,
+        meses: plano?.ciclos[cicloCodigo]?.meses ?? 1,
+        cupom_codigo: cupomResultado?.valido ? cupomCodigo : undefined,
+      }),
     onSuccess: (res: any) => {
       message.success('Pedido de renovação criado.');
       refrescar();
+      setCupomCodigo('');
+      setCupomResultado(null);
       const dados = res?.dados ?? res;
       if (dados && dados.id) {
         abrirModalPagamento(dados);
       }
+    },
+    onError: (e) => notificarErro(e),
+  });
+
+  const validarCupom = useMutation({
+    mutationFn: () => enviar<ResultadoCupom>('post', '/licenca/cupoes/validar', { codigo: cupomCodigo, plano_id: planoId, ciclo_codigo: cicloCodigo }),
+    onSuccess: (res) => {
+      setCupomResultado(res.dados);
+      if (!res.dados.valido) message.warning(res.dados.mensagem ?? 'Cupão inválido.');
     },
     onError: (e) => notificarErro(e),
   });
@@ -209,7 +260,23 @@ export default function Licenca() {
     setDadosIniciados(null);
     setMetodoSelecionado('REFERENCIA');
     setTelemovelExpress('');
+    setComprovativo([]);
   };
+
+  const enviarComprovativo = useMutation({
+    mutationFn: (id: number) => {
+      const fd = new FormData();
+      const ficheiro = comprovativo[0]?.originFileObj;
+      if (ficheiro) fd.append('comprovativo', ficheiro);
+
+      return enviar('post', `/licenca/subscricoes/${id}/comprovativo`, fd);
+    },
+    onSuccess: () => {
+      message.success('Comprovativo enviado. Aguarda validação da equipa.');
+      setComprovativo([]);
+    },
+    onError: (e) => notificarErro(e),
+  });
 
   const copiarTexto = (txt: string, rotulo: string) => {
     navigator.clipboard.writeText(txt);
@@ -218,7 +285,8 @@ export default function Licenca() {
 
   const e = estado.data;
   const plano = planos.data?.find((p) => p.id === planoId);
-  const total = plano ? plano.preco_mensal * meses : null;
+  const ciclo = plano?.ciclos[cicloCodigo];
+  const total = cupomResultado?.valido ? cupomResultado.valor_final : (ciclo?.valor_apos_ciclo ?? null);
 
   return (
     <>
@@ -282,43 +350,85 @@ export default function Licenca() {
 
                 {gerir && (
                   <Card title="Pedir Renovação / Nova Subscrição">
-                    <Space wrap align="end">
-                      <div>
-                        <div style={{ fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Escolha o Plano:</div>
-                        <Select
-                          style={{ width: 280 }}
-                          placeholder="Selecione um plano comercial"
-                          value={planoId}
-                          onChange={setPlanoId}
-                          options={(planos.data ?? [])
-                            .filter((p) => p.ativo)
-                            .map((p) => ({
-                              value: p.id,
-                              label: `${p.nome} — ${formatarNumero(p.preco_mensal)} ${p.moeda}/mês`,
-                            }))}
-                        />
-                      </div>
+                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      <Space wrap align="end">
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Escolha o Plano:</div>
+                          <Select
+                            style={{ width: 280 }}
+                            placeholder="Selecione um plano comercial"
+                            value={planoId}
+                            onChange={(v) => { setPlanoId(v); setCupomResultado(null); }}
+                            options={(planos.data ?? [])
+                              .filter((p) => p.ativo)
+                              .map((p) => ({
+                                value: p.id,
+                                label: `${p.nome} — ${formatarNumero(p.preco_mensal)} ${p.moeda}/mês`,
+                              }))}
+                          />
+                        </div>
 
-                      <div>
-                        <div style={{ fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Período:</div>
-                        <InputNumber
-                          min={1}
-                          max={36}
-                          value={meses}
-                          onChange={(v) => setMeses(Number(v) || 1)}
-                          addonAfter="mês(es)"
-                        />
-                      </div>
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Ciclo de facturação:</div>
+                          <Radio.Group value={cicloCodigo} onChange={(ev) => { setCicloCodigo(ev.target.value); setCupomResultado(null); }} optionType="button">
+                            {CICLOS_ORDEM.map((codigo) => {
+                              const c = plano?.ciclos[codigo];
+                              return (
+                                <Radio.Button key={codigo} value={codigo}>
+                                  {c?.rotulo ?? codigo}
+                                  {c && c.desconto_percentagem > 0 ? ` −${formatarNumero(c.desconto_percentagem)}%` : ''}
+                                </Radio.Button>
+                              );
+                            })}
+                          </Radio.Group>
+                        </div>
 
-                      <Button
-                        type="primary"
-                        disabled={!planoId}
-                        loading={renovar.isPending}
-                        onClick={() => renovar.mutate()}
-                        icon={<ThunderboltOutlined />}
-                      >
-                        Subscrever{total !== null ? ` (${formatarNumero(total)} ${plano?.moeda})` : ''}
-                      </Button>
+                        <Button
+                          type="primary"
+                          disabled={!planoId}
+                          loading={renovar.isPending}
+                          onClick={() => renovar.mutate()}
+                          icon={<ThunderboltOutlined />}
+                        >
+                          Subscrever{total !== null ? ` (${formatarNumero(total)} ${plano?.moeda})` : ''}
+                        </Button>
+                      </Space>
+
+                      {planoId && (
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Cupão de desconto:</div>
+                          <Space.Compact>
+                            <Input
+                              style={{ width: 200 }}
+                              placeholder="Código do cupão"
+                              value={cupomCodigo}
+                              onChange={(ev) => { setCupomCodigo(ev.target.value); setCupomResultado(null); }}
+                            />
+                            <Button loading={validarCupom.isPending} disabled={!cupomCodigo.trim()} onClick={() => validarCupom.mutate()}>Aplicar</Button>
+                          </Space.Compact>
+                          {cupomResultado && !cupomResultado.valido && (
+                            <div style={{ marginTop: 4 }}><Tag color="warning">{cupomResultado.mensagem ?? 'Cupão inválido.'}</Tag></div>
+                          )}
+                        </div>
+                      )}
+
+                      {ciclo && (
+                        <Descriptions size="small" column={{ xs: 1, sm: 2, md: 4 }} bordered style={{ maxWidth: 680 }}>
+                          <Descriptions.Item label="Subtotal bruto">{formatarNumero(ciclo.valor_bruto)} {plano?.moeda}</Descriptions.Item>
+                          <Descriptions.Item label="Desconto do ciclo">
+                            {ciclo.desconto_percentagem > 0 ? (
+                              <Tag color="green">−{formatarNumero(ciclo.valor_desconto_ciclo)} {plano?.moeda} ({formatarNumero(ciclo.desconto_percentagem)}%)</Tag>
+                            ) : '—'}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Preço mensal efectivo">{formatarNumero(ciclo.preco_mensal_efetivo)} {plano?.moeda}/mês</Descriptions.Item>
+                          <Descriptions.Item label="Desconto do cupão">
+                            {cupomResultado?.valido ? (
+                              <Tag color="green">−{formatarNumero(cupomResultado.valor_desconto_cupom)} {plano?.moeda} ({cupomResultado.cupom?.codigo})</Tag>
+                            ) : '—'}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Valor a pagar"><strong>{formatarNumero(total ?? ciclo.valor_apos_ciclo)} {plano?.moeda}</strong></Descriptions.Item>
+                        </Descriptions>
+                      )}
                     </Space>
                   </Card>
                 )}
@@ -340,6 +450,10 @@ export default function Licenca() {
                         title: 'Valor Total',
                         align: 'right',
                         render: (_, s) => `${formatarNumero(s.valor)} ${s.moeda}`,
+                      },
+                      {
+                        title: 'Cupão',
+                        render: (_, s) => s.cupom_codigo ? <Tag color="green">{s.cupom_codigo} (−{formatarNumero(s.valor_desconto_cupom)})</Tag> : '—',
                       },
                       {
                         title: 'Estado',
@@ -729,9 +843,31 @@ export default function Licenca() {
                   </Descriptions>
 
                   <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 12 }}>
-                    Após realizar a transferência bancária, envie o comprovativo mencionando a referência <strong>{subscricaoPagamento.referencia}</strong> para a equipa de suporte ou aguarde a reconciliação.
+                    Após realizar a transferência bancária, anexe o comprovativo abaixo mencionando a referência <strong>{subscricaoPagamento.referencia}</strong>. A equipa valida manualmente e a licença é prolongada logo após a confirmação.
                   </Paragraph>
                 </Card>
+
+                <div style={{ marginTop: 16 }}>
+                  <Upload
+                    accept="image/jpeg,image/png,application/pdf"
+                    fileList={comprovativo}
+                    beforeUpload={() => false}
+                    onChange={({ fileList }) => setComprovativo(fileList.slice(-1))}
+                    maxCount={1}
+                  >
+                    <Button icon={<PaperClipOutlined />}>Seleccionar comprovativo (JPEG, PNG ou PDF, até 5 MB)</Button>
+                  </Upload>
+                  <Button
+                    type="primary"
+                    style={{ marginTop: 8 }}
+                    icon={<BankOutlined />}
+                    disabled={comprovativo.length === 0}
+                    loading={enviarComprovativo.isPending}
+                    onClick={() => enviarComprovativo.mutate(subscricaoPagamento.id)}
+                  >
+                    Enviar comprovativo
+                  </Button>
+                </div>
               </div>
             )}
 

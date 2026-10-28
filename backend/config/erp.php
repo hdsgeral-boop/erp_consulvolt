@@ -148,6 +148,14 @@ return [
             'vendas' => 'Vendas', 'compras' => 'Compras', 'stock' => 'Stock', 'contab' => 'Contabilidade', 'teso' => 'Tesouraria',
             'rh' => 'Recursos Humanos', 'activos' => 'Activos', 'crm' => 'CRM', 'projectos' => 'Projectos', 'orcamento' => 'Orçamento', 'pos' => 'Ponto de venda',
         ],
+        // Ciclos de facturação da subscrição SaaS e o desconto de cada um (CalculadoraPrecoPlano). Os códigos ficam
+        // gravados em subscricoes_empresa.ciclo_codigo: mudar aqui a percentagem não invalida subscrições já pagas.
+        'ciclos' => [
+            'MENSAL' => ['meses' => 1, 'desconto_percentagem' => 0, 'rotulo' => 'Mensal'],
+            'TRIMESTRAL' => ['meses' => 3, 'desconto_percentagem' => 5, 'rotulo' => 'Trimestral'],
+            'SEMESTRAL' => ['meses' => 6, 'desconto_percentagem' => 10, 'rotulo' => 'Semestral'],
+            'ANUAL' => ['meses' => 12, 'desconto_percentagem' => 20, 'rotulo' => 'Anual'],
+        ],
     ],
 
     'licencas' => [
@@ -155,6 +163,15 @@ return [
         // 30 dias: alinhado com a promessa comercial da landing page e do registo ("30 dias grátis"). Pode ser
         // alterado sem reiniciar a aplicação em Plataforma → SaaS → "Dias de Teste Padrão" (definicoes_plataforma).
         'dias_teste' => (int) env('LICENCAS_DIAS_TESTE', 30),
+    ],
+
+    // Facturação AGT automática da subscrição SaaS (motor de precificação, Módulo D). empresa_id=0 desliga a
+    // emissão automática (ServicoFaturacaoSaas sai sem fazer nada) — ex.: ambientes de teste/homologação AGT, onde
+    // não há empresa de facturação da plataforma criada. Preenchido pelo comando erp:saas:criar-empresa-faturacao.
+    'faturacao_saas' => [
+        'empresa_id' => (int) env('SAAS_FATURACAO_EMPRESA_ID', 0),
+        'produto_id' => (int) env('SAAS_FATURACAO_PRODUTO_ID', 0),
+        'conta_cliente' => env('SAAS_FATURACAO_CONTA_CLIENTE', ''),
     ],
 
     'dominio' => [

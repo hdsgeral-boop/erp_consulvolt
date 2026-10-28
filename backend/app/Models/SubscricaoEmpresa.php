@@ -24,12 +24,17 @@ class SubscricaoEmpresa extends ModeloBase
     protected $fillable = [
         'empresa_id', 'plano_id', 'meses', 'valor', 'moeda', 'estado', 'referencia', 'periodo_inicio', 'periodo_fim',
         'pago_em', 'pago_por', 'metodo', 'notas', 'criado_por',
+        'ciclo_codigo', 'valor_bruto', 'desconto_ciclo_percentagem', 'valor_desconto_ciclo', 'valor_apos_ciclo',
+        'cupom_id', 'cupom_codigo', 'desconto_cupom_tipo', 'desconto_cupom_valor', 'valor_desconto_cupom', 'venda_id',
     ];
 
     protected function casts(): array
     {
         return [
             'valor' => 'decimal:2', 'meses' => 'integer', 'periodo_inicio' => 'date', 'periodo_fim' => 'date', 'pago_em' => 'datetime',
+            'valor_bruto' => 'decimal:2', 'desconto_ciclo_percentagem' => 'decimal:2', 'valor_desconto_ciclo' => 'decimal:2',
+            'valor_apos_ciclo' => 'decimal:2',
+            'desconto_cupom_valor' => 'decimal:2', 'valor_desconto_cupom' => 'decimal:2',
         ];
     }
 

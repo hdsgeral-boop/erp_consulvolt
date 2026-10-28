@@ -40,6 +40,7 @@ import dayjs from 'dayjs';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
+import { TransferenciasBancariasPendentes } from './comum/TransferenciasBancariasPendentes';
 
 const { Text } = Typography;
 
@@ -608,6 +609,8 @@ export default function PlataformaSaasGestao() {
           </div>
         </Form>
       </Modal>
+
+      <TransferenciasBancariasPendentes />
     </>
   );
 }

@@ -2533,6 +2533,22 @@
           ]
         },
         {
+          "id": "plataforma_cupoes",
+          "nome": "Plataforma: Cupões de desconto",
+          "vistas": [
+            "plataforma_cupoes"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_cupoes_gerir",
+              "rotulo": "Gerir: Cupões e campanhas promocionais",
+              "sensivel": true
+            }
+          ]
+        },
+        {
           "id": "minha_conta",
           "nome": "Minha conta",
           "vistas": [
