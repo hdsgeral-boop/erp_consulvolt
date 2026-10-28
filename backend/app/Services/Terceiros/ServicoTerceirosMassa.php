@@ -49,8 +49,8 @@ final class ServicoTerceirosMassa
             $conta = (string) $campos['codigo_conta'];
             $papelConta = $papel === Terceiro::FORNECEDOR ? ContaTerceiro::FORNECEDOR : ContaTerceiro::CLIENTE;
             if (! ContaTerceiro::classeCorrecta($conta, $papelConta)) {
-                throw new ErroNegocio($papelConta === ContaTerceiro::CLIENTE ? "A conta de cliente {$conta} não é da classe 31."
-                    : "A conta de fornecedor {$conta} não é da classe 32 nem 37.0.", 'CONTA_CLASSE_ERRADA', 422);
+                throw new ErroNegocio($papelConta === ContaTerceiro::CLIENTE ? "A conta de cliente {$conta} não é da classe 31, 37.91 nem 37.2."
+                    : "A conta de fornecedor {$conta} não é da classe 32, 37.0, 37.1 nem 37.92.", 'CONTA_CLASSE_ERRADA', 422);
             }
             $this->plano->contaDeMovimento($conta);
             $dados[$papelConta === ContaTerceiro::FORNECEDOR ? 'conta_fornecedor' : 'conta_cliente'] = $conta;

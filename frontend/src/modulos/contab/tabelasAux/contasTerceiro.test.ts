@@ -54,7 +54,7 @@ describe('contas do terceiro por papel (contas_terceiro.js)', () => {
     expect(validarContasTerceiro('CLIENTE', '', '')).toMatch(/conta de cliente/);
     expect(validarContasTerceiro('CLIENTE_FORNECEDOR', '31.1', '')).toMatch(/conta de fornecedor/);
     expect(validarContasTerceiro('CLIENTE', '32.1', '')).toMatch(/não é da classe 31/);
-    expect(validarContasTerceiro('FORNECEDOR', '', '31.1')).toMatch(/não é da classe 32 nem 37.0/);
+    expect(validarContasTerceiro('FORNECEDOR', '', '31.1')).toMatch(/não é da classe 32, 37\.0, 37\.1 ou 37\.92/);
     expect(validarContasTerceiro('CLIENTE_FORNECEDOR', '31.1', '37.0.1')).toBeNull();
     expect(validarContasTerceiro('COLABORADOR', '', '')).toBeNull();
   });

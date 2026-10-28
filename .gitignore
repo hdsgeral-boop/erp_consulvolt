@@ -2,6 +2,8 @@
 .env
 .segredos/
 *.pem
+# Excepção: certificados públicos da CA (não são segredos) para a verificação TLS da consulta de NIF na AGT
+!backend/resources/certs/agt-portal-ca.pem
 backend/.env
 # Dependências e artefactos
 node_modules/

@@ -23,11 +23,17 @@ final class ContaTerceiro
 
     public const FORNECEDOR = 'FORNECEDOR';
 
-    /** Classe da conta de cliente. */
-    public const CLASSE_CLIENTE = '31';
+    /** Terceiro sem papel comercial, só de conta corrente genérica (classe 37) — não é cliente nem fornecedor. */
+    public const CREDOR_DEVEDOR = 'CREDOR_DEVEDOR';
 
-    /** As compras admitem a 32 (fornecedores) e a 37.0 (outros devedores e credores) — contas_terceiro.js:26. */
-    public const CLASSES_FORNECEDOR = ['32', '370'];
+    /** Classes da conta de cliente: 31 e, por pedido do utilizador, também 37.91 e 37.2. */
+    public const CLASSES_CLIENTE = ['31', '3791', '372'];
+
+    /** As compras admitem a 32 (fornecedores), a 37.0 (outros devedores e credores) e, por pedido do utilizador, 37.1 e 37.92. */
+    public const CLASSES_FORNECEDOR = ['32', '370', '371', '3792'];
+
+    /** Conta de Credor/Devedor: qualquer conta da classe 37 (outros valores a receber e a pagar) não reservada aos dois papéis acima. */
+    public const CLASSE_CREDOR_DEVEDOR = '37';
 
     /** Rótulos do tipo (rotuloTipo, contas_terceiro.js:110-115). */
     public const ROTULOS_TIPO = [
@@ -35,6 +41,7 @@ final class ContaTerceiro
         Terceiro::FORNECEDOR => 'Fornecedor',
         Terceiro::CLIENTE_FORNECEDOR => 'Cliente e Fornecedor',
         Terceiro::COLABORADOR => 'Colaborador',
+        Terceiro::CREDOR_DEVEDOR => 'Credor/Devedor',
     ];
 
     /** Só os dígitos: '32.1.1', '321001' e '32-1' são todos da classe 32 (contas_terceiro.js:30-34). */
@@ -50,6 +57,23 @@ final class ContaTerceiro
         return $d !== '' && str_starts_with($d, self::digitos($classe));
     }
 
+    /** Campo da conta própria de cada papel. */
+    private const CAMPOS_CONTA = [
+        self::CLIENTE => 'conta_cliente',
+        self::FORNECEDOR => 'conta_fornecedor',
+        self::CREDOR_DEVEDOR => 'conta_credor_devedor',
+    ];
+
+    /** @return list<string> classes aceites para a conta do papel. */
+    private static function classesDoPapel(string $papel): array
+    {
+        return match ($papel) {
+            self::FORNECEDOR => self::CLASSES_FORNECEDOR,
+            self::CREDOR_DEVEDOR => [self::CLASSE_CREDOR_DEVEDOR],
+            default => self::CLASSES_CLIENTE,
+        };
+    }
+
     /** A conta é da classe certa para o papel? Vazio conta como certo (a obrigatoriedade valida-se à parte). */
     public static function classeCorrecta(?string $codigo, string $papel): bool
     {
@@ -57,11 +81,7 @@ final class ContaTerceiro
         if ($c === '') {
             return true;
         }
-
-        if ($papel !== self::FORNECEDOR) {
-            return self::daClasse($c, self::CLASSE_CLIENTE);
-        }
-        foreach (self::CLASSES_FORNECEDOR as $classe) {
+        foreach (self::classesDoPapel($papel) as $classe) {
             if (self::daClasse($c, $classe)) {
                 return true;
             }
@@ -78,6 +98,7 @@ final class ContaTerceiro
             Terceiro::FORNECEDOR => [self::FORNECEDOR],
             Terceiro::CLIENTE_FORNECEDOR => [self::CLIENTE, self::FORNECEDOR],
             Terceiro::COLABORADOR => [Terceiro::COLABORADOR],
+            Terceiro::CREDOR_DEVEDOR => [self::CREDOR_DEVEDOR],
             default => [],
         };
     }
@@ -89,7 +110,8 @@ final class ContaTerceiro
     }
 
     /**
-     * Conta do papel: a própria; senão o `codigo_conta` antigo se for da classe do papel; senão ''.
+     * Conta do papel: a própria; senão o `codigo_conta` antigo se for da classe do papel (não se aplica ao Credor/Devedor,
+     * papel novo sem fichas antigas); senão ''.
      *
      * @param  Terceiro|array<string, mixed>|null  $t
      */
@@ -99,8 +121,8 @@ final class ContaTerceiro
             return '';
         }
         $ler = fn (string $campo) => trim((string) ($t instanceof Terceiro ? $t->getAttribute($campo) : ($t[$campo] ?? '')));
-        $propria = $ler($papel === self::FORNECEDOR ? 'conta_fornecedor' : 'conta_cliente');
-        if ($propria !== '') {
+        $propria = $ler(self::CAMPOS_CONTA[$papel] ?? 'conta_cliente');
+        if ($propria !== '' || $papel === self::CREDOR_DEVEDOR) {
             return $propria;
         }
         $legada = $ler('codigo_conta');
@@ -123,6 +145,12 @@ final class ContaTerceiro
         return self::conta($t, self::FORNECEDOR);
     }
 
+    /** @param  Terceiro|array<string, mixed>|null  $t */
+    public static function credorDevedor(Terceiro|array|null $t): string
+    {
+        return self::conta($t, self::CREDOR_DEVEDOR);
+    }
+
     /**
      * Mensagem única para quem integra: diz que conta falta, em que terceiro e onde se resolve (falta, contas_terceiro.js:71-75).
      *
@@ -132,11 +160,14 @@ final class ContaTerceiro
     {
         $nome = trim((string) ($t instanceof Terceiro ? ($t->nome ?: $t->nif) : ($t['nome'] ?? $t['nif'] ?? ''))) ?: 'terceiro';
 
-        return $papel === self::FORNECEDOR
-            ? "O fornecedor {$nome} não tem conta de fornecedor (classe 32 ou 37.0) associada. "
-                .'Abra Compras › Fornecedores (ou Contabilidade › Tabelas auxiliares › Terceiros), associe a conta e volte a integrar.'
-            : "O cliente {$nome} não tem conta de cliente (classe 31) associada. "
-                .'Abra Vendas › Clientes (ou Contabilidade › Tabelas auxiliares › Terceiros), associe a conta e volte a integrar.';
+        return match ($papel) {
+            self::FORNECEDOR => "O fornecedor {$nome} não tem conta de fornecedor (classe 32, 37.0, 37.1 ou 37.92) associada. "
+                .'Abra Compras › Fornecedores (ou Contabilidade › Tabelas auxiliares › Terceiros), associe a conta e volte a integrar.',
+            self::CREDOR_DEVEDOR => "O credor/devedor {$nome} não tem conta (classe 37) associada. "
+                .'Abra Contabilidade › Tabelas auxiliares › Credores e Devedores, associe a conta e volte a integrar.',
+            default => "O cliente {$nome} não tem conta de cliente (classe 31, 37.91 ou 37.2) associada. "
+                .'Abra Vendas › Clientes (ou Contabilidade › Tabelas auxiliares › Terceiros), associe a conta e volte a integrar.',
+        };
     }
 
     /**
@@ -152,24 +183,31 @@ final class ContaTerceiro
 
         throw new ErroNegocio(trim($contexto.' '.self::falta($t, $papel)), 'TERCEIRO_SEM_CONTA', 422, [
             'terceiro_id' => $t->id, 'terceiro' => $t->nome, 'papel' => $papel,
-            'campo' => $papel === self::FORNECEDOR ? 'conta_fornecedor' : 'conta_cliente',
-            'classe' => $papel === self::FORNECEDOR ? '32 ou 37.0' : '31',
+            'campo' => self::CAMPOS_CONTA[$papel] ?? 'conta_cliente',
+            'classe' => match ($papel) {
+                self::FORNECEDOR => '32, 37.0, 37.1 ou 37.92',
+                self::CREDOR_DEVEDOR => '37',
+                default => '31, 37.91 ou 37.2',
+            },
         ]);
     }
 
     /**
      * A mesma regra de leitura em SQL (PostgreSQL), para consultas em massa: a conta própria do papel ou o codigo_conta antigo
-     * da classe do papel. $alias é o alias da tabela terceiros na consulta (só letras, números e _).
+     * da classe do papel (o Credor/Devedor, papel novo, não tem codigo_conta antigo). $alias é o alias da tabela terceiros
+     * na consulta (só letras, números e _).
      */
     public static function sqlConta(string $alias, string $papel): string
     {
         $a = preg_replace('/\W/', '', $alias);
+        $propria = "{$a}.".(self::CAMPOS_CONTA[$papel] ?? 'conta_cliente');
+        if ($papel === self::CREDOR_DEVEDOR) {
+            return "NULLIF(TRIM({$propria}), '')";
+        }
         $digitos = "regexp_replace(COALESCE({$a}.codigo_conta, ''), '[^0-9]', '', 'g')";
-        [$propria, $classe] = $papel === self::FORNECEDOR
-            ? ["{$a}.conta_fornecedor", "({$digitos} LIKE '32%' OR {$digitos} LIKE '370%')"]
-            : ["{$a}.conta_cliente", "{$digitos} LIKE '31%'"];
+        $classe = implode(' OR ', array_map(fn ($cl) => "{$digitos} LIKE '".self::digitos($cl)."%'", self::classesDoPapel($papel)));
 
-        return "COALESCE(NULLIF(TRIM({$propria}), ''), CASE WHEN {$classe} THEN NULLIF(TRIM({$a}.codigo_conta), '') END)";
+        return "COALESCE(NULLIF(TRIM({$propria}), ''), CASE WHEN ({$classe}) THEN NULLIF(TRIM({$a}.codigo_conta), '') END)";
     }
 
     /** Rótulo do tipo para listagens («Cliente e Fornecedor», «—» sem tipo). */

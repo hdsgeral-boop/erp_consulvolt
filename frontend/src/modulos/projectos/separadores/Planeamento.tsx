@@ -13,9 +13,9 @@ import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { BarraExecucao, EtiquetaProjectos, ModalEliminar, SeletorMembro, SeletorPosicao, SeletorTarefa, useEquipa, useWbs } from '../comum/componentes';
 import { Gantt, type LigacaoGantt } from '../comum/Gantt';
-import { achatarWbs, alternarChave, chavesRecolhiveis, contarTarefasFase, ordenarGruposWbs, datasParaDataMinima, escalaDasQuantidades, escalaGantt, ligacaoPorArrasto, ligacoesWbs, linhasGanttWbs, quantidadesPorPeriodo, tarefaAtrasada } from '../comum/regras';
+import { achatarWbs, alternarChave, chavesRecolhiveis, contarTarefasFase, ordenarGruposWbs, datasParaDataMinima, escalaDasQuantidades, escalaGantt, filtrarTarefaPorEstado, ligacaoPorArrasto, ligacoesWbs, linhasGanttWbs, quantidadesPorPeriodo, tarefaAtrasada } from '../comum/regras';
 import { ESCALAS, formatarQtd, pctDaMeta, ritmoExigido, rotuloDependencia, textoRitmo, TIPOS_DEP, UNIDADES, type Escala } from '../comum/regrasMetas';
-import type { MapaQuantidades, Marco, TarefaWbs } from '../comum/tipos';
+import type { EstadoTarefa, MapaQuantidades, Marco, TarefaWbs } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { descricaoMover, descricaoNivelFase, pedidoMover, pedidoNivelFase } from '../comum/arrastar';
 import { SeletorFlag } from '../comum/FlagTarefa';
@@ -59,6 +59,8 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
   const [escala, setEscala] = useState<Escala | undefined>(undefined);
   const [periodo, setPeriodo] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
   const [soFases, setSoFases] = useState<'tudo' | 'fases' | 'tarefas'>('tudo');
+  const [estadosFiltro, setEstadosFiltro] = useState<EstadoTarefa[]>([]);
+  const estadosFiltroSet = useMemo(() => new Set(estadosFiltro), [estadosFiltro]);
   // Gantt (Versão Actual, ui_projects.js:1800-1812): árvore recolhível, quantidades por período e ligações por arrasto
   const [fechadas, setFechadas] = useState<Set<string>>(() => new Set());
   const [comQuantidades, setComQuantidades] = useState(false);
@@ -99,6 +101,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
   const refGantt = useRef<HTMLDivElement>(null);
 
   const arvore: LinhaArvore[] = ordenarGruposWbs(w.data?.grupos)
+    .map((g) => ({ ...g, tarefas: estadosFiltroSet.size ? g.tarefas.map((t) => filtrarTarefaPorEstado(t, estadosFiltroSet)).filter((t): t is TarefaWbs => t !== null) : g.tarefas }))
     .filter((g) => g.marco || g.tarefas.length)
     .map((g) => ({ chave: `m-${g.marco?.id ?? 'sem'}`, grupo: true as const, marco: g.marco, execucao: g.execucao, meta: g.meta, children: g.tarefas.length ? g.tarefas.map(paraArvore) : undefined }));
   // reordenar marcos (botões ↑/↓): posição de cada marco entre os outros, pela mesma ordem da árvore
@@ -108,7 +111,8 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
     periodo: periodo ? { de: periodo[0]?.format('YYYY-MM-DD'), ate: periodo[1]?.format('YYYY-MM-DD') } : undefined,
     nivelMaximo: soFases === 'fases' ? 0 : soFases === 'tarefas' ? 1 : undefined,
     fasesFechadas: fechadas,
-  }), [w.data, periodo, soFases, fechadas]);
+    estados: estadosFiltroSet.size ? estadosFiltroSet : undefined,
+  }), [w.data, periodo, soFases, fechadas, estadosFiltroSet]);
   const ligacoes = useMemo(() => ligacoesWbs(w.data), [w.data]);
   const inicioGantt = periodo?.[0]?.format('YYYY-MM-DD');
   const fimGantt = periodo?.[1]?.format('YYYY-MM-DD');
@@ -293,6 +297,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
         <Space wrap>
           <Segmented value={vista} onChange={(v) => setVista(v as 'wbs' | 'gantt')} options={[{ value: 'wbs', label: 'WBS' }, { value: 'gantt', label: 'Gantt' }]} />
+          <Select mode="multiple" allowClear value={estadosFiltro} onChange={(v) => setEstadosFiltro(v as EstadoTarefa[])} options={ESTADOS_TAREFA} placeholder="Filtrar por estado" style={{ minWidth: 220 }} maxTagCount="responsive" />
           <Typography.Text>Execução global: </Typography.Text><BarraExecucao valor={w.data?.execucao_global} largura={180} />
         </Space>
         <Space wrap>

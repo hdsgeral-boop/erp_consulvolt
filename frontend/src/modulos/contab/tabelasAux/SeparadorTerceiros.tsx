@@ -7,6 +7,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import type { FichaTerceiro } from '@/modulos/compras/comum/referencias';
+import { BotaoValidarNifAgt } from '@/modulos/compras/comum/ValidarNifAgt';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { ModalImportar } from '../comum/ficheiros';
@@ -129,6 +130,7 @@ export function SeparadorTerceiros() {
   const cliente = useQueryClient();
   const [form] = Form.useForm<ValoresTerceiro>();
   const tipo = Form.useWatch('tipo', form) ?? 'CLIENTE';
+  const nifActual = Form.useWatch('nif', form);
   const [edicao, setEdicao] = useState<FichaTerceiro | null>(null);
   const [pesquisa, setPesquisa] = useState('');
   const [importar, setImportar] = useState(false);
@@ -235,7 +237,7 @@ export function SeparadorTerceiros() {
               }}
             >
               <Form.Item name="nif" label="NIF / Identificação" rules={[{ required: true, whitespace: true, message: 'O NIF é obrigatório.' }, { max: 30 }]}>
-                <Input placeholder="NIF" />
+                <Input placeholder="NIF" addonAfter={<BotaoValidarNifAgt nif={nifActual} tamanho="small" apenasIcone />} />
               </Form.Item>
               <Form.Item name="nome" label="Nome / Entidade" rules={[{ required: true, whitespace: true, message: 'O nome é obrigatório.' }, { max: 255 }]}>
                 <Input placeholder="Nome completo" />
@@ -361,7 +363,11 @@ export function SeparadorTerceiros() {
           size="small"
           impressao={{ titulo: 'Terceiros Registados', filtros: [pesquisa && `Pesquisa: ${pesquisa}`] }}
           accoes={(t) => [
-            { icone: 'edit', titulo: 'Editar', variante: 'primario', oculto: !gerir, onClick: () => void editar(t) },
+            {
+              icone: 'edit', titulo: 'Editar', variante: 'primario', oculto: !gerir,
+              desactivado: t.tipo === 'CREDOR_DEVEDOR' && 'Edite-o no separador «Credores e Devedores» (ficha própria, com a conta da classe 37).',
+              onClick: () => void editar(t),
+            },
             {
               icone: 'trash',
               titulo: 'Eliminar',

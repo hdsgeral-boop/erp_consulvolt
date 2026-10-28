@@ -92,9 +92,11 @@ describe('Compras — formulários de criação com Grade | Linhas', () => {
     expect(dadosMarco({ titulo: 'Adiantamento', data_prevista: '2026-05-01', montante: 50 })).toEqual({ titulo: 'Adiantamento', data_prevista: '2026-05-01', montante: 50 });
     expect(CAMPOS_MARCO.filter((c) => c.obrigatorio).map((c) => c.nome)).toEqual(['titulo', 'montante']);
     const conta = camposTerceiro('FORNECEDOR').find((c) => c.nome === 'conta_fornecedor')!;
-    expect(conta.validar?.('31.1.1', {})).toMatch(/classe 32 ou 37\.0/);
+    expect(conta.validar?.('31.1.1', {})).toMatch(/classe 32, 37\.0, 37\.1 ou 37\.92/);
     expect(conta.validar?.('32.1.1', {})).toBeNull();
     expect(conta.validar?.('37.0.1', {})).toBeNull();
+    expect(conta.validar?.('37.1.1', {})).toBeNull();
+    expect(conta.validar?.('37.92.1', {})).toBeNull();
     expect(camposTerceiro('CLIENTE').some((c) => c.nome === 'conta_compra_transitoria')).toBe(false);
     expect(corpoTerceiro('CLIENTE', { nome: ' Cliente X ', conta_cliente: '31.1.1', codigo_moeda: 'usd' } as never)).toMatchObject({ papel: 'CLIENTE', nome: 'Cliente X', conta_cliente: '31.1.1', codigo_moeda: 'USD' });
   });

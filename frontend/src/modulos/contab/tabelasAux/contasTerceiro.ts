@@ -6,21 +6,36 @@
  * O codigo_conta antigo só serve de recurso quando a classe corresponde ao papel. Sem contas por defeito.
  */
 
-export type PapelConta = 'CLIENTE' | 'FORNECEDOR';
-export type TipoTerceiro = 'CLIENTE' | 'FORNECEDOR' | 'CLIENTE_FORNECEDOR' | 'COLABORADOR';
+export type PapelConta = 'CLIENTE' | 'FORNECEDOR' | 'CREDOR_DEVEDOR';
+export type TipoTerceiro = 'CLIENTE' | 'FORNECEDOR' | 'CLIENTE_FORNECEDOR' | 'COLABORADOR' | 'CREDOR_DEVEDOR';
 
 export interface TerceiroComContas {
   tipo?: string | null;
   codigo_conta?: string | null;
   conta_cliente?: string | null;
   conta_fornecedor?: string | null;
+  conta_credor_devedor?: string | null;
 }
 
-export const CLASSE_CLIENTE = '31';
-/** As compras admitem a 32 (fornecedores) e a 37.0 (outros devedores e credores) — contas_terceiro.js:26. */
-export const CLASSES_FORNECEDOR = ['32', '370'];
+/** Classes da conta de cliente: 31 e, por pedido do utilizador, também 37.91 e 37.2. */
+export const CLASSES_CLIENTE = ['31', '3791', '372'];
 
-/** Opções do selector de tipo, com a combinação cliente + fornecedor (OPCOES_TIPO, contas_terceiro.js:118-124). */
+/** As compras admitem a 32 (fornecedores), a 37.0 (outros devedores e credores) e, por pedido do utilizador, 37.1 e 37.92. */
+export const CLASSES_FORNECEDOR = ['32', '370', '371', '3792'];
+
+/** Conta de Credor/Devedor (papel autónomo, sem cliente/fornecedor): qualquer conta da classe 37. */
+export const CLASSE_CREDOR_DEVEDOR = '37';
+
+const CLASSES_PAPEL: Record<PapelConta, string[]> = { CLIENTE: CLASSES_CLIENTE, FORNECEDOR: CLASSES_FORNECEDOR, CREDOR_DEVEDOR: [CLASSE_CREDOR_DEVEDOR] };
+const CAMPOS_CONTA: Record<PapelConta, 'conta_cliente' | 'conta_fornecedor' | 'conta_credor_devedor'> = {
+  CLIENTE: 'conta_cliente', FORNECEDOR: 'conta_fornecedor', CREDOR_DEVEDOR: 'conta_credor_devedor',
+};
+
+/**
+ * Opções do selector de tipo da ficha combinada (Tabelas auxiliares › Terceiros, OPCOES_TIPO, contas_terceiro.js:118-124).
+ * Sem «Credor/Devedor»: esse papel é autónomo e tem ecrã próprio (Tabelas auxiliares › Credores e Devedores), porque a
+ * ficha combinada só sabe pedir a conta de cliente/fornecedor, nunca a de credor/devedor.
+ */
 export const OPCOES_TIPO: { value: TipoTerceiro; label: string }[] = [
   { value: 'CLIENTE', label: 'Cliente' },
   { value: 'FORNECEDOR', label: 'Fornecedor' },
@@ -28,7 +43,9 @@ export const OPCOES_TIPO: { value: TipoTerceiro; label: string }[] = [
   { value: 'COLABORADOR', label: 'Colaborador' },
 ];
 
-const ROTULOS: Record<string, string> = { CLIENTE: 'Cliente', FORNECEDOR: 'Fornecedor', CLIENTE_FORNECEDOR: 'Fornecedor + Cliente', COLABORADOR: 'Colaborador' };
+const ROTULOS: Record<string, string> = {
+  CLIENTE: 'Cliente', FORNECEDOR: 'Fornecedor', CLIENTE_FORNECEDOR: 'Fornecedor + Cliente', COLABORADOR: 'Colaborador', CREDOR_DEVEDOR: 'Credor/Devedor',
+};
 
 const texto = (v: string | null | undefined) => String(v ?? '').trim();
 /** Só os dígitos: '32.1.1', '321001' e '32-1' são todos da classe 32. */
@@ -43,7 +60,7 @@ export function daClasse(conta: string | null | undefined, classe: string): bool
 export function classeCorrecta(codigo: string | null | undefined, papel: PapelConta): boolean {
   const c = texto(codigo);
   if (!c) return true;
-  return papel === 'FORNECEDOR' ? CLASSES_FORNECEDOR.some((x) => daClasse(c, x)) : daClasse(c, CLASSE_CLIENTE);
+  return CLASSES_PAPEL[papel].some((x) => daClasse(c, x));
 }
 
 /** Papéis do tipo gravado (sem tipo: nenhum — os registos antigos não se escondem de nenhum papel). */
@@ -57,6 +74,8 @@ export function papeis(tipo: string | null | undefined): string[] {
       return ['CLIENTE', 'FORNECEDOR'];
     case 'COLABORADOR':
       return ['COLABORADOR'];
+    case 'CREDOR_DEVEDOR':
+      return ['CREDOR_DEVEDOR'];
     default:
       return [];
   }
@@ -64,39 +83,51 @@ export function papeis(tipo: string | null | undefined): string[] {
 
 export const temPapel = (tipo: string | null | undefined, papel: PapelConta) => papeis(tipo).includes(papel);
 
-/** Conta do papel: a própria; senão o codigo_conta antigo se for da classe; senão '' (ContaTerceiro.conta). */
+/** Conta do papel: a própria; senão o codigo_conta antigo se for da classe (não se aplica ao Credor/Devedor, papel novo sem fichas antigas); senão '' (ContaTerceiro.conta). */
 export function contaDoPapel(t: TerceiroComContas | null | undefined, papel: PapelConta): string {
   if (!t) return '';
-  const propria = texto(papel === 'FORNECEDOR' ? t.conta_fornecedor : t.conta_cliente);
-  if (propria) return propria;
+  const propria = texto(t[CAMPOS_CONTA[papel]]);
+  if (propria || papel === 'CREDOR_DEVEDOR') return propria;
   const legada = texto(t.codigo_conta);
   return legada && classeCorrecta(legada, papel) ? legada : '';
 }
 
 export const contaCliente = (t: TerceiroComContas | null | undefined) => contaDoPapel(t, 'CLIENTE');
 export const contaFornecedor = (t: TerceiroComContas | null | undefined) => contaDoPapel(t, 'FORNECEDOR');
+export const contaCredorDevedor = (t: TerceiroComContas | null | undefined) => contaDoPapel(t, 'CREDOR_DEVEDOR');
 
 /** Rótulo da coluna «Tipo» (rotuloTipo: «Fornecedor + Cliente»). */
 export const rotuloTipo = (tipo: string | null | undefined) => ROTULOS[texto(tipo).toUpperCase()] ?? (texto(tipo) || '—');
 
 /** Campos de conta que o tipo pede (auxTipoTerceiroMudou, ui_aux.js:675-686). */
-export function camposConta(tipo: string | null | undefined): { cliente: boolean; fornecedor: boolean } {
-  return { cliente: temPapel(tipo, 'CLIENTE'), fornecedor: temPapel(tipo, 'FORNECEDOR') };
+export function camposConta(tipo: string | null | undefined): { cliente: boolean; fornecedor: boolean; credorDevedor: boolean } {
+  return { cliente: temPapel(tipo, 'CLIENTE'), fornecedor: temPapel(tipo, 'FORNECEDOR'), credorDevedor: temPapel(tipo, 'CREDOR_DEVEDOR') };
 }
 
-/** Prefixos do plano para a caixa de contas do papel. */
-export const prefixosConta = (papel: PapelConta) => (papel === 'FORNECEDOR' ? ['32', '37.0', '370'] : ['31']);
+/**
+ * Prefixos do plano para a caixa de contas do papel — com e sem pontos, porque `opcoesConta` (SeletorConta) compara o
+ * código tal como está gravado (`codigo.startsWith`, sem ignorar pontos) e as empresas podem codificar com ou sem eles.
+ */
+export const prefixosConta = (papel: PapelConta) => (papel === 'FORNECEDOR' ? ['32', '37.0', '370', '37.1', '371', '37.92', '3792']
+  : papel === 'CREDOR_DEVEDOR' ? ['37'] : ['31', '37.91', '3791', '37.2', '372']);
 
 /**
  * Validação da ficha antes de gravar (saveThirdParty, ui_aux.js:598-612): conta obrigatória para cada papel do tipo e da
  * classe certa. A existência no plano e «só de movimento» valida-se no servidor. Devolve a mensagem ou null.
  */
-export function validarContasTerceiro(tipo: string | null | undefined, contaCli: string | null | undefined, contaForn: string | null | undefined): string | null {
-  const { cliente, fornecedor } = camposConta(tipo);
+export function validarContasTerceiro(
+  tipo: string | null | undefined,
+  contaCli: string | null | undefined,
+  contaForn: string | null | undefined,
+  contaCredDev?: string | null | undefined,
+): string | null {
+  const { cliente, fornecedor, credorDevedor } = camposConta(tipo);
   if (cliente && !texto(contaCli)) return 'Indique a conta de cliente (classe 31).';
   if (fornecedor && !texto(contaForn)) return 'Indique a conta de fornecedor (classe 32 ou 37.0).';
-  if (cliente && !classeCorrecta(contaCli, 'CLIENTE')) return `A conta de cliente ${texto(contaCli)} não é da classe 31.`;
-  if (fornecedor && !classeCorrecta(contaForn, 'FORNECEDOR')) return `A conta de fornecedor ${texto(contaForn)} não é da classe 32 nem 37.0.`;
+  if (credorDevedor && !texto(contaCredDev)) return 'Indique a conta de credor/devedor (classe 37).';
+  if (cliente && !classeCorrecta(contaCli, 'CLIENTE')) return `A conta de cliente ${texto(contaCli)} não é da classe 31, 37.91 ou 37.2.`;
+  if (fornecedor && !classeCorrecta(contaForn, 'FORNECEDOR')) return `A conta de fornecedor ${texto(contaForn)} não é da classe 32, 37.0, 37.1 ou 37.92.`;
+  if (credorDevedor && !classeCorrecta(contaCredDev, 'CREDOR_DEVEDOR')) return `A conta de credor/devedor ${texto(contaCredDev)} não é da classe 37.`;
   return null;
 }
 

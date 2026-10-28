@@ -67,7 +67,7 @@ describe('Tabelas auxiliares — Grade | Linhas: funções puras', () => {
     expect(errosLinha(camposRegistoAux(), { codigo: 'X', descricao: '' })).toMatch(/Falta: Descrição/);
     expect(errosLinha(CAMPOS_CONTA, { codigo: '43 1', descricao: 'A', tipo: 'M' })).toMatch(/só algarismos, letras e pontos/);
     expect(errosLinha(CAMPOS_TERCEIRO, { nif: '1', nome: 'A', tipo: 'CLIENTE', conta_cliente: '' })).toMatch(/conta de cliente \(classe 31\)/);
-    expect(errosLinha(CAMPOS_TERCEIRO, { nif: '1', nome: 'A', tipo: 'FORNECEDOR', conta_fornecedor: '31.1' })).toMatch(/não é da classe 32 nem 37.0/);
+    expect(errosLinha(CAMPOS_TERCEIRO, { nif: '1', nome: 'A', tipo: 'FORNECEDOR', conta_fornecedor: '31.1' })).toMatch(/não é da classe 32, 37\.0, 37\.1 ou 37\.92/);
     expect(errosLinha(CAMPOS_TERCEIRO, { nif: '1', nome: 'A', tipo: 'CLIENTE_FORNECEDOR', conta_cliente: '31.1', conta_fornecedor: '37.0.1' })).toBeNull();
   });
 });

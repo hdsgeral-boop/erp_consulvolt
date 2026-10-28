@@ -17,7 +17,7 @@ final class GuardarTerceiroRequest extends FormRequest
 {
     /** Permissões para gravar cada papel (qualquer uma serve). */
     public const GERIR = ['CLIENTE' => ['vendas_clientes_gerir', 'aux_gerir'], 'FORNECEDOR' => ['compras_forn_gerir', 'aux_gerir'],
-        'CLIENTE_FORNECEDOR' => ['aux_gerir'], 'COLABORADOR' => ['aux_gerir']];
+        'CLIENTE_FORNECEDOR' => ['aux_gerir'], 'COLABORADOR' => ['aux_gerir'], 'CREDOR_DEVEDOR' => ['credores_devedores_gerir', 'aux_gerir']];
 
     /** Antes da validação (OWASP A01): sem permissão para o papel pedido → 403, mesmo com dados inválidos. */
     public function authorize(): bool
@@ -38,7 +38,7 @@ final class GuardarTerceiroRequest extends FormRequest
         $criar = $this->isMethod('post');
 
         return [
-            'papel' => ['required', Rule::in(['CLIENTE', 'FORNECEDOR', 'CLIENTE_FORNECEDOR', 'COLABORADOR'])],
+            'papel' => ['required', Rule::in(['CLIENTE', 'FORNECEDOR', 'CLIENTE_FORNECEDOR', 'COLABORADOR', 'CREDOR_DEVEDOR'])],
             'substituir_tipo' => ['nullable', 'boolean'],
             'nome' => [$criar ? 'required' : 'sometimes', 'string', 'max:255'],
             'nif' => ['nullable', 'string', 'max:30'],
@@ -48,6 +48,7 @@ final class GuardarTerceiroRequest extends FormRequest
             'codigo_conta' => ['nullable', 'string', 'max:20'],
             'conta_cliente' => ['nullable', 'string', 'max:20'],
             'conta_fornecedor' => ['nullable', 'string', 'max:20'],
+            'conta_credor_devedor' => ['nullable', 'string', 'max:20'],
             'conta_compra_transitoria' => ['nullable', 'string', 'max:20'],
             'codigo_moeda' => ['nullable', 'string', Rule::exists('moedas', 'codigo')->whereNull('eliminado_em')],
             'fe_pais' => ['nullable', 'string', 'regex:/^[A-Za-z]{2}$/'],
@@ -73,7 +74,7 @@ final class GuardarTerceiroRequest extends FormRequest
     public function attributes(): array
     {
         return ['nome' => 'nome', 'codigo_conta' => 'conta contabilística', 'conta_cliente' => 'conta de cliente', 'conta_fornecedor' => 'conta de fornecedor',
-            'codigo_moeda' => 'moeda', 'fe_pais' => 'país', 'morada.rua' => 'rua', 'morada.numero_porta' => 'n.º de porta', 'morada.bairro' => 'bairro',
+            'conta_credor_devedor' => 'conta de credor/devedor', 'codigo_moeda' => 'moeda', 'fe_pais' => 'país', 'morada.rua' => 'rua', 'morada.numero_porta' => 'n.º de porta', 'morada.bairro' => 'bairro',
             'morada.municipio' => 'município', 'morada.provincia' => 'província', 'morada.pais' => 'país'];
     }
 
@@ -89,7 +90,7 @@ final class GuardarTerceiroRequest extends FormRequest
         if (isset($d['fe_pais'])) {
             $d['fe_pais'] = mb_strtoupper($d['fe_pais']);
         }
-        foreach (['codigo_conta', 'conta_cliente', 'conta_fornecedor', 'conta_compra_transitoria'] as $c) {
+        foreach (['codigo_conta', 'conta_cliente', 'conta_fornecedor', 'conta_credor_devedor', 'conta_compra_transitoria'] as $c) {
             if (array_key_exists($c, $d) && is_string($d[$c])) {
                 $d[$c] = trim($d[$c]) === '' ? null : trim($d[$c]);
             }

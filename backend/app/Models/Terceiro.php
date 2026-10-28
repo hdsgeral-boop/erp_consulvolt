@@ -22,6 +22,9 @@ class Terceiro extends TerceiroBase
 
     public const CLIENTE_FORNECEDOR = 'CLIENTE_FORNECEDOR';
 
+    /** Papel autónomo (não combinável com cliente/fornecedor/colaborador): conta corrente genérica, classe 37. */
+    public const CREDOR_DEVEDOR = 'CREDOR_DEVEDOR';
+
     /** Tipos que contam como cliente / fornecedor nas listagens. */
     public const TIPOS_CLIENTE = [self::CLIENTE, self::CLIENTE_FORNECEDOR];
 
@@ -37,16 +40,27 @@ class Terceiro extends TerceiroBase
         return in_array($this->tipo, self::TIPOS_FORNECEDOR, true);
     }
 
-    /** Conta de cliente (classe 31): a própria ou o codigo_conta antigo da classe 31 (ContaTerceiro.cliente do legado). */
+    public function eCredorDevedor(): bool
+    {
+        return $this->tipo === self::CREDOR_DEVEDOR;
+    }
+
+    /** Conta de cliente (classe 31, 37.91 ou 37.2): a própria ou o codigo_conta antigo dessas classes (ContaTerceiro.cliente do legado). */
     public function contaCliente(): string
     {
         return ContaTerceiro::cliente($this);
     }
 
-    /** Conta de fornecedor (classe 32 ou 37.0): a própria ou o codigo_conta antigo dessas classes. */
+    /** Conta de fornecedor (classe 32, 37.0, 37.1 ou 37.92): a própria ou o codigo_conta antigo dessas classes. */
     public function contaFornecedor(): string
     {
         return ContaTerceiro::fornecedor($this);
+    }
+
+    /** Conta de credor/devedor (classe 37): a própria — papel novo, sem codigo_conta antigo. */
+    public function contaCredorDevedor(): string
+    {
+        return ContaTerceiro::credorDevedor($this);
     }
 
     /** Conta de cliente ou pára a integração com a mensagem do que falta (sem contas por defeito). */
@@ -59,6 +73,12 @@ class Terceiro extends TerceiroBase
     public function exigirContaFornecedor(string $contexto = ''): string
     {
         return ContaTerceiro::exigir($this, ContaTerceiro::FORNECEDOR, $contexto);
+    }
+
+    /** Conta de credor/devedor ou pára a integração com a mensagem do que falta (sem contas por defeito). */
+    public function exigirContaCredorDevedor(string $contexto = ''): string
+    {
+        return ContaTerceiro::exigir($this, ContaTerceiro::CREDOR_DEVEDOR, $contexto);
     }
 
     public function contasBancarias(): HasMany

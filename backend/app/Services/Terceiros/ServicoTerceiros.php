@@ -39,7 +39,7 @@ final class ServicoTerceiros
     ];
 
     /** Papéis aceites na gravação. */
-    public const PAPEIS = [Terceiro::CLIENTE, Terceiro::FORNECEDOR, Terceiro::CLIENTE_FORNECEDOR, Terceiro::COLABORADOR];
+    public const PAPEIS = [Terceiro::CLIENTE, Terceiro::FORNECEDOR, Terceiro::CLIENTE_FORNECEDOR, Terceiro::COLABORADOR, Terceiro::CREDOR_DEVEDOR];
 
     public function __construct(
         private readonly ContextoEmpresa $contexto,
@@ -73,6 +73,7 @@ final class ServicoTerceiros
                         ->where(fn ($y) => $y->whereExists($docsVenda('vendas'))->orWhereExists($docsVenda('recibos_venda')))))))
             ->when(($f['papel'] ?? null) === Terceiro::FORNECEDOR, fn ($q) => $q->whereIn('tipo', Terceiro::TIPOS_FORNECEDOR))
             ->when(($f['papel'] ?? null) === Terceiro::COLABORADOR, fn ($q) => $q->where('tipo', Terceiro::COLABORADOR))
+            ->when(($f['papel'] ?? null) === Terceiro::CREDOR_DEVEDOR, fn ($q) => $q->where('tipo', Terceiro::CREDOR_DEVEDOR))
             ->when($f['pesquisa'] ?? null, function ($q, $p) {
                 $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%';
                 $q->where(fn ($s) => $s->where('nome', 'ilike', $termo)->orWhere('nif', 'ilike', $termo)->orWhere('codigo_conta', 'like', $termo)
@@ -203,15 +204,18 @@ final class ServicoTerceiros
      */
     private function validarContas(array $dados): void
     {
-        foreach (['conta_cliente' => ContaTerceiro::CLIENTE, 'conta_fornecedor' => ContaTerceiro::FORNECEDOR] as $campo => $papel) {
+        $mensagens = [
+            ContaTerceiro::CLIENTE => 'A conta de cliente %s não é da classe 31, 37.91 nem 37.2.',
+            ContaTerceiro::FORNECEDOR => 'A conta de fornecedor %s não é da classe 32, 37.0, 37.1 nem 37.92.',
+            ContaTerceiro::CREDOR_DEVEDOR => 'A conta de credor/devedor %s não é da classe 37.',
+        ];
+        foreach (['conta_cliente' => ContaTerceiro::CLIENTE, 'conta_fornecedor' => ContaTerceiro::FORNECEDOR, 'conta_credor_devedor' => ContaTerceiro::CREDOR_DEVEDOR] as $campo => $papel) {
             $c = trim((string) ($dados[$campo] ?? ''));
             if ($c !== '' && ! ContaTerceiro::classeCorrecta($c, $papel)) {
-                throw new ErroNegocio($papel === ContaTerceiro::CLIENTE
-                    ? "A conta de cliente {$c} não é da classe 31."
-                    : "A conta de fornecedor {$c} não é da classe 32 nem 37.0.", 'CONTA_CLASSE_ERRADA', 422, ['campo' => $campo, 'codigo_conta' => $c]);
+                throw new ErroNegocio(sprintf($mensagens[$papel], $c), 'CONTA_CLASSE_ERRADA', 422, ['campo' => $campo, 'codigo_conta' => $c]);
             }
         }
-        foreach (['conta_cliente', 'conta_fornecedor', 'codigo_conta', 'conta_compra_transitoria'] as $campo) {
+        foreach (['conta_cliente', 'conta_fornecedor', 'conta_credor_devedor', 'codigo_conta', 'conta_compra_transitoria'] as $campo) {
             if (! empty($dados[$campo])) {
                 $this->plano->contaDeMovimento((string) $dados[$campo]);
             }
@@ -226,13 +230,16 @@ final class ServicoTerceiros
      */
     private function exigirContasDoPapel(string $papel, array $dados, ?Terceiro $existente): void
     {
-        $atual = $existente ? $existente->only(['codigo_conta', 'conta_cliente', 'conta_fornecedor']) : [];
-        $final = array_merge($atual, array_intersect_key($dados, array_flip(['conta_cliente', 'conta_fornecedor'])));
+        $atual = $existente ? $existente->only(['codigo_conta', 'conta_cliente', 'conta_fornecedor', 'conta_credor_devedor']) : [];
+        $final = array_merge($atual, array_intersect_key($dados, array_flip(['conta_cliente', 'conta_fornecedor', 'conta_credor_devedor'])));
         if (ContaTerceiro::temPapel($papel, ContaTerceiro::CLIENTE) && ContaTerceiro::cliente($final) === '') {
             throw new ErroNegocio('Indique a conta de cliente (classe 31).', 'CONTA_CLIENTE_OBRIGATORIA', 422, ['campo' => 'conta_cliente']);
         }
         if (ContaTerceiro::temPapel($papel, ContaTerceiro::FORNECEDOR) && ContaTerceiro::fornecedor($final) === '') {
             throw new ErroNegocio('Indique a conta de fornecedor (classe 32 ou 37.0).', 'CONTA_FORNECEDOR_OBRIGATORIA', 422, ['campo' => 'conta_fornecedor']);
+        }
+        if (ContaTerceiro::temPapel($papel, ContaTerceiro::CREDOR_DEVEDOR) && ContaTerceiro::credorDevedor($final) === '') {
+            throw new ErroNegocio('Indique a conta de credor/devedor (classe 37).', 'CONTA_CREDOR_DEVEDOR_OBRIGATORIA', 422, ['campo' => 'conta_credor_devedor']);
         }
     }
 

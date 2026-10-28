@@ -37,15 +37,18 @@ export interface FichaTerceiro {
   tipo?: string | null;
   e_cliente?: boolean;
   e_fornecedor?: boolean;
+  e_credor_devedor?: boolean;
   endereco?: string | null;
   email?: string | null;
   telefone?: string | null;
   /** Conta antiga (registo anterior às contas por papel) — só leitura. */
   codigo_conta: string | null;
-  /** Conta de cliente efectiva (classe 31): a própria ou a antiga da classe certa (Fase A, contas_terceiro.js). */
+  /** Conta de cliente efectiva (classe 31, 37.91 ou 37.2): a própria ou a antiga da classe certa (Fase A, contas_terceiro.js). */
   conta_cliente?: string | null;
-  /** Conta de fornecedor efectiva (classe 32 ou 37.0). */
+  /** Conta de fornecedor efectiva (classe 32, 37.0, 37.1 ou 37.92). */
   conta_fornecedor?: string | null;
+  /** Conta de credor/devedor (classe 37) — papel autónomo, sem cliente/fornecedor. */
+  conta_credor_devedor?: string | null;
   conta_compra_transitoria?: string | null;
   codigo_moeda?: string | null;
   fe_pais?: string | null;

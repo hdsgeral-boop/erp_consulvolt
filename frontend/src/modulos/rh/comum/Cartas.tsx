@@ -1,11 +1,12 @@
 import { Alert, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Skeleton, Space, Tag, Typography } from 'antd';
-import { DeleteOutlined, DollarOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, DollarOutlined, EyeOutlined, MoneyCollectOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { GRUPOS_PAGAMENTO, type CartaPagamento, type PeriodoSalarial } from '../api';
 import { AreaImpressao, BotaoImprimir, CabecalhoMapa } from './componentes';
@@ -17,6 +18,89 @@ import { TabelaComModos } from '@/componentes/vistas';
 interface ContaPlano {
   codigo: string;
   descricao: string | null;
+}
+
+interface LinhaFolhaCaixa {
+  colaborador_id: number;
+  nome: string | null;
+  liquido: string;
+}
+
+interface RespostaFolhaCaixa {
+  documento_tesouraria: { id: number; numero_documento: string; estado: string };
+  linhas: LinhaFolhaCaixa[];
+}
+
+/**
+ * Folha de pagamento por caixa (numerário), para os colaboradores sem coordenadas bancárias (sem IBAN, por isso
+ * excluídos das cartas bancárias): grava o pagamento na Tesouraria (conta de caixa, classe 45) e imprime a lista
+ * (nome, líquido e linha de assinatura) — sem beneficiário bancário, ao contrário da carta.
+ */
+function FolhaCaixaPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
+  const { pode, empresa } = useSessao();
+  const cliente = useQueryClient();
+  const [emitir, setEmitir] = useState(false);
+  const [folha, setFolha] = useState<RespostaFolhaCaixa | null>(null);
+  const [form] = Form.useForm<{ codigo_conta_caixa: string; data: Dayjs; grupo: string }>();
+  const verPlano = pode('config_plano_view', 'lancamentos_view', 'relatorios_contabeis_view');
+  const contas = useQuery({
+    queryKey: ['rh', 'plano-contas', '45'],
+    queryFn: () => obter<ContaPlano[]>('/contabilidade/plano-contas', { prefixo: '45', tipo: 'M' }),
+    enabled: emitir && verPlano,
+    staleTime: 600_000,
+  });
+  const accao = useMutation({
+    mutationFn: (dados: unknown) => enviar<RespostaFolhaCaixa>('post', `/rh/salarios/periodos/${periodo.id}/folha-caixa`, dados),
+    onSuccess: ({ dados }) => { setEmitir(false); setFolha(dados); void cliente.invalidateQueries({ queryKey: ['rh'] }); },
+    onError: (e) => notificarErro(e, 'Não foi possível emitir a folha de caixa'),
+  });
+  const podeEmitir = !!periodo.contabilizado && pode('processamento_integrate') && pode('teso_doc_emitir');
+  const total = (folha?.linhas ?? []).reduce((s, l) => s + Number(l.liquido), 0);
+
+  return (
+    <>
+      {podeEmitir && (
+        <Button icon={<MoneyCollectOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs(), grupo: 'TODOS' }); setEmitir(true); }}>
+          Emitir folha de caixa
+        </Button>
+      )}
+
+      <Modal title="Emitir folha de pagamento por caixa" open={emitir} onCancel={() => setEmitir(false)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+        <Typography.Paragraph type="secondary">Inclui só os colaboradores sem coordenadas bancárias (do grupo escolhido) com salário líquido no período — os outros recebem por carta bancária.</Typography.Paragraph>
+        <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ ...v, data: dataApi(v.data) })}>
+          <Form.Item name="codigo_conta_caixa" label="Conta de caixa (45…)" rules={[{ required: true, message: 'Indique a conta.' }, { pattern: /^45/, message: 'Tem de ser uma conta de caixa (45).' }]}>
+            {verPlano ? (
+              <Select showSearch loading={contas.isLoading} optionFilterProp="label" options={(contas.data ?? []).map((x) => ({ value: x.codigo, label: `${x.codigo} - ${x.descricao ?? ''}` }))} />
+            ) : (
+              <Input maxLength={20} placeholder="45…" />
+            )}
+          </Form.Item>
+          <Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="grupo" label="Grupo"><Select options={GRUPOS_PAGAMENTO} /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title={`Folha de caixa — pagamento ${folha?.documento_tesouraria.numero_documento ?? ''}`} open={!!folha} width={larguraModal(700)} onCancel={() => setFolha(null)}
+        footer={<Space wrap><BotaoImprimir desactivado={!folha} /><Button onClick={() => setFolha(null)}>Fechar</Button></Space>}>
+        {folha && (
+          <AreaImpressao>
+            <CabecalhoMapa empresa={empresa?.nome} titulo="Folha de pagamento de salários por caixa" mesAno={periodo.mes_ano} extra={<div>Pagamento: {folha.documento_tesouraria.numero_documento} ({folha.documento_tesouraria.estado})</div>} />
+            <DeslocamentoHorizontal>
+              <table className="rh-tabela-mapa">
+                <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>Líquido (Kz)</th><th>Assinatura</th></tr></thead>
+                <tbody>
+                  {folha.linhas.map((l, n) => (
+                    <tr key={l.colaborador_id}><td className="num">{n + 1}</td><td>{l.nome ?? `#${l.colaborador_id}`}</td><td className="num">{formatarKz(l.liquido)}</td><td></td></tr>
+                  ))}
+                </tbody>
+                <tfoot><tr><td colSpan={2}>Total</td><td className="num">{formatarKz(total)}</td><td></td></tr></tfoot>
+              </table>
+            </DeslocamentoHorizontal>
+          </AreaImpressao>
+        )}
+      </Modal>
+    </>
+  );
 }
 
 /** Cartas de pagamento bancário de um período: emitir (conta 43), ver/imprimir, eliminar e gerar o pagamento na Tesouraria. */
@@ -75,6 +159,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
     <>
       <Space wrap style={{ marginBottom: 12 }}>
         {podeEmitir && <Button icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs(), grupo: 'TODOS' }); setEmitir(true); }}>Emitir carta</Button>}
+        {podeEmitir && <FolhaCaixaPeriodo periodo={periodo} />}
         {!periodo.contabilizado && <Typography.Text type="secondary">As cartas emitem-se de períodos contabilizados: o pagamento é gravado na Tesouraria e a carta nasce dele.</Typography.Text>}
       </Space>
       <TabelaComModos<CartaPagamento> rowKey="id" size="small" loading={cartas.isFetching} columns={colunas} dataSource={cartas.data ?? []} pagination={false} scroll={scrollTabela()} />

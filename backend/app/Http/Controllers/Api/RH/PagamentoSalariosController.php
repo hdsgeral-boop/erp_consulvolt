@@ -52,6 +52,18 @@ final class PagamentoSalariosController extends Controller
         return RespostaApi::criado($this->pagamentos->carta($c), "Carta {$c->numero} emitida a partir do pagamento gravado na Tesouraria (pendente de integração).");
     }
 
+    /** Folha de pagamento por caixa (numerário): para os colaboradores sem coordenadas bancárias, grava o pagamento e devolve a lista para imprimir. */
+    public function emitirFolhaCaixa(Request $r, int $id): JsonResponse
+    {
+        $this->exigir('processamento_integrate');
+        $this->exigir('teso_doc_emitir');
+        $d = $r->validate(['codigo_conta_caixa' => ['required', 'string', 'max:20'], 'data' => ['required', 'date'],
+            'grupo' => ['nullable', 'in:'.implode(',', ServicoPagamentoSalarios::GRUPOS)], 'colaboradores' => ['nullable', 'array', 'max:10000'], 'colaboradores.*' => ['integer']]);
+        $r2 = $this->pagamentos->emitirFolhaCaixa(PeriodoProcessamentoSalarial::query()->findOrFail($id), $d);
+
+        return RespostaApi::criado($r2, "Pagamento {$r2['documento_tesouraria']->numero_documento} criado na Tesouraria (pendente de integração) — imprima a folha de caixa para assinatura.");
+    }
+
     public function eliminar(int $carta): JsonResponse
     {
         $this->exigir('processamento_integrate');

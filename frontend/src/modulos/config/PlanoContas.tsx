@@ -37,6 +37,18 @@ export function dadosConta(v: Record<string, unknown>): Record<string, unknown> 
 const TIPOS_CONTA = [{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }];
 const BANCARIOS = 'Dados bancários (42/43)';
 
+/** Dentro de um <Form> com os campos codigo e tipo: nota de que uma conta 45 de movimento já é reconhecida como caixa na Tesouraria (PlanoConta::eDisponibilidade), sem precisar de mais nenhuma configuração. */
+function NotaContaCaixa() {
+  const form = Form.useFormInstance();
+  const codigo = Form.useWatch('codigo', form) as string | undefined;
+  const tipo = Form.useWatch('tipo', form) as string | undefined;
+  if (tipo === 'T' || !String(codigo ?? '').trim().startsWith('45')) return null;
+  return (
+    <Alert type="info" showIcon style={{ marginBottom: 16 }}
+      message="Esta conta aparece automaticamente como disponibilidade (caixa) na Tesouraria — não precisa de mais nenhuma configuração." />
+  );
+}
+
 /** Vista Linhas das contas (legado: formularios_linhas_config.js › plano_contas — código, descrição, tipo, moeda). */
 export const CAMPOS_CONTA: CampoFormulario[] = [
   { nome: 'codigo', rotulo: 'Código da conta', obrigatorio: true, largura: 140, maxLength: 20, aliases: ['Código', 'Codigo', 'Conta'],
@@ -271,6 +283,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
             <Col xs={24} sm={12} md={10}><Form.Item name="codigo_moeda" label="Moeda (opcional)"><Input maxLength={10} /></Form.Item></Col>
             <Col xs={24} md={14}><Form.Item name="natureza_conta" label="Natureza"><Input maxLength={255} /></Form.Item></Col>
           </Row>
+          <NotaContaCaixa />
           <DadosBancariosConta />
           <CartaoTesourariaConta />
         </Form>

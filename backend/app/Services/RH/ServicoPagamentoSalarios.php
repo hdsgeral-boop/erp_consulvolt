@@ -10,6 +10,7 @@ use App\Models\DocumentoTesouraria;
 use App\Models\ItemCartaPagamento;
 use App\Models\MapeamentoContabilSistemaRH;
 use App\Models\PeriodoProcessamentoSalarial;
+use App\Models\PlanoConta;
 use App\Models\ResultadoFolhaSalarial;
 use App\Services\Tesouraria\ServicoCartasPagamento;
 use App\Services\Tesouraria\ServicoContasBancarias;
@@ -109,6 +110,50 @@ final class ServicoPagamentoSalarios
 
             return $carta->refresh();
         });
+    }
+
+    /**
+     * Folha de pagamento por caixa (numerário): para os colaboradores SEM coordenadas bancárias, grava o pagamento do
+     * período (PAG, PENDENTE, conta de caixa — classe 45) e devolve a lista para imprimir (nome, líquido e linha de
+     * assinatura) — ao contrário da carta bancária, não há IBAN nem beneficiário da `CartaPagamentoBancario`.
+     *
+     * @param  array{codigo_conta_caixa: string, data: string, grupo?: ?string, colaboradores?: ?list<int>}  $d
+     * @return array{documento_tesouraria: DocumentoTesouraria, linhas: list<array<string, mixed>>}
+     */
+    public function emitirFolhaCaixa(PeriodoProcessamentoSalarial $p, array $d): array
+    {
+        $this->exigirValidado($p);
+        $this->contaCaixa($d['codigo_conta_caixa']);
+        $grupo = $d['grupo'] ?? 'TODOS';
+
+        return DB::transaction(function () use ($p, $d, $grupo) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ["cartas_salarios:{$p->id}"]);
+            $linhas = collect($this->ordemPagamento($p, $grupo)['linhas'])
+                ->when(! empty($d['colaboradores']), fn ($c) => $c->whereIn('colaborador_id', $d['colaboradores']))
+                ->filter(fn ($l) => $l['iban'] === null)->values();
+            if (! empty($d['colaboradores']) && $linhas->count() !== count(array_unique($d['colaboradores']))) {
+                throw new ErroNegocio('Há colaboradores sem salário líquido neste período, fora do grupo, ou com coordenadas bancárias (esses recebem por carta bancária).', 'COLABORADOR_INVALIDO', 422);
+            }
+            if ($linhas->isEmpty()) {
+                throw new ErroNegocio('Não há colaboradores sem coordenadas bancárias com salário líquido neste período (e grupo).', 'SEM_SALARIOS_A_PAGAR', 422);
+            }
+            $data = substr($d['data'], 0, 10);
+            $doc = $this->criarPagamento($p, $d['codigo_conta_caixa'], $data, $linhas->pluck('liquido', 'colaborador_id')->all(), "Pagamento de salários {$p->mes_ano} (folha de caixa)");
+
+            return ['documento_tesouraria' => $doc, 'linhas' => $linhas->map(fn ($l) => ['colaborador_id' => $l['colaborador_id'], 'nome' => $l['nome'], 'liquido' => $l['liquido']])->all()];
+        });
+    }
+
+    /** Conta de caixa (classe 45) de movimento — numerário, sem IBAN (ao contrário das 42/43 das cartas bancárias). */
+    private function contaCaixa(string $codigo): PlanoConta
+    {
+        $conta = PlanoConta::query()->where('codigo', $codigo)->first()
+            ?? throw new ErroNegocio("A conta {$codigo} não existe no plano de contas.", 'CONTA_INEXISTENTE', 404, ['codigo_conta' => $codigo]);
+        if (! $conta->eMovimento() || ! str_starts_with($conta->codigo, '45')) {
+            throw new ErroNegocio("A conta {$codigo} não é uma conta de caixa de movimento (classe 45).", 'CONTA_NAO_CAIXA', 422, ['codigo_conta' => $codigo]);
+        }
+
+        return $conta;
     }
 
     public function carta(CartaPagamentoBancario $c): array

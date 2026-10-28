@@ -1,15 +1,17 @@
-import { Button, Checkbox, Popover, Table, type TableProps } from 'antd';
+import { Button, Checkbox, Popover, Space, Table, Tag, type TableProps } from 'antd';
+import { CopyOutlined } from '@ant-design/icons';
 import type { ColumnGroupType, ColumnsType, SorterResult, TablePaginationConfig } from 'antd/es/table/interface';
-import { createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type Key, type ReactNode } from 'react';
+import { createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type Key, type MouseEvent as EventoRato, type ReactNode } from 'react';
 import { IconeFa } from '../fluxos/IconeFa';
 import { BotoesExportarLegado } from '../impressao/BotoesExportar';
+import { colunasDoConteudo, copiarTexto, tabelaParaTexto } from '../impressao/copiar';
 import { tabelaHtml } from '../impressao/tabela';
 import { prepararTexto } from '../impressao/texto';
 import type { Orientacao, Papel } from '../impressao/tipos';
-import type { PedidoImpressao } from '../impressao/useImpressao';
+import { useMensagem, type PedidoImpressao } from '../impressao/useImpressao';
 import { AccoesLinha, type AccaoLinha } from './AccoesLinha';
 import { BarraSeleccao, type AccaoMassa, type OpcoesEditarEmMassa } from './BarraSeleccao';
-import { chaveColuna, colunasParaImpressao, conteudoTotal, eColunaAccoes, folhas, tituloTexto, type ColunaLegado, type FolhaLegado } from './colunasTabela';
+import { chaveColuna, colunasParaImpressao, conteudoTotal, eColunaAccoes, folhas, numeroCelula, textoColuna, tituloTexto, type ColunaLegado, type FolhaLegado } from './colunasTabela';
 import { EstadoVazio, type PropsEstadoVazio } from './EstadoVazio';
 import { BotaoFiltroPersonalizado, FiltroColuna } from './FiltrosColuna';
 import { aplicarFiltros, colunaFiltravel, filtrosActivos, FILTRO_PERSONALIZADO_VAZIO, OPERADORES_FILTRO, type CondicaoFiltro, type EstadoFiltros, type FiltroPersonalizado } from './filtrosLista';
@@ -170,6 +172,22 @@ function mapearFolhas<T>(colunas: readonly Coluna<T>[], fn: (c: FolhaLegado<T>) 
   });
 }
 
+/**
+ * Comparador por omissão de uma coluna sem `sorter` próprio: numérico quando as duas células lêem como número
+ * (`numeroCelula`, já usado pelos totais — entende «1 234,50 Kz» em pt-PT), senão texto (`localeCompare`, já com o
+ * texto mostrado via `textoColuna`, nunca o valor bruto de `dataIndex`).
+ */
+function compararColunaPorOmissao<T>(c: FolhaLegado<T>): (a: T, b: T) => number {
+  return (a, b) => {
+    const na = numeroCelula(c, a, 0);
+    const nb = numeroCelula(c, b, 0);
+    if (na !== null && nb !== null) return na - nb;
+    const ta = String(textoColuna(c, a, 0) ?? '');
+    const tb = String(textoColuna(c, b, 0) ?? '');
+    return ta.localeCompare(tb, 'pt');
+  };
+}
+
 function chaveLinhaDe<T>(linha: T, indice: number, rowKey: TableProps<T>['rowKey']): Key {
   if (typeof rowKey === 'function') return rowKey(linha, indice) as Key;
   const campo = (rowKey ?? 'key') as string;
@@ -289,20 +307,30 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
   const linhas = useMemo(() => (dataSource ?? []) as T[], [dataSource]);
   const tamanhoBotoes = 'small' as const;
 
-  // ── colunas (acções automáticas + escolha «Colunas ▾») ──────────────────────────────────────────────────────
+  // ── colunas (acções automáticas + escolha «Colunas ▾» + ordenação por omissão) ──────────────────────────────
   const colunasBase = useMemo<Coluna<T>[]>(() => {
-    if (!accoes) return columns;
-    const colAccoes: Coluna<T> = {
-      key: '__accoes',
-      title: tituloAccoes,
-      accoes: true,
-      exportar: false,
-      filtravel: false,
-      ocultavel: false,
-      align: 'left',
-      render: (_: unknown, linha: T, i: number) => <AccoesLinha accoes={accoes(linha, i)} />,
-    };
-    return [...columns, colAccoes];
+    const base = accoes
+      ? [
+          ...columns,
+          {
+            key: '__accoes',
+            title: tituloAccoes,
+            accoes: true,
+            exportar: false,
+            filtravel: false,
+            ocultavel: false,
+            align: 'left',
+            render: (_: unknown, linha: T, i: number) => <AccoesLinha accoes={accoes(linha, i)} />,
+          } as Coluna<T>,
+        ]
+      : columns;
+    // Botão de ordenar por omissão: qualquer coluna com dataIndex que não defina o seu próprio `sorter` (as colunas
+    // de acções e sem dataIndex ficam sem seta, como até agora).
+    return mapearFolhas(base, (c) =>
+      c.sorter === undefined && !eColunaAccoes(c) && c.dataIndex !== undefined && c.dataIndex !== null
+        ? { ...c, sorter: compararColunaPorOmissao(c) }
+        : c,
+    );
   }, [columns, accoes, tituloAccoes]);
 
   const { escolha, definir } = useColunasEscolhidas(chaveLista);
@@ -567,6 +595,86 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
   const comExportacao = exportacao !== false && (!!impressao || !!obterPedidoExportacao);
   const excel = exportacao ? exportacao.excel ?? true : impressao?.excel ?? true;
 
+  // ── selecção de colunas (Ctrl+clique alterna, Alt+clique estende até à última) → «Copiar colunas seleccionadas»,
+  // o mesmo mecanismo do link «Copiar só algumas colunas…» de BotoesExportar, só que escolhido no próprio cabeçalho.
+  const mensagemColunas = useMensagem();
+  const [colunasSeleccionadas, setColunasSeleccionadas] = useState<Set<string>>(new Set());
+  const ultimaColunaRef = useRef<string | null>(null);
+  const colunasSeleccionaveis = useMemo(
+    () => folhasVisiveis.filter((c) => !eColunaAccoes(c) && tituloTexto(c)).map((c, i) => chavesFolhas.get(c) ?? String(i)),
+    [folhasVisiveis, chavesFolhas],
+  );
+  const aoClicarCabecalho = useCallback(
+    (chave: string, e: EventoRato<HTMLElement>) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setColunasSeleccionadas((s) => {
+          const n = new Set(s);
+          if (n.has(chave)) n.delete(chave);
+          else n.add(chave);
+          return n;
+        });
+        ultimaColunaRef.current = chave;
+      } else if (e.altKey && ultimaColunaRef.current) {
+        e.preventDefault();
+        const i1 = colunasSeleccionaveis.indexOf(ultimaColunaRef.current);
+        const i2 = colunasSeleccionaveis.indexOf(chave);
+        if (i1 !== -1 && i2 !== -1) {
+          const [de, ate] = i1 < i2 ? [i1, i2] : [i2, i1];
+          setColunasSeleccionadas(new Set(colunasSeleccionaveis.slice(de, ate + 1)));
+        }
+        ultimaColunaRef.current = chave;
+      }
+    },
+    [colunasSeleccionaveis],
+  );
+  const limparColunasSeleccionadas = () => {
+    setColunasSeleccionadas(new Set());
+    ultimaColunaRef.current = null;
+  };
+  const copiarColunasSeleccionadas = async () => {
+    const pedido = await obterPedido();
+    if (!pedido) return;
+    const titulosEscolhidos = new Set(folhasVisiveis.filter((c, i) => colunasSeleccionadas.has(chavesFolhas.get(c) ?? String(i))).map((c) => tituloTexto(c)));
+    const titulosTodos = colunasDoConteudo(pedido.conteudo);
+    const indices = titulosTodos.map((t, i) => (titulosEscolhidos.has(t) ? i : -1)).filter((i) => i !== -1);
+    if (!indices.length) {
+      mensagemColunas.warning('Não foi encontrada nenhuma tabela para copiar.');
+      return;
+    }
+    const texto = tabelaParaTexto(pedido.conteudo, indices);
+    const ok = await copiarTexto(texto);
+    mensagemColunas[ok ? 'success' : 'error'](ok ? `${indices.length} coluna(s) copiada(s). Já pode colar no Excel.` : 'Não foi possível copiar: o navegador bloqueou o acesso à área de transferência.');
+  };
+  useEffect(() => {
+    if (!colunasSeleccionadas.size) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      const alvo = document.activeElement;
+      const aEditar = alvo instanceof HTMLElement && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.isContentEditable);
+      if (!aEditar && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') void copiarColunasSeleccionadas();
+    };
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colunasSeleccionadas]);
+  const colunasComSeleccao = useMemo(
+    () =>
+      mapearFolhas(colunasVisiveis, (c) => {
+        const chave = chavesFolhas.get(c) ?? '';
+        if (!colunasSeleccionaveis.includes(chave)) return c;
+        const activa = colunasSeleccionadas.has(chave);
+        return {
+          ...c,
+          onHeaderCell: () => ({ className: activa ? 'erp-coluna-seleccionada' : undefined, onClick: (e: EventoRato<HTMLElement>) => aoClicarCabecalho(chave, e) }),
+          onCell: (linha: T, indice?: number) => {
+            const extra = (c.onCell?.(linha, indice) ?? {}) as HTMLAttributes<HTMLElement>;
+            return { ...extra, className: [extra.className, activa ? 'erp-coluna-seleccionada' : ''].filter(Boolean).join(' ') || undefined };
+          },
+        } as Coluna<T>;
+      }),
+    [colunasVisiveis, chavesFolhas, colunasSeleccionaveis, colunasSeleccionadas, aoClicarCabecalho],
+  );
+
   // ── contador ───────────────────────────────────────────────────────────────────────────────────────────────
   const fmt = (n: number) => n.toLocaleString('pt-PT');
   let textoContador: ReactNode = null;
@@ -622,6 +730,21 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
     <BarraSeleccao linhas={linhasSeleccionadas} chaves={chavesSel} accoes={seleccao.accoes} editarEmMassa={seleccao.editarEmMassa} ajuda={seleccao.ajuda} aoLimpar={limparSeleccao} />
   ) : null;
 
+  const barraColunas = colunasSeleccionadas.size > 0 ? (
+    <div className="erp-barra-colunas-seleccionadas">
+      <Space size={8} wrap>
+        <Tag color="blue">{colunasSeleccionadas.size} coluna{colunasSeleccionadas.size > 1 ? 's' : ''} seleccionada{colunasSeleccionadas.size > 1 ? 's' : ''}</Tag>
+        <Button size="small" type="primary" icon={<CopyOutlined />} onClick={() => void copiarColunasSeleccionadas()}>
+          Copiar (Ctrl+C)
+        </Button>
+        <Button size="small" type="text" onClick={limparColunasSeleccionadas}>
+          Limpar
+        </Button>
+        <span className="erp-barra-colunas-ajuda">Ctrl+clique no cabeçalho: alterna · Alt+clique: estende até à última</span>
+      </Space>
+    </div>
+  ) : null;
+
   const conteudo = renderAlternativo ? (
     renderAlternativo({ linhas: servidor ? filtradas : actuais, colunas: colunasVisiveis, paginacao: paginacao, rowSelection, vazio: vazioNo })
   ) : (
@@ -630,7 +753,7 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
         {...resto}
         className={['erp-tabela-legado', resto.className].filter(Boolean).join(' ')}
         components={componentesTabela}
-        columns={colunasVisiveis as ColumnsType<T>}
+        columns={colunasComSeleccao as ColumnsType<T>}
         dataSource={filtradas}
         pagination={paginacao}
         onChange={aoMudarTabela}
@@ -645,6 +768,7 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
     <>
       {caixa}
       {barraSeleccao}
+      {barraColunas}
       {conteudo}
     </>
   );

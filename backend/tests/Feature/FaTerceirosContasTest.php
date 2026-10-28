@@ -73,7 +73,12 @@ final class FaTerceirosContasTest extends TestCase
         $this->assertTrue(ContaTerceiro::classeCorrecta('31.1.1', 'CLIENTE'));
         $this->assertFalse(ContaTerceiro::classeCorrecta('3211', 'CLIENTE'));
         $this->assertTrue(ContaTerceiro::classeCorrecta('37.0.1', 'FORNECEDOR'));
-        $this->assertFalse(ContaTerceiro::classeCorrecta('3711', 'FORNECEDOR'));
+        $this->assertTrue(ContaTerceiro::classeCorrecta('3711', 'FORNECEDOR'));   // 37.1: outros devedores, também aceite nos fornecedores
+        $this->assertTrue(ContaTerceiro::classeCorrecta('37921', 'FORNECEDOR'));   // 37.92
+        $this->assertFalse(ContaTerceiro::classeCorrecta('6111', 'FORNECEDOR'));
+        $this->assertTrue(ContaTerceiro::classeCorrecta('37911', 'CLIENTE'));   // 37.91, também aceite nos clientes
+        $this->assertTrue(ContaTerceiro::classeCorrecta('3721', 'CLIENTE'));   // 37.2
+        $this->assertFalse(ContaTerceiro::classeCorrecta('3711', 'CLIENTE'));
         // a conta própria primeiro; o codigo_conta antigo só serve se for da classe do papel
         $this->assertSame('3112', ContaTerceiro::cliente(['conta_cliente' => '3112', 'codigo_conta' => '3111']));
         $this->assertSame('3111', ContaTerceiro::cliente(['codigo_conta' => '3111']));
@@ -209,7 +214,7 @@ final class FaTerceirosContasTest extends TestCase
 
         // sem conta de cliente (o codigo_conta antigo é de fornecedor): não se factura, e a mensagem diz que conta falta e em que terceiro
         $r = $doc($semConta)->assertStatus(422)->assertJsonPath('codigo', 'CLIENTE_INVALIDO');
-        $this->assertStringContainsString('Cliente Sem Conta não tem conta de cliente (classe 31)', $r->json('mensagem'));
+        $this->assertStringContainsString('Cliente Sem Conta não tem conta de cliente (classe 31, 37.91 ou 37.2)', $r->json('mensagem'));
 
         $ft = $doc($cliFor)->assertCreated()->json('dados.id');
         $lan = $this->postJson("/api/vendas/documentos/{$ft}/contabilizar", [], $this->h)->assertOk()->json('dados.numero_lan_contabilizacao');

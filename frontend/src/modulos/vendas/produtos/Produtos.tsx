@@ -82,7 +82,7 @@ function ListaProdutos() {
 
   const colunas: ColunaApi<ProdutoLista>[] = [
     {
-      title: 'Código', dataIndex: 'codigo', valorImpressao: (r) => r.codigo ?? '',
+      title: 'Código', dataIndex: 'codigo', valorImpressao: (r) => r.codigo ?? '', filtroServidor: 'pesquisa',
       render: (v, r) => <Space size={8}><MiniaturaProduto url={r.imagem_url} /><strong>{v || '—'}</strong></Space>,
     },
     {

@@ -17,6 +17,7 @@ import { SeletorConta } from './Seletores';
 import { SeletorConta as SeletorContaPlano } from '@/modulos/contab/comum/Seletores';
 import { ContasBancariasTerceiro } from '@/modulos/contab/tabelasAux/ContasBancariasTerceiro';
 import { contaCliente, contaFornecedor, prefixosConta, temPapel } from '@/modulos/contab/tabelasAux/contasTerceiro';
+import { BotaoValidarNifAgt } from './ValidarNifAgt';
 
 type Papel = 'CLIENTE' | 'FORNECEDOR';
 
@@ -91,19 +92,19 @@ export function colunasTerceiros(papel: Papel): ColunaApi<FichaTerceiro>[] {
   const moeda: ColunaApi<FichaTerceiro> = { title: 'Moeda', dataIndex: 'codigo_moeda', render: (v) => v || 'AOA' };
   if (papel === 'CLIENTE') {
     return [
-      { title: 'Nome', dataIndex: 'nome', ellipsis: true, render: (v: string) => v.trim() },
+      { title: 'Nome', dataIndex: 'nome', ellipsis: true, filtroServidor: 'pesquisa', render: (v: string) => v.trim() },
       { title: 'NIF', dataIndex: 'nif', render: (v) => v || '—' },
       { title: 'Endereço', dataIndex: 'endereco', ellipsis: true, render: (v) => v || '-' },
       { title: 'Email', dataIndex: 'email', render: (v) => v || '-' },
       moeda,
-      { title: <span title="Conta contabilística do cliente (classe 31)">Conta contabilística</span>, key: 'conta_cliente', render: (_, r) => <CelulaContaPapel papel="CLIENTE" r={r} />, valorImpressao: (r) => contaCliente(r) || '-' },
+      { title: <span title="Conta contabilística do cliente (classe 31, 37.91 ou 37.2)">Conta contabilística</span>, key: 'conta_cliente', render: (_, r) => <CelulaContaPapel papel="CLIENTE" r={r} />, valorImpressao: (r) => contaCliente(r) || '-' },
       colunaPapeis,
       { title: 'Telefone', dataIndex: 'telefone', render: (v) => v || '—', ocultaPorOmissao: true },
     ];
   }
   const contacto = (r: FichaTerceiro) => [r.endereco, r.telefone, r.email].filter((x) => x && x.trim()).join(' · ');
   return [
-    { title: 'Nome / Razão Social', dataIndex: 'nome', ellipsis: true, render: (v: string) => <strong>{v.trim()}</strong> },
+    { title: 'Nome / Razão Social', dataIndex: 'nome', ellipsis: true, filtroServidor: 'pesquisa', render: (v: string) => <strong>{v.trim()}</strong> },
     { title: 'NIF', dataIndex: 'nif', render: (v) => v || '—' },
     {
       title: 'Morada / Contacto', key: 'contacto', ellipsis: true, valorImpressao: (r) => contacto(r) || '-', valorFiltro: contacto,
@@ -115,7 +116,7 @@ export function colunasTerceiros(papel: Papel): ColunaApi<FichaTerceiro>[] {
       ),
     },
     moeda,
-    { title: <span title="Conta de fornecedor (classe 32 ou 37.0) — creditada na factura de compra">Conta de fornecedor (32/37.0)</span>, key: 'conta_fornecedor', render: (_, r) => <CelulaContaPapel papel="FORNECEDOR" r={r} />, valorImpressao: (r) => contaFornecedor(r) || '-' },
+    { title: <span title="Conta de fornecedor (classe 32, 37.0, 37.1 ou 37.92) — creditada na factura de compra">Conta de fornecedor (32/37.0)</span>, key: 'conta_fornecedor', render: (_, r) => <CelulaContaPapel papel="FORNECEDOR" r={r} />, valorImpressao: (r) => contaFornecedor(r) || '-' },
     { title: <span title="Conta de compras / trânsito usada na recepção (classe 328)">Compras / trânsito (328)</span>, dataIndex: 'conta_compra_transitoria', render: (v: string | null) => <CelulaConta codigo={v} /> },
     colunaPapeis,
   ];
@@ -156,7 +157,9 @@ export function camposTerceiro(papel: Papel): CampoFormulario[] {
     aliases: papel === 'CLIENTE' ? ['Conta_Cliente', 'Conta Cliente', 'Conta'] : ['Conta_Fornecedor', 'Conta Fornecedor', 'Conta'],
     validar: (v) => {
       const c = String(v ?? '').trim();
-      return c && !prefixos.some((x) => c.replace(/\./g, '').startsWith(x.replace(/\./g, ''))) ? `A conta tem de ser da classe ${prefixos.filter((x) => x !== '370').join(' ou ')}.` : null;
+      return c && !prefixos.some((x) => c.replace(/\./g, '').startsWith(x.replace(/\./g, '')))
+        ? `A conta tem de ser da classe ${papel === 'CLIENTE' ? '31, 37.91 ou 37.2' : '32, 37.0, 37.1 ou 37.92'}.`
+        : null;
     },
   };
   return [
@@ -198,6 +201,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
   const emLinhas = edicao === 'novo' && vistaForm === 'linhas';
   const camposLinhas = useMemo(() => camposTerceiro(papel), [papel]);
   const cliente = useQueryClient();
+  const nifActual = Form.useWatch('nif', form);
 
   const ficha = useQuery({
     queryKey: ['terceiros', 'ficha-completa', vista],
@@ -280,7 +284,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
               </Col>
               <Col xs={24} md={8}>
                 <Form.Item name="nif" label="NIF" rules={[{ max: 30 }]}>
-                  <Input />
+                  <Input addonAfter={<BotaoValidarNifAgt nif={nifActual} tamanho="small" apenasIcone />} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>

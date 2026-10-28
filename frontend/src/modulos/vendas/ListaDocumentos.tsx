@@ -182,7 +182,7 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
   const colunas: ColunaApi<DocumentoVenda>[] = [
     { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
     {
-      title: 'Nº Doc.', dataIndex: 'numero_documento', valorImpressao: (r) => r.numero_documento,
+      title: 'Nº Doc.', dataIndex: 'numero_documento', valorImpressao: (r) => r.numero_documento, filtroServidor: 'pesquisa',
       render: (v: string, r) => {
         const e = estadoAgtDoDocumento(r.faturacao_eletronica);
         return (

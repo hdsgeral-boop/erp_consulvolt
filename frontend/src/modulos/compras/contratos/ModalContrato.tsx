@@ -115,7 +115,7 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
         <Row gutter={16}>
           <Col xs={24} md={14}>
             <Form.Item name="fornecedor_id" label="Fornecedor" rules={[{ required: true, message: 'Escolha o fornecedor.' }]} tooltip={contrato ? 'Não muda se o contrato já tiver encomendas.' : undefined}>
-              <SeletorTerceiro papel="FORNECEDOR" />
+              <SeletorTerceiro papel="FORNECEDOR" permissaoCriar="compras_forn_gerir" />
             </Form.Item>
           </Col>
           <Col xs={24} md={10}>

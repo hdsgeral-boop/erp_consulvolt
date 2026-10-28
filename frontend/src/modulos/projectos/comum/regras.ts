@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { deCentimos, paraCentimos, type Valor } from '@/utilitarios/decimal';
-import type { GanttGlobal, MapaQuantidades, Projecto, TarefaWbs, Wbs } from './tipos';
+import type { EstadoTarefa, GanttGlobal, MapaQuantidades, Projecto, TarefaWbs, Wbs } from './tipos';
 
 /** Regras de apresentação do módulo Projectos (o servidor valida sempre). */
 
@@ -184,12 +184,15 @@ export function numeracaoWbs(wbs: Wbs | undefined): Map<string, string> {
  * (toggleGanttFase / toggleGanttWbs); `nivelMaximo` 0 = só fases, 1 = fases e tarefas. O rótulo é o código da tarefa
  * ou, sem código, a numeração WBS automática.
  */
-export function linhasGanttWbs(wbs: Wbs | undefined, opcoes: { periodo?: { de?: string | null; ate?: string | null }; fasesFechadas?: Set<string>; nivelMaximo?: number } = {}): LinhaGantt[] {
+export function linhasGanttWbs(wbs: Wbs | undefined, opcoes: { periodo?: { de?: string | null; ate?: string | null }; fasesFechadas?: Set<string>; nivelMaximo?: number; estados?: Set<EstadoTarefa> } = {}): LinhaGantt[] {
   const res: LinhaGantt[] = [];
   const de = opcoes.periodo?.de ?? null;
   const ate = opcoes.periodo?.ate ?? null;
+  const estados = opcoes.estados;
   const numeros = numeracaoWbs(wbs);
-  const toca = (t: TarefaWbs) => (!de && !ate) || (!!t.data_inicio && (!ate || t.data_inicio <= ate) && (!de || (t.data_fim ?? t.data_inicio) >= de));
+  const noPeriodo = (t: TarefaWbs) => (!de && !ate) || (!!t.data_inicio && (!ate || t.data_inicio <= ate) && (!de || (t.data_fim ?? t.data_inicio) >= de));
+  const noEstado = (t: TarefaWbs) => !estados || estados.size === 0 || estados.has(t.estado as EstadoTarefa);
+  const toca = (t: TarefaWbs) => noPeriodo(t) && noEstado(t);
   const fica = (t: TarefaWbs): boolean => toca(t) || (t.subtarefas ?? []).some(fica);
   const visitar = (t: TarefaWbs, nivel: number) => {
     if (!fica(t) || (opcoes.nivelMaximo !== undefined && nivel > opcoes.nivelMaximo)) return;
@@ -201,7 +204,7 @@ export function linhasGanttWbs(wbs: Wbs | undefined, opcoes: { periodo?: { de?: 
   };
   for (const g of ordenarGruposWbs(wbs?.grupos)) {
     if (!g.marco && !g.tarefas.length) continue;
-    if ((de || ate) && !g.tarefas.some(fica)) continue;
+    if ((de || ate || (estados && estados.size > 0)) && !g.tarefas.some(fica)) continue;
     const chave = `m-${g.marco?.id ?? 'sem'}`;
     const comInicio = !!g.marco?.data_inicio;
     const filhos = g.tarefas.some(fica) && opcoes.nivelMaximo !== 0;
@@ -213,6 +216,18 @@ export function linhasGanttWbs(wbs: Wbs | undefined, opcoes: { periodo?: { de?: 
     if (!opcoes.fasesFechadas?.has(chave)) g.tarefas.forEach((t) => visitar(t, 1));
   }
   return res;
+}
+
+/**
+ * Filtra a árvore de tarefas por estado, para a vista WBS (a mesma regra «fica» de `linhasGanttWbs`): uma tarefa
+ * fica se o seu próprio estado estiver nos escolhidos, OU alguma subtarefa ficar — os marcos/tarefas-mãe nunca
+ * desaparecem só por o filho corresponder, para a árvore continuar legível. `estados` vazio ou `undefined` = sem filtro.
+ */
+export function filtrarTarefaPorEstado(t: TarefaWbs, estados: Set<EstadoTarefa> | undefined): TarefaWbs | null {
+  if (!estados || estados.size === 0) return t;
+  const sub = (t.subtarefas ?? []).map((s) => filtrarTarefaPorEstado(s, estados)).filter((s): s is TarefaWbs => s !== null);
+  if (!estados.has(t.estado as EstadoTarefa) && sub.length === 0) return null;
+  return { ...t, subtarefas: sub };
 }
 
 /** Chaves das linhas que se podem recolher (para «Fechar árvore»); com `soTarefas`, só as tarefas (ganttArvore('tarefas')). */

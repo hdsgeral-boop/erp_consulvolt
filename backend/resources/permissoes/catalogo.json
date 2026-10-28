@@ -801,6 +801,16 @@
               "chave": "aux_reciclagem",
               "rotulo": "Reciclagem: restaurar e eliminar definitivamente",
               "sensivel": true
+            },
+            {
+              "chave": "credores_devedores_view",
+              "rotulo": "Ver o separador Credores e Devedores",
+              "sensivel": false
+            },
+            {
+              "chave": "credores_devedores_gerir",
+              "rotulo": "Criar e editar credores/devedores",
+              "sensivel": false
             }
           ]
         },

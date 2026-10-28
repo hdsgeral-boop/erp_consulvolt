@@ -5,6 +5,7 @@ import type { CampoFormulario } from '@/componentes/formularios';
 export type ChaveSeparadorAux =
   | 'diarios'
   | 'terceiros'
+  | 'credores-devedores'
   | 'notas-demonstracao'
   | 'notas-fluxo-caixa'
   | 'centros-custo'
@@ -25,6 +26,7 @@ export interface SeparadorAux {
 export const SEPARADORES_AUX: SeparadorAux[] = [
   { chave: 'diarios', rotulo: 'Diários' },
   { chave: 'terceiros', rotulo: 'Terceiros' },
+  { chave: 'credores-devedores', rotulo: 'Credores e Devedores', icone: 'id-card' },
   { chave: 'notas-demonstracao', rotulo: 'Notas de Demonstrações' },
   { chave: 'notas-fluxo-caixa', rotulo: 'Notas de Fluxo de Caixa' },
   { chave: 'centros-custo', rotulo: 'Centros de Custo' },

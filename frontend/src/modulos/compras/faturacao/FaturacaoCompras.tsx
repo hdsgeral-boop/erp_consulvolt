@@ -60,7 +60,7 @@ function ListaFaturas() {
   const accao = useAccao<FaturaCompra>({ invalidar: [['compras']], aoSucesso: () => setModal(null) });
 
   const colunas: ColunaApi<FaturaCompra>[] = [
-    { title: 'Fatura N', dataIndex: 'numero_fatura', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Fatura N', dataIndex: 'numero_fatura', fixed: 'left', filtroServidor: 'pesquisa', render: (v: string) => <strong>{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Encomenda Ref.', key: 'encomenda', valorImpressao: (r) => (r.encomenda_compra_id ? numeroOuId(r.numero_encomenda, r.encomenda_compra_id) : 'Directa'), render: (_, r) => (r.encomenda_compra_id ? numeroOuId(r.numero_encomenda, r.encomenda_compra_id) : 'Directa') },
     { title: 'Fornecedor', key: 'fornecedor', valorImpressao: (r) => r.fornecedor?.nome?.trim() ?? `#${r.fornecedor_id}`, render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },

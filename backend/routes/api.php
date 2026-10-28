@@ -117,6 +117,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
 
         Route::prefix('terceiros')->name('terceiros.')->group(function () {
             Route::get('/', [TerceiroController::class, 'index'])->name('index');
+            Route::get('consulta-nif-agt', [TerceiroController::class, 'consultaNifAgt'])->name('consulta-nif-agt');
             Route::post('/', [TerceiroController::class, 'store'])->name('store');
             Route::get('{terceiro}', [TerceiroController::class, 'show'])->whereNumber('terceiro')->name('show');
             Route::put('{terceiro}', [TerceiroController::class, 'update'])->whereNumber('terceiro')->name('update');
@@ -342,6 +343,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         Route::prefix('rh/salarios')->name('rh.salarios.')->controller(PagamentoSalariosController::class)->group(function () {
             Route::get('periodos/{id}/ordem-pagamento', 'ordem')->whereNumber('id')->name('ordem-pagamento');
             Route::post('periodos/{id}/cartas', 'emitir')->whereNumber('id')->name('cartas.emitir');
+            Route::post('periodos/{id}/folha-caixa', 'emitirFolhaCaixa')->whereNumber('id')->name('folha-caixa.emitir');
             Route::get('cartas', 'cartas')->name('cartas.index');
             Route::get('cartas/{carta}', 'carta')->whereNumber('carta')->name('cartas.show');
             Route::delete('cartas/{carta}', 'eliminar')->whereNumber('carta')->name('cartas.destroy');

@@ -50,6 +50,7 @@ abstract class TerceiroBase extends ModeloBase
 
     protected $fillable = [
         'empresa_id', 'nif', 'nome', 'tipo', 'tipo_original', 'endereco', 'codigo_conta', 'conta_fornecedor', 'conta_compra_transitoria', 'email', 'conta_cliente', 'codigo_moeda', 'fe_pais', 'telefone',
+        'conta_credor_devedor',
     ];
 
     protected function casts(): array

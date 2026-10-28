@@ -21,6 +21,7 @@ import { ModalImportar } from './comum/ficheiros';
 import { UnidadesNegocio } from '@/modulos/config/UnidadesNegocio';
 import { TabelaComModos } from '@/componentes/vistas';
 import { SeparadorTerceiros } from './tabelasAux/SeparadorTerceiros';
+import { CredoresDevedores } from './tabelasAux/CredoresDevedores';
 import { CartaoGradeLinhas } from './tabelasAux/CartaoGradeLinhas';
 import {
   CAMPOS_CONTA,
@@ -44,11 +45,13 @@ import {
 export default function TabelasAux() {
   const { pode } = useSessao();
   const { search } = useLocation();
-  const visiveis = SEPARADORES_AUX.filter((s) => s.chave !== 'reciclagem' || pode('aux_reciclagem', 'tabelas_aux_view'));
+  const visiveis = SEPARADORES_AUX.filter((s) => s.chave !== 'reciclagem' || pode('aux_reciclagem', 'tabelas_aux_view'))
+    .filter((s) => s.chave !== 'credores-devedores' || pode('credores_devedores_view', 'tabelas_aux_view'));
   const activo = separadorAuxActivo(search, visiveis.map((s) => s.chave));
   const conteudo: Record<ChaveSeparadorAux, () => ReactNode> = {
     diarios: () => <TabelaSimples key="diarios" tabela="diarios" titulo="Diários" />,
     terceiros: () => <SeparadorTerceiros />,
+    'credores-devedores': () => <CredoresDevedores />,
     'notas-demonstracao': () => <TabelaSimples key="nd" tabela="notas-demonstracao" titulo="Notas de Demonstrações" />,
     'notas-fluxo-caixa': () => <TabelaSimples key="nf" tabela="notas-fluxo-caixa" titulo="Notas de Fluxo de Caixa" />,
     'centros-custo': () => <TabelaSimples key="cc" tabela="centros-custo" titulo="Centros de Custo" />,
@@ -70,8 +73,8 @@ export default function TabelasAux() {
           destino: `/m/contab/tabelas_aux?separador=${s.chave}`,
         }))}
       />
-      {/* o Plano de contas e a Reciclagem já desenham o seu cartão */}
-      {activo === 'plano' || activo === 'reciclagem' ? conteudo[activo]() : <Card>{conteudo[activo]()}</Card>}
+      {/* o Plano de contas, a Reciclagem e os Credores/Devedores já desenham o seu cartão */}
+      {activo === 'plano' || activo === 'reciclagem' || activo === 'credores-devedores' ? conteudo[activo]() : <Card>{conteudo[activo]()}</Card>}
     </>
   );
 }
