@@ -1,5 +1,5 @@
 # Imagem PHP 8.3-FPM do backend ERP_CONSULVOLT (usada pelos serviços `app` e `worker`).
-FROM php:8.3-fpm-alpine
+FROM php:8.5-fpm-alpine
 
 RUN apk add --no-cache icu-libs libzip libpq libpng postgresql-client tzdata \
  && apk add --no-cache --virtual .deps-build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev postgresql-dev linux-headers \
