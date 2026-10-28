@@ -1,5 +1,5 @@
-import { Button, Dropdown, Modal, Result, Space, Spin, Tabs, Tag } from 'antd';
-import { ArrowLeftOutlined, DownOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Input, Modal, Result, Space, Spin, Tabs, Tag, Tooltip } from 'antd';
+import { ArrowLeftOutlined, DownOutlined, EditOutlined, FlagFilled } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -8,9 +8,10 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
+import { formatarData } from '@/utilitarios/formatacao';
 import { BarraExecucao, EtiquetaProjectos } from './comum/componentes';
 import { accoesProjecto } from './comum/regras';
-import type { FichaProjecto } from './comum/tipos';
+import type { FichaProjecto, ItemCatalogoProjeto } from './comum/tipos';
 import { ModalProjecto } from './ModalProjecto';
 import { OrigemProjecto } from './comum/OrigemProjecto';
 import { SeparadorResumo } from './separadores/Resumo';
@@ -50,6 +51,16 @@ export function DetalheProjecto() {
   };
   const q = useQuery({ queryKey: ['projectos', 'ficha', id], queryFn: () => obter<FichaProjecto>(`/projetos/${id}`) });
   const estado = useAccao({ invalidar: [['projectos']] });
+  const accaoSinal = useAccao({ invalidar: [['projectos']] });
+  const podeSinalizar = pode('proj_gerir');
+  const catalogoSinalizacoes = useQuery({
+    queryKey: ['projectos', 'sinalizacoes'],
+    queryFn: () => obter<ItemCatalogoProjeto[]>('/projetos/sinalizacoes'),
+    enabled: podeSinalizar,
+    retry: false,
+  });
+  const [aSinalizar, setASinalizar] = useState<ItemCatalogoProjeto | null>(null);
+  const [motivo, setMotivo] = useState('');
 
   if (q.isLoading) return <Spin style={{ display: 'block', margin: 48 }} />;
   if (q.error || !q.data) return <Result status="404" title="Projecto não encontrado" extra={<Button onClick={() => navegar('..')}>Voltar</Button>} />;
@@ -83,7 +94,26 @@ export function DetalheProjecto() {
             {p.codigo} — {p.nome}
             <EtiquetaProjectos valor={p.tipo} />
             <EtiquetaProjectos valor={p.estado} />
-            {(p.tags ?? []).map((t) => <Tag key={t} color="blue">{t}</Tag>)}
+            {(p.etiquetas ?? []).map((e) => <Tag key={`e-${e.id}`} color={e.cor}>{e.nome}</Tag>)}
+            {(p.sinalizacoes ?? []).map((s) => (
+              <Tooltip key={`s-${s.id}`} title={[s.pivot.motivo, s.pivot.levantada_por && `por ${s.pivot.levantada_por}`, s.pivot.levantada_em && formatarData(s.pivot.levantada_em)].filter(Boolean).join(' — ')}>
+                <Tag
+                  color={s.cor}
+                  icon={<FlagFilled />}
+                  closable={podeSinalizar}
+                  onClose={(e2) => {
+                    e2.preventDefault();
+                    Modal.confirm({
+                      title: `Remover a sinalização «${s.nome}»?`,
+                      okText: 'Remover', cancelText: 'Cancelar', okButtonProps: { danger: true },
+                      onOk: () => accaoSinal.mutateAsync({ metodo: 'delete', url: `/projetos/${p.id}/sinalizacoes/${s.id}` }),
+                    });
+                  }}
+                >
+                  {s.nome}
+                </Tag>
+              </Tooltip>
+            ))}
           </Space>
         }
         subtitulo={
@@ -97,6 +127,15 @@ export function DetalheProjecto() {
         accoes={
           <>
             {acc.editar && <Button icon={<EditOutlined />} onClick={() => setEditar(true)}>Editar</Button>}
+            {podeSinalizar && (catalogoSinalizacoes.data?.length ?? 0) > 0 && (
+              <Dropdown menu={{
+                items: (catalogoSinalizacoes.data ?? []).map((s) => ({ key: s.id, label: s.nome })),
+                onClick: ({ key }) => { setMotivo(''); setASinalizar((catalogoSinalizacoes.data ?? []).find((s) => s.id === Number(key)) ?? null); },
+              }}
+              >
+                <Button icon={<FlagFilled />}>Sinalizar <DownOutlined /></Button>
+              </Dropdown>
+            )}
             {itensEstado.length > 0 && (
               <Dropdown menu={{ items: itensEstado.map((i, n) => ({ ...i, key: `${i.key}-${n}` })), onClick: ({ key }) => { const i = itensEstado[Number(key.split('-')[1])]; mudarEstado(i.key, i.label); } }}>
                 <Button loading={estado.isPending}>Estado <DownOutlined /></Button>
@@ -105,6 +144,17 @@ export function DetalheProjecto() {
           </>
         }
       />
+      <Modal
+        title={`Sinalizar «${aSinalizar?.nome ?? ''}»`}
+        open={!!aSinalizar}
+        onCancel={() => setASinalizar(null)}
+        okText="Sinalizar"
+        cancelText="Cancelar"
+        confirmLoading={accaoSinal.isPending}
+        onOk={() => aSinalizar && accaoSinal.mutateAsync({ url: `/projetos/${p.id}/sinalizacoes`, dados: { sinalizacao_id: aSinalizar.id, motivo: motivo.trim() || undefined } }).then(() => setASinalizar(null))}
+      >
+        <Input.TextArea rows={3} maxLength={1000} placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus />
+      </Modal>
       <Tabs
         activeKey={separador}
         onChange={(k) => setParams({ sep: k }, { replace: true })}

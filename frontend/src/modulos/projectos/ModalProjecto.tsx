@@ -1,14 +1,14 @@
-import { Col, Form, Input, InputNumber, Radio, Row, Select, Space, Typography } from 'antd';
+import { Col, Form, Input, InputNumber, Radio, Row, Select, Space, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { enviar, obterPagina } from '@/api/cliente';
+import { enviar, obter, obterPagina } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { formatarKz } from '@/utilitarios/formatacao';
-import type { FichaProjecto, Projecto } from './comum/tipos';
+import type { FichaProjecto, ItemCatalogoProjeto, Projecto } from './comum/tipos';
 import { diasDoCalendario, MODELOS_CAL, modeloDe, NOMES_DIA } from './comum/regrasMetas';
 import { dadosProjecto, ESTADOS_PROJECTO_INICIAL, TIPOS_PROJECTO, validarLinhaProjecto } from './comum/linhas';
 import { larguraModal } from '@/componentes/responsivo';
@@ -27,7 +27,7 @@ interface Valores {
   cal_horas?: number;
   cal_dias?: number[];
   descricao?: string;
-  tags?: string[];
+  etiquetas_ids?: number[];
 }
 
 interface EncomendaNe { id: number; numero_documento: string; data_emissao?: string; total_liquido?: string; estado?: string | null; cliente_id?: number | null; cliente?: { nome: string } | null }
@@ -43,6 +43,7 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
   const cliente = Form.useWatch('cliente_id', form);
   const calModelo = Form.useWatch('cal_modelo', form);
   const accao = useAccao<Projecto>({ invalidar: [['projectos']], aoSucesso: (p) => { aoGravar?.(p); aoFechar(); } });
+  const etiquetas = useQuery({ queryKey: ['projectos', 'etiquetas'], queryFn: () => obter<ItemCatalogoProjeto[]>('/projetos/etiquetas'), enabled: aberto, retry: false });
   const encomendas = useQuery({
     queryKey: ['projectos', 'encomendas-venda', cliente],
     queryFn: () => obterPagina<EncomendaNe>('/vendas/documentos', { tipo_documento: 'NE', cliente_id: cliente, por_pagina: 100 }),
@@ -102,8 +103,8 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
         ? { codigo: projecto.codigo ?? undefined, nome: projecto.nome, tipo: projecto.tipo as Valores['tipo'], estado: projecto.estado, unidade_negocio_id: projecto.unidade_negocio_id ?? undefined,
             centro_custo_id: projecto.centro_custo_id ?? undefined, cliente_id: projecto.cliente_id ?? undefined, encomenda_venda_id: projecto.encomenda_venda_id ?? undefined,
             cal_modelo: modeloDe(diasDoCalendario(projecto.calendario)), cal_horas: projecto.calendario?.horas_dia ?? 8, cal_dias: diasDoCalendario(projecto.calendario),
-            descricao: projecto.descricao ?? undefined, tags: projecto.tags ?? [] }
-        : { tipo: 'INTERNO', estado: 'PREPARACAO', cal_modelo: 'SEG_SEX', cal_horas: 8, cal_dias: MODELOS_CAL.SEG_SEX.dias, tags: [] },
+            descricao: projecto.descricao ?? undefined, etiquetas_ids: projecto.etiquetas?.map((e) => e.id) ?? [] }
+        : { tipo: 'INTERNO', estado: 'PREPARACAO', cal_modelo: 'SEG_SEX', cal_horas: 8, cal_dias: MODELOS_CAL.SEG_SEX.dias, etiquetas_ids: [] },
     );
   }, [aberto, projecto, form]);
 
@@ -211,8 +212,17 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
           <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>O calendário não conhece feriados nem turnos: é uma repartição linear pelos dias de trabalho.</Typography.Paragraph>
         </SeccaoFormulario>
         <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={5000} /></Form.Item>
-        <Form.Item name="tags" label="Tags" tooltip="Texto livre: escreva e prima Enter para criar uma tag">
-          <Select mode="tags" tokenSeparators={[',']} maxTagTextLength={40} placeholder="Sem tags" />
+        <Form.Item name="etiquetas_ids" label="Etiquetas" tooltip="Geridas em «Etiquetas e sinalizações», no cabeçalho da Carteira de Projectos">
+          <Select
+            mode="multiple"
+            loading={etiquetas.isFetching}
+            placeholder="Sem etiquetas"
+            options={(etiquetas.data ?? []).map((e) => ({ value: e.id, label: e.nome }))}
+            tagRender={({ label, value, closable, onClose }) => {
+              const cor = etiquetas.data?.find((e) => e.id === value)?.cor;
+              return <Tag color={cor} closable={closable} onClose={onClose} style={{ marginInlineEnd: 4 }}>{label}</Tag>;
+            }}
+          />
         </Form.Item>
       </Form>
     </ModalFormulario>

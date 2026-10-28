@@ -5,6 +5,18 @@ export type EstadoTarefa = 'PENDENTE' | 'EM_CURSO' | 'CONCLUIDA' | 'BLOQUEADA';
 /** Bandeira de atenção manual, ver `./flags.ts`. */
 export type CorFlag = 'verde' | 'amarelo' | 'vermelho' | 'preto';
 
+/** Item do catálogo partilhado (por empresa, com cor) — etiqueta ou sinalização. */
+export interface ItemCatalogoProjeto {
+  id: number;
+  nome: string;
+  cor: string;
+}
+
+/** Sinalização atribuída a um projecto: motivo, quem a levantou e quando (tabela de associação). */
+export interface SinalizacaoAtribuida extends ItemCatalogoProjeto {
+  pivot: { motivo: string | null; levantada_por: string | null; levantada_em: string };
+}
+
 export interface Projecto {
   id: number;
   codigo: string | null;
@@ -19,8 +31,10 @@ export interface Projecto {
   cliente?: { id: number; nome: string; nif?: string | null } | null;
   /** Na carteira: indicadores de prazo e orçamento para o semáforo (ver comum/regraSemaforo.ts). */
   semaforo?: IndicadoresSemaforo | null;
-  /** Tags do projecto: texto livre, sem ecrã de gestão central. */
-  tags?: string[] | null;
+  /** Catálogo partilhado (por empresa, com cor) — classificam o projecto (sector, tipo de obra, cliente…). */
+  etiquetas?: ItemCatalogoProjeto[];
+  /** Catálogo partilhado (por empresa, com cor) — chamam a atenção e guardam o motivo, quem a levantou e quando. */
+  sinalizacoes?: SinalizacaoAtribuida[];
 }
 
 /** GET /projetos (carteira): os números dos alertas de prazo e orçamento do Resumo, por projecto. */

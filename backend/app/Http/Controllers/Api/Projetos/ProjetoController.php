@@ -34,7 +34,7 @@ final class ProjetoController extends Controller
         $this->exigir(...self::LER);
         $f = $r->validate(['estado' => ['nullable', Rule::in(Projeto::ESTADOS)], 'tipo' => ['nullable', Rule::in(Projeto::TIPOS)], 'pesquisa' => ['nullable', 'string', 'max:100'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
-        $q = Projeto::query()->with(['cliente' => fn ($c) => $c->withTrashed()->select(['id', 'nome', 'nif'])])   // nome do cliente na carteira (ADR-064)
+        $q = Projeto::query()->with(['cliente' => fn ($c) => $c->withTrashed()->select(['id', 'nome', 'nif']), 'etiquetas', 'sinalizacoes'])   // nome do cliente na carteira (ADR-064)
             ->when($f['estado'] ?? null, fn ($q, $v) => $v === 'ACTIVO' ? $q->whereIn('estado', ['ACTIVO', 'EM_CURSO']) : $q->where('estado', $v))
             ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
             ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where(fn ($x) => $x->where('codigo', 'ilike', "%{$v}%")->orWhere('nome', 'ilike', "%{$v}%")));
@@ -57,7 +57,7 @@ final class ProjetoController extends Controller
     public function show(int $projeto): JsonResponse
     {
         $this->exigir(...self::LER);
-        $p = Projeto::query()->findOrFail($projeto);
+        $p = Projeto::query()->with(['etiquetas', 'sinalizacoes'])->findOrFail($projeto);
         $tarefas = TarefaProjeto::query()->where('projeto_id', $p->id)->get();
 
         return RespostaApi::sucesso($p->toArray() + ['execucao' => ServicoPlaneamentoProjetos::progresso($tarefas)['global'],
@@ -108,6 +108,23 @@ final class ProjetoController extends Controller
         ServicoProjetos::mudancaSensivel($p, $d['estado']) ? $this->exigir('proj_estado') : $this->exigir('proj_gerir', 'proj_estado');
 
         return RespostaApi::sucesso($this->projetos->mudarEstado($p, $d['estado']), 'Estado do projecto alterado.');
+    }
+
+    public function sinalizar(Request $r, int $projeto): JsonResponse
+    {
+        $this->exigir('proj_gerir');
+        $p = Projeto::query()->findOrFail($projeto);
+        $d = $r->validate(['sinalizacao_id' => ['required', 'integer'], 'motivo' => ['nullable', 'string', 'max:1000']]);
+
+        return RespostaApi::sucesso($this->projetos->assinalar($p, (int) $d['sinalizacao_id'], $d['motivo'] ?? null), 'Projecto assinalado.');
+    }
+
+    public function removerSinalizacao(int $projeto, int $sinalizacao): JsonResponse
+    {
+        $this->exigir('proj_gerir');
+        $p = Projeto::query()->findOrFail($projeto);
+
+        return RespostaApi::sucesso($this->projetos->removerSinalizacao($p, $sinalizacao), 'Sinalização removida.');
     }
 
     public function resumo(int $projeto): JsonResponse
@@ -199,7 +216,7 @@ final class ProjetoController extends Controller
             'calendario' => ['nullable', 'array'], 'calendario.modelo' => ['nullable', Rule::in([...array_keys(RegrasMetasProjetos::MODELOS_CAL), 'PERSONALIZADO'])],
             'calendario.horas_dia' => ['nullable', 'numeric', 'between:0.5,24'], 'calendario.dias' => ['nullable', 'array', 'size:7'],
             'calendario.dias.*' => ['numeric', Rule::in(['0', '0.5', '1'])], 'descricao' => ['nullable', 'string', 'max:5000'],
-            'tags' => ['nullable', 'array'], 'tags.*' => ['nullable', 'string', 'max:40'],
+            'etiquetas_ids' => ['nullable', 'array'], 'etiquetas_ids.*' => ['integer'],
         ]);
     }
 }

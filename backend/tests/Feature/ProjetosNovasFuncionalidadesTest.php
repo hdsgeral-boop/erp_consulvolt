@@ -12,7 +12,8 @@ use Tests\TestCase;
 
 /**
  * Melhorias do módulo Projectos & Obras: reordenar marcos (↑/↓, tarefas acompanham por FK), bandeiras de atenção
- * (tarefas e subtarefas), tags do projecto e o Backlog (requisições pendentes/fechadas, estimativa de activos).
+ * (tarefas e subtarefas), catálogo de etiquetas e sinalizações do projecto e o Backlog (requisições
+ * pendentes/fechadas, estimativa de activos).
  */
 final class ProjetosNovasFuncionalidadesTest extends TestCase
 {
@@ -105,14 +106,48 @@ final class ProjetosNovasFuncionalidadesTest extends TestCase
     }
 
     #[Test]
-    public function tags_do_projecto_texto_livre_aparadas_sem_duplicadas(): void
+    public function etiquetas_catalogo_partilhado_associadas_ao_projecto_e_eliminar_retira_de_todos(): void
     {
         $s = $this->s;
-        $p = $this->projeto(['tags' => [' Obra pública ', 'Urgente', 'Urgente', '']]);
-        $this->assertSame(['Obra pública', 'Urgente'], $this->getJson("/api/projetos/{$p}", $s)->assertOk()->json('dados.tags'));
+        $obra = $this->postJson('/api/projetos/etiquetas', ['nome' => 'Obra pública', 'cor' => '#16a34a'], $s)->assertCreated()->json('dados.id');
+        $urgente = $this->postJson('/api/projetos/etiquetas', ['nome' => 'Urgente'], $s)->assertCreated()->json('dados.id');
 
-        $this->putJson("/api/projetos/{$p}", ['tags' => ['Fase 2']], $s)->assertOk()->assertJsonPath('dados.tags', ['Fase 2']);
-        $this->putJson("/api/projetos/{$p}", ['tags' => []], $s)->assertOk()->assertJsonPath('dados.tags', []);
+        // nome duplicado (mesmo sem distinguir maiúsculas) é recusado
+        $this->postJson('/api/projetos/etiquetas', ['nome' => 'urgente'], $s)->assertStatus(422);
+
+        $p = $this->projeto(['etiquetas_ids' => [$obra, $urgente]]);
+        $nomes = fn ($r) => collect($r->json('dados.etiquetas'))->pluck('nome')->sort()->values()->all();
+        $this->assertSame(['Obra pública', 'Urgente'], $nomes($this->getJson("/api/projetos/{$p}", $s)->assertOk()));
+
+        // actualizar substitui o conjunto (não acrescenta)
+        $this->putJson("/api/projetos/{$p}", ['etiquetas_ids' => [$urgente]], $s)->assertOk();
+        $this->assertSame(['Urgente'], $nomes($this->getJson("/api/projetos/{$p}", $s)->assertOk()));
+
+        // eliminar do catálogo retira-a de todos os projectos que a tinham
+        $this->deleteJson("/api/projetos/etiquetas/{$urgente}", [], $s)->assertOk();
+        $this->assertSame([], $nomes($this->getJson("/api/projetos/{$p}", $s)->assertOk()));
+    }
+
+    #[Test]
+    public function sinalizar_o_projecto_guarda_motivo_quem_e_quando_e_pode_ser_removida(): void
+    {
+        $s = $this->s;
+        $risco = $this->postJson('/api/projetos/sinalizacoes', ['nome' => 'Em risco', 'cor' => '#dc2626'], $s)->assertCreated()->json('dados.id');
+        $p = $this->projeto();
+
+        $r = $this->postJson("/api/projetos/{$p}/sinalizacoes", ['sinalizacao_id' => $risco, 'motivo' => 'Atraso do fornecedor'], $s)->assertOk();
+        $sinal = collect($r->json('dados.sinalizacoes'))->firstWhere('id', $risco);
+        $this->assertSame('Atraso do fornecedor', $sinal['pivot']['motivo']);
+        $this->assertNotEmpty($sinal['pivot']['levantada_por']);
+        $this->assertNotEmpty($sinal['pivot']['levantada_em']);
+
+        // assinalar outra vez actualiza o motivo em vez de duplicar
+        $r = $this->postJson("/api/projetos/{$p}/sinalizacoes", ['sinalizacao_id' => $risco, 'motivo' => 'Resolvido com outro fornecedor'], $s)->assertOk();
+        $this->assertCount(1, $r->json('dados.sinalizacoes'));
+        $this->assertSame('Resolvido com outro fornecedor', collect($r->json('dados.sinalizacoes'))->firstWhere('id', $risco)['pivot']['motivo']);
+
+        $r = $this->deleteJson("/api/projetos/{$p}/sinalizacoes/{$risco}", [], $s)->assertOk();
+        $this->assertSame([], $r->json('dados.sinalizacoes'));
     }
 
     #[Test]

@@ -1,5 +1,5 @@
-import { Button, Card, Input, Select, Tag, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Input, Select, Space, Tag, Typography } from 'antd';
+import { PlusOutlined, TagsOutlined } from '@ant-design/icons';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { accoesLinhaCarteira } from './comum/regras';
 import type { Projecto } from './comum/tipos';
 import { CabecalhoSemaforo, Semaforo } from './comum/Semaforo';
 import { DetalheProjecto } from './DetalheProjecto';
+import { ModalCatalogoEtiquetasSinalizacoes } from './ModalCatalogoEtiquetasSinalizacoes';
 import { ModalProjecto } from './ModalProjecto';
 
 /** Projectos › Carteira (ecrã projectos_carteira): lista dos projectos e detalhe com os separadores de planeamento, equipa, orçamento e execução. */
@@ -40,6 +41,7 @@ function ListaProjectos() {
   const [estado, setEstado] = useState<string>();
   const [tipo, setTipo] = useState<string>();
   const [novo, setNovo] = useState(false);
+  const [catalogo, setCatalogo] = useState(false);
   const pequeno = useEcraPequeno();
 
   const colunas: ColunaApi<Projecto>[] = [
@@ -51,6 +53,12 @@ function ListaProjectos() {
     { title: 'Tipo', dataIndex: 'tipo', responsive: ['lg'], ocultaPorOmissao: true, render: (v) => <EtiquetaProjectos valor={v} /> },
     // como o legado (renderProjectsList, ui_projects.js:456-512): ACTIVO e EM_CURSO aparecem os dois como «Em Curso» (verde); preparação âmbar; encerrado cinzento; cancelado vermelho
     { title: 'Estado', dataIndex: 'estado', width: 150, render: (v: string) => <Tag color={ESTADO_CARTEIRA[v]?.cor ?? 'default'}>{ESTADO_CARTEIRA[v]?.rotulo ?? rotuloProjectos(v)}</Tag> },
+    { title: 'Etiquetas e sinalizações', key: 'etiquetas', ellipsis: true, responsive: ['lg'], ocultaPorOmissao: true, filtravel: false, render: (_, p) => (
+      <Space size={4} wrap>
+        {(p.etiquetas ?? []).map((e) => <Tag key={`e-${e.id}`} color={e.cor}>{e.nome}</Tag>)}
+        {(p.sinalizacoes ?? []).map((s) => <Tag key={`s-${s.id}`} color={s.cor}>{s.nome}</Tag>)}
+      </Space>
+    ) },
   ];
 
   return (
@@ -58,7 +66,12 @@ function ListaProjectos() {
       <CabecalhoPagina
         titulo="Carteira de Projectos"
         subtitulo="Lista global de projectos e obras."
-        accoes={pode('proj_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo Projecto</Button>}
+        accoes={
+          <>
+            <Button icon={<TagsOutlined />} onClick={() => setCatalogo(true)}>Etiquetas e sinalizações</Button>
+            {pode('proj_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo Projecto</Button>}
+          </>
+        }
       />
       <Card>
         <BarraFiltros>
@@ -81,6 +94,7 @@ function ListaProjectos() {
         />
       </Card>
       <ModalProjecto aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(p) => navegar(String(p.id))} />
+      <ModalCatalogoEtiquetasSinalizacoes aberto={catalogo} aoFechar={() => setCatalogo(false)} />
     </>
   );
 }

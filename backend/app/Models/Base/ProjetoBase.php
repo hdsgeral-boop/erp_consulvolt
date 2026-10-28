@@ -13,6 +13,7 @@ use App\Models\DocumentoProjeto;
 use App\Models\DocumentoTesouraria;
 use App\Models\EncomendaCompra;
 use App\Models\EquipaProjeto;
+use App\Models\EtiquetaProjeto;
 use App\Models\FaturacaoProjeto;
 use App\Models\FaturaCompra;
 use App\Models\FolhaHorasProjeto;
@@ -37,12 +38,14 @@ use App\Models\RazaoAnaliticoProjeto;
 use App\Models\ReciboVenda;
 use App\Models\RequisicaoMaterialProjeto;
 use App\Models\RevisaoMensalProjeto;
+use App\Models\SinalizacaoProjeto;
 use App\Models\TarefaProjeto;
 use App\Models\Terceiro;
 use App\Models\TransferenciaCentroCustoAtivo;
 use App\Models\UnidadeNegocio;
 use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -59,7 +62,7 @@ abstract class ProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'estado', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'cliente_id', 'encomenda_venda_id', 'calendario', 'descricao', 'origem', 'assunto_metodo_id', 'tags',
+        'empresa_id', 'codigo', 'nome', 'estado', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'cliente_id', 'encomenda_venda_id', 'calendario', 'descricao', 'origem', 'assunto_metodo_id',
     ];
 
     protected function casts(): array
@@ -72,11 +75,21 @@ abstract class ProjetoBase extends ModeloBase
             'encomenda_venda_id' => 'integer',
             'calendario' => 'array',
             'assunto_metodo_id' => 'integer',
-            'tags' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
         ];
+    }
+
+    public function etiquetas(): BelongsToMany
+    {
+        return $this->belongsToMany(EtiquetaProjeto::class, 'projeto_etiqueta', 'projeto_id', 'etiqueta_id')->withPivot('criado_em');
+    }
+
+    public function sinalizacoes(): BelongsToMany
+    {
+        return $this->belongsToMany(SinalizacaoProjeto::class, 'projeto_sinalizacao', 'projeto_id', 'sinalizacao_id')
+            ->withPivot(['motivo', 'levantada_por', 'levantada_em']);
     }
 
     public function unidadeNegocio(): BelongsTo

@@ -5,8 +5,10 @@ namespace App\Services\Projetos;
 use App\Exceptions\ErroNegocio;
 use App\Models\CentroCusto;
 use App\Models\ConfiguracaoProjeto;
+use App\Models\EtiquetaProjeto;
 use App\Models\LogAtividadeProjeto;
 use App\Models\Projeto;
+use App\Models\SinalizacaoProjeto;
 use App\Models\TarefaProjeto;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
@@ -92,12 +94,9 @@ final class ServicoProjetos
         if (array_key_exists('descricao', $d)) {
             $campos['descricao'] = trim((string) $d['descricao']) ?: null;
         }
-        if (array_key_exists('tags', $d)) {
-            // texto livre, sem ecrã de gestão central: aparadas, sem vazias, sem duplicadas
-            $campos['tags'] = array_values(array_unique(array_filter(array_map(fn ($t) => trim((string) $t), (array) $d['tags']))));
-        }
+        $etiquetaIds = array_key_exists('etiquetas_ids', $d) ? EtiquetaProjeto::query()->whereIn('id', (array) $d['etiquetas_ids'])->pluck('id')->all() : null;
 
-        return DB::transaction(function () use ($d, $p, $empresa, $tipo, $nome, $estado, $campos) {
+        return DB::transaction(function () use ($d, $p, $empresa, $tipo, $nome, $estado, $campos, $etiquetaIds) {
             $codigo = trim((string) ($d['codigo'] ?? $p?->codigo ?? ''));
             if ($codigo === '') {
                 $ano = now()->year;
@@ -116,13 +115,15 @@ final class ServicoProjetos
                 if ($antes !== $estado) {
                     $this->registar($p->id, 'Mudar estado', "{$antes} → {$estado}");
                 }
-
-                return $p->refresh();
+            } else {
+                $p = Projeto::create($dados);
+                $this->registar($p->id, 'Criar projecto', "{$codigo} {$nome}");
             }
-            $novo = Projeto::create($dados);
-            $this->registar($novo->id, 'Criar projecto', "{$codigo} {$nome}");
+            if ($etiquetaIds !== null) {
+                $p->etiquetas()->sync($etiquetaIds);
+            }
 
-            return $novo;
+            return $p->refresh()->load('etiquetas');
         });
     }
 
@@ -165,6 +166,34 @@ final class ServicoProjetos
         if (in_array($p->estado, Projeto::FECHADOS, true)) {
             throw new ErroNegocio("O projecto {$p->codigo} está encerrado ou cancelado e não aceita imputações.", 'PROJETO_FECHADO', 422);
         }
+    }
+
+    // ───────────── Sinalizações (catálogo em ServicoSinalizacoesProjeto); etiquetas são sincronizadas em guardar() ─────────────
+
+    /** Assinala o projecto com a sinalização indicada; se já estava assinalado, actualiza o motivo, quem e quando. */
+    public function assinalar(Projeto $p, int $sinalizacaoId, ?string $motivo): Projeto
+    {
+        $sinalizacao = SinalizacaoProjeto::query()->findOrFail($sinalizacaoId);
+
+        return DB::transaction(function () use ($p, $sinalizacao, $motivo) {
+            $p->sinalizacoes()->syncWithoutDetaching([$sinalizacao->id => [
+                'motivo' => trim((string) $motivo) ?: null, 'levantada_por' => Auth::user()?->nome_utilizador, 'levantada_em' => now(),
+            ]]);
+            $this->registar($p->id, 'Assinalar projecto', $sinalizacao->nome.($motivo ? " — {$motivo}" : ''));
+
+            return $p->refresh()->load('sinalizacoes');
+        });
+    }
+
+    public function removerSinalizacao(Projeto $p, int $sinalizacaoId): Projeto
+    {
+        return DB::transaction(function () use ($p, $sinalizacaoId) {
+            $nome = SinalizacaoProjeto::query()->find($sinalizacaoId)?->nome ?? "#{$sinalizacaoId}";
+            $p->sinalizacoes()->detach($sinalizacaoId);
+            $this->registar($p->id, 'Remover sinalização', $nome);
+
+            return $p->refresh()->load('sinalizacoes');
+        });
     }
 
     /** Projectos activos para os selectores dos outros módulos (ProjectAPI.getActiveProjects). */

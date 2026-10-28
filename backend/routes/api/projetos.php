@@ -4,9 +4,11 @@
 // Projectos / obras (ADR-052).
 
 use App\Http\Controllers\Api\Projetos\EquipaController;
+use App\Http\Controllers\Api\Projetos\EtiquetaProjetoController;
 use App\Http\Controllers\Api\Projetos\ExecucaoController;
 use App\Http\Controllers\Api\Projetos\PlaneamentoController;
 use App\Http\Controllers\Api\Projetos\ProjetoController;
+use App\Http\Controllers\Api\Projetos\SinalizacaoProjetoController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('projetos')->name('projetos.')->group(function () {
@@ -21,8 +23,24 @@ Route::prefix('projetos')->name('projetos.')->group(function () {
         Route::get('{projeto}', 'show')->whereNumber('projeto')->name('show');
         Route::put('{projeto}', 'update')->whereNumber('projeto')->name('update');
         Route::post('{projeto}/estado', 'estado')->whereNumber('projeto')->name('estado');
+        Route::post('{projeto}/sinalizacoes', 'sinalizar')->whereNumber('projeto')->name('sinalizacoes.store');
+        Route::delete('{projeto}/sinalizacoes/{sinalizacao}', 'removerSinalizacao')->whereNumber('projeto')->whereNumber('sinalizacao')->name('sinalizacoes.destroy');
         Route::get('{projeto}/resumo', 'resumo')->whereNumber('projeto')->name('resumo');
         Route::get('{projeto}/atividade', 'atividade')->whereNumber('projeto')->name('atividade');
+    });
+
+    // Catálogo de «Etiquetas e sinalizações dos projectos» (por empresa, com cor) — modal partilhado pela Carteira.
+    Route::controller(EtiquetaProjetoController::class)->prefix('etiquetas')->name('etiquetas.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('{etiqueta}', 'update')->whereNumber('etiqueta')->name('update');
+        Route::delete('{etiqueta}', 'destroy')->whereNumber('etiqueta')->name('destroy');
+    });
+    Route::controller(SinalizacaoProjetoController::class)->prefix('sinalizacoes')->name('sinalizacoes.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('{sinalizacao}', 'update')->whereNumber('sinalizacao')->name('update');
+        Route::delete('{sinalizacao}', 'destroy')->whereNumber('sinalizacao')->name('destroy');
     });
 
     Route::prefix('{projeto}')->whereNumber('projeto')->group(function () {
