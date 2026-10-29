@@ -1,4 +1,4 @@
-import { Button, Card, Input, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Button, Card, Input, InputNumber, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { ClockCircleOutlined, CommentOutlined, DashboardOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -12,11 +12,22 @@ import { ConversaSuporte } from '@/modulos/config/comum/ConversaSuporte';
 interface Ticket {
   id: number; tenant_id: number; cliente: string | null; assunto: string; descricao: string | null; estado: string; prioridade: string; categoria: string;
   criado_por: string | null; criado_em: string; agente_id: number | null; agente_nome: string | null; prazo_sla: string | null; em_atraso: boolean;
+  tempo_atendimento_minutos: number | null;
 }
 interface Agente { id: number; nome: string }
 
-const ESTADOS = ['ABERTO', 'EM_CURSO', 'RESOLVIDO', 'FECHADO'];
-const CATEGORIAS = ['GERAL', 'PLANO', 'FACTURACAO', 'MARKETING'];
+// Fase 6 da extensão SaaS (segurança.txt, secção 13.3): os 11 estados — ver TicketSuporte::ESTADOS.
+const ESTADOS = [
+  'ABERTO', 'EM_TRIAGEM', 'EM_ANALISE', 'ATRIBUIDO', 'EM_CURSO', 'A_AGUARDAR_CLIENTE', 'A_AGUARDAR_TERCEIRO',
+  'RESOLVIDO', 'FECHADO', 'REABERTO', 'CANCELADO',
+];
+// Categorias (ADR-077, alargadas na Fase 6) — ver TicketSuporte::CATEGORIAS. O servidor já restringe o que cada
+// agente vê pela sua especialização; este filtro é só de conforto sobre o que chegou.
+const CATEGORIAS = [
+  'GERAL', 'MARKETING', 'PLANO', 'FACTURACAO', 'PAGAMENTO', 'SUBSCRICAO',
+  'INCIDENTE_TECNICO', 'ERRO_FUNCIONAL', 'AUTENTICACAO', 'PERMISSOES', 'CONFIGURACAO', 'DESEMPENHO', 'INTEGRACAO', 'SEGURANCA',
+  'MELHORIA', 'DUVIDA', 'ADMINISTRATIVA', 'OUTROS',
+];
 const CHAVE = ['suporte_agente', 'tickets'];
 
 /**
@@ -58,7 +69,18 @@ export default function SuportePainel() {
         </Space>
       }>
         <Table<Ticket> rowKey="id" size="middle" loading={lista.isLoading} dataSource={linhas} scroll={{ x: 'max-content' }}
-          expandable={{ expandedRowRender: (t) => t.descricao ?? '—' }}
+          expandable={{
+            expandedRowRender: (t) => (
+              <Space direction="vertical" size={8}>
+                <span>{t.descricao ?? '—'}</span>
+                <Space>
+                  <span>Tempo de atendimento (min):</span>
+                  <InputNumber size="small" min={0} value={t.tempo_atendimento_minutos ?? undefined}
+                    onBlur={(e) => { const v = e.target.value ? Number(e.target.value) : null; if (v !== t.tempo_atendimento_minutos) mudar.mutate({ id: t.id, dados: { tempo_atendimento_minutos: v } }); }} />
+                </Space>
+              </Space>
+            ),
+          }}
           columns={[
             { title: 'Cliente', dataIndex: 'cliente', render: (v: string | null) => v || <Tag>—</Tag> },
             {

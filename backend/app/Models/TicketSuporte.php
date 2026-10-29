@@ -85,12 +85,16 @@ class TicketSuporte extends ModeloBase
 
     protected $fillable = [
         'tenant_id', 'assunto', 'descricao', 'estado', 'prioridade', 'categoria', 'criado_por',
-        'agente_id', 'prazo_sla', 'primeira_resposta_em', 'csat_nota', 'csat_comentario',
+        'agente_id', 'prazo_sla', 'primeira_resposta_em', 'csat_nota', 'csat_comentario', 'sla_violado_avisado_em',
+        'tempo_atendimento_minutos',
     ];
 
     protected function casts(): array
     {
-        return ['prazo_sla' => 'datetime', 'primeira_resposta_em' => 'datetime', 'csat_nota' => 'integer', 'agente_id' => 'integer'];
+        return [
+            'prazo_sla' => 'datetime', 'primeira_resposta_em' => 'datetime', 'csat_nota' => 'integer', 'agente_id' => 'integer',
+            'sla_violado_avisado_em' => 'datetime', 'tempo_atendimento_minutos' => 'integer',
+        ];
     }
 
     /** Prazo do SLA (ainda não vencido = em dia; estados abertos com prazo vencido = em atraso). */

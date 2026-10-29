@@ -1,4 +1,4 @@
-import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, message } from 'antd';
+import { Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, message } from 'antd';
 import { ClockCircleOutlined, CommentOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -11,14 +11,23 @@ import { ConversaSuporte } from './comum/ConversaSuporte';
 interface Ticket {
   id: number; tenant_id: number; cliente: string | null; assunto: string; descricao: string | null; estado: string; prioridade: string; categoria: string;
   criado_por: string | null; criado_em: string; agente_id: number | null; agente_nome: string | null; prazo_sla: string | null; em_atraso: boolean;
+  tempo_atendimento_minutos: number | null;
 }
 interface Cliente { id: number; nome: string }
 interface Agente { id: number; nome: string }
 
-const ESTADOS = ['ABERTO', 'EM_CURSO', 'RESOLVIDO', 'FECHADO'];
+// Fase 6 da extensão SaaS (segurança.txt, secção 13.3): os 11 estados — ver TicketSuporte::ESTADOS.
+const ESTADOS = [
+  'ABERTO', 'EM_TRIAGEM', 'EM_ANALISE', 'ATRIBUIDO', 'EM_CURSO', 'A_AGUARDAR_CLIENTE', 'A_AGUARDAR_TERCEIRO',
+  'RESOLVIDO', 'FECHADO', 'REABERTO', 'CANCELADO',
+];
 const PRIORIDADES = ['BAIXA', 'NORMAL', 'ALTA', 'URGENTE'];
-/** Categorias (ADR-077): decidem qual especialização do backoffice de suporte vê o ticket — ver TicketSuporte::CHAVE_POR_CATEGORIA. */
-const CATEGORIAS = ['GERAL', 'PLANO', 'FACTURACAO', 'MARKETING'];
+/** Categorias (ADR-077, alargadas na Fase 6): decidem qual especialização do backoffice vê o ticket — ver TicketSuporte::CHAVE_POR_CATEGORIA. */
+const CATEGORIAS = [
+  'GERAL', 'MARKETING', 'PLANO', 'FACTURACAO', 'PAGAMENTO', 'SUBSCRICAO',
+  'INCIDENTE_TECNICO', 'ERRO_FUNCIONAL', 'AUTENTICACAO', 'PERMISSOES', 'CONFIGURACAO', 'DESEMPENHO', 'INTEGRACAO', 'SEGURANCA',
+  'MELHORIA', 'DUVIDA', 'ADMINISTRATIVA', 'OUTROS',
+];
 const CHAVE = ['plataforma', 'suporte'];
 const opcoes = (l: string[]) => l.map((v) => ({ value: v, label: v }));
 
@@ -48,7 +57,18 @@ export default function PlataformaSuporte() {
         </Space>
       }>
         <Table<Ticket> rowKey="id" size="middle" loading={lista.isLoading} dataSource={lista.data ?? []} scroll={{ x: 'max-content' }}
-          expandable={{ expandedRowRender: (t) => t.descricao ?? '—' }}
+          expandable={{
+            expandedRowRender: (t) => (
+              <Space direction="vertical" size={8}>
+                <span>{t.descricao ?? '—'}</span>
+                <Space>
+                  <span>Tempo de atendimento (min):</span>
+                  <InputNumber size="small" min={0} value={t.tempo_atendimento_minutos ?? undefined}
+                    onBlur={(e) => { const v = e.target.value ? Number(e.target.value) : null; if (v !== t.tempo_atendimento_minutos) mudar.mutate({ id: t.id, dados: { tempo_atendimento_minutos: v } }); }} />
+                </Space>
+              </Space>
+            ),
+          }}
           columns={[
             { title: 'Cliente', dataIndex: 'cliente', render: (v: string | null) => v || <Tag>—</Tag> },
             {

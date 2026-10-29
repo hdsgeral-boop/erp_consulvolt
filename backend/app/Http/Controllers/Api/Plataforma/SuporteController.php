@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Models\Utilizador;
 use App\Services\Plataforma\MaquinaEstadosTicket;
+use App\Services\Plataforma\ServicoSlaSuporte;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,7 @@ final class SuporteController extends Controller
     public function __construct(
         private readonly ServicoPermissoes $permissoes,
         private readonly MaquinaEstadosTicket $estadosTicket,
+        private readonly ServicoSlaSuporte $sla,
     ) {}
 
     public function index(Request $r): JsonResponse
@@ -90,7 +92,7 @@ final class SuporteController extends Controller
         $ticket = TicketSuporte::create($d + [
             'prioridade' => $prioridade, 'categoria' => 'GERAL',
             'estado' => TicketSuporte::ABERTO, 'criado_por' => $r->user()->nome_utilizador,
-            'prazo_sla' => now()->addHours(TicketSuporte::SLA_HORAS[$prioridade]),
+            'prazo_sla' => $this->sla->calcularPrazo($prioridade),
         ]);
 
         return RespostaApi::criado($this->apresentar($ticket->refresh(), Tenant::query()->pluck('nome', 'id')), 'Ticket criado com sucesso.');
@@ -106,6 +108,7 @@ final class SuporteController extends Controller
             'prioridade' => ['sometimes', Rule::in(TicketSuporte::PRIORIDADES)],
             'categoria' => ['sometimes', Rule::in(TicketSuporte::CATEGORIAS)],
             'agente_id' => ['sometimes', 'nullable', 'integer', Rule::exists('utilizadores', 'id')],
+            'tempo_atendimento_minutos' => ['sometimes', 'nullable', 'integer', 'min:0'],
         ]);
         if (isset($d['estado'])) {
             $this->estadosTicket->validar($ticket->estado, $d['estado']);
@@ -133,6 +136,7 @@ final class SuporteController extends Controller
             'agente_id' => $t->agente_id, 'agente_nome' => $t->agente_id ? ($agentes[$t->agente_id] ?? null) : null,
             'prazo_sla' => $t->prazo_sla, 'em_atraso' => $t->emAtraso(), 'primeira_resposta_em' => $t->primeira_resposta_em,
             'csat_nota' => $t->csat_nota, 'csat_comentario' => $t->csat_comentario,
+            'tempo_atendimento_minutos' => $t->tempo_atendimento_minutos,
         ];
     }
 }

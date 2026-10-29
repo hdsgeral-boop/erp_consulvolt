@@ -98,7 +98,21 @@ export function PainelSuporteCliente({ base, anexosBase }: { base: string; anexo
                 { value: 'GERAL', label: 'Geral' },
                 { value: 'PLANO', label: 'Plano / comercial' },
                 { value: 'FACTURACAO', label: 'Facturação' },
+                { value: 'PAGAMENTO', label: 'Pagamento' },
+                { value: 'SUBSCRICAO', label: 'Subscrição' },
                 { value: 'MARKETING', label: 'Marketing e comunicação' },
+                { value: 'INCIDENTE_TECNICO', label: 'Incidente técnico' },
+                { value: 'ERRO_FUNCIONAL', label: 'Erro de funcionamento' },
+                { value: 'AUTENTICACAO', label: 'Autenticação / acesso' },
+                { value: 'PERMISSOES', label: 'Permissões' },
+                { value: 'CONFIGURACAO', label: 'Configuração' },
+                { value: 'DESEMPENHO', label: 'Desempenho / lentidão' },
+                { value: 'INTEGRACAO', label: 'Integração' },
+                { value: 'SEGURANCA', label: 'Segurança' },
+                { value: 'MELHORIA', label: 'Sugestão de melhoria' },
+                { value: 'DUVIDA', label: 'Dúvida' },
+                { value: 'ADMINISTRATIVA', label: 'Administrativa' },
+                { value: 'OUTROS', label: 'Outros' },
               ]}
             />
           </Form.Item>

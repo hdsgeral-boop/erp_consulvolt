@@ -74,6 +74,24 @@ final class MaquinaEstadosTicketTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'TRANSICAO_INVALIDA');
     }
 
+    public function test_transferencia_de_ticket_para_outro_agente_e_registo_de_tempo_de_atendimento(): void
+    {
+        [, $super] = $this->superAdmin();
+        $ticket = $this->ticket();
+        $agenteA = $this->criarUtilizador(['papel' => Utilizador::PAPEL_AGENTE_SUPORTE]);
+        $agenteB = $this->criarUtilizador(['papel' => Utilizador::PAPEL_AGENTE_SUPORTE]);
+
+        $this->putJson("/api/plataforma/suporte/{$ticket->id}", ['agente_id' => $agenteA->id], $super)
+            ->assertOk()->assertJsonPath('dados.agente_id', $agenteA->id);
+
+        // Transferência: reatribuir a outro agente é só mudar agente_id (ponto 283 "Transferir tickets").
+        $this->putJson("/api/plataforma/suporte/{$ticket->id}", ['agente_id' => $agenteB->id, 'tempo_atendimento_minutos' => 45], $super)
+            ->assertOk()->assertJsonPath('dados.agente_id', $agenteB->id)->assertJsonPath('dados.tempo_atendimento_minutos', 45);
+
+        $this->assertSame($agenteB->id, $ticket->fresh()->agente_id);
+        $this->assertSame(45, $ticket->fresh()->tempo_atendimento_minutos);
+    }
+
     public function test_agente_tecnico_ve_categoria_tecnica_mas_nao_geral_nem_financeiro(): void
     {
         $perfil = PerfilUtilizador::create(['nome' => 'Agente Técnico Teste', 'permissoes' => ['_v2' => true, 'suporte_tickets_tecnico_gerir' => true], 'restrito_plataforma' => true]);

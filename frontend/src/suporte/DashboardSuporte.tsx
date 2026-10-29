@@ -1,4 +1,4 @@
-import { Button, Card, Col, Row, Statistic, Table } from 'antd';
+import { Button, Card, Col, Row, Statistic, Table, Tag } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -6,11 +6,18 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 
 interface Metricas {
-  por_estado: { ABERTO: number; EM_CURSO: number; RESOLVIDO: number; FECHADO: number };
+  por_estado: Record<string, number>;
   tempo_medio_primeira_resposta_horas: number | null;
   em_atraso: number;
   por_agente: { agente_id: number; nome: string; total: number }[];
 }
+
+// Fase 6 da extensão SaaS (segurança.txt, secção 13.3): os 11 estados — ver TicketSuporte::ESTADOS.
+const ESTADOS_TERMINAIS = ['RESOLVIDO', 'FECHADO', 'CANCELADO'];
+const ORDEM_ESTADOS = [
+  'ABERTO', 'EM_TRIAGEM', 'EM_ANALISE', 'ATRIBUIDO', 'EM_CURSO', 'A_AGUARDAR_CLIENTE', 'A_AGUARDAR_TERCEIRO',
+  'RESOLVIDO', 'FECHADO', 'REABERTO', 'CANCELADO',
+];
 
 /** Dashboard de métricas do backoffice de suporte: tickets por estado, tempo médio de resposta, atrasos e por agente. */
 export default function DashboardSuporte() {
@@ -39,6 +46,14 @@ export default function DashboardSuporte() {
           <Card loading={m.isLoading}><Statistic title="Tickets em atraso (SLA vencido)" value={d?.em_atraso ?? 0} valueStyle={d && d.em_atraso > 0 ? { color: '#dc2626' } : undefined} /></Card>
         </Col>
       </Row>
+      <Card title="Tickets por estado" style={{ marginTop: 16 }}>
+        <Table rowKey="estado" size="small" loading={m.isLoading} pagination={false}
+          dataSource={ORDEM_ESTADOS.map((estado) => ({ estado, total: d?.por_estado[estado] ?? 0 }))}
+          columns={[
+            { title: 'Estado', dataIndex: 'estado', render: (v: string) => <Tag color={ESTADOS_TERMINAIS.includes(v) ? 'default' : 'blue'}>{v}</Tag> },
+            { title: 'Tickets', dataIndex: 'total', align: 'right' },
+          ]} />
+      </Card>
       <Card title="Tickets por agente" style={{ marginTop: 16 }}>
         <Table rowKey="agente_id" size="small" loading={m.isLoading} pagination={false} dataSource={d?.por_agente ?? []}
           columns={[{ title: 'Agente', dataIndex: 'nome' }, { title: 'Tickets atribuídos', dataIndex: 'total', align: 'right' }]} />
