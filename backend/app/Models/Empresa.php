@@ -25,6 +25,37 @@ class Empresa extends ModeloBase
 
     public const LICENCA_PLANO = 'PLANO';
 
+    /**
+     * Estados comerciais da licença (MaquinaEstadosLicenca — extensão SaaS, secção 4.2): separados do estado
+     * administrativo acima (ESTADO_ATIVO/INATIVO), que é sobre a empresa em si, não sobre a subscrição.
+     */
+    public const LICENCA_PENDENTE_ACTIVACAO = 'PENDENTE_ACTIVACAO';
+
+    public const LICENCA_TRIAL = 'TRIAL';
+
+    public const LICENCA_ACTIVA = 'ACTIVA';
+
+    public const LICENCA_PAGAMENTO_PENDENTE = 'PAGAMENTO_PENDENTE';
+
+    public const LICENCA_TOLERANCIA = 'TOLERANCIA';
+
+    public const LICENCA_SUSPENSA = 'SUSPENSA';
+
+    public const LICENCA_CANCELADA = 'CANCELADA';
+
+    public const LICENCA_EM_ENCERRAMENTO = 'EM_ENCERRAMENTO';
+
+    public const LICENCA_ENCERRADA = 'ENCERRADA';
+
+    /** Motivos de suspensão (secção 10): só têm sentido quando estado_licenca = LICENCA_SUSPENSA. */
+    public const MOTIVO_INCUMPRIMENTO = 'INCUMPRIMENTO';
+
+    public const MOTIVO_ADMINISTRATIVA = 'ADMINISTRATIVA';
+
+    public const MOTIVO_SEGURANCA = 'SEGURANCA';
+
+    public const MOTIVO_VOLUNTARIA = 'VOLUNTARIA';
+
     protected $table = 'empresas';
 
     protected string $moduloAuditoria = 'Sistema/Empresas';
@@ -35,6 +66,7 @@ class Empresa extends ModeloBase
         'regras_ia', 'estado', 'e_consolidacao', 'moeda_consolidacao', 'data_fim_consolidacao',
         'he_percentagem_1', 'he_limite_horas', 'he_percentagem_2', 'moeda_funcional',
         'licenca_origem', 'licenca_inicio', 'licenca_fim',
+        'estado_licenca', 'motivo_suspensao', 'estado_licenca_desde',
     ];
 
     protected $hidden = ['logotipo'];
@@ -51,6 +83,7 @@ class Empresa extends ModeloBase
             'he_percentagem_2' => 'decimal:4',
             'licenca_inicio' => 'date',
             'licenca_fim' => 'date',
+            'estado_licenca_desde' => 'datetime',
         ];
     }
 
@@ -68,6 +101,11 @@ class Empresa extends ModeloBase
                 $e->licenca_inicio = now()->toDateString();
                 $e->licenca_fim = now()->addDays(\App\Support\Tenancy\DefinicoesPlataforma::diasTestePadrao())->toDateString();
             }
+
+            // Máquina de estados da licença (Fase 1 da extensão SaaS): toda a empresa nova nasce com um estado
+            // explícito, coerente com a licença acabada de definir acima.
+            $e->estado_licenca ??= ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_TESTE ? self::LICENCA_TRIAL : self::LICENCA_ACTIVA;
+            $e->estado_licenca_desde ??= now();
         });
         $invalidar = fn () => app(ServicoEmpresas::class)->invalidarTodos();
         static::saved(fn (Empresa $e) => $e->wasChanged(['estado', 'eliminado_em']) || $e->wasRecentlyCreated ? $invalidar() : null);

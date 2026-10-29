@@ -163,6 +163,9 @@ return [
         // 30 dias: alinhado com a promessa comercial da landing page e do registo ("30 dias grátis"). Pode ser
         // alterado sem reiniciar a aplicação em Plataforma → SaaS → "Dias de Teste Padrão" (definicoes_plataforma).
         'dias_teste' => (int) env('LICENCAS_DIAS_TESTE', 30),
+        // Janela de tolerância após expirar antes de passar a SUSPENSA (MaquinaEstadosLicenca) — extensão SaaS,
+        // secção 10 (segurança.txt): a suspensão por incumprimento nunca é imediata.
+        'dias_tolerancia' => (int) env('LICENCAS_DIAS_TOLERANCIA', 5),
     ],
 
     // Facturação AGT automática da subscrição SaaS (motor de precificação, Módulo D). empresa_id=0 desliga a

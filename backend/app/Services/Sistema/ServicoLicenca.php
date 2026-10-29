@@ -8,6 +8,7 @@ use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Utilizador;
 use App\Services\Pagamentos\ServicoCupoes;
+use App\Services\Plataforma\MaquinaEstadosLicenca;
 use App\Services\Plataforma\ServicoFaturacaoSaas;
 use App\Support\Tenancy\ContextoEmpresa;
 use App\Support\Tenancy\ContextoTenant;
@@ -36,6 +37,7 @@ final class ServicoLicenca
         private readonly ContextoTenant $tenant,
         private readonly ServicoCupoes $cupoes,
         private readonly ServicoFaturacaoSaas $faturacaoSaas,
+        private readonly MaquinaEstadosLicenca $estadosLicenca,
     ) {}
 
     /** @return array<string, mixed> */
@@ -174,6 +176,7 @@ final class ServicoLicenca
                 'licenca_inicio' => $empresa->licenca_origem === Empresa::LICENCA_PLANO && $empresa->licenca_inicio ? $empresa->licenca_inicio->toDateString() : $inicio->toDateString(),
                 'licenca_fim' => $fim->toDateString(),
             ])->save();
+            $this->estadosLicenca->sincronizar($empresa);
 
             return $s;
         });
