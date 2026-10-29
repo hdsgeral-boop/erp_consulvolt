@@ -6,6 +6,7 @@ use App\Models\SubscricaoEmpresa;
 use App\Models\TransacaoGateway;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -101,12 +102,11 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
         );
     }
 
-    public function processarWebhook(array $payload, array $headers = []): ResultadoConfirmacao
+    public function processarWebhook(array $payload): ResultadoConfirmacao
     {
         // Aceita formatos padrão de webhook (ex: Proxypay / EMIS / standard JSON)
         $referencia = $payload['referencia'] ?? $payload['reference'] ?? $payload['custom_fields']['referencia'] ?? null;
         $referenciaExterna = $payload['id'] ?? $payload['transaction_id'] ?? null;
-        $valor = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
         $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? 'paid'));
 
         if (! $referencia && ! $referenciaExterna) {
@@ -122,15 +122,31 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
             return new ResultadoConfirmacao(sucesso: false, mensagem: 'Transação correspondente não encontrada na base de dados.');
         }
 
+        // O montante nunca é aceite do payload (controlado pelo remetente) — só serve para detectar divergências.
+        $valorRecebido = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
+        if ($valorRecebido !== null && bccomp((string) $valorRecebido, (string) $transacao->valor, 2) !== 0) {
+            Log::warning('Webhook de pagamento (Referência) com montante divergente do valor devido.', [
+                'transacao_id' => $transacao->id, 'esperado' => (string) $transacao->valor, 'recebido' => (string) $valorRecebido,
+            ]);
+
+            return new ResultadoConfirmacao(sucesso: false, subscricaoId: $transacao->subscricao_id,
+                mensagem: 'O montante confirmado não corresponde ao valor devido.', dadosOriginais: $payload);
+        }
+
         $sucesso = in_array($status, ['paid', 'pago', 'success', 'concluido', 'settled'], true);
 
         return new ResultadoConfirmacao(
             sucesso: $sucesso,
             subscricaoId: $transacao->subscricao_id,
             referenciaExterna: $referenciaExterna ?: $transacao->referencia_externa,
-            valorPago: $valor ?: (float) $transacao->valor,
+            valorPago: (float) $transacao->valor,
             mensagem: $sucesso ? 'Pagamento por referência confirmado com sucesso.' : 'Notificação recebida com estado '.$status,
             dadosOriginais: $payload,
         );
+    }
+
+    public function chaveConfigSegredo(): string
+    {
+        return 'ref_webhook_segredo';
     }
 }

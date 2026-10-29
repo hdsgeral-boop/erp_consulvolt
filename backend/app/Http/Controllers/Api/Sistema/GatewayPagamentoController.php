@@ -42,6 +42,7 @@ final class GatewayPagamentoController extends Controller
             'referencia.subentidade' => ['nullable', 'string', 'max:20'],
             'referencia.chave_api' => ['nullable', 'string', 'max:255'],
             'referencia.url_api' => ['nullable', 'string', 'max:255'],
+            'referencia.webhook_segredo' => ['nullable', 'string', 'max:255'],
 
             'express' => ['nullable', 'array'],
             'express.ativo' => ['nullable', 'boolean'],
@@ -49,6 +50,7 @@ final class GatewayPagamentoController extends Controller
             'express.terminal_id' => ['nullable', 'string', 'max:80'],
             'express.chave_api' => ['nullable', 'string', 'max:255'],
             'express.url_api' => ['nullable', 'string', 'max:255'],
+            'express.webhook_segredo' => ['nullable', 'string', 'max:255'],
 
             'dados_bancarios' => ['nullable', 'array'],
             'dados_bancarios.banco' => ['nullable', 'string', 'max:100'],
@@ -95,15 +97,19 @@ final class GatewayPagamentoController extends Controller
         return RespostaApi::sucesso($resultado, 'Pagamento simulado e licença prolongada com sucesso.');
     }
 
-    /** POST /api/pagamentos/webhook/{gateway} — público para receção de callbacks da API Real */
+    /**
+     * POST /api/pagamentos/webhook/{gateway} — público para receção de callbacks da API Real.
+     * Sem sessão: autenticado pela assinatura HMAC no cabeçalho `X-Webhook-Assinatura`
+     * (`sha256=<hex>` sobre o corpo bruto, com o segredo de `configuracoes_gateway`) — ver ProcessadorPagamentos.
+     */
     public function webhook(Request $request, string $gateway): JsonResponse
     {
+        $corpoBruto = (string) $request->getContent();
         $payload = $request->all();
-        $headers = $request->headers->all();
 
-        $res = $this->processador->processarWebhook($gateway, $payload, $headers);
+        $res = $this->processador->processarWebhook($gateway, $payload, $corpoBruto, $request->header('X-Webhook-Assinatura'), $request->ip());
 
-        return response()->json($res, $res['sucesso'] ? 200 : 400);
+        return response()->json($res, $res['estado_http'] ?? ($res['sucesso'] ? 200 : 400));
     }
 
     private function exigirSuperAdmin(Request $request): void

@@ -10,6 +10,7 @@ use App\Models\Utilizador;
 use App\Services\Sistema\ServicoLicenca;
 use App\Services\Sistema\ServicoNotificacoes;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Gestor e orquestrador de gateways de pagamento (Referência Multicaixa, Multicaixa Express e Coordenadas Bancárias).
@@ -34,6 +35,8 @@ final class ProcessadorPagamentos
                 'chave_api' => ! empty($linhas['ref_chave_api']) ? '••••••••'.substr((string) $linhas['ref_chave_api'], -4) : '',
                 'url_api' => $linhas['ref_url_api'] ?? '',
                 'tem_chave' => ! empty($linhas['ref_chave_api']),
+                'webhook_segredo' => ! empty($linhas['ref_webhook_segredo']) ? '••••••••'.substr((string) $linhas['ref_webhook_segredo'], -4) : '',
+                'tem_segredo_webhook' => ! empty($linhas['ref_webhook_segredo']),
             ],
             'express' => [
                 'ativo' => ($linhas['mcx_ativo'] ?? 'true') === 'true',
@@ -42,6 +45,8 @@ final class ProcessadorPagamentos
                 'chave_api' => ! empty($linhas['mcx_chave_api']) ? '••••••••'.substr((string) $linhas['mcx_chave_api'], -4) : '',
                 'url_api' => $linhas['mcx_url_api'] ?? '',
                 'tem_chave' => ! empty($linhas['mcx_chave_api']),
+                'webhook_segredo' => ! empty($linhas['mcx_webhook_segredo']) ? '••••••••'.substr((string) $linhas['mcx_webhook_segredo'], -4) : '',
+                'tem_segredo_webhook' => ! empty($linhas['mcx_webhook_segredo']),
             ],
             'dados_bancarios' => [
                 'banco' => $linhas['banco_nome'] ?? '',
@@ -73,6 +78,9 @@ final class ProcessadorPagamentos
             if (isset($dados['referencia']['url_api'])) {
                 $mapa['ref_url_api'] = (string) $dados['referencia']['url_api'];
             }
+            if (! empty($dados['referencia']['webhook_segredo']) && ! str_starts_with($dados['referencia']['webhook_segredo'], '••••')) {
+                $mapa['ref_webhook_segredo'] = (string) $dados['referencia']['webhook_segredo'];
+            }
         }
 
         if (isset($dados['express'])) {
@@ -90,6 +98,9 @@ final class ProcessadorPagamentos
             }
             if (isset($dados['express']['url_api'])) {
                 $mapa['mcx_url_api'] = (string) $dados['express']['url_api'];
+            }
+            if (! empty($dados['express']['webhook_segredo']) && ! str_starts_with($dados['express']['webhook_segredo'], '••••')) {
+                $mapa['mcx_webhook_segredo'] = (string) $dados['express']['webhook_segredo'];
             }
         }
 
@@ -130,8 +141,15 @@ final class ProcessadorPagamentos
         return $gateway->iniciar($subscricao, $parametros);
     }
 
-    /** Processa a confirmação de pagamento recebida via Webhook da API Real. */
-    public function processarWebhook(string $gatewayNome, array $payload, array $headers = []): array
+    /**
+     * Processa a confirmação de pagamento recebida via Webhook da API Real.
+     *
+     * Segurança: a assinatura é obrigatória e verificada por HMAC-SHA256 (`sha256=<hex>`) sobre o corpo bruto do
+     * pedido, com o segredo configurado em `configuracoes_gateway` (chave `{driver}_webhook_segredo`). Sem segredo
+     * configurado ou com assinatura inválida, o webhook é rejeitado sem tocar em nenhuma subscrição — nunca confia
+     * directamente no payload recebido (ver também a validação de montante em cada driver).
+     */
+    public function processarWebhook(string $gatewayNome, array $payload, string $corpoBruto, ?string $assinatura, ?string $ip = null): array
     {
         $driver = match (strtoupper($gatewayNome)) {
             'REFERENCIA', 'MCX_REF' => new GatewayReferenciaMulticaixa,
@@ -139,7 +157,21 @@ final class ProcessadorPagamentos
             default => throw new ErroNegocio('Gateway de webhook desconhecido.', 'GATEWAY_DESCONHECIDO', 404),
         };
 
-        $resultado = $driver->processarWebhook($payload, $headers);
+        $segredo = (string) (DB::table('configuracoes_gateway')->where('chave', $driver->chaveConfigSegredo())->value('valor') ?? '');
+        if ($segredo === '') {
+            Log::warning('Webhook de pagamento recebido sem segredo de assinatura configurado.', ['gateway' => $gatewayNome, 'ip' => $ip]);
+
+            return ['sucesso' => false, 'estado_http' => 401, 'mensagem' => 'Webhook não configurado para este gateway.'];
+        }
+
+        $esperada = 'sha256='.hash_hmac('sha256', $corpoBruto, $segredo);
+        if (! $assinatura || ! hash_equals($esperada, trim($assinatura))) {
+            Log::warning('Webhook de pagamento com assinatura inválida.', ['gateway' => $gatewayNome, 'ip' => $ip]);
+
+            return ['sucesso' => false, 'estado_http' => 401, 'mensagem' => 'Assinatura inválida.'];
+        }
+
+        $resultado = $driver->processarWebhook($payload);
 
         if (! $resultado->sucesso || ! $resultado->subscricaoId) {
             return [

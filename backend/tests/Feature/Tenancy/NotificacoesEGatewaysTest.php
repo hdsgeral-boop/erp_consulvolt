@@ -16,6 +16,15 @@ use Tests\TestCase;
  */
 class NotificacoesEGatewaysTest extends TestCase
 {
+    /**
+     * O webhook de pagamento exige `X-Webhook-Assinatura: sha256=<hmac>` sobre o corpo bruto (igual ao que o
+     * `postJson` envia, via `json_encode($corpo)`) — ver `ProcessadorPagamentos::processarWebhook`.
+     */
+    private function assinaturaWebhook(array $corpo, string $segredo): array
+    {
+        return ['X-Webhook-Assinatura' => 'sha256='.hash_hmac('sha256', json_encode($corpo), $segredo)];
+    }
+
     public function test_notificacoes_da_empresa_com_isolamento(): void
     {
         $emp1 = $this->criarEmpresa(['nif' => '5000000088']);
@@ -115,11 +124,14 @@ class NotificacoesEGatewaysTest extends TestCase
         $this->assertSame('EXPRESS', $resExp['gateway']);
         $this->assertSame('923123456', $resExp['telemovel']);
 
-        $this->postJson('/api/pagamentos/webhook/referencia', [
+        \Illuminate\Support\Facades\DB::table('configuracoes_gateway')->where('chave', 'ref_webhook_segredo')->update(['valor' => 'segredo-teste-referencia']);
+        $corpo = [
             'referencia' => str_replace(' ', '', $resRef['referencia']),
             'status' => 'paid',
             'amount' => 20000,
-        ])->assertOk()->assertJsonPath('sucesso', true);
+        ];
+        $this->postJson('/api/pagamentos/webhook/referencia', $corpo, $this->assinaturaWebhook($corpo, 'segredo-teste-referencia'))
+            ->assertOk()->assertJsonPath('sucesso', true);
 
         // Subscrição passa a PAGO e empresa ganha licença de PLANO
         $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
