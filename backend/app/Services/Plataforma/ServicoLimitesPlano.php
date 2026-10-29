@@ -47,6 +47,29 @@ final class ServicoLimitesPlano
         ];
     }
 
+    /**
+     * Fase 8 da extensão SaaS: dimensões (empresas/utilizadores) em que o uso ACTUAL do cliente já excede os
+     * limites de $novoPlano — para avisar antes de uma troca de plano (downgrade), nunca para a bloquear por si só.
+     *
+     * @return array<string, array{usadas: int, limite: int}>
+     */
+    public function excedeNoNovoPlano(Tenant $cliente, PlanoLicenca $novoPlano): array
+    {
+        $excedidos = [];
+
+        $usadasEmpresas = Empresa::query()->where('tenant_id', $cliente->id)->count();
+        if ($novoPlano->max_empresas !== null && $usadasEmpresas > $novoPlano->max_empresas) {
+            $excedidos['empresas'] = ['usadas' => $usadasEmpresas, 'limite' => $novoPlano->max_empresas];
+        }
+
+        $usadosUtilizadores = Utilizador::query()->where('tenant_id', $cliente->id)->count();
+        if ($novoPlano->max_utilizadores !== null && $usadosUtilizadores > $novoPlano->max_utilizadores) {
+            $excedidos['utilizadores'] = ['usadas' => $usadosUtilizadores, 'limite' => $novoPlano->max_utilizadores];
+        }
+
+        return $excedidos;
+    }
+
     public function exigirLimiteEmpresas(int $tenantId): void
     {
         $this->exigir($tenantId, 'empresas', 'usadas', 'LIMITE_PLANO_EMPRESAS', 'empresa(s)');

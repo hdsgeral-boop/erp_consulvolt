@@ -7,8 +7,8 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 
-interface Versao { id: number; numero: number; estado: 'RASCUNHO' | 'PUBLICADA' | 'DESCONTINUADA'; preco_mensal: number; moeda: string; max_empresas: number | null; max_utilizadores: number | null; modulos: string[]; publicada_em: string | null }
-interface PlanoP { id: number; codigo: string; nome: string; preco_mensal: number; moeda: string; max_empresas: number | null; max_utilizadores: number | null; clientes: number; versoes: Versao[] }
+interface Versao { id: number; numero: number; estado: 'RASCUNHO' | 'PUBLICADA' | 'DESCONTINUADA'; preco_mensal: number; moeda: string; max_empresas: number | null; max_utilizadores: number | null; dias_teste: number | null; modulos: string[]; publicada_em: string | null }
+interface PlanoP { id: number; codigo: string; nome: string; preco_mensal: number; moeda: string; max_empresas: number | null; max_utilizadores: number | null; dias_teste: number | null; clientes: number; versoes: Versao[] }
 interface Dados { planos: PlanoP[]; modulos: Record<string, string> }
 
 const CHAVE = ['plataforma', 'planos'];
@@ -42,7 +42,7 @@ export default function PlataformaPlanos() {
             <Card key={p.id} loading={isLoading} title={<>{p.nome} <Tag color="geekblue">{p.codigo}</Tag> <Tag color="blue">{p.clientes} cliente(s)</Tag></>}
               extra={<Button type="dashed" icon={<FileAddOutlined />} onClick={() => criar.mutate(p.id)} loading={criar.isPending}>Novo rascunho</Button>}>
               <p style={{ marginBottom: 16, color: '#4a5568' }}>
-                <strong>Em vigor:</strong> {formatarNumero(p.preco_mensal)} {p.moeda}/mês — empresas {p.max_empresas ?? 'ilimitadas'}, utilizadores {p.max_utilizadores ?? 'ilimitados'}
+                <strong>Em vigor:</strong> {formatarNumero(p.preco_mensal)} {p.moeda}/mês — empresas {p.max_empresas ?? 'ilimitadas'}, utilizadores {p.max_utilizadores ?? 'ilimitados'}, período experimental {p.dias_teste ?? 'global'} dia(s)
               </p>
               <Table<Versao> rowKey="id" size="small" pagination={false} dataSource={p.versoes} columns={[
                 { title: 'Versão', render: (_, v) => <Tag color="blue">v{v.numero}</Tag> },
@@ -50,6 +50,7 @@ export default function PlataformaPlanos() {
                 { title: 'Preço/mês', align: 'right', render: (_, v) => <strong>{formatarNumero(v.preco_mensal)} {v.moeda}</strong> },
                 { title: 'Empresas', render: (_, v) => v.max_empresas ?? '∞' },
                 { title: 'Utilizadores', render: (_, v) => v.max_utilizadores ?? '∞' },
+                { title: 'Dias de teste', render: (_, v) => v.dias_teste ?? 'global' },
                 { 
                   title: 'Módulos', 
                   render: (_, v) => (
@@ -77,6 +78,7 @@ export default function PlataformaPlanos() {
           <Form.Item name="preco_mensal" label="Preço mensal" rules={[{ required: true }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="max_empresas" label="Máx. empresas (vazio = ilimitadas)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="max_utilizadores" label="Máx. utilizadores (vazio = ilimitados)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="dias_teste" label="Dias de período experimental (vazio = usa a definição global)"><InputNumber min={1} max={90} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="modulos" label="Módulos incluídos (bloqueiam o menu e a API fora da selecção, a partir da publicação)"><Checkbox.Group options={modulos} /></Form.Item>
         </Form>
       </Modal>

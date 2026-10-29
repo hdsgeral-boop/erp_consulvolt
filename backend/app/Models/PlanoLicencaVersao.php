@@ -19,11 +19,11 @@ class PlanoLicencaVersao extends ModeloBase
 
     protected $table = 'planos_licenca_versoes';
 
-    protected $fillable = ['plano_id', 'numero', 'estado', 'preco_mensal', 'moeda', 'max_empresas', 'max_utilizadores', 'modulos', 'publicada_em'];
+    protected $fillable = ['plano_id', 'numero', 'estado', 'preco_mensal', 'moeda', 'max_empresas', 'max_utilizadores', 'modulos', 'publicada_em', 'dias_teste'];
 
     protected function casts(): array
     {
-        return ['modulos' => 'array', 'preco_mensal' => 'decimal:2', 'publicada_em' => 'datetime'];
+        return ['modulos' => 'array', 'preco_mensal' => 'decimal:2', 'publicada_em' => 'datetime', 'dias_teste' => 'integer'];
     }
 
     public function plano(): BelongsTo

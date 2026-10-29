@@ -11,6 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData } from '@/utilitarios/formatacao';
@@ -58,7 +59,19 @@ export default function PlataformaClientes() {
   });
   const planos = useQuery({ queryKey: ['plataforma', 'planos'], queryFn: () => obter<{ planos: { codigo: string; nome: string }[] }>('/plataforma/planos'), enabled: ver !== null });
   const refrescar = () => qc.invalidateQueries({ queryKey: CHAVE });
-  const plano = useMutation({ mutationFn: (p: { id: number; plano: string | null }) => enviar('put', `/plataforma/clientes/${p.id}/plano`, { plano: p.plano }), onSuccess: () => { message.success('Plano actualizado.'); refrescar(); }, onError: (e) => notificarErro(e) });
+  const plano = useMutation({
+    mutationFn: (p: { id: number; plano: string | null; confirmar?: boolean }) => enviar('put', `/plataforma/clientes/${p.id}/plano`, { plano: p.plano, confirmar: p.confirmar }),
+    onSuccess: () => { message.success('Plano actualizado.'); refrescar(); },
+    onError: (e, p) => {
+      // Fase 8 da extensão SaaS: o cliente já excede os limites do plano novo — perguntar antes de bloquear.
+      if (e instanceof ErroApi && e.codigo === 'PLANO_ABAIXO_DO_USO') {
+        Modal.confirm({ title: 'Atribuir mesmo assim?', content: e.message, okText: 'Atribuir mesmo assim', cancelText: 'Cancelar', onOk: () => plano.mutate({ ...p, confirmar: true }) });
+
+        return;
+      }
+      notificarErro(e);
+    },
+  });
   const novo = useMutation({
     mutationFn: (v: Record<string, unknown>) => enviar('post', '/plataforma/clientes', v),
     onSuccess: () => { message.success('Cliente criado.'); setCriar(false); refrescar(); },

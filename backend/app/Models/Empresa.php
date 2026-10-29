@@ -99,7 +99,10 @@ class Empresa extends ModeloBase
             if (\App\Support\Tenancy\DefinicoesPlataforma::licencasAtivas() && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE) {
                 $e->licenca_origem = self::LICENCA_TESTE;
                 $e->licenca_inicio = now()->toDateString();
-                $e->licenca_fim = now()->addDays(\App\Support\Tenancy\DefinicoesPlataforma::diasTestePadrao())->toDateString();
+                // Fase 8 da extensão SaaS: o plano do tenant pode ter um período experimental próprio; sem um
+                // valor definido (plano sem override, ou tenant sem plano), usa-se o global.
+                $diasTeste = ($e->tenant_id ? PlanoLicenca::diasTestePara($e->tenant_id) : null) ?? \App\Support\Tenancy\DefinicoesPlataforma::diasTestePadrao();
+                $e->licenca_fim = now()->addDays($diasTeste)->toDateString();
             }
 
             // Máquina de estados da licença (Fase 1 da extensão SaaS): toda a empresa nova nasce com um estado

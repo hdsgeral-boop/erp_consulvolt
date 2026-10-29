@@ -32,6 +32,7 @@ final class ServicoVersoesPlano
                 'preco_mensal' => $origem?->preco_mensal ?? $plano->preco_mensal, 'moeda' => $origem?->moeda ?? $plano->moeda,
                 'max_empresas' => $origem ? $origem->max_empresas : $plano->max_empresas,
                 'max_utilizadores' => $origem ? $origem->max_utilizadores : $plano->max_utilizadores,
+                'dias_teste' => $origem ? $origem->dias_teste : $plano->dias_teste,
                 'modulos' => $origem?->modulos ?? [],
             ])->refresh();
         });
@@ -43,7 +44,7 @@ final class ServicoVersoesPlano
         if ($versao->estado !== PlanoLicencaVersao::RASCUNHO) {
             throw new ErroNegocio('Uma versão publicada não se altera. Crie um rascunho novo a partir dela.', 'VERSAO_PUBLICADA', 422);
         }
-        $versao->update(array_intersect_key($d, array_flip(['preco_mensal', 'moeda', 'max_empresas', 'max_utilizadores', 'modulos'])));
+        $versao->update(array_intersect_key($d, array_flip(['preco_mensal', 'moeda', 'max_empresas', 'max_utilizadores', 'dias_teste', 'modulos'])));
 
         return $versao->refresh();
     }
@@ -61,6 +62,7 @@ final class ServicoVersoesPlano
             PlanoLicenca::query()->whereKey($versao->plano_id)->update([
                 'preco_mensal' => $versao->preco_mensal, 'moeda' => $versao->moeda,
                 'max_empresas' => $versao->max_empresas, 'max_utilizadores' => $versao->max_utilizadores,
+                'dias_teste' => $versao->dias_teste,
             ]);
             // Os módulos em vigor mudaram: ModulosPlano tem o mapa código do plano => módulos em cache (CACHE.md regra 3).
             ModulosPlano::invalidar();
@@ -75,7 +77,7 @@ final class ServicoVersoesPlano
         return [
             'id' => $v->id, 'plano_id' => $v->plano_id, 'numero' => $v->numero, 'estado' => $v->estado,
             'preco_mensal' => (float) $v->preco_mensal, 'moeda' => $v->moeda,
-            'max_empresas' => $v->max_empresas, 'max_utilizadores' => $v->max_utilizadores,
+            'max_empresas' => $v->max_empresas, 'max_utilizadores' => $v->max_utilizadores, 'dias_teste' => $v->dias_teste,
             'modulos' => $v->modulos ?? [], 'publicada_em' => $v->publicada_em?->toIso8601String(),
         ];
     }
