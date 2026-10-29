@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\LogAuditoria;
 use App\Models\Tenant;
+use App\Services\Plataforma\MaquinaEstadosLicenca;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
@@ -14,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
@@ -22,6 +24,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 final class PlataformaSaasController extends Controller
 {
+    public function __construct(private readonly MaquinaEstadosLicenca $estadosLicenca) {}
+
     /** GET /api/plataforma/saas/estado */
     public function estadoGeral(Request $request): JsonResponse
     {
@@ -194,12 +198,48 @@ final class PlataformaSaasController extends Controller
             ]);
         }
 
+        // A alteração acima é à data da licença (licenca_fim/origem), não ao estado explícito (Fase 1): sincroniza
+        // sempre a seguir, para o painel nunca mostrar um estado desactualizado face à data que acabou de gravar.
+        $this->estadosLicenca->sincronizar($empresa);
+
         return RespostaApi::sucesso([
             'id' => $empresa->id,
             'nome' => $empresa->nome,
             'origem' => $empresa->licenca_origem,
             'inicio' => $empresa->licenca_inicio?->toDateString(),
             'fim' => $empresa->licenca_fim?->toDateString(),
+            'estado_licenca' => $empresa->estado_licenca,
         ], 'Licença da empresa atualizada com sucesso.');
+    }
+
+    /**
+     * POST /api/plataforma/saas/empresas/{empresa}/estado-licenca — transição manual explícita (Fase 2 da extensão
+     * SaaS, secção 10): suspender com motivo, cancelar, iniciar/concluir encerramento ou reactivar. Separado de
+     * `atualizarEmpresa` (que só toca na data/origem da licença) porque aqui a transição em si é o acto administrativo
+     * a validar e a auditar — ver MaquinaEstadosLicenca::transicionar().
+     */
+    public function definirEstadoLicenca(Request $request, int $empresaId): JsonResponse
+    {
+        $empresa = Empresa::query()->findOrFail($empresaId);
+
+        $d = $request->validate([
+            'estado' => ['required', 'string', Rule::in([
+                Empresa::LICENCA_ACTIVA, Empresa::LICENCA_SUSPENSA, Empresa::LICENCA_CANCELADA,
+                Empresa::LICENCA_EM_ENCERRAMENTO, Empresa::LICENCA_ENCERRADA,
+            ])],
+            'motivo' => ['required_if:estado,'.Empresa::LICENCA_SUSPENSA, 'nullable', 'string', Rule::in([
+                Empresa::MOTIVO_INCUMPRIMENTO, Empresa::MOTIVO_ADMINISTRATIVA, Empresa::MOTIVO_SEGURANCA, Empresa::MOTIVO_VOLUNTARIA,
+            ])],
+            'notas' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $empresa = $this->estadosLicenca->transicionar($empresa, $d['estado'], $d['motivo'] ?? null, $d['notas'] ?? null);
+
+        return RespostaApi::sucesso([
+            'id' => $empresa->id,
+            'nome' => $empresa->nome,
+            'estado_licenca' => $empresa->estado_licenca,
+            'motivo_suspensao' => $empresa->motivo_suspensao,
+        ], 'Estado da licença atualizado com sucesso.');
     }
 }

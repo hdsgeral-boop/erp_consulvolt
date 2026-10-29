@@ -103,8 +103,15 @@ class Empresa extends ModeloBase
             }
 
             // Máquina de estados da licença (Fase 1 da extensão SaaS): toda a empresa nova nasce com um estado
-            // explícito, coerente com a licença acabada de definir acima.
-            $e->estado_licenca ??= ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_TESTE ? self::LICENCA_TRIAL : self::LICENCA_ACTIVA;
+            // explícito, coerente com a licença acabada de definir acima — calculado pela mesma regra usada para
+            // sincronizar (MaquinaEstadosLicenca::calcular()), para que uma empresa criada já com `licenca_fim` no
+            // passado (ex.: fixtures de teste) nasça correctamente em TOLERANCIA/SUSPENSA, nunca em ACTIVA.
+            if ($e->estado_licenca === null) {
+                $e->estado_licenca = app(\App\Services\Plataforma\MaquinaEstadosLicenca::class)->calcular($e);
+                // Sem isto, uma suspensão "de nascença" ficaria sem motivo e calcular() passaria a tratá-la como
+                // manual (nunca recalculável) — ver MaquinaEstadosLicenca::calcular().
+                $e->motivo_suspensao ??= $e->estado_licenca === self::LICENCA_SUSPENSA ? self::MOTIVO_INCUMPRIMENTO : null;
+            }
             $e->estado_licenca_desde ??= now();
         });
         $invalidar = fn () => app(ServicoEmpresas::class)->invalidarTodos();

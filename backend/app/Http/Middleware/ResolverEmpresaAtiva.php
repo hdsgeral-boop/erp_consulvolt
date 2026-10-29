@@ -62,8 +62,11 @@ final class ResolverEmpresaAtiva
     }
 
     /**
-     * Licença por empresa (ADR-074): empresa com licença expirada fica só de leitura, sem tolerância. As outras empresas do
-     * utilizador não são afectadas. Super-administradores têm acesso vitalício (isentos). Sem efeito com erp.licencas.ativo=false.
+     * Licença por empresa (ADR-074; Fase 2 da extensão SaaS — secção 10, "suspensão com regularização"): uma empresa
+     * suspensa, cancelada ou em encerramento fica só de leitura — nunca bloqueio total. Em TOLERANCIA (Fase 1) o
+     * acesso mantém-se completo, como se estivesse activa: a suspensão por incumprimento nunca é imediata. As outras
+     * empresas do utilizador não são afectadas. Super-administradores têm acesso vitalício. Sem efeito com
+     * erp.licencas.ativo=false.
      */
     private function licenca(Request $request, $utilizador, int $empresaId): void
     {
@@ -79,7 +82,7 @@ final class ResolverEmpresaAtiva
     /**
      * Mesma regra de negócio acima, mas devolvida como booleano (sem olhar ao método HTTP) — usada pelo middleware
      * `licenca_exportacao` para bloquear também pedidos GET que geram documentos (SAF-T, recibos em PDF, cópias de
-     * segurança): tecnicamente são leitura, mas contam como "exportar", que a licença expirada também proíbe.
+     * segurança): tecnicamente são leitura, mas contam como "exportar", que a licença bloqueada também proíbe.
      */
     public function licencaBloqueada(Request $request, $utilizador, int $empresaId): bool
     {
@@ -87,12 +90,20 @@ final class ResolverEmpresaAtiva
             return false;
         }
 
-        $empresa = Empresa::query()->whereKey($empresaId)->first(['id', 'licenca_fim']);
-        if ($empresa === null || ! $empresa->licencaExpirada()) {
+        // Lê sempre o estado persistido, nunca recalculado ao vivo: uma suspensão manual (ex. por incumprimento,
+        // decidida antes de `licenca_fim` ter sequer passado) tem de se manter até uma acção explícita a desfazer
+        // (pagamento confirmado, reactivação administrativa) — nunca pode ser "desfeita" silenciosamente só porque
+        // a data ainda não reflecte expiração. Por isso qualquer escrita em licenca_fim/licenca_origem tem sempre de
+        // chamar MaquinaEstadosLicenca::sincronizar() a seguir (ver Empresa::booted, ServicoLicenca::confirmarPagamento,
+        // PlataformaSaasController::atualizarEmpresa).
+        $empresa = Empresa::query()->whereKey($empresaId)->first(['id', 'estado_licenca']);
+        $bloqueantes = [Empresa::LICENCA_SUSPENSA, Empresa::LICENCA_CANCELADA, Empresa::LICENCA_EM_ENCERRAMENTO, Empresa::LICENCA_ENCERRADA];
+        if ($empresa === null || ! in_array($empresa->estado_licenca, $bloqueantes, true)) {
             return false;
         }
 
-        // As rotas da própria licença (pedir renovação, confirmar pagamento) ficam sempre disponíveis: é por elas que se renova.
+        // As rotas da própria licença (pedir renovação, confirmar pagamento, suporte técnico) ficam sempre
+        // disponíveis: é por elas que se regulariza e, na suspensão comercial, o suporte nunca fica inacessível.
         return ! str_starts_with((string) $request->route()?->getName(), 'licenca.');
     }
 }

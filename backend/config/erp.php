@@ -164,8 +164,10 @@ return [
         // alterado sem reiniciar a aplicação em Plataforma → SaaS → "Dias de Teste Padrão" (definicoes_plataforma).
         'dias_teste' => (int) env('LICENCAS_DIAS_TESTE', 30),
         // Janela de tolerância após expirar antes de passar a SUSPENSA (MaquinaEstadosLicenca) — extensão SaaS,
-        // secção 10 (segurança.txt): a suspensão por incumprimento nunca é imediata.
-        'dias_tolerancia' => (int) env('LICENCAS_DIAS_TOLERANCIA', 5),
+        // secção 10 (segurança.txt). Omissão 0: preserva o comportamento actual (ADR-074, bloqueio imediato no dia
+        // seguinte, "sem tolerância nem dias perdidos") — decisão confirmada; o estado TOLERANCIA fica pronto na
+        // máquina de estados mas só é atingido se este valor for aumentado.
+        'dias_tolerancia' => (int) env('LICENCAS_DIAS_TOLERANCIA', 0),
     ],
 
     // Facturação AGT automática da subscrição SaaS (motor de precificação, Módulo D). empresa_id=0 desliga a

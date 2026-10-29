@@ -108,6 +108,7 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::put('saas/geral', 'atualizarGeral')->name('saas.geral');
         Route::get('saas/empresas', 'listarEmpresas')->name('saas.empresas');
         Route::put('saas/empresas/{empresa}', 'atualizarEmpresa')->whereNumber('empresa')->name('saas.empresas.atualizar');
+        Route::post('saas/empresas/{empresa}/estado-licenca', 'definirEstadoLicenca')->whereNumber('empresa')->name('saas.empresas.estado_licenca');
     });
 
     Route::controller(CupoesController::class)->prefix('cupoes')->name('cupoes.')->group(function () {
