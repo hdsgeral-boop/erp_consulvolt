@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Plataforma;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Services\Plataforma\ServicoClientes;
+use App\Services\Plataforma\ServicoDashboardExecutivo;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -13,10 +14,14 @@ use Illuminate\Support\Facades\DB;
 /** Painel da plataforma: resumo e relatórios CSV. Acesso: middleware `plataforma`. */
 final class PainelController extends Controller
 {
-    public function __construct(private readonly ServicoClientes $clientes) {}
+    public function __construct(
+        private readonly ServicoClientes $clientes,
+        private readonly ServicoDashboardExecutivo $dashboardExecutivo,
+    ) {}
 
     public function dashboard(): JsonResponse
     {
+        $this->exigir('plataforma_painel_ver');
         $clientes = $this->clientes->listar();
         $empresas = $this->clientes->empresas();
         $hoje = now()->toDateString();
@@ -36,6 +41,9 @@ final class PainelController extends Controller
             'utilizadores' => (int) DB::table('utilizadores')->count(),
             'ultimos_clientes' => $clientes->map(fn (array $i) => $i['tenant'])->sortByDesc('criado_em')->take(5)->values()
                 ->map(fn (Tenant $c) => ['id' => $c->id, 'nome' => $c->nome, 'slug' => $c->slug, 'criado_em' => $c->criado_em])->all(),
+            // Fase 5 da extensão SaaS (secção 11): indicadores financeiros, comerciais e de suporte — ver
+            // ServicoDashboardExecutivo para as fórmulas exactas de cada um.
+            'indicadores' => $this->dashboardExecutivo->indicadores(),
         ], 'Painel obtido com sucesso.');
     }
 
