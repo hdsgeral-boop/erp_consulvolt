@@ -1,0 +1,126 @@
+<?php
+
+namespace App\Http\Controllers\Api\Autenticacao;
+
+use App\Exceptions\ErroNegocio;
+use App\Http\Controllers\Controller;
+use App\Services\Autenticacao\ServicoAutenticacao;
+use App\Services\Autenticacao\ServicoTotp;
+use App\Support\Api\RespostaApi;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+/**
+ * MFA — autenticação de dois factores por TOTP (Fase 4 da extensão SaaS, secção 12, ponto 222). Setup e desactivação
+ * exigem uma sessão já completa (o próprio utilizador configura o seu próprio MFA, nunca outro em seu nome);
+ * `verificar` é o 2.º passo do login, autenticado só pelo token limitado ('mfa:pendente') que `entrar()` devolveu.
+ */
+final class MfaController extends Controller
+{
+    public function __construct(
+        private readonly ServicoTotp $totp,
+        private readonly ServicoAutenticacao $autenticacao,
+    ) {}
+
+    /** POST /api/autenticacao/mfa/iniciar — gera um novo segredo (ainda inactivo) e o URI para o QR code. */
+    public function iniciarSetup(Request $request): JsonResponse
+    {
+        $utilizador = $request->user();
+        $segredo = $this->totp->gerarSegredo();
+        $utilizador->forceFill(['mfa_segredo' => $segredo, 'mfa_ativo' => false])->save();
+
+        return RespostaApi::sucesso([
+            'segredo' => $segredo,
+            'uri' => $this->totp->uriProvisionamento($segredo, $utilizador->nome_utilizador),
+        ], 'Configure a aplicação de autenticação e confirme com um código.');
+    }
+
+    /** POST /api/autenticacao/mfa/confirmar — activa o MFA depois de confirmar um código válido; devolve os códigos de recuperação UMA ÚNICA VEZ. */
+    public function confirmarSetup(Request $request): JsonResponse
+    {
+        $utilizador = $request->user();
+        $d = $request->validate(['codigo' => ['required', 'string']]);
+
+        if (! $utilizador->mfa_segredo) {
+            throw new ErroNegocio('Inicie a configuração do MFA antes de confirmar.', 'MFA_SEM_SETUP', 422);
+        }
+        if (! $this->totp->verificar($utilizador->mfa_segredo, $d['codigo'])) {
+            throw new ErroNegocio('Código inválido.', 'CODIGO_INVALIDO', 422);
+        }
+
+        $codigosRecuperacao = collect(range(1, 8))->map(fn () => Str::upper(Str::random(4).'-'.Str::random(4)))->all();
+        $utilizador->forceFill([
+            'mfa_ativo' => true,
+            'mfa_ativado_em' => now(),
+            'mfa_codigos_recuperacao' => array_map(fn (string $c) => Hash::make($c), $codigosRecuperacao),
+        ])->save();
+
+        return RespostaApi::sucesso([
+            'ativo' => true,
+            'codigos_recuperacao' => $codigosRecuperacao,
+        ], 'MFA activado. Guarde os códigos de recuperação num local seguro — não voltam a ser mostrados.');
+    }
+
+    /** POST /api/autenticacao/mfa/desactivar — exige a palavra-passe actual (confirmação de identidade). */
+    public function desactivar(Request $request): JsonResponse
+    {
+        $utilizador = $request->user();
+        $d = $request->validate(['palavra_passe' => ['required', 'string']]);
+
+        if (! $this->autenticacao->palavraPasseCorrecta($utilizador, $d['palavra_passe'])) {
+            throw new ErroNegocio('Palavra-passe incorrecta.', 'PALAVRA_PASSE_INCORRETA', 422);
+        }
+
+        $utilizador->forceFill(['mfa_ativo' => false, 'mfa_segredo' => null, 'mfa_codigos_recuperacao' => null, 'mfa_ativado_em' => null])->save();
+
+        return RespostaApi::sucesso(null, 'MFA desactivado.');
+    }
+
+    /** POST /api/autenticacao/mfa/verificar — 2.º passo do login (token limitado 'mfa:pendente'); aceita TOTP ou um código de recuperação (uso único). */
+    public function verificar(Request $request): JsonResponse
+    {
+        $utilizador = $request->user();
+        // Nota: um token com '*' responde true a qualquer can() (inclui 'mfa:pendente') — por isso a verificação
+        // tem de ser "não tem acesso total", nunca "tem esta habilidade específica" (ver BloquearTokenMfaPendente).
+        if ($request->user()->currentAccessToken()?->can('*')) {
+            throw new ErroNegocio('Este pedido não está à espera de um código de autenticação.', 'MFA_SEM_PENDENTE', 403);
+        }
+
+        $d = $request->validate(['codigo' => ['required', 'string']]);
+        $codigo = trim($d['codigo']);
+
+        $valido = $this->totp->verificar((string) $utilizador->mfa_segredo, $codigo) || $this->consumirCodigoRecuperacao($utilizador, $codigo);
+        if (! $valido) {
+            throw new ErroNegocio('Código inválido.', 'CODIGO_INVALIDO', 422);
+        }
+
+        $sessao = $this->autenticacao->emitirTokenCompletoPosMfa(
+            $utilizador, $request->string('dispositivo')->toString() ?: 'api', $request->ip(), $request->userAgent(),
+        );
+
+        return RespostaApi::sucesso([
+            'mfa_pendente' => false,
+            'token' => $sessao['token'],
+            'tipo_token' => 'Bearer',
+            'expira_em' => $sessao['expira_em']->toAtomString(),
+        ], 'Sessão iniciada com sucesso.');
+    }
+
+    /** Um código de recuperação só serve uma vez: se válido, é removido da lista antes de devolver true. */
+    private function consumirCodigoRecuperacao($utilizador, string $codigo): bool
+    {
+        $hashes = $utilizador->mfa_codigos_recuperacao ?? [];
+        foreach ($hashes as $indice => $hash) {
+            if (Hash::check($codigo, $hash)) {
+                unset($hashes[$indice]);
+                $utilizador->forceFill(['mfa_codigos_recuperacao' => array_values($hashes)])->save();
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

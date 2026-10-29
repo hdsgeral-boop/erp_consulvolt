@@ -37,7 +37,19 @@ final class AutenticacaoController extends Controller
             $request->userAgent(),
         );
 
+        // MFA (Fase 4 da extensão SaaS): credenciais válidas, mas a sessão só fica completa depois do código TOTP
+        // (ver MfaController::verificar) — o token devolvido aqui só serve para esse pedido, nunca para mais nada.
+        if ($sessao['mfa_pendente']) {
+            return RespostaApi::sucesso([
+                'mfa_pendente' => true,
+                'token_mfa' => $sessao['token_mfa'],
+                'tipo_token' => 'Bearer',
+                'expira_em' => $sessao['expira_em']->toAtomString(),
+            ], 'Introduza o código da aplicação de autenticação.');
+        }
+
         return RespostaApi::sucesso([
+            'mfa_pendente' => false,
             'token' => $sessao['token'],
             'tipo_token' => 'Bearer',
             'expira_em' => $sessao['expira_em']->toAtomString(),

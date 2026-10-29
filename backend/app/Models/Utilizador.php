@@ -56,9 +56,13 @@ class Utilizador extends Autenticavel
     protected $fillable = [
         'nome_utilizador', 'nome_completo', 'email', 'telefone', 'palavra_passe', 'papel', 'perfil_utilizador_id',
         'acesso_todas_empresas', 'ativo', 'deve_alterar_password',
+        'mfa_segredo', 'mfa_ativo', 'mfa_codigos_recuperacao', 'mfa_ativado_em',
     ];
 
-    protected $hidden = ['palavra_passe', 'hash_password_legado', 'salt_password_legado', 'algoritmo_password_legado'];
+    protected $hidden = [
+        'palavra_passe', 'hash_password_legado', 'salt_password_legado', 'algoritmo_password_legado',
+        'mfa_segredo', 'mfa_codigos_recuperacao',
+    ];
 
     protected function casts(): array
     {
@@ -70,6 +74,11 @@ class Utilizador extends Autenticavel
             'ativo' => 'boolean',
             'deve_alterar_password' => 'boolean',
             'modulos_permitidos' => 'array',
+            'mfa_segredo' => 'encrypted',
+            'mfa_ativo' => 'boolean',
+            // já são hashes (Hash::make), não os códigos em texto simples: encriptação adicional é redundante.
+            'mfa_codigos_recuperacao' => 'array',
+            'mfa_ativado_em' => 'datetime',
         ];
     }
 
@@ -125,6 +134,15 @@ class Utilizador extends Autenticavel
     public function eOperadorPlataforma(): bool
     {
         return $this->papel === self::PAPEL_OPERADOR_PLATAFORMA;
+    }
+
+    /**
+     * Conta privilegiada (Fase 4 da extensão SaaS, secção 12, ponto 222: "MFA obrigatório para contas
+     * privilegiadas") — qualquer papel com poder administrativo acima de um utilizador comum de empresa.
+     */
+    public function ePrivilegiado(): bool
+    {
+        return in_array($this->papel, [self::PAPEL_SUPER_ADMINISTRADOR, self::PAPEL_OPERADOR_PLATAFORMA, self::PAPEL_AGENTE_SUPORTE], true);
     }
 
     public function temCredencialLegada(): bool

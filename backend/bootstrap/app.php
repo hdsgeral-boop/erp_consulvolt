@@ -2,6 +2,7 @@
 
 use App\Exceptions\ErroNegocio;
 use App\Exceptions\ManipuladorExcecoesApi;
+use App\Http\Middleware\BloquearTokenMfaPendente;
 use App\Http\Middleware\ExigirTrocaPassword;
 use App\Http\Middleware\ForcarRespostaJson;
 use App\Http\Middleware\ResolverEmpresaAtiva;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [ForcarRespostaJson::class]);
+        // MFA (Fase 4 da extensão SaaS): um token limitado ('mfa:pendente') nunca pode servir de sessão completa —
+        // verificado o mais cedo possível, antes de qualquer outra coisa decidir algo com base no utilizador.
+        $middleware->api(append: [BloquearTokenMfaPendente::class]);
         // SaaS (ADR-073): o tenant da sessão de base de dados vem do utilizador autenticado. Sem efeito com erp.saas.ativo=false.
         $middleware->api(append: [ResolverTenantAtivo::class]);
         // Passwords são sempre geradas pelo sistema: bloqueia toda a API (lista branca) até o utilizador a trocar.

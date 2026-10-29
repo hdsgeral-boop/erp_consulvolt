@@ -67,20 +67,63 @@ final class ServicoAutenticacao
         return DB::transaction(function () use ($utilizador, $palavraPasse, $dispositivo, $ip, $agente) {
             $this->modernizarHash($utilizador, $palavraPasse);
 
-            $expiraEm = now()->addHours(config('erp.sessao.validade_horas'));
-            $novo = $utilizador->createToken($dispositivo, ['*'], $expiraEm);
+            // MFA (Fase 4 da extensão SaaS): com MFA activo, a password certa só dá um token limitado — a sessão
+            // completa (habilidade '*') só é emitida depois do código TOTP confirmado (ver verificarMfaEEmitirToken).
+            if ($utilizador->mfa_ativo) {
+                $expiraPendente = now()->addMinutes(5);
+                $pendente = $utilizador->createToken($dispositivo.':mfa-pendente', ['mfa:pendente'], $expiraPendente);
+                /** @var TokenAcesso $tokenPendente */
+                $tokenPendente = $pendente->accessToken;
+                $tokenPendente->forceFill(['endereco_ip' => $ip, 'agente_utilizador' => $agente ? mb_substr($agente, 0, 500) : null])->save();
 
-            /** @var TokenAcesso $token */
-            $token = $novo->accessToken;
-            $token->forceFill(['endereco_ip' => $ip, 'agente_utilizador' => $agente ? mb_substr($agente, 0, 500) : null])->save();
+                $this->auditoria->registar('Autenticação', 'Entrar (MFA pendente)', 'Credenciais válidas; a aguardar o código de autenticação.',
+                    'utilizadores', $utilizador->getKey(), utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
 
-            $utilizador->forceFill(['ultimo_acesso_em' => now()])->saveQuietly();
+                return ['mfa_pendente' => true, 'token_mfa' => $pendente->plainTextToken, 'expira_em' => $expiraPendente, 'utilizador' => $utilizador];
+            }
 
-            $this->auditoria->registar('Autenticação', 'Entrar', 'Sessão iniciada.', 'utilizadores', $utilizador->getKey(),
-                utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
+            $novo = $this->emitirTokenCompleto($utilizador, $dispositivo, $ip, $agente);
 
-            return ['token' => $novo->plainTextToken, 'expira_em' => $expiraEm, 'utilizador' => $utilizador];
+            return ['mfa_pendente' => false, ...$novo];
         });
+    }
+
+    /**
+     * Segundo passo do login quando MFA está activo: troca o token limitado ('mfa:pendente') por um token completo,
+     * depois do código TOTP (ou de recuperação) confirmado — ver MfaController::verificar().
+     *
+     * @return array{token: string, expira_em: Carbon, utilizador: Utilizador}
+     */
+    public function emitirTokenCompletoPosMfa(Utilizador $utilizador, string $dispositivo, ?string $ip, ?string $agente): array
+    {
+        return DB::transaction(function () use ($utilizador, $dispositivo, $ip, $agente) {
+            // o token limitado usado para chegar aqui não serve para mais nada: a sessão completa é um token novo.
+            $utilizador->currentAccessToken()?->delete();
+
+            $resultado = $this->emitirTokenCompleto($utilizador, $dispositivo, $ip, $agente);
+            $this->auditoria->registar('Autenticação', 'Entrar (MFA confirmado)', 'Código de autenticação confirmado; sessão completa iniciada.',
+                'utilizadores', $utilizador->getKey(), utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
+
+            return $resultado;
+        });
+    }
+
+    /** @return array{token: string, expira_em: Carbon, utilizador: Utilizador} */
+    private function emitirTokenCompleto(Utilizador $utilizador, string $dispositivo, ?string $ip, ?string $agente): array
+    {
+        $expiraEm = now()->addHours(config('erp.sessao.validade_horas'));
+        $novo = $utilizador->createToken($dispositivo, ['*'], $expiraEm);
+
+        /** @var TokenAcesso $token */
+        $token = $novo->accessToken;
+        $token->forceFill(['endereco_ip' => $ip, 'agente_utilizador' => $agente ? mb_substr($agente, 0, 500) : null])->save();
+
+        $utilizador->forceFill(['ultimo_acesso_em' => now()])->saveQuietly();
+
+        $this->auditoria->registar('Autenticação', 'Entrar', 'Sessão iniciada.', 'utilizadores', $utilizador->getKey(),
+            utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
+
+        return ['token' => $novo->plainTextToken, 'expira_em' => $expiraEm, 'utilizador' => $utilizador];
     }
 
     public function sair(Utilizador $utilizador): void

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Autenticacao\MfaController;
 use App\Http\Controllers\Api\Autenticacao\RegistoEmpresaController;
 use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Compras\ComprasController;
@@ -84,6 +85,15 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
         Route::get('dados-pessoais', [DadosPessoaisController::class, 'show'])->name('dados_pessoais.show');
         Route::put('dados-pessoais', [DadosPessoaisController::class, 'update'])->name('dados_pessoais.update');
         Route::put('palavra-passe', [DadosPessoaisController::class, 'palavraPasse'])->middleware('throttle:palavra-passe')->name('palavra_passe');
+
+        // MFA (Fase 4 da extensão SaaS): o próprio utilizador configura/desactiva o seu MFA; `verificar` é o 2.º
+        // passo do login, autenticado só pelo token limitado 'mfa:pendente' que `entrar()` devolveu.
+        Route::prefix('mfa')->name('mfa.')->controller(MfaController::class)->group(function () {
+            Route::post('iniciar', 'iniciarSetup')->name('iniciar');
+            Route::post('confirmar', 'confirmarSetup')->name('confirmar');
+            Route::post('desactivar', 'desactivar')->name('desactivar');
+            Route::post('verificar', 'verificar')->middleware('throttle:entrar')->name('verificar');
+        });
     });
 });
 

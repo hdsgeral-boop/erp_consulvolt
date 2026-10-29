@@ -25,6 +25,7 @@ final class ExigirAreaPortal
         'autenticacao.eu',
         'autenticacao.dados_pessoais.',
         'autenticacao.palavra_passe',
+        'autenticacao.mfa.',
         'sistema.empresas.',   // escolha de empresa depois do login
         'sistema.menu',
         'sistema.identidade',
