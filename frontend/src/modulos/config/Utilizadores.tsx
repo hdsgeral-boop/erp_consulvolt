@@ -11,7 +11,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { larguraModal } from '@/componentes/responsivo';
-import { ModalFormulario, SeccaoFormulario, type CampoFormulario, type PropsCelula } from '@/componentes/formularios';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 
 interface EmpresaUtilizador {
@@ -38,7 +38,6 @@ interface UtilizadorLinha {
 }
 
 const PAPEIS = { SUPER_ADMINISTRADOR: 'Super-administrador', ADMINISTRADOR: 'Administrador', UTILIZADOR: 'Utilizador' } as const;
-const MINIMO = 8;
 const CHAVE = ['sistema', 'utilizadores'];
 
 /** Configurações › Utilizadores (config_utilizadores): lista, criação/edição com empresas e colaborador, estado, palavra-passe. */
@@ -185,7 +184,6 @@ interface FormUtilizador {
   nome_utilizador: string;
   nome_completo?: string;
   email?: string;
-  palavra_passe?: string;
   perfil_utilizador_id: number;
   papel: UtilizadorLinha['papel'];
   acesso_todas_empresas: boolean;
@@ -245,8 +243,6 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
     { nome: 'nome_utilizador', rotulo: 'Nome de utilizador', obrigatorio: true, largura: 160, maxLength: 100, aliases: ['Utilizador', 'Login'] },
     { nome: 'nome_completo', rotulo: 'Nome completo', largura: 200, maxLength: 200, aliases: ['Nome'] },
     { nome: 'email', rotulo: 'Email', largura: 190, maxLength: 150, aliases: ['E-mail'], validar: (e) => (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim()) ? 'Email inválido.' : null) },
-    { nome: 'palavra_passe', rotulo: 'Palavra-passe', tipo: 'personalizado', obrigatorio: true, largura: 160, celula: CelulaPalavraPasse,
-      validar: (p) => (p && String(p).length < MINIMO ? `Pelo menos ${MINIMO} caracteres.` : null) },
     { nome: 'perfil_utilizador_id', rotulo: 'Perfil', tipo: 'select', obrigatorio: true, largura: 190, opcoes: (perfis.data ?? []).map((p) => ({ value: p.id, label: p.nome })) },
     { nome: 'ativo', rotulo: 'Activo', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 1, largura: 90 },
     { nome: 'acesso_todas_empresas', rotulo: 'Todas as empresas', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 0, largura: 130, emLinhas: 'opcional', seccao: 'Acesso' },
@@ -292,16 +288,11 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
               <Input maxLength={150} />
             </Form.Item>
           </Col>
-          <Col xs={24} md={12}>
-            <Form.Item
-              name="palavra_passe"
-              label={novo ? 'Palavra-passe' : 'Nova palavra-passe (opcional)'}
-              rules={[{ required: novo, message: 'Indique a palavra-passe.' }, { min: MINIMO, message: `Pelo menos ${MINIMO} caracteres.` }]}
-            >
-              <Input.Password maxLength={200} autoComplete="new-password" />
-            </Form.Item>
-          </Col>
         </Row>
+        {novo && (
+          <Alert type="info" showIcon style={{ marginBottom: 16 }}
+            message="A password é gerada automaticamente pelo sistema e enviada por email. O utilizador é obrigado a trocá-la no primeiro acesso." />
+        )}
         </SeccaoFormulario>
         <SeccaoFormulario titulo="Perfil e estado">
         <Row gutter={16}>
@@ -355,11 +346,6 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
   );
 }
 
-/** Célula da palavra-passe na vista Linhas: escondida (não fica à vista na tabela). */
-function CelulaPalavraPasse({ valor, aoMudar, rotulo, erro }: PropsCelula) {
-  return <Input.Password size="small" aria-label={rotulo} status={erro ? 'error' : undefined} autoComplete="new-password" maxLength={200} value={String(valor ?? '')} onChange={(e) => aoMudar(e.target.value)} />;
-}
-
 /** Corpo do pedido do utilizador (comum à grade e à vista Linhas, onde «Activo»/«Todas as empresas» vêm em 1/0). */
 export function dadosUtilizador(v: Partial<FormUtilizador> | Record<string, unknown>, empresas: { empresa_id: number; colaborador_id: number | null }[], souSuper: boolean): Record<string, unknown> {
   const x = v as Record<string, unknown>;
@@ -373,44 +359,26 @@ export function dadosUtilizador(v: Partial<FormUtilizador> | Record<string, unkn
     ativo: x.ativo === undefined || x.ativo === null ? true : simNao(x.ativo),
     empresas,
     ...(souSuper && x.papel ? { papel: x.papel } : {}),
-    ...(x.palavra_passe ? { palavra_passe: x.palavra_passe } : {}),
   };
 }
 
+/** A nova password é sempre gerada pelo sistema (nunca escolhida pelo administrador) e enviada por email ao utilizador. */
 function ModalPalavraPasse({ utilizador, aoFechar }: { utilizador: UtilizadorLinha | null; aoFechar: () => void }) {
-  const [form] = Form.useForm<{ palavra_passe: string; palavra_passe_confirmation: string }>();
   const accao = useAccao({ invalidar: [CHAVE], aoSucesso: () => aoFechar() });
-  useEffect(() => {
-    if (utilizador) form.resetFields();
-  }, [utilizador, form]);
   return (
     <Modal
       title={`Repor palavra-passe — ${utilizador?.nome_utilizador ?? ''}`}
       open={!!utilizador}
       onCancel={aoFechar}
-      okText="Repor"
+      okText="Gerar nova password"
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
-      onOk={() => form.submit()}
+      onOk={() => utilizador && accao.mutate({ url: `/sistema/utilizadores/${utilizador.id}/palavra-passe` })}
       destroyOnHidden
     >
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="As sessões abertas do utilizador são terminadas." />
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/sistema/utilizadores/${utilizador!.id}/palavra-passe`, dados: v })}>
-        <Form.Item name="palavra_passe" label="Nova palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }, { min: MINIMO, message: `Pelo menos ${MINIMO} caracteres.` }]}>
-          <Input.Password autoComplete="new-password" maxLength={200} />
-        </Form.Item>
-        <Form.Item
-          name="palavra_passe_confirmation"
-          label="Confirmar"
-          dependencies={['palavra_passe']}
-          rules={[
-            { required: true, message: 'Confirme a palavra-passe.' },
-            ({ getFieldValue }) => ({ validator: (_, v) => (v === getFieldValue('palavra_passe') ? Promise.resolve() : Promise.reject(new Error('As palavras-passe não coincidem.'))) }),
-          ]}
-        >
-          <Input.Password autoComplete="new-password" maxLength={200} />
-        </Form.Item>
-      </Form>
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+        message="É gerada uma nova password aleatória e enviada por email ao utilizador. As sessões abertas são terminadas e a troca passa a ser obrigatória no próximo acesso." />
+      <Typography.Text type="secondary">Confirma a reposição da password de <strong>{utilizador?.nome_utilizador}</strong>?</Typography.Text>
     </Modal>
   );
 }

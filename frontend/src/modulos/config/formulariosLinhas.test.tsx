@@ -115,8 +115,8 @@ describe('transformações comuns à grade e às linhas', () => {
   it('unidade de negócio, utilizador e empresa: 1/0 das linhas em booleano', () => {
     expect(corpoUnidade({ codigo: 'UN1', nome: 'Sede', valido_de: '2026-01-01', tem_vendas: 1, tem_servico: 0, email: '' }))
       .toMatchObject({ valido_de: '2026-01-01', valido_ate: null, tem_vendas: true, tem_servico: false, email: null });
-    expect(dadosUtilizador({ nome_utilizador: ' ana ', palavra_passe: 'segredo123', perfil_utilizador_id: 3, ativo: 1, acesso_todas_empresas: 0 }, [{ empresa_id: 7, colaborador_id: null }], false))
-      .toEqual({ nome_utilizador: 'ana', nome_completo: null, email: null, perfil_utilizador_id: 3, acesso_todas_empresas: false, ativo: true, empresas: [{ empresa_id: 7, colaborador_id: null }], palavra_passe: 'segredo123' });
+    expect(dadosUtilizador({ nome_utilizador: ' ana ', perfil_utilizador_id: 3, ativo: 1, acesso_todas_empresas: 0 }, [{ empresa_id: 7, colaborador_id: null }], false))
+      .toEqual({ nome_utilizador: 'ana', nome_completo: null, email: null, perfil_utilizador_id: 3, acesso_todas_empresas: false, ativo: true, empresas: [{ empresa_id: 7, colaborador_id: null }] });
     expect(dadosEmpresa({ nome: 'Nova', nif: '500', email: '', moeda_funcional: 'usd', e_consolidacao: 0 })).toEqual({ nome: 'Nova', nif: '500', email: null, moeda_funcional: 'USD', e_consolidacao: false });
   });
 });
@@ -181,18 +181,18 @@ describe('Plano de contas — «Nova Conta» em Linhas', () => {
 });
 
 describe('Utilizadores — «Novo utilizador» em Linhas', () => {
-  it('cada linha cria um utilizador na empresa activa; a palavra-passe fica escondida', async () => {
+  it('cada linha cria um utilizador na empresa activa; a password não é pedida (gerada pelo sistema e enviada por email)', async () => {
     const { default: Utilizadores } = await import('./Utilizadores');
     envolver(<Utilizadores />);
     await abrirLinhas(/Novo utilizador/);
     await waitFor(() => expect(obter).toHaveBeenCalledWith('/sistema/perfis'));
-    expect(celula('Palavra-passe', 1).type).toBe('password');
-    await colar('Nome de utilizador\tNome completo\tEmail\tPalavra-passe\tPerfil\nana\tAna Fictícia\tana@exemplo.invalid\tsegredo123\tSalários');
+    expect(screen.queryByLabelText('Palavra-passe, linha 1')).toBeNull();
+    await colar('Nome de utilizador\tNome completo\tEmail\tPerfil\nana\tAna Fictícia\tana@exemplo.invalid\tSalários');
     await registar();
     await waitFor(() => expect(posts('/sistema/utilizadores')).toHaveLength(1));
     expect(posts('/sistema/utilizadores')[0][2]).toEqual({
       nome_utilizador: 'ana', nome_completo: 'Ana Fictícia', email: 'ana@exemplo.invalid', perfil_utilizador_id: 3,
-      acesso_todas_empresas: false, ativo: true, empresas: [{ empresa_id: 7, colaborador_id: null }], palavra_passe: 'segredo123',
+      acesso_todas_empresas: false, ativo: true, empresas: [{ empresa_id: 7, colaborador_id: null }],
     });
   });
 
@@ -201,7 +201,7 @@ describe('Utilizadores — «Novo utilizador» em Linhas', () => {
     envolver(<Utilizadores />);
     fireEvent.click(await screen.findByRole('button', { name: /Novo utilizador/ }, { timeout: 60_000 }));
     const dialogo = await screen.findByRole('dialog');
-    for (const id of ['nome_utilizador', 'nome_completo', 'email', 'palavra_passe', 'perfil_utilizador_id']) expect(dialogo.querySelector(`#${id}`)).not.toBeNull();
+    for (const id of ['nome_utilizador', 'nome_completo', 'email', 'perfil_utilizador_id']) expect(dialogo.querySelector(`#${id}`)).not.toBeNull();
     for (const s of ['Conta', 'Perfil e estado', 'Empresas e colaborador']) expect(within(dialogo).getByRole('button', { name: new RegExp(`(^| )${s}$`) })).toHaveAttribute('aria-expanded', 'true');
   });
 });

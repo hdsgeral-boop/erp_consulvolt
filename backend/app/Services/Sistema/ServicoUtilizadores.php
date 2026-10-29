@@ -9,6 +9,7 @@ use App\Models\Utilizador;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Utilizadores (renderUsers / saveUser / deleteUser, js/app_v2.js:3011-3203; ligação ao colaborador
@@ -16,7 +17,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Paridade:
  *  - nome de utilizador obrigatório e único (comparação exacta, como no login); perfil obrigatório;
- *  - palavra-passe obrigatória na criação, opcional na edição (em branco = mantém), mínimo 8 caracteres;
+ *  - a palavra-passe NUNCA é escolhida por um humano: é sempre gerada aleatoriamente (criar/reporPalavraPasse),
+ *    enviada por email, e marca `deve_alterar_password=true` (troca obrigatória no primeiro acesso, ExigirTrocaPassword);
  *  - papel derivado do perfil (nome com "admin" => ADMINISTRADOR; senão UTILIZADOR); o SUPER_ADMINISTRADOR mantém o papel;
  *  - empresas autorizadas e, em cada uma, o colaborador associado (dá o Portal do Colaborador); um colaborador só
  *    pode estar ligado a um utilizador em cada empresa;
@@ -111,8 +113,12 @@ final class ServicoUtilizadores
         ];
     }
 
-    /** @param  array<string, mixed>  $d */
-    public function criar(array $d, Utilizador $actor): Utilizador
+    /**
+     * @param  array<string, mixed>  $d
+     * @return array{utilizador: Utilizador, palavra_passe: string} a password só existe aqui (texto simples), para
+     *                                                              o chamador a enviar por email; nunca é guardada nem devolvida depois.
+     */
+    public function criar(array $d, Utilizador $actor): array
     {
         app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteUtilizadores((int) $actor->tenant_id);
 
@@ -122,11 +128,11 @@ final class ServicoUtilizadores
                 throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
             }
             $perfil = $this->perfilAtribuivel((int) $d['perfil_utilizador_id'], $actor);
-            $this->exigirPalavraPasse((string) ($d['palavra_passe'] ?? ''));
             $todas = (bool) ($d['acesso_todas_empresas'] ?? false);
             if ($todas && ! $this->permissoes->total($actor)) {
                 throw new ErroNegocio('Só um administrador de acesso total pode dar acesso a todas as empresas.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
             }
+            $palavraPasse = $this->gerarPalavraPasseAleatoria();
 
             $u = new Utilizador([
                 'nome_utilizador' => $nome,
@@ -136,15 +142,15 @@ final class ServicoUtilizadores
                 'papel' => $this->papel($d, $perfil, null, $actor),
                 'acesso_todas_empresas' => $todas,
                 'ativo' => (bool) ($d['ativo'] ?? true),
-                'palavra_passe' => (string) $d['palavra_passe'],
+                'palavra_passe' => $palavraPasse,
             ]);
-            $u->forceFill(['palavra_passe_alterada_em' => now()])->save();
+            $u->forceFill(['palavra_passe_alterada_em' => now(), 'deve_alterar_password' => true])->save();
             $this->sincronizarEmpresas($u, $d['empresas'] ?? [], $actor);
 
             $this->auditoria->registar('Sistema/Utilizadores', 'Criar utilizador', "Utilizador '{$u->nome_utilizador}' criado com o perfil '{$perfil->nome}'.",
                 'utilizadores', $u->id, null, $this->resumoAuditoria($u));
 
-            return $u->refresh();
+            return ['utilizador' => $u->refresh(), 'palavra_passe' => $palavraPasse];
         });
     }
 
@@ -153,7 +159,7 @@ final class ServicoUtilizadores
     {
         return DB::transaction(function () use ($u, $d, $actor) {
             $u = Utilizador::query()->lockForUpdate()->findOrFail($u->id);
-            $this->exigirGerivel($u, $actor, isset($d['palavra_passe']) && $d['palavra_passe'] !== '');   // redefinir a palavra-passe exige todas as empresas
+            $this->exigirGerivel($u, $actor, false);   // editar exige só partilhar uma empresa; a palavra-passe já não se altera aqui
             $antes = $this->resumoAuditoria($u);
 
             if (isset($d['nome_utilizador'])) {
@@ -183,20 +189,13 @@ final class ServicoUtilizadores
                 }
                 $u->acesso_todas_empresas = (bool) $d['acesso_todas_empresas'];
             }
-            $novaPalavraPasse = isset($d['palavra_passe']) && $d['palavra_passe'] !== '' ? (string) $d['palavra_passe'] : null;
-            if ($novaPalavraPasse !== null) {
-                $this->definirPalavraPasse($u, $novaPalavraPasse);
-            }
             $u->save();
             if (array_key_exists('empresas', $d)) {
                 $this->sincronizarEmpresas($u, $d['empresas'] ?? [], $actor);
             }
-            if ($novaPalavraPasse !== null && $u->id !== $actor->id) {
-                $u->tokens()->delete();
-            }
 
-            $this->auditoria->registar('Sistema/Utilizadores', 'Alterar utilizador', "Utilizador '{$u->nome_utilizador}' alterado"
-                .($novaPalavraPasse !== null ? ' (palavra-passe redefinida).' : '.'), 'utilizadores', $u->id, $antes, $this->resumoAuditoria($u));
+            $this->auditoria->registar('Sistema/Utilizadores', 'Alterar utilizador', "Utilizador '{$u->nome_utilizador}' alterado.",
+                'utilizadores', $u->id, $antes, $this->resumoAuditoria($u));
 
             return $u->refresh();
         });
@@ -229,18 +228,45 @@ final class ServicoUtilizadores
         });
     }
 
-    public function reporPalavraPasse(Utilizador $u, string $palavraPasse, Utilizador $actor): Utilizador
+    /**
+     * @return array{utilizador: Utilizador, palavra_passe: string} a password só existe aqui (texto simples), para
+     *                                                              o chamador a enviar por email; nunca é guardada nem devolvida depois.
+     */
+    public function reporPalavraPasse(Utilizador $u, Utilizador $actor): array
     {
-        return DB::transaction(function () use ($u, $palavraPasse, $actor) {
+        return DB::transaction(function () use ($u, $actor) {
             $u = Utilizador::query()->lockForUpdate()->findOrFail($u->id);
             $this->exigirGerivel($u, $actor);
+            $palavraPasse = $this->gerarPalavraPasseAleatoria();
             $this->definirPalavraPasse($u, $palavraPasse);
+            $u->deve_alterar_password = true;
             $u->save();
             $revogadas = $u->id === $actor->id ? 0 : $u->tokens()->delete();
             $this->auditoria->registar('Sistema/Utilizadores', 'Repor palavra-passe', "Palavra-passe de '{$u->nome_utilizador}' reposta por um administrador"
                 ." ({$revogadas} sessão(ões) revogada(s)).", 'utilizadores', $u->id);
 
-            return $u;
+            return ['utilizador' => $u, 'palavra_passe' => $palavraPasse];
+        });
+    }
+
+    /**
+     * Recuperação "esqueci-me" (sem actor autenticado: a identidade só está confirmada até ao ponto de ter acesso ao
+     * email da conta) — gera e grava uma nova password, exige a troca no próximo acesso e revoga as sessões abertas.
+     * Devolve a password em texto simples só para o chamador a enviar por email; nunca é guardada nem devolvida depois.
+     */
+    public function redefinirPorRecuperacao(Utilizador $u): string
+    {
+        return DB::transaction(function () use ($u) {
+            $u = Utilizador::query()->lockForUpdate()->findOrFail($u->id);
+            $palavraPasse = $this->gerarPalavraPasseAleatoria();
+            $this->definirPalavraPasse($u, $palavraPasse);
+            $u->deve_alterar_password = true;
+            $u->save();
+            $revogadas = $u->tokens()->delete();
+            $this->auditoria->registar('Sistema/Utilizadores', 'Recuperar palavra-passe', "Palavra-passe de '{$u->nome_utilizador}' redefinida por recuperação"
+                ." ({$revogadas} sessão(ões) revogada(s)).", 'utilizadores', $u->id, utilizadorId: $u->id, nomeUtilizador: $u->nome_utilizador);
+
+            return $palavraPasse;
         });
     }
 
@@ -381,6 +407,15 @@ final class ServicoUtilizadores
         if (mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE) {
             throw new ErroNegocio('A palavra-passe tem de ter pelo menos '.self::MINIMO_PALAVRA_PASSE.' caracteres.', 'PALAVRA_PASSE_CURTA', 422);
         }
+    }
+
+    /**
+     * As passwords nunca são escolhidas por um humano (nem o utilizador, nem o administrador): são sempre geradas
+     * aleatoriamente e enviadas por email, com troca obrigatória no primeiro acesso (ExigirTrocaPassword).
+     */
+    public function gerarPalavraPasseAleatoria(): string
+    {
+        return Str::password(14);
     }
 
     /** Hash Argon2id (cast "hashed" do model, o mesmo do login); limpa a credencial PBKDF2 do legado. */

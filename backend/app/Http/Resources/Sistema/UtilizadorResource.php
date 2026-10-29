@@ -22,6 +22,7 @@ final class UtilizadorResource extends JsonResource
             'perfil' => $this->whenLoaded('perfil', fn () => $this->perfil ? ['id' => $this->perfil->id, 'nome' => $this->perfil->nome] : null),
             'acesso_todas_empresas' => (bool) $this->acesso_todas_empresas,
             'ativo' => (bool) $this->ativo,
+            'deve_alterar_password' => (bool) $this->deve_alterar_password,
             'ultimo_acesso_em' => $this->ultimo_acesso_em?->toAtomString(),
         ];
     }

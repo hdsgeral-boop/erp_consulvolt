@@ -2,6 +2,7 @@
 
 use App\Exceptions\ErroNegocio;
 use App\Exceptions\ManipuladorExcecoesApi;
+use App\Http\Middleware\ExigirTrocaPassword;
 use App\Http\Middleware\ForcarRespostaJson;
 use App\Http\Middleware\ResolverEmpresaAtiva;
 use App\Http\Middleware\ResolverTenantAtivo;
@@ -21,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [ForcarRespostaJson::class]);
         // SaaS (ADR-073): o tenant da sessão de base de dados vem do utilizador autenticado. Sem efeito com erp.saas.ativo=false.
         $middleware->api(append: [ResolverTenantAtivo::class]);
+        // Passwords são sempre geradas pelo sistema: bloqueia toda a API (lista branca) até o utilizador a trocar.
+        $middleware->api(append: [ExigirTrocaPassword::class]);
         // Limite geral da API (limitador 'api' do AppServiceProvider, configurável em erp.api.pedidos_por_minuto).
         $middleware->throttleApi();
         $middleware->alias([

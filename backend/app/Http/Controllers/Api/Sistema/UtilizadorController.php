@@ -42,13 +42,13 @@ final class UtilizadorController extends Controller
     {
         $this->exigir('config_util_gerir');
         $d = $this->validar($r, true);
-        $u = $this->utilizadores->criar($d, $r->user());
+        ['utilizador' => $u, 'palavra_passe' => $palavraPasse] = $this->utilizadores->criar($d, $r->user());
         if ($u->email) {
             $nomeEmpresa = Tenant::query()->whereKey($r->user()->tenant_id)->value('nome') ?? 'a sua empresa';
-            Mail::to($u->email)->send(new NovoUtilizadorMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, (string) $d['palavra_passe'], $nomeEmpresa));
+            Mail::to($u->email)->send(new NovoUtilizadorMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, $palavraPasse, $nomeEmpresa));
         }
 
-        return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador criado com sucesso.');
+        return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador criado com sucesso. A password foi enviada por email.');
     }
 
     public function update(Request $r, int $utilizador): JsonResponse
@@ -71,15 +71,13 @@ final class UtilizadorController extends Controller
     public function reporPalavraPasse(Request $r, int $utilizador): JsonResponse
     {
         $this->exigir('config_util_gerir');
-        $d = $r->validate(['palavra_passe' => ['required', 'string', 'min:'.ServicoUtilizadores::MINIMO_PALAVRA_PASSE, 'max:200', 'confirmed']],
-            [], ['palavra_passe' => 'palavra-passe']);
-        $u = $this->utilizadores->reporPalavraPasse(Utilizador::query()->findOrFail($utilizador), $d['palavra_passe'], $r->user());
+        ['utilizador' => $u, 'palavra_passe' => $palavraPasse] = $this->utilizadores->reporPalavraPasse(Utilizador::query()->findOrFail($utilizador), $r->user());
         if ($u->email) {
             $nomeEmpresa = Tenant::query()->whereKey($r->user()->tenant_id)->value('nome') ?? 'a sua empresa';
-            Mail::to($u->email)->send(new PalavraPasseRedefinidaMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, $nomeEmpresa));
+            Mail::to($u->email)->send(new PalavraPasseRedefinidaMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, $palavraPasse, $nomeEmpresa));
         }
 
-        return RespostaApi::sucesso(null, 'Palavra-passe reposta. As sessões abertas do utilizador foram terminadas.');
+        return RespostaApi::sucesso(null, 'Nova password gerada e enviada por email. As sessões abertas do utilizador foram terminadas.');
     }
 
     public function destroy(Request $r, int $utilizador): JsonResponse
@@ -107,7 +105,6 @@ final class UtilizadorController extends Controller
             'nome_utilizador' => [$criar ? 'required' : 'sometimes', 'string', 'max:100'],
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
             'email' => ['sometimes', 'nullable', 'email', 'max:150'],
-            'palavra_passe' => [$criar ? 'required' : 'sometimes', 'nullable', 'string', 'min:'.ServicoUtilizadores::MINIMO_PALAVRA_PASSE, 'max:200'],
             'perfil_utilizador_id' => [$criar ? 'required' : 'sometimes', 'integer'],
             'papel' => ['sometimes', Rule::in([Utilizador::PAPEL_SUPER_ADMINISTRADOR, Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_UTILIZADOR])],
             'acesso_todas_empresas' => ['sometimes', 'boolean'],
@@ -116,6 +113,6 @@ final class UtilizadorController extends Controller
             'empresas.*.empresa_id' => ['required', 'integer'],
             'empresas.*.colaborador_id' => ['nullable', 'integer'],
         ], [],
-            ['nome_utilizador' => 'nome de utilizador', 'palavra_passe' => 'palavra-passe', 'perfil_utilizador_id' => 'perfil']);
+            ['nome_utilizador' => 'nome de utilizador', 'perfil_utilizador_id' => 'perfil']);
     }
 }

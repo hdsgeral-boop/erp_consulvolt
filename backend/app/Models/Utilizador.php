@@ -48,7 +48,7 @@ class Utilizador extends Autenticavel
 
     protected $fillable = [
         'nome_utilizador', 'nome_completo', 'email', 'telefone', 'palavra_passe', 'papel', 'perfil_utilizador_id',
-        'acesso_todas_empresas', 'ativo',
+        'acesso_todas_empresas', 'ativo', 'deve_alterar_password',
     ];
 
     protected $hidden = ['palavra_passe', 'hash_password_legado', 'salt_password_legado', 'algoritmo_password_legado'];
@@ -61,6 +61,7 @@ class Utilizador extends Autenticavel
             'ultimo_acesso_em' => 'datetime',
             'acesso_todas_empresas' => 'boolean',
             'ativo' => 'boolean',
+            'deve_alterar_password' => 'boolean',
             'modulos_permitidos' => 'array',
         ];
     }

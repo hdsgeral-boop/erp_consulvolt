@@ -4,14 +4,21 @@ namespace App\Mail;
 
 use Illuminate\Mail\Mailables\Envelope;
 
-/** Enviado quando é pedida a recuperação de password (AutenticacaoController::recuperarPassword). */
+/**
+ * Enviado com uma nova password quando é pedida a recuperação (AutenticacaoController::recuperarPassword) — a
+ * password é sempre gerada pelo sistema; o utilizador é obrigado a trocá-la no próximo acesso.
+ */
 final class RecuperacaoPasswordMail extends EmailBase
 {
-    public function __construct(private readonly string $nomeUtilizador, private readonly string $nomeCompleto) {}
+    public function __construct(
+        private readonly string $nomeUtilizador,
+        private readonly string $nomeCompleto,
+        private readonly string $palavraPasse,
+    ) {}
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Pedido de recuperação de password — Consulvolt ERP');
+        return new Envelope(subject: 'A sua nova password — Consulvolt ERP');
     }
 
     protected function vista(): string
@@ -21,6 +28,7 @@ final class RecuperacaoPasswordMail extends EmailBase
 
     protected function dados(): array
     {
-        return ['nomeUtilizador' => $this->nomeUtilizador, 'nomeCompleto' => $this->nomeCompleto, 'url' => config('app.url')];
+        return ['nomeUtilizador' => $this->nomeUtilizador, 'nomeCompleto' => $this->nomeCompleto,
+            'palavraPasse' => $this->palavraPasse, 'url' => config('app.url')];
     }
 }

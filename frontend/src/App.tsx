@@ -9,6 +9,7 @@ import { EscolherEmpresa } from '@/paginas/EscolherEmpresa';
 import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
 import { DadosPessoais } from '@/paginas/DadosPessoais';
+import { TrocaPasswordObrigatoria } from '@/paginas/TrocaPasswordObrigatoria';
 import { PortalAutonomo } from '@/portal/PortalAutonomo';
 import { ehHostPortal } from '@/portal/rota';
 import { LandingPage } from '@/paginas/publico/LandingPage';
@@ -55,6 +56,12 @@ export function App() {
 
   if (estado === 'a_carregar') {
     return <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
+  }
+
+  // Password gerada pelo sistema (criação, reposição ou recuperação): bloqueia TODO o sistema até trocar ou sair
+  // (backend: ExigirTrocaPassword, falha fechado em qualquer rota — isto só evita o ecrã normal, não é a barreira real).
+  if (estado === 'autenticado' && utilizador?.deve_alterar_password) {
+    return <TrocaPasswordObrigatoria />;
   }
 
   // portal.<base>: endereço externo dedicado (ADR: isolamento por subdomínio). A barreira real é do servidor

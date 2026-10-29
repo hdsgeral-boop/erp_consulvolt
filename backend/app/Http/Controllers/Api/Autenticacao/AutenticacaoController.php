@@ -10,6 +10,7 @@ use App\Mail\RecuperacaoPasswordMail;
 use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
+use App\Services\Sistema\ServicoUtilizadores;
 use App\Models\Utilizador;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,7 @@ final class AutenticacaoController extends Controller
         private readonly ServicoAutenticacao $autenticacao,
         private readonly ServicoEmpresas $empresas,
         private readonly ServicoPermissoes $permissoes,
+        private readonly ServicoUtilizadores $utilizadores,
     ) {}
 
     /** POST /api/autenticacao/entrar */
@@ -74,12 +76,15 @@ final class AutenticacaoController extends Controller
         // Mensagem sempre igual quer o utilizador exista ou não, para não revelar se uma conta existe (igual à
         // lógica de autenticação, ServicoAutenticacao::entrar): só muda se um email é mesmo enviado.
         if ($utilizador && $utilizador->ativo && $utilizador->email) {
-            Mail::to($utilizador->email)->send(new RecuperacaoPasswordMail($utilizador->nome_utilizador, $utilizador->nome_completo ?: $utilizador->nome_utilizador));
+            $palavraPasse = $this->utilizadores->redefinirPorRecuperacao($utilizador);
+            Mail::to($utilizador->email)->send(new RecuperacaoPasswordMail(
+                $utilizador->nome_utilizador, $utilizador->nome_completo ?: $utilizador->nome_utilizador, $palavraPasse,
+            ));
         }
 
         return RespostaApi::sucesso([
             'processado' => true,
-            'mensagem' => 'Se os dados introduzidos corresponderem a uma conta ativa, foram enviadas instruções de recuperação para o e-mail associado. Em alternativa, contacte o administrador da sua empresa para redefinição imediata.',
+            'mensagem' => 'Se os dados introduzidos corresponderem a uma conta ativa, foi enviada uma nova password para o e-mail associado.',
         ], 'Pedido de recuperação de palavra-passe processado.');
     }
 

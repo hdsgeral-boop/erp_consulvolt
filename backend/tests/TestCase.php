@@ -66,6 +66,18 @@ abstract class TestCase extends BaseTestCase
         return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
     }
 
+    /**
+     * As passwords passam a ser sempre geradas pelo sistema (nunca escolhidas no pedido) e só existem em texto
+     * simples no Mailable enviado — lê-a por reflexão (propriedade `palavraPasse`), para os testes que precisam de
+     * autenticar com a password mesmo gerada sem duplicar o algoritmo de geração.
+     */
+    protected function palavraPasseDoEmail(object $mailable): string
+    {
+        $propriedade = new \ReflectionProperty($mailable, 'palavraPasse');
+
+        return (string) $propriedade->getValue($mailable);
+    }
+
     /** Inicia sessão pela API e devolve os cabeçalhos Authorization prontos a usar. */
     protected function entrar(Utilizador $utilizador, string $palavraPasse = 'Palavra#Passe2026'): array
     {

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Empresa;
 use App\Models\Utilizador;
+use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -49,15 +51,14 @@ final class SegurancaAdministracaoTest extends TestCase
         $vitima = $this->utilizadorDe([$this->b], 'so_da_b');
         $partilhado = $this->utilizadorDe([$this->a, $this->b], 'a_e_b');
         $daA = $this->utilizadorDe([$this->a], 'so_da_a');
+        $daA->forceFill(['email' => 'so.da.a@exemplo.ao'])->save();
         $todas = $this->criarUtilizador(['nome_utilizador' => 'todas', 'acesso_todas_empresas' => true,
             'perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'lancamentos_view' => true], 'Todas')->id]);
-        $nova = ['palavra_passe' => 'Tomada#2026x', 'palavra_passe_confirmation' => 'Tomada#2026x'];
 
         foreach ([$vitima, $partilhado, $todas] as $alvo) {
-            $this->postJson("/api/sistema/utilizadores/{$alvo->id}/palavra-passe", $nova, $this->s)->assertForbidden()
+            $this->postJson("/api/sistema/utilizadores/{$alvo->id}/palavra-passe", [], $this->s)->assertForbidden()
                 ->assertJsonPath('codigo', 'SEM_PERMISSAO_ADMINISTRATIVA');
             $this->putJson("/api/sistema/utilizadores/{$alvo->id}/estado", ['ativo' => false], $this->s)->assertForbidden();
-            $this->putJson("/api/sistema/utilizadores/{$alvo->id}", ['palavra_passe' => 'Tomada#2026x'], $this->s)->assertForbidden();
             $this->deleteJson("/api/sistema/utilizadores/{$alvo->id}", [], $this->s)->assertForbidden();
         }
         foreach ([$vitima, $todas] as $alvo) {
@@ -70,8 +71,15 @@ final class SegurancaAdministracaoTest extends TestCase
         $this->entrar($vitima);   // a palavra-passe da vítima continua a mesma
 
         // um utilizador só da empresa A continua a ser gerido normalmente
-        $this->postJson("/api/sistema/utilizadores/{$daA->id}/palavra-passe", $nova, $this->s)->assertOk();
-        $this->entrar($daA, 'Tomada#2026x');
+        Mail::fake();
+        $this->postJson("/api/sistema/utilizadores/{$daA->id}/palavra-passe", [], $this->s)->assertOk();
+        $senha = null;
+        Mail::assertQueued(PalavraPasseRedefinidaMail::class, function (PalavraPasseRedefinidaMail $mail) use (&$senha) {
+            $senha = $this->palavraPasseDoEmail($mail);
+
+            return true;
+        });
+        $this->entrar($daA, $senha);
     }
 
     #[Test]

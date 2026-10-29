@@ -22,7 +22,7 @@ Foi criado um acesso para si no ERP Consulvolt, na empresa <strong>{{ $nomeEmpre
 <tr><td>@include('emails.componentes.botao', ['url' => $url, 'texto' => 'Entrar no ERP'])</td></tr>
 
 <tr><td style="padding-top:8px; font-size:13px; color:#64748b;">
-Por segurança, recomendamos que altere a sua password depois do primeiro acesso em <strong>Minha conta &rarr; Alterar password</strong>.
+Esta password é temporária: no primeiro acesso, o sistema vai pedir-lhe para a trocar antes de poder continuar.
 Não partilhe estas credenciais com mais ninguém.
 </td></tr>
 @endsection

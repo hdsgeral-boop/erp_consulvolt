@@ -72,7 +72,8 @@ final class ServicoDadosPessoais
         return DB::transaction(function () use ($u, $nova) {
             // Argon2id pelo cast «hashed» do model; a credencial PBKDF2 do legado deixa de existir
             $u->palavra_passe = $nova;
-            $u->forceFill(['hash_password_legado' => null, 'salt_password_legado' => null, 'algoritmo_password_legado' => null, 'palavra_passe_alterada_em' => now()])->save();
+            $u->forceFill(['hash_password_legado' => null, 'salt_password_legado' => null, 'algoritmo_password_legado' => null,
+                'palavra_passe_alterada_em' => now(), 'deve_alterar_password' => false])->save();
             $actual = $u->currentAccessToken();
             $outras = $u->tokens()->when($actual?->getKey(), fn ($q, $id) => $q->whereKeyNot($id))->delete();
             $this->auditoria->registar('Sistema/Utilizadores', 'Alterar palavra-passe', "O utilizador '{$u->nome_utilizador}' alterou a sua palavra-passe ({$outras} outra(s) sessão(ões) terminada(s)).",

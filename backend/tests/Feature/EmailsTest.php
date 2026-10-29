@@ -163,9 +163,9 @@ final class EmailsTest extends TestCase
     {
         $emails = [
             new BoasVindasEmpresaMail('Ana Silva', 'Empresa Teste, Lda', 30, 'Plano Básico'),
-            new RecuperacaoPasswordMail('ana.silva', 'Ana Silva'),
+            new RecuperacaoPasswordMail('ana.silva', 'Ana Silva', 'Nv$P@lavra789Gerada'),
             new NovoUtilizadorMail('Bruno Costa', 'bruno.costa', 'P@lavra123Segura', 'Empresa Teste, Lda'),
-            new PalavraPasseRedefinidaMail('Bruno Costa', 'bruno.costa', 'Empresa Teste, Lda'),
+            new PalavraPasseRedefinidaMail('Bruno Costa', 'bruno.costa', 'Nv$P@lavra789Gerada', 'Empresa Teste, Lda'),
             new LicencaAVencerMail('Ana Silva', 'Empresa Teste, Lda', 3, now()->addDays(3)->toDateString()),
             new LicencaExpiradaMail('Ana Silva', 'Empresa Teste, Lda'),
             new TicketCriadoMail(42, 'Empresa Teste, Lda', 'Não emite facturas', 'URGENTE', 'GERAL', 'Descrição detalhada do problema.'),

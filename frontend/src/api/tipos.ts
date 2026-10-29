@@ -35,6 +35,8 @@ export interface Utilizador {
   nome_utilizador: string;
   nome_completo?: string | null;
   papel?: string | null;
+  /** Password gerada pelo sistema (criação, reposição pelo admin ou recuperação): troca obrigatória no próximo acesso. */
+  deve_alterar_password?: boolean;
   [chave: string]: unknown;
 }
 

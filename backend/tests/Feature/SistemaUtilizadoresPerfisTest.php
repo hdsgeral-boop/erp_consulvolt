@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Mail\NovoUtilizadorMail;
+use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Colaborador;
 use App\Models\Empresa;
 use App\Models\LogAuditoria;
@@ -10,6 +12,7 @@ use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -46,9 +49,10 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
     #[Test]
     public function cria_utilizador_com_empresa_e_colaborador_sem_devolver_segredos_e_o_login_funciona(): void
     {
+        Mail::fake();
         $perfil = $this->criarPerfil(['_v2' => true, 'lancamentos_view' => true], 'Operador');
         $colab = $this->colaborador($this->empresa, 'Ana Teste');
-        $r = $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'ana', 'nome_completo' => 'Ana Teste', 'palavra_passe' => 'Segredo#2026',
+        $r = $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'ana', 'nome_completo' => 'Ana Teste', 'email' => 'ana@teste.ao',
             'perfil_utilizador_id' => $perfil->id, 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colab]]], $this->s)->assertCreated();
 
         $this->assertSame(Utilizador::PAPEL_UTILIZADOR, $r->json('dados.papel'));
@@ -57,13 +61,22 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
         $this->assertStringNotContainsString('argon', (string) $r->getContent());
         $u = Utilizador::query()->where('nome_utilizador', 'ana')->firstOrFail();
         $this->assertStringStartsWith('$argon2id$', $u->palavra_passe);
-        $this->entrar($u, 'Segredo#2026');
+        $this->assertTrue($u->deve_alterar_password);   // a password é sempre gerada pelo sistema: troca obrigatória no primeiro acesso
+
+        // a password nunca é escolhida no pedido: só existe, em texto simples, no email enviado
+        $senha = null;
+        Mail::assertQueued(NovoUtilizadorMail::class, function (NovoUtilizadorMail $mail) use (&$senha) {
+            $senha = $this->palavraPasseDoEmail($mail);
+
+            return true;
+        });
+        $this->entrar($u, $senha);
         $log = app(ContextoEmpresa::class)->semIsolamento(fn () => LogAuditoria::query()->where('acao', 'Criar utilizador')->firstOrFail());
-        $this->assertStringNotContainsString('Segredo', json_encode($log->dados_novos));
+        $this->assertStringNotContainsString($senha, json_encode($log->dados_novos));
 
         // o nome do perfil já não dá papel de administrador (no legado «admin» no nome bastava); o papel é explícito
         $adm = $this->criarPerfil(['_v2' => true, 'lancamentos_view' => true], 'Administração financeira');
-        $rui = $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'rui', 'palavra_passe' => 'Segredo#2026', 'perfil_utilizador_id' => $adm->id], $this->s)
+        $rui = $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'rui', 'perfil_utilizador_id' => $adm->id], $this->s)
             ->assertCreated()->assertJsonPath('dados.papel', Utilizador::PAPEL_UTILIZADOR)->json('dados.id');
         // um administrador existente mantém o papel ao mudar de perfil
         $chefe = $this->criarUtilizador(['nome_utilizador' => 'chefe', 'papel' => Utilizador::PAPEL_ADMINISTRADOR]);
@@ -73,12 +86,11 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
     }
 
     #[Test]
-    public function valida_nome_duplicado_palavra_passe_curta_e_colaborador(): void
+    public function valida_nome_duplicado_e_colaborador(): void
     {
         $perfil = $this->criarPerfil(['_v2' => true, 'lancamentos_view' => true], 'Simples');
-        $base = ['palavra_passe' => 'Segredo#2026', 'perfil_utilizador_id' => $perfil->id];
+        $base = ['perfil_utilizador_id' => $perfil->id];
         $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'gestor'] + $base, $this->s)->assertStatus(422)->assertJsonPath('codigo', 'UTILIZADOR_DUPLICADO');
-        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'x1', 'palavra_passe' => 'curta', 'perfil_utilizador_id' => $perfil->id], $this->s)->assertStatus(422);
 
         $colabOutra = $this->colaborador($this->outra, 'De outra empresa');
         $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'x2', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colabOutra]]] + $base, $this->s)
@@ -123,7 +135,7 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
         // config_logs_view (Logs de Navegação) é reservado a Super Administradores — qualquer outra permissão de
         // ecrã serve aqui, o que importa ao teste é a revogação de sessão, não a permissão em si.
         $perfil = $this->criarPerfil(['_v2' => true, 'config_utilizadores_view' => true], 'Leitor');
-        $u = $this->criarUtilizador(['nome_utilizador' => 'leitor', 'perfil_utilizador_id' => $perfil->id]);
+        $u = $this->criarUtilizador(['nome_utilizador' => 'leitor', 'email' => 'leitor@teste.ao', 'perfil_utilizador_id' => $perfil->id]);
         $u->empresas()->attach($this->empresa->id);
         $su = $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id];
         $this->getJson('/api/sistema/utilizadores', $su)->assertOk();
@@ -134,10 +146,18 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
         $this->putJson("/api/sistema/utilizadores/{$u->id}/estado", ['ativo' => true], $this->s)->assertOk();
 
         $su = $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id];
-        $this->postJson("/api/sistema/utilizadores/{$u->id}/palavra-passe", ['palavra_passe' => 'NovaChave#26', 'palavra_passe_confirmation' => 'NovaChave#26'], $this->s)->assertOk();
+        Mail::fake();
+        $this->postJson("/api/sistema/utilizadores/{$u->id}/palavra-passe", [], $this->s)->assertOk();
         $this->getJson('/api/sistema/utilizadores', $su)->assertUnauthorized();
         $this->postJson('/api/autenticacao/entrar', ['nome_utilizador' => 'leitor', 'palavra_passe' => 'Palavra#Passe2026'])->assertUnauthorized();
-        $this->entrar($u, 'NovaChave#26');
+        $senha = null;
+        Mail::assertQueued(PalavraPasseRedefinidaMail::class, function (PalavraPasseRedefinidaMail $mail) use (&$senha) {
+            $senha = $this->palavraPasseDoEmail($mail);
+
+            return true;
+        });
+        $this->entrar($u, $senha);
+        $this->assertTrue($u->refresh()->deve_alterar_password);
     }
 
     #[Test]
