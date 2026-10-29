@@ -13,6 +13,7 @@ export const SECCOES_CONFIG: { id: string; rotulo: string }[] = [
   { id: 'plataforma_clientes', rotulo: 'Plataforma: clientes' },
   { id: 'plataforma_suporte', rotulo: 'Plataforma: Suporte' },
   { id: 'plataforma_administradores', rotulo: 'Plataforma: Administradores' },
+  { id: 'plataforma_operadores_plataforma', rotulo: 'Plataforma: Operadores' },
   { id: 'plataforma_auditoria', rotulo: 'Plataforma: Auditoria' },
   { id: 'plataforma_sessoes', rotulo: 'Plataforma: Sessões activas' },
   { id: 'plataforma_definicoes', rotulo: 'Plataforma: Definições' },

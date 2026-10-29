@@ -2,9 +2,11 @@ import { Alert, Avatar, Button, Card, Col, Divider, Empty, List, Row, Space, Spi
 import {
   ArrowRightOutlined,
   BankOutlined,
+  CheckCircleFilled,
   ClockCircleOutlined,
   CloudServerOutlined,
   CreditCardOutlined,
+  CustomerServiceOutlined,
   DownloadOutlined,
   ExclamationCircleFilled,
   SafetyCertificateOutlined,
@@ -17,7 +19,7 @@ import { Link } from 'react-router-dom';
 import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
-import { formatarData } from '@/utilitarios/formatacao';
+import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
 
 interface UltimoCliente {
   id: number;
@@ -26,11 +28,23 @@ interface UltimoCliente {
   criado_em: string;
 }
 
+interface Indicadores {
+  mrr: number;
+  arr: number;
+  receita_recebida_mes: number;
+  pagamentos: { pendentes: number; confirmados_mes: number };
+  taxa_cancelamento_mes: number;
+  taxa_conversao_trial_mes: number;
+  tickets: { abertos: number; criticos: number; vencidos: number; tempo_medio_primeira_resposta_horas: number | null };
+  disponibilidade: boolean;
+}
+
 interface Painel {
   clientes: { total: number; ativos: number; suspensos: number };
   empresas: { total: number; ativas: number; em_teste: number; licenca_expirada: number };
   utilizadores: number;
   ultimos_clientes: UltimoCliente[];
+  indicadores: Indicadores;
 }
 
 /** Cartão de estatística com ícone, cor de estado e subtítulo opcional — mesma linguagem visual do Início do ERP. */
@@ -42,7 +56,7 @@ function Kpi({
   subtitulo,
 }: {
   titulo: string;
-  valor: number;
+  valor: React.ReactNode;
   icone: React.ReactNode;
   cor: string;
   subtitulo?: string;
@@ -137,6 +151,46 @@ export function PlataformaDashboardExecutivo() {
             icone={<ExclamationCircleFilled />}
             cor={p.empresas.licenca_expirada > 0 ? '#dc2626' : '#16a34a'}
             subtitulo="Modo só-leitura"
+          />
+        </Col>
+      </Row>
+
+      <Typography.Title level={5} style={{ margin: '20px 0 12px' }}>Indicadores financeiros e de suporte</Typography.Title>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi titulo="MRR" valor={`${formatarNumero(p.indicadores.mrr)} AOA`} icone={<CreditCardOutlined />} cor="#1947b3" subtitulo="Receita mensal recorrente" />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi titulo="ARR" valor={`${formatarNumero(p.indicadores.arr)} AOA`} icone={<CreditCardOutlined />} cor="#0f766e" subtitulo="MRR × 12" />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi titulo="Receita recebida (mês)" valor={`${formatarNumero(p.indicadores.receita_recebida_mes)} AOA`} icone={<CreditCardOutlined />} cor="#16a34a" subtitulo={`${p.indicadores.pagamentos.confirmados_mes} pagamento(s) confirmado(s)`} />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi titulo="Pagamentos pendentes" valor={p.indicadores.pagamentos.pendentes} icone={<ExclamationCircleFilled />} cor={p.indicadores.pagamentos.pendentes > 0 ? '#b45309' : '#16a34a'} subtitulo="Aguardam confirmação" />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi titulo="Cancelamento (mês)" valor={`${p.indicadores.taxa_cancelamento_mes}%`} icone={<ExclamationCircleFilled />} cor={p.indicadores.taxa_cancelamento_mes > 10 ? '#dc2626' : '#0f172a'} />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi titulo="Conversão de trial (mês)" valor={`${p.indicadores.taxa_conversao_trial_mes}%`} icone={<ClockCircleOutlined />} cor="#0f172a" />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi
+            titulo="Tickets de suporte"
+            valor={p.indicadores.tickets.abertos}
+            icone={<CustomerServiceOutlined />}
+            cor={p.indicadores.tickets.vencidos > 0 ? '#dc2626' : '#1947b3'}
+            subtitulo={`${p.indicadores.tickets.criticos} crítico(s) · ${p.indicadores.tickets.vencidos} vencido(s)`}
+          />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Kpi
+            titulo="Disponibilidade"
+            valor={p.indicadores.disponibilidade ? 'OK' : 'Degradada'}
+            icone={p.indicadores.disponibilidade ? <CheckCircleFilled /> : <WarningFilled />}
+            cor={p.indicadores.disponibilidade ? '#16a34a' : '#dc2626'}
+            subtitulo={p.indicadores.tickets.tempo_medio_primeira_resposta_horas !== null ? `1.ª resposta: ${p.indicadores.tickets.tempo_medio_primeira_resposta_horas}h` : undefined}
           />
         </Col>
       </Row>

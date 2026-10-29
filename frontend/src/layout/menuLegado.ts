@@ -200,6 +200,7 @@ export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
     e('config', 'plataforma_clientes', 'Plataforma: clientes', 'building'),
     e('config', 'plataforma_suporte', 'Plataforma: Suporte', 'life-ring'),
     e('config', 'plataforma_administradores', 'Plataforma: Administradores', 'user-shield'),
+    e('config', 'plataforma_operadores_plataforma', 'Plataforma: Operadores', 'user-shield'),
     e('config', 'plataforma_auditoria', 'Plataforma: Auditoria', 'clipboard-list'),
     e('config', 'plataforma_sessoes', 'Plataforma: Sessões activas', 'desktop'),
     e('config', 'plataforma_definicoes', 'Plataforma: Definições', 'sliders-h'),
