@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Avatar, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from 'antd';
-import { CustomerServiceOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { CustomerServiceOutlined, DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -54,6 +54,11 @@ export default function PlataformaAgentesSuporte() {
   const apagar = useMutation({
     mutationFn: (id: number) => enviar('delete', `/plataforma/agentes-suporte/${id}`),
     onSuccess: () => { message.success('Agente eliminado.'); refrescar(); },
+    onError: (e) => notificarErro(e),
+  });
+  const reporPassword = useMutation({
+    mutationFn: (id: number) => enviar('post', `/plataforma/agentes-suporte/${id}/palavra-passe`, {}),
+    onSuccess: () => message.success('Nova palavra-passe gerada e enviada por email.'),
     onError: (e) => notificarErro(e),
   });
 
@@ -112,6 +117,9 @@ export default function PlataformaAgentesSuporte() {
               render: (_, a) => (
                 <Space>
                   <Button size="small" icon={<EditOutlined />} onClick={() => abrirEdicao(a)}>Editar</Button>
+                  <Popconfirm title="Repor a palavra-passe?" description="Gera uma nova palavra-passe aleatória e termina as sessões abertas." onConfirm={() => reporPassword.mutate(a.id)}>
+                    <Button size="small" icon={<KeyOutlined />}>Repor password</Button>
+                  </Popconfirm>
                   <Popconfirm title="Eliminar este agente?" description="A acção não pode ser revertida." onConfirm={() => apagar.mutate(a.id)}>
                     <Button size="small" danger icon={<DeleteOutlined />}>Eliminar</Button>
                   </Popconfirm>
@@ -143,15 +151,8 @@ export default function PlataformaAgentesSuporte() {
           <Form.Item name="nome_completo" label="Nome completo">
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="email" label="Email (opcional — envia as credenciais de acesso)" rules={[{ type: 'email', message: 'Email inválido.' }]}>
+          <Form.Item name="email" label="Email (recomendado — é por aqui que recebe a palavra-passe gerada pelo sistema)" rules={[{ type: 'email', message: 'Email inválido.' }]}>
             <Input maxLength={150} autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="palavra_passe"
-            label={aberto === 'novo' ? 'Palavra-passe (mín. 10 caracteres)' : 'Nova palavra-passe (em branco = mantém)'}
-            rules={aberto === 'novo' ? [{ required: true, min: 10, message: 'Mínimo de 10 caracteres.' }] : [{ min: 10, message: 'Mínimo de 10 caracteres.' }]}
-          >
-            <Input.Password maxLength={255} autoComplete="new-password" />
           </Form.Item>
           <Form.Item name="perfil_utilizador_id" label="Especialização" tooltip="Decide que categorias de tickets este agente vê e pode responder (técnico, financeiro, marketing)" rules={[{ required: true, message: 'Escolha a especialização.' }]}>
             <Select showSearch optionFilterProp="label" loading={perfis.isLoading} options={(perfis.data ?? []).map((p) => ({ value: p.id, label: p.nome }))} placeholder="Escolha a especialização" />

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\AdministradorPlataformaCriadoMail;
 use App\Mail\BoasVindasEmpresaMail;
+use App\Mail\ClienteAdministradorCriadoMail;
 use App\Mail\ContaSuspensaMail;
 use App\Mail\LicencaAVencerMail;
 use App\Mail\LicencaExpiradaMail;
@@ -104,6 +105,35 @@ final class EmailsTest extends TestCase
         Mail::assertQueued(AdministradorPlataformaCriadoMail::class, fn ($m) => $m->hasTo('admin@consulvolt.ao'));
     }
 
+    public function test_criar_cliente_com_email_envia_credenciais_geradas_pelo_sistema(): void
+    {
+        $plat = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        config(['erp.saas.ativo' => true]);
+
+        $this->postJson('/api/plataforma/clientes', [
+            'nome' => 'Cliente Com Email', 'slug' => 'cliente-com-email',
+            'administrador' => ['nome_utilizador' => 'adm_com_email', 'email' => 'admin@clientecomemail.ao'],
+        ], $plat)->assertCreated();
+
+        Mail::assertQueued(ClienteAdministradorCriadoMail::class, fn ($m) => $m->hasTo('admin@clientecomemail.ao'));
+    }
+
+    public function test_redefinir_senha_de_utilizador_de_cliente_gera_e_envia_nova_password(): void
+    {
+        $plat = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        $cliente = app(ServicoClientes::class)->criar([
+            'nome' => 'cliente-reset', 'slug' => 'cliente-reset',
+            'administrador' => ['nome_utilizador' => 'adm_reset'],
+        ]);
+        $cliente['administrador']->forceFill(['email' => 'admin@clientereset.ao'])->save();
+        config(['erp.saas.ativo' => true]);
+
+        $this->postJson("/api/plataforma/clientes/{$cliente['cliente']->id}/utilizadores/{$cliente['administrador']->id}/redefinir", [], $plat)->assertOk();
+
+        Mail::assertQueued(PalavraPasseRedefinidaMail::class, fn ($m) => $m->hasTo('admin@clientereset.ao'));
+        $this->assertTrue($cliente['administrador']->fresh()->deve_alterar_password);
+    }
+
     public function test_criar_ticket_avisa_o_suporte_e_resposta_da_plataforma_avisa_o_cliente(): void
     {
         \Illuminate\Support\Facades\DB::table('definicoes_plataforma')->updateOrInsert(['chave' => 'email_suporte'], ['valor' => 'suporte@consulvolt.ao', 'atualizado_em' => now()]);
@@ -111,11 +141,15 @@ final class EmailsTest extends TestCase
         $plat = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
         $cliente = app(ServicoClientes::class)->criar([
             'nome' => 'ticket-cliente', 'slug' => 'ticket-cliente',
-            'administrador' => ['nome_utilizador' => 'adm_ticket', 'nome_completo' => 'Admin Ticket', 'palavra_passe' => 'SenhaForte123'],
+            'administrador' => ['nome_utilizador' => 'adm_ticket', 'nome_completo' => 'Admin Ticket'],
         ]);
         $cliente['administrador']->forceFill(['email' => 'admin@ticketcliente.ao'])->save();
-        $sessaoCliente = $this->entrar($cliente['administrador'], 'SenhaForte123');
+        // A palavra-passe é sempre gerada pelo sistema: entra com a gerada e troca-a antes de continuar.
+        $sessaoCliente = $this->entrar($cliente['administrador'], $cliente['palavra_passe']);
         config(['erp.saas.ativo' => true]);
+        $this->putJson('/api/autenticacao/palavra-passe', [
+            'palavra_passe_actual' => $cliente['palavra_passe'], 'palavra_passe_nova' => 'SenhaForte123', 'palavra_passe_nova_confirmation' => 'SenhaForte123',
+        ], $sessaoCliente)->assertOk();
 
         $ticket = $this->postJson('/api/minha-conta/suporte', ['assunto' => 'Preciso de ajuda', 'descricao' => 'Não consigo emitir facturas'], $sessaoCliente)
             ->assertCreated()->json('dados.id');
@@ -130,7 +164,7 @@ final class EmailsTest extends TestCase
         $plat = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
         $cliente = app(ServicoClientes::class)->criar([
             'nome' => 'cliente-suspenso', 'slug' => 'cliente-suspenso',
-            'administrador' => ['nome_utilizador' => 'adm_suspenso', 'nome_completo' => 'Admin Suspenso', 'palavra_passe' => 'SenhaForte123'],
+            'administrador' => ['nome_utilizador' => 'adm_suspenso', 'nome_completo' => 'Admin Suspenso'],
         ]);
         $cliente['administrador']->forceFill(['email' => 'admin@clientesuspenso.ao'])->save();
         config(['erp.saas.ativo' => true]);

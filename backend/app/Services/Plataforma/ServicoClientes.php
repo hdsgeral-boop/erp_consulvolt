@@ -3,6 +3,7 @@
 namespace App\Services\Plataforma;
 
 use App\Exceptions\ErroNegocio;
+use App\Mail\ClienteAdministradorCriadoMail;
 use App\Mail\ContaSuspensaMail;
 use App\Models\Empresa;
 use App\Models\Tenant;
@@ -13,6 +14,7 @@ use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 /**
  * Clientes SaaS (tenants) geridos pela plataforma: criação com o administrador do cliente e, opcionalmente, a primeira
@@ -73,25 +75,32 @@ final class ServicoClientes
      * (ServicoPermissoes::total(), tal como RegistoEmpresaController), ainda capado pelo plano do cliente
      * (ServicoPermissoes::bloqueadaPeloPlano/ModulosPlano).
      *
+     * A palavra-passe do administrador nunca é escolhida por quem cria o cliente: é sempre gerada aleatoriamente e
+     * enviada por email (se houver endereço), com troca obrigatória no primeiro acesso — o mesmo padrão já usado
+     * para administradores da plataforma, agentes de suporte e utilizadores de uma empresa.
+     *
      * @param  array{nome: string, slug: string, administrador: array<string, mixed>, empresa?: array<string, mixed>|null}  $d
-     * @return array{cliente: Tenant, administrador: Utilizador, empresa: ?Empresa}
+     * @return array{cliente: Tenant, administrador: Utilizador, empresa: ?Empresa, palavra_passe: string}
      */
     public function criar(array $d): array
     {
         $perfilTotal = $this->perfis->perfilAcessoTotal();
+        $palavraPasse = Str::password(14);
 
-        return DB::transaction(function () use ($d, $perfilTotal) {
+        $resultado = DB::transaction(function () use ($d, $perfilTotal, $palavraPasse) {
             $cliente = Tenant::create(['nome' => $d['nome'], 'slug' => $d['slug'], 'estado' => Tenant::ESTADO_ATIVO]);
 
-            return $this->tenant->executarComo((int) $cliente->id, function () use ($d, $cliente, $perfilTotal) {
+            return $this->tenant->executarComo((int) $cliente->id, function () use ($d, $cliente, $perfilTotal, $palavraPasse) {
                 $administrador = new Utilizador([
                     'nome_utilizador' => $d['administrador']['nome_utilizador'],
                     'nome_completo' => $d['administrador']['nome_completo'] ?? null,
-                    'palavra_passe' => $d['administrador']['palavra_passe'],
+                    'email' => $d['administrador']['email'] ?? null,
+                    'palavra_passe' => $palavraPasse,
                     'papel' => Utilizador::PAPEL_ADMINISTRADOR,
                     'perfil_utilizador_id' => $perfilTotal->id,
                     'acesso_todas_empresas' => true,
                     'ativo' => true,
+                    'deve_alterar_password' => true,
                 ]);
                 $administrador->save();
 
@@ -100,6 +109,15 @@ final class ServicoClientes
                 return ['cliente' => $cliente, 'administrador' => $administrador, 'empresa' => $empresa];
             });
         });
+
+        if ($resultado['administrador']->email) {
+            Mail::to($resultado['administrador']->email)->send(new ClienteAdministradorCriadoMail(
+                $resultado['administrador']->nome_completo ?: $resultado['administrador']->nome_utilizador,
+                $resultado['administrador']->nome_utilizador, $palavraPasse, $resultado['cliente']->nome,
+            ));
+        }
+
+        return $resultado + ['palavra_passe' => $palavraPasse];
     }
 
     /** Edita nome e endereço (slug). */

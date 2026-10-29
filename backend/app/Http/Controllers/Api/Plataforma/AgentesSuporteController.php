@@ -20,7 +20,10 @@ use Illuminate\Validation\Rule;
  * AGENTE_SUPORTE — só vêem e respondem a tickets (/api/suporte/*, middleware `suporte`), isolados de clientes,
  * planos e definições. A especialização (técnico/financeiro/marketing) vem do `perfil_utilizador_id`, com as chaves
  * do módulo `suporte` do catálogo — ver ServicoPermissoes/SuporteController. Geridos aqui pelos
- * super-administradores (middleware `plataforma`), tal como AdministradoresController.
+ * super-administradores ou por um operador com a chave `plataforma_suporte_gerir` (delegável, ao contrário de
+ * administradores/operadores da plataforma: um agente de suporte está sempre limitado às categorias da sua
+ * especialização, nunca escala para além disso — delegar a sua gestão não dá a quem a recebe nenhum poder sobre o
+ * resto da plataforma).
  */
 final class AgentesSuporteController extends Controller
 {
@@ -39,6 +42,7 @@ final class AgentesSuporteController extends Controller
 
     public function store(Request $r): JsonResponse
     {
+        $this->exigir('plataforma_suporte_gerir');
         $d = $r->validate([
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
@@ -66,6 +70,7 @@ final class AgentesSuporteController extends Controller
 
     public function estado(Request $r, int $agente): JsonResponse
     {
+        $this->exigir('plataforma_suporte_gerir');
         $alvo = $this->consulta()->whereKey($agente)->firstOrFail();
         $d = $r->validate(['ativo' => ['required', 'boolean']]);
         $alvo->update(['ativo' => $d['ativo']]);
@@ -78,6 +83,7 @@ final class AgentesSuporteController extends Controller
 
     public function atualizar(Request $r, int $agente): JsonResponse
     {
+        $this->exigir('plataforma_suporte_gerir');
         $alvo = $this->consulta()->whereKey($agente)->firstOrFail();
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
@@ -101,6 +107,7 @@ final class AgentesSuporteController extends Controller
     /** A palavra-passe nunca é escolhida pelo administrador: é sempre gerada e enviada por email (ver store()). */
     public function reporPalavraPasse(int $agente): JsonResponse
     {
+        $this->exigir('plataforma_suporte_gerir');
         $alvo = $this->consulta()->whereKey($agente)->firstOrFail();
         $palavraPasse = Str::password(14);
         $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
@@ -116,6 +123,7 @@ final class AgentesSuporteController extends Controller
 
     public function eliminar(int $agente): JsonResponse
     {
+        $this->exigir('plataforma_suporte_gerir');
         $alvo = $this->consulta()->whereKey($agente)->firstOrFail();
         $alvo->tokens()->delete();
         $alvo->delete();

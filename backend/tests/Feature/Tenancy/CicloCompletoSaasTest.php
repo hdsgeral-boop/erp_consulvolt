@@ -96,10 +96,8 @@ final class CicloCompletoSaasTest extends TestCase
         $perfilAgenteB = \App\Models\PerfilUtilizador::create(['nome' => 'Agente B', 'permissoes' => ['_v2' => true, 'suporte_tickets_geral_gerir' => true], 'restrito_plataforma' => true]);
         $agenteB = $this->criarUtilizador(['papel' => Utilizador::PAPEL_AGENTE_SUPORTE, 'perfil_utilizador_id' => $perfilAgenteB->id]);
 
-        [, $adminA] = $this->clientePlataforma('ciclo-cliente-a');
-        [, $adminB] = $this->clientePlataforma('ciclo-cliente-b');
-        $sessaoA = $this->entrar($adminA, 'SenhaForte123');
-        $sessaoB = $this->entrar($adminB, 'SenhaForte123');
+        [, $sessaoA] = $this->clientePlataforma('ciclo-cliente-a');
+        [, $sessaoB] = $this->clientePlataforma('ciclo-cliente-b');
 
         // 1. Cliente A abre um ticket (Fase 6: prazo de SLA calculado pela prioridade, consciente de dias úteis).
         $ticket = $this->postJson('/api/minha-conta/suporte', ['assunto' => 'Falha ao emitir factura', 'descricao' => 'Erro 500'], $sessaoA)
@@ -149,14 +147,24 @@ final class CicloCompletoSaasTest extends TestCase
         return $sessao + ['X-Empresa-Id' => $empresaId];
     }
 
-    /** @return array{0: Tenant, 1: Utilizador} cliente criado directamente pela plataforma (ServicoClientes), como em PlataformaClienteTest. */
+    /**
+     * Cliente criado directamente pela plataforma (ServicoClientes), como em PlataformaClienteTest. A palavra-
+     * passe é sempre gerada pelo sistema: entra com a gerada e troca-a de imediato (ExigirTrocaPassword bloqueia
+     * toda a API, excepto sair/eu/trocar-password, enquanto `deve_alterar_password` estiver activo).
+     *
+     * @return array{0: Tenant, 1: array<string, string>} tenant e sessão já pronta a usar
+     */
     private function clientePlataforma(string $slug): array
     {
         $c = app(ServicoClientes::class)->criar([
             'nome' => $slug, 'slug' => $slug,
-            'administrador' => ['nome_utilizador' => 'adm_'.$slug, 'palavra_passe' => 'SenhaForte123'],
+            'administrador' => ['nome_utilizador' => 'adm_'.$slug],
         ]);
+        $sessao = $this->entrar($c['administrador'], $c['palavra_passe']);
+        $this->putJson('/api/autenticacao/palavra-passe', [
+            'palavra_passe_actual' => $c['palavra_passe'], 'palavra_passe_nova' => 'SenhaForte123', 'palavra_passe_nova_confirmation' => 'SenhaForte123',
+        ], $sessao)->assertOk();
 
-        return [$c['cliente'], $c['administrador']];
+        return [$c['cliente'], $sessao];
     }
 }

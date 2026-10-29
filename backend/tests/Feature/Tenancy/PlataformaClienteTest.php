@@ -29,12 +29,18 @@ class PlataformaClienteTest extends TestCase
     /** @return array{0: Tenant, 1: Utilizador, 2: array<string, string>} */
     private function cliente(string $slug): array
     {
+        // A palavra-passe é sempre gerada pelo sistema (nunca escolhida aqui): entra com a gerada e troca-a de
+        // imediato por uma conhecida, para o resto do teste poder voltar a entrar com 'SenhaForte123' se precisar.
         $c = app(ServicoClientes::class)->criar([
             'nome' => $slug, 'slug' => $slug,
-            'administrador' => ['nome_utilizador' => 'adm_'.$slug, 'palavra_passe' => 'SenhaForte123'],
+            'administrador' => ['nome_utilizador' => 'adm_'.$slug],
         ]);
+        $sessao = $this->entrar($c['administrador'], $c['palavra_passe']);
+        $this->putJson('/api/autenticacao/palavra-passe', [
+            'palavra_passe_actual' => $c['palavra_passe'], 'palavra_passe_nova' => 'SenhaForte123', 'palavra_passe_nova_confirmation' => 'SenhaForte123',
+        ], $sessao)->assertOk();
 
-        return [$c['cliente'], $c['administrador'], $this->entrar($c['administrador'], 'SenhaForte123')];
+        return [$c['cliente'], $c['administrador'], $sessao];
     }
 
     public function test_versao_publicada_e_imutavel_e_copia_limites_para_o_plano(): void

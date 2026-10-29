@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Plataforma;
 
+use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Mail\OperadorPlataformaCriadoMail;
 use App\Mail\PalavraPasseRedefinidaMail;
@@ -20,7 +21,11 @@ use Illuminate\Validation\Rule;
  * plataforma, papel OPERADOR_PLATAFORMA — entram na área da plataforma (ExigirPlataforma), mas cada operação
  * sensível (clientes, planos, pagamentos, auditoria…) exige ainda a chave `plataforma_*_gerir` correspondente no
  * seu perfil (ver ServicoPermissoes/ClientesController e afins) — nunca acesso irrestrito como um super-administrador.
- * Mesmo padrão de AgentesSuporteController. Geridos pelos super-administradores (middleware `plataforma`).
+ *
+ * Gerir OUTROS operadores nunca é delegável por uma chave de perfil: quem gere operadores decide-lhes o perfil, ou
+ * seja, decide as permissões que eles passam a ter — um operador com essa chave podia criar-se um colega com um
+ * perfil mais amplo que o seu, ou alterar o seu próprio perfil para um mais amplo. Só mesmo um super-administrador
+ * gere isto (`exigirSuperAdministrador`), nunca `$this->exigir('plataforma_*_gerir')`.
  */
 final class OperadoresPlataformaController extends Controller
 {
@@ -39,6 +44,7 @@ final class OperadoresPlataformaController extends Controller
 
     public function store(Request $r): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $d = $r->validate([
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
@@ -66,6 +72,7 @@ final class OperadoresPlataformaController extends Controller
 
     public function estado(Request $r, int $operador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($operador)->firstOrFail();
         $d = $r->validate(['ativo' => ['required', 'boolean']]);
         $alvo->update(['ativo' => $d['ativo']]);
@@ -78,6 +85,7 @@ final class OperadoresPlataformaController extends Controller
 
     public function atualizar(Request $r, int $operador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($operador)->firstOrFail();
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
@@ -99,8 +107,9 @@ final class OperadoresPlataformaController extends Controller
     }
 
     /** A palavra-passe nunca é escolhida pelo administrador: é sempre gerada e enviada por email (ver store()). */
-    public function reporPalavraPasse(int $operador): JsonResponse
+    public function reporPalavraPasse(Request $r, int $operador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($operador)->firstOrFail();
         $palavraPasse = Str::password(14);
         $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
@@ -114,13 +123,21 @@ final class OperadoresPlataformaController extends Controller
         return RespostaApi::sucesso(null, 'Nova password gerada e enviada por email. As sessões abertas foram terminadas.');
     }
 
-    public function eliminar(int $operador): JsonResponse
+    public function eliminar(Request $r, int $operador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($operador)->firstOrFail();
         $alvo->tokens()->delete();
         $alvo->delete();
 
         return RespostaApi::sucesso(null, 'Operador eliminado.');
+    }
+
+    private function exigirSuperAdministrador(Request $r): void
+    {
+        if (! $r->user()?->eSuperAdministrador()) {
+            throw new ErroNegocio('Só um super-administrador pode gerir operadores da plataforma.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
     }
 
     private function consulta()

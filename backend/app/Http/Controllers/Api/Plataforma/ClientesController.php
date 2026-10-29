@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api\Plataforma;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -25,6 +28,7 @@ final class ClientesController extends Controller
         return RespostaApi::sucesso($lista, 'Clientes obtidos com sucesso.');
     }
 
+    /** A palavra-passe do administrador é sempre gerada pelo sistema (ServicoClientes::criar), nunca escolhida aqui. */
     public function store(Request $r): JsonResponse
     {
         $this->exigir('plataforma_clientes_gerir');
@@ -33,7 +37,7 @@ final class ClientesController extends Controller
             'slug' => $this->regrasSlug(),
             'administrador.nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'administrador.nome_completo' => ['nullable', 'string', 'max:200'],
-            'administrador.palavra_passe' => ['required', 'string', 'min:10', 'max:255'],
+            'administrador.email' => ['nullable', 'email', 'max:150'],
             'empresa' => ['nullable', 'array'],
             'empresa.nome' => ['required_with:empresa', 'string', 'max:255'],
             'empresa.nif' => ['required_with:empresa', 'string', 'max:30'],
@@ -117,16 +121,20 @@ final class ClientesController extends Controller
         return RespostaApi::sucesso($lista, 'Utilizadores obtidos com sucesso.');
     }
 
-    public function redefinirSenha(Request $r, Tenant $cliente, int $utilizador): JsonResponse
+    /** A nova palavra-passe é sempre gerada pelo sistema e enviada por email — nunca escolhida por quem a repõe. */
+    public function redefinirSenha(Tenant $cliente, int $utilizador): JsonResponse
     {
         $this->exigir('plataforma_clientes_gerir');
         $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->whereKey($utilizador)->firstOrFail();
-        $d = $r->validate(['palavra_passe' => ['required', 'string', 'min:10', 'max:255']], [], ['palavra_passe' => 'palavra-passe']);
 
-        $alvo->update(['palavra_passe' => $d['palavra_passe']]);
+        $palavraPasse = Str::password(14);
+        $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
         $alvo->tokens()->delete();
+        if ($alvo->email) {
+            Mail::to($alvo->email)->send(new PalavraPasseRedefinidaMail($alvo->nome_completo ?: $alvo->nome_utilizador, $alvo->nome_utilizador, $palavraPasse, $cliente->nome));
+        }
 
-        return RespostaApi::sucesso(['id' => $alvo->id], 'Palavra-passe redefinida. As sessões deste utilizador terminaram.');
+        return RespostaApi::sucesso(['id' => $alvo->id], 'Palavra-passe redefinida e enviada por email. As sessões deste utilizador terminaram.');
     }
 
     public function empresas(): JsonResponse

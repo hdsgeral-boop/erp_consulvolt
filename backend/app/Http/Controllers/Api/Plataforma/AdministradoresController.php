@@ -17,6 +17,11 @@ use Illuminate\Validation\Rule;
 /**
  * Administradores da plataforma: super-administradores do tenant que opera a plataforma (middleware `plataforma`).
  * Não se desactiva nem elimina a própria conta; desactivar, eliminar ou mudar a palavra-passe termina as sessões.
+ *
+ * Gerir administradores nunca é delegável por uma chave de perfil (ao contrário de clientes/planos/etc.): dar essa
+ * chave a um OPERADOR_PLATAFORMA equivaleria a dar-lhe poder para criar super-administradores novos, incluindo
+ * para si próprio — uma escalada de privilégio completa da plataforma. Só mesmo um super-administrador gere isto
+ * (`exigirSuperAdministrador`, nunca `$this->exigir('plataforma_*_gerir')`).
  */
 final class AdministradoresController extends Controller
 {
@@ -27,6 +32,7 @@ final class AdministradoresController extends Controller
 
     public function store(Request $r): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $d = $r->validate([
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
@@ -54,6 +60,7 @@ final class AdministradoresController extends Controller
 
     public function estado(Request $r, int $administrador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($administrador)->firstOrFail();
         $d = $r->validate(['ativo' => ['required', 'boolean']]);
 
@@ -71,6 +78,7 @@ final class AdministradoresController extends Controller
 
     public function atualizar(Request $r, int $administrador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($administrador)->firstOrFail();
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
@@ -84,8 +92,9 @@ final class AdministradoresController extends Controller
     }
 
     /** A palavra-passe nunca é escolhida pelo administrador: é sempre gerada e enviada por email (ver store()). */
-    public function reporPalavraPasse(int $administrador): JsonResponse
+    public function reporPalavraPasse(Request $r, int $administrador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         $alvo = $this->consulta()->whereKey($administrador)->firstOrFail();
         $palavraPasse = Str::password(14);
         $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
@@ -101,6 +110,7 @@ final class AdministradoresController extends Controller
 
     public function eliminar(Request $r, int $administrador): JsonResponse
     {
+        $this->exigirSuperAdministrador($r);
         if ($administrador === (int) $r->user()->getKey()) {
             throw new ErroNegocio('Não pode eliminar a sua própria conta.', 'ADMIN_PROPRIO', 422);
         }
@@ -109,6 +119,13 @@ final class AdministradoresController extends Controller
         $alvo->delete();
 
         return RespostaApi::sucesso(null, 'Administrador eliminado.');
+    }
+
+    private function exigirSuperAdministrador(Request $r): void
+    {
+        if (! $r->user()?->eSuperAdministrador()) {
+            throw new ErroNegocio('Só um super-administrador pode gerir outros administradores da plataforma.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
     }
 
     private function consulta()

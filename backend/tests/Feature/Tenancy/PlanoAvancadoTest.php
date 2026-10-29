@@ -33,7 +33,7 @@ final class PlanoAvancadoTest extends TestCase
     {
         $c = app(ServicoClientes::class)->criar([
             'nome' => $slug, 'slug' => $slug,
-            'administrador' => ['nome_utilizador' => 'adm_'.$slug, 'palavra_passe' => 'SenhaForte123'],
+            'administrador' => ['nome_utilizador' => 'adm_'.$slug],
         ]);
 
         return [$c['cliente'], $c['administrador']];

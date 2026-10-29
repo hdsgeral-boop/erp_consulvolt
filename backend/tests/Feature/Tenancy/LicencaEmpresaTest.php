@@ -104,7 +104,7 @@ class LicencaEmpresaTest extends TestCase
         config(['erp.licencas.ativo' => true]);
         $c = app(ServicoClientes::class)->criar([
             'nome' => 'cliente-rbac', 'slug' => 'cliente-rbac',
-            'administrador' => ['nome_utilizador' => 'adm_rbac', 'palavra_passe' => 'SenhaForte123'],
+            'administrador' => ['nome_utilizador' => 'adm_rbac'],
         ]);
         $this->assertSame(Utilizador::PAPEL_ADMINISTRADOR, $c['administrador']->papel);
         $this->assertNotNull($c['administrador']->perfil_utilizador_id);
@@ -116,7 +116,12 @@ class LicencaEmpresaTest extends TestCase
             return $empresa;
         });
 
-        $s = $this->entrar($c['administrador'], 'SenhaForte123') + ['X-Empresa-Id' => $empresa->id];
+        // A palavra-passe é sempre gerada pelo sistema: entra com a gerada e troca-a antes de continuar
+        // (ExigirTrocaPassword bloquearia qualquer outra rota enquanto deve_alterar_password estiver activo).
+        $s = $this->entrar($c['administrador'], $c['palavra_passe']) + ['X-Empresa-Id' => $empresa->id];
+        $this->putJson('/api/autenticacao/palavra-passe', [
+            'palavra_passe_actual' => $c['palavra_passe'], 'palavra_passe_nova' => 'SenhaForte123', 'palavra_passe_nova_confirmation' => 'SenhaForte123',
+        ], $s)->assertOk();
         $this->postJson('/api/_licenca_teste', [], $s)->assertStatus(403)->assertJsonPath('codigo', 'LICENCA_EXPIRADA');
     }
 

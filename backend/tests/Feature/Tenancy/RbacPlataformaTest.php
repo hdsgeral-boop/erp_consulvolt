@@ -73,6 +73,32 @@ class RbacPlataformaTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * Gerir administradores ou operadores da plataforma nunca é delegável por uma chave de perfil — mesmo com a
+     * chave (hipoteticamente) atribuída, um OPERADOR_PLATAFORMA não pode gerir nenhum dos dois, porque isso
+     * equivaleria a poder criar/alterar contas com mais poder do que o seu próprio perfil. Só mesmo um
+     * super-administrador gere isto. Gerir agentes de suporte já é delegável (plataforma_suporte_gerir), por
+     * estarem sempre limitados à sua especialização.
+     */
+    public function test_gerir_administradores_e_operadores_nunca_e_delegavel_mas_agentes_de_suporte_e(): void
+    {
+        config(['erp.saas.ativo' => true]);
+        [, $sessaoSemNada] = $this->operador([]);
+        [, $sessaoComSuporte] = $this->operador(['plataforma_suporte_gerir']);
+        $perfilSuporte = $this->perfilPlataforma([]);
+
+        $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'x1', 'email' => 'x1@x.ao'], $sessaoSemNada)->assertForbidden();
+        $this->postJson('/api/plataforma/operadores-plataforma', ['nome_utilizador' => 'x2', 'perfil_utilizador_id' => $perfilSuporte->id], $sessaoSemNada)->assertForbidden();
+
+        // mesmo com uma chave "plataforma_*_gerir" qualquer atribuída, continua sem poder.
+        $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'x3', 'email' => 'x3@x.ao'], $sessaoComSuporte)->assertForbidden();
+        $this->postJson('/api/plataforma/operadores-plataforma', ['nome_utilizador' => 'x4', 'perfil_utilizador_id' => $perfilSuporte->id], $sessaoComSuporte)->assertForbidden();
+
+        // mas gerir agentes de suporte é delegável com a chave certa.
+        $this->postJson('/api/plataforma/agentes-suporte', ['nome_utilizador' => 'x5', 'perfil_utilizador_id' => $perfilSuporte->id], $sessaoComSuporte)->assertCreated();
+        $this->postJson('/api/plataforma/agentes-suporte', ['nome_utilizador' => 'x6', 'perfil_utilizador_id' => $perfilSuporte->id], $sessaoSemNada)->assertForbidden();
+    }
+
     public function test_super_administrador_continua_com_acesso_total_sem_chaves(): void
     {
         config(['erp.saas.ativo' => true]);

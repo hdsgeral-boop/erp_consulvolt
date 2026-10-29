@@ -2495,6 +2495,22 @@
           ]
         },
         {
+          "id": "plataforma_operadores_plataforma",
+          "nome": "Plataforma: Operadores",
+          "vistas": [
+            "plataforma_operadores_plataforma"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma) — gerir operadores nunca é delegável, por decidir as permissões deles.",
+          "tarefas": [
+            {
+              "chave": "plataforma_operadores_plataforma_gerir",
+              "rotulo": "Gerir: Operadores da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
           "id": "plataforma_auditoria",
           "nome": "Plataforma: Auditoria",
           "vistas": [

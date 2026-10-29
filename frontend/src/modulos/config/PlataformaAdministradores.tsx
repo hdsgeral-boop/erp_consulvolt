@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Avatar, Button, Card, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag, Typography, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -46,6 +46,11 @@ export default function PlataformaAdministradores() {
   const apagar = useMutation({
     mutationFn: (id: number) => enviar('delete', `/plataforma/administradores/${id}`),
     onSuccess: () => { message.success('Administrador eliminado.'); refrescar(); },
+    onError: (e) => notificarErro(e),
+  });
+  const reporPassword = useMutation({
+    mutationFn: (id: number) => enviar('post', `/plataforma/administradores/${id}/palavra-passe`, {}),
+    onSuccess: () => message.success('Nova palavra-passe gerada e enviada por email.'),
     onError: (e) => notificarErro(e),
   });
 
@@ -107,6 +112,9 @@ export default function PlataformaAdministradores() {
               render: (_, a) => (
                 <Space>
                   <Button size="small" icon={<EditOutlined />} onClick={() => abrirEdicao(a)}>Editar</Button>
+                  <Popconfirm title="Repor a palavra-passe?" description="Gera uma nova palavra-passe aleatória e termina as sessões abertas." onConfirm={() => reporPassword.mutate(a.id)}>
+                    <Button size="small" icon={<KeyOutlined />}>Repor password</Button>
+                  </Popconfirm>
                   {a.id !== utilizador?.id && (
                     <Popconfirm title="Eliminar este administrador?" description="A acção não pode ser revertida." onConfirm={() => apagar.mutate(a.id)}>
                       <Button size="small" danger icon={<DeleteOutlined />}>Eliminar</Button>
@@ -138,17 +146,10 @@ export default function PlataformaAdministradores() {
             <Input maxLength={200} />
           </Form.Item>
           {aberto === 'novo' && (
-            <Form.Item name="email" label="Email (opcional — envia as credenciais de acesso)" rules={[{ type: 'email', message: 'Email inválido.' }]}>
+            <Form.Item name="email" label="Email (recomendado — é por aqui que recebe a palavra-passe gerada pelo sistema)" rules={[{ type: 'email', message: 'Email inválido.' }]}>
               <Input maxLength={150} autoComplete="off" />
             </Form.Item>
           )}
-          <Form.Item
-            name="palavra_passe"
-            label={aberto === 'novo' ? 'Palavra-passe (mín. 10 caracteres)' : 'Nova palavra-passe (em branco = mantém)'}
-            rules={aberto === 'novo' ? [{ required: true, min: 10, message: 'Mínimo de 10 caracteres.' }] : [{ min: 10, message: 'Mínimo de 10 caracteres.' }]}
-          >
-            <Input.Password maxLength={255} autoComplete="new-password" />
-          </Form.Item>
         </Form>
       </Modal>
     </>
