@@ -48,10 +48,15 @@ final class ServicoLicenca
         $fim = $empresa->licenca_fim;
         $expirada = $empresa->licencaExpirada();
         $dias = $fim === null ? null : (int) now()->startOfDay()->diffInDays($fim->copy()->startOfDay(), false);
+        // Fase 2 (extensão SaaS): o bloqueio real usa estado_licenca (ResolverEmpresaAtiva), não só a data — uma
+        // suspensão manual (ex. administrativa, sem licenca_fim ter mudado) também conta como só-leitura aqui.
+        $bloqueada = in_array($empresa->estado_licenca, [
+            Empresa::LICENCA_SUSPENSA, Empresa::LICENCA_CANCELADA, Empresa::LICENCA_EM_ENCERRAMENTO, Empresa::LICENCA_ENCERRADA,
+        ], true);
 
         $aviso = null;
-        if ($ativas && $fim !== null) {
-            $aviso = $expirada ? 'EXPIRADA' : ($dias <= self::DIAS_AVISO ? 'A_EXPIRAR' : null);
+        if ($ativas && ($fim !== null || $bloqueada)) {
+            $aviso = $bloqueada ? 'EXPIRADA' : ($dias <= self::DIAS_AVISO ? 'A_EXPIRAR' : null);
         }
 
         $ultima = SubscricaoEmpresa::query()->where('estado', SubscricaoEmpresa::PAGO)->with('plano:id,nome,codigo')->orderByDesc('pago_em')->first();
@@ -63,7 +68,9 @@ final class ServicoLicenca
             'fim' => $fim?->toDateString(),
             'dias_restantes' => $dias,
             'expirada' => $expirada,
-            'somente_leitura' => $ativas && $expirada,
+            'estado_licenca' => $empresa->estado_licenca,
+            'motivo_suspensao' => $empresa->motivo_suspensao,
+            'somente_leitura' => $ativas && $bloqueada,
             'aviso' => $aviso,
             'plano' => $ultima?->plano ? ['id' => $ultima->plano->id, 'codigo' => $ultima->plano->codigo, 'nome' => $ultima->plano->nome] : null,
             'pendentes' => SubscricaoEmpresa::query()->where('estado', SubscricaoEmpresa::PENDENTE)->count(),
