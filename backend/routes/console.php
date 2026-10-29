@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Schedule;
 // Partições anuais da auditoria preparadas com antecedência (1 de Dezembro).
 Schedule::command('erp:auditoria:particoes --anos=2')->yearlyOn(12, 1, '02:00');
 
+// Máquina de estados da licença (Fase 3 da extensão SaaS): sincroniza estado_licenca com a data, antes dos avisos
+// e de qualquer outro processamento do dia. Sem efeito com licenças desligadas.
+Schedule::command('erp:licencas:sincronizar')->dailyAt('00:30')->withoutOverlapping();
+
 // Avisos de licença por email: 7 e 3 dias antes de expirar, e no próprio dia (ADR-074). Sem efeito com licenças desligadas.
 Schedule::command('erp:licencas:avisar')->dailyAt('07:00')->withoutOverlapping();
 

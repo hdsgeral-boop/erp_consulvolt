@@ -171,6 +171,10 @@ class LicencaCobrancaTest extends TestCase
     {
         $e = $this->criarEmpresa();
         DB::table('empresas')->where('id', $e->id)->update(['licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_fim' => $fim, 'licenca_inicio' => now()->subYear()->toDateString()]);
+        $e = $e->fresh();
+        // o update acima é SQL directo (não passa por Eloquent): sincroniza o estado explícito a seguir, tal como
+        // qualquer escrita real em licenca_fim/licenca_origem tem de fazer (Fase 1/2 da extensão SaaS).
+        app(\App\Services\Plataforma\MaquinaEstadosLicenca::class)->sincronizar($e);
 
         return $e->fresh();
     }
