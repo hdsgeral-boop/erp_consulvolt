@@ -99,10 +99,10 @@ final class ServicoDashboardExecutivo
     /** Reutiliza TicketSuporte (sem filtro de categoria: visão executiva global, diferente de DashboardSuporteController). */
     private function tickets(): array
     {
-        $abertos = TicketSuporte::query()->whereNotIn('estado', [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO])->count();
-        $criticos = TicketSuporte::query()->whereNotIn('estado', [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO])
+        $abertos = TicketSuporte::query()->whereNotIn('estado', TicketSuporte::ESTADOS_TERMINAIS)->count();
+        $criticos = TicketSuporte::query()->whereNotIn('estado', TicketSuporte::ESTADOS_TERMINAIS)
             ->whereIn('prioridade', ['URGENTE', 'ALTA'])->count();
-        $vencidos = TicketSuporte::query()->whereNotNull('prazo_sla')->whereNotIn('estado', [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO])
+        $vencidos = TicketSuporte::query()->whereNotNull('prazo_sla')->whereNotIn('estado', TicketSuporte::ESTADOS_TERMINAIS)
             ->where('prazo_sla', '<', now())->count();
         $tempoMedioPrimeiraRespostaHoras = TicketSuporte::query()->whereNotNull('primeira_resposta_em')
             ->selectRaw('avg(extract(epoch from (primeira_resposta_em - criado_em)) / 3600.0) as media')->value('media');

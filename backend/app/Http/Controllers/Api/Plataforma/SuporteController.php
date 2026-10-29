@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Models\Utilizador;
+use App\Services\Plataforma\MaquinaEstadosTicket;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,10 @@ use Illuminate\Validation\Rule;
  */
 final class SuporteController extends Controller
 {
-    public function __construct(private readonly ServicoPermissoes $permissoes) {}
+    public function __construct(
+        private readonly ServicoPermissoes $permissoes,
+        private readonly MaquinaEstadosTicket $estadosTicket,
+    ) {}
 
     public function index(Request $r): JsonResponse
     {
@@ -103,6 +107,9 @@ final class SuporteController extends Controller
             'categoria' => ['sometimes', Rule::in(TicketSuporte::CATEGORIAS)],
             'agente_id' => ['sometimes', 'nullable', 'integer', Rule::exists('utilizadores', 'id')],
         ]);
+        if (isset($d['estado'])) {
+            $this->estadosTicket->validar($ticket->estado, $d['estado']);
+        }
         $ticket->update($d);
         $agentes = $ticket->agente_id ? Utilizador::query()->where('id', $ticket->agente_id)->pluck('nome_utilizador', 'id') : null;
 

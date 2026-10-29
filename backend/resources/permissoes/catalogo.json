@@ -2786,6 +2786,22 @@
               "sensivel": false
             }
           ]
+        },
+        {
+          "id": "suporte_tickets_tecnico",
+          "nome": "Tickets — Técnico",
+          "vistas": [
+            "suporte_tickets_tecnico"
+          ],
+          "pai": null,
+          "nota": "Tickets de suporte técnico (Fase 6 da extensão SaaS, segurança.txt): incidente técnico, erro funcional, autenticação, permissões, desempenho, integração, segurança e configuração.",
+          "tarefas": [
+            {
+              "chave": "suporte_tickets_tecnico_gerir",
+              "rotulo": "Responder e gerir tickets técnicos",
+              "sensivel": false
+            }
+          ]
         }
       ]
     }
@@ -3711,6 +3727,14 @@
         "_v2": true,
         "suporte_tickets_marketing_view": true,
         "suporte_tickets_marketing_gerir": true
+      }
+    },
+    {
+      "nome": "Agente de Suporte Técnico",
+      "permissoes": {
+        "_v2": true,
+        "suporte_tickets_tecnico_view": true,
+        "suporte_tickets_tecnico_gerir": true
       }
     }
   ]

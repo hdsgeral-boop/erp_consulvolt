@@ -117,8 +117,8 @@ final class MinhaContaController extends Controller
         foreach ($r->file('ficheiros', []) as $ficheiro) {
             $this->anexos->guardar($m, $ficheiro);
         }
-        if (in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true)) {
-            $t->update(['estado' => TicketSuporte::ABERTO]);
+        if (in_array($t->estado, TicketSuporte::ESTADOS_TERMINAIS, true)) {
+            $t->update(['estado' => TicketSuporte::REABERTO]);
         }
         if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
             Mail::to($emailSuporte)->send(new TicketRespostaMail($t->id, $t->assunto, 'Equipa de suporte', $r->user()->nome_utilizador, $d['mensagem'], rtrim((string) config('app.url'), '/').'/admin/suporte'));

@@ -23,14 +23,14 @@ final class DashboardSuporteController extends Controller
         $porEstado = (clone $base())->selectRaw('estado, count(*) as total')->groupBy('estado')->pluck('total', 'estado');
         $tempoMedioHoras = (clone $base())->whereNotNull('primeira_resposta_em')
             ->selectRaw('avg(extract(epoch from (primeira_resposta_em - criado_em)) / 3600.0) as media')->value('media');
-        $emAtraso = (clone $base())->whereNotNull('prazo_sla')->whereNotIn('estado', [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO])
+        $emAtraso = (clone $base())->whereNotNull('prazo_sla')->whereNotIn('estado', TicketSuporte::ESTADOS_TERMINAIS)
             ->where('prazo_sla', '<', now())->count();
         $porAgenteContagem = (clone $base())->whereNotNull('agente_id')->selectRaw('agente_id, count(*) as total')->groupBy('agente_id')->pluck('total', 'agente_id');
         $nomesAgentes = Utilizador::query()->whereIn('id', $porAgenteContagem->keys())->pluck('nome_utilizador', 'id');
 
         return RespostaApi::sucesso([
-            'por_estado' => ['ABERTO' => (int) ($porEstado['ABERTO'] ?? 0), 'EM_CURSO' => (int) ($porEstado['EM_CURSO'] ?? 0),
-                'RESOLVIDO' => (int) ($porEstado['RESOLVIDO'] ?? 0), 'FECHADO' => (int) ($porEstado['FECHADO'] ?? 0)],
+            // Fase 6 da extensão SaaS: todos os 11 estados (não só os 4 originais), para nenhum ficar invisível no painel.
+            'por_estado' => collect(TicketSuporte::ESTADOS)->mapWithKeys(fn (string $e) => [$e => (int) ($porEstado[$e] ?? 0)])->all(),
             'tempo_medio_primeira_resposta_horas' => $tempoMedioHoras !== null ? round((float) $tempoMedioHoras, 1) : null,
             'em_atraso' => $emAtraso,
             'por_agente' => $porAgenteContagem->map(fn ($total, $id) => ['agente_id' => (int) $id, 'nome' => $nomesAgentes[$id] ?? "#{$id}", 'total' => (int) $total])->values(),

@@ -176,6 +176,7 @@ final class LicencaController extends Controller
                 'id' => $t->id, 'assunto' => $t->assunto, 'descricao' => $t->descricao, 'estado' => $t->estado,
                 'prioridade' => $t->prioridade, 'categoria' => $t->categoria, 'criado_em' => $t->criado_em,
                 'csat_nota' => $t->csat_nota, 'csat_comentario' => $t->csat_comentario,
+                // Cancelado fica fora: a avaliação de satisfação só faz sentido para quem foi efectivamente resolvido/fechado.
                 'pode_avaliar' => in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true) && $t->csat_nota === null,
             ])->all();
 
@@ -221,8 +222,8 @@ final class LicencaController extends Controller
         foreach ($request->file('ficheiros', []) as $ficheiro) {
             $this->anexos->guardar($m, $ficheiro);
         }
-        if (in_array($t->estado, [TicketSuporte::RESOLVIDO, TicketSuporte::FECHADO], true)) {
-            $t->update(['estado' => TicketSuporte::ABERTO]);
+        if (in_array($t->estado, TicketSuporte::ESTADOS_TERMINAIS, true)) {
+            $t->update(['estado' => TicketSuporte::REABERTO]);
         }
         if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
             Mail::to($emailSuporte)->send(new TicketRespostaMail($t->id, $t->assunto, 'Equipa de suporte', $request->user()->nome_utilizador, $d['mensagem'], rtrim((string) config('app.url'), '/').'/admin/suporte'));

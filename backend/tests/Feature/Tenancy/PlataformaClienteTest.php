@@ -148,7 +148,9 @@ class PlataformaClienteTest extends TestCase
 
         TicketSuporte::query()->whereKey($ticket)->update(['estado' => 'RESOLVIDO']);
         $this->postJson("/api/minha-conta/suporte/{$ticket}/mensagens", ['mensagem' => 'Continua a falhar.'], $sa)->assertCreated();
-        $this->assertSame('ABERTO', TicketSuporte::query()->findOrFail($ticket)->estado);
+        // Fase 6 da extensão SaaS: reabertura automática usa o estado dedicado REABERTO, não ABERTO (mais correcto
+        // semanticamente — distingue um pedido novo de um que voltou a precisar de atenção).
+        $this->assertSame('REABERTO', TicketSuporte::query()->findOrFail($ticket)->estado);
 
         $this->getJson("/api/minha-conta/suporte/{$ticket}/mensagens", $sa)->assertOk()->assertJsonCount(2, 'dados')
             ->assertJsonPath('dados.0.autor_tipo', 'PLATAFORMA')->assertJsonPath('dados.1.autor_tipo', 'CLIENTE');
