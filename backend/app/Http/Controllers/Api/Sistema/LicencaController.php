@@ -16,6 +16,7 @@ use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Services\Pagamentos\ServicoComprovativosPagamento;
 use App\Services\Plataforma\ServicoAnexosSuporte;
+use App\Services\Plataforma\ServicoSlaSuporte;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\DefinicoesPlataforma;
@@ -44,6 +45,7 @@ final class LicencaController extends Controller
         private readonly ServicoLicenca $licenca,
         private readonly ServicoAnexosSuporte $anexos,
         private readonly ServicoComprovativosPagamento $comprovativos,
+        private readonly ServicoSlaSuporte $sla,
     ) {}
 
     public function estado(): JsonResponse
@@ -194,6 +196,7 @@ final class LicencaController extends Controller
         $t = TicketSuporte::query()->create($d + [
             'tenant_id' => $tenantId, 'categoria' => $d['categoria'] ?? 'GERAL', 'prioridade' => 'NORMAL',
             'estado' => TicketSuporte::ABERTO, 'criado_por' => $request->user()->nome_utilizador,
+            'prazo_sla' => $this->sla->calcularPrazo('NORMAL'),
         ]);
         if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
             $nomeCliente = Tenant::query()->find($tenantId)?->nome ?? '';
