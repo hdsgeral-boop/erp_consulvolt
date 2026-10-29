@@ -196,6 +196,7 @@ export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
   g('sistema-plataforma', 'Plataforma SaaS', 'layer-group', [
     e('config', 'config_licenca', 'Licença e plano', 'credit-card'),
     e('config', 'plataforma_painel', 'Plataforma: painel', 'chart-line'),
+    e('config', 'plataforma_monitorizacao', 'Plataforma: monitorização', 'database'),
     e('config', 'plataforma_clientes', 'Plataforma: clientes', 'building'),
     e('config', 'plataforma_suporte', 'Plataforma: Suporte', 'life-ring'),
     e('config', 'plataforma_administradores', 'Plataforma: Administradores', 'user-shield'),

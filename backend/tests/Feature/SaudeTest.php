@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\Sistema\BatimentoWorker;
+use App\Models\Utilizador;
 use App\Support\Cache\Batimentos;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Console\Scheduling\Schedule;
@@ -74,6 +75,20 @@ final class SaudeTest extends TestCase
 
         $this->getJson('/api/sistema/logotipo-login')->assertStatus(500);
         $this->getJson('/api/saude')->assertStatus(503)->assertJsonPath('erros.redis.estado', 'FALHA')->assertJsonPath('erros.base_dados.estado', 'OK');
+    }
+
+    #[Test]
+    public function versoes_exactas_so_aparecem_a_um_perfil_de_back_office(): void
+    {
+        // Fase 7 da extensão SaaS: um utilizador comum autenticado não deve ver versões exactas (OWASP A05) —
+        // antes desta fase, bastava estar autenticado (qualquer papel) para as ver.
+        $comum = $this->entrar($this->criarUtilizador());
+        $this->getJson('/api/saude', $comum)->assertOk()->assertJsonPath('dados.componentes.base_dados.detalhe', 'PostgreSQL');
+
+        $super = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        $detalhe = $this->getJson('/api/saude', $super)->assertOk()->json('dados.componentes.base_dados.detalhe');
+        $this->assertStringStartsWith('PostgreSQL ', $detalhe);
+        $this->assertNotSame('PostgreSQL', $detalhe);
     }
 
     #[Test]

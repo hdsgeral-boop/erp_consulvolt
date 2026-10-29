@@ -2431,6 +2431,22 @@
           ]
         },
         {
+          "id": "plataforma_monitorizacao",
+          "nome": "Plataforma: monitorização",
+          "vistas": [
+            "plataforma_monitorizacao"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_monitorizacao_ver",
+              "rotulo": "Ver o estado das dependências (base de dados, Redis, filas, processos)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
           "id": "plataforma_clientes",
           "nome": "Plataforma: clientes",
           "vistas": [

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Plataforma\CupoesController;
 use App\Http\Controllers\Api\Plataforma\DashboardSuporteController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
+use App\Http\Controllers\Api\Plataforma\MonitorizacaoController;
 use App\Http\Controllers\Api\Plataforma\NotaInternaSuporteController;
 use App\Http\Controllers\Api\Plataforma\OperadoresPlataformaController;
 use App\Http\Controllers\Api\Plataforma\PainelController;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->group(function () {
     Route::get('painel', [PainelController::class, 'dashboard'])->name('painel');
+    Route::get('monitorizacao', [MonitorizacaoController::class, 'index'])->name('monitorizacao');
     Route::get('relatorios/clientes.csv', [PainelController::class, 'relatorioClientes'])->name('relatorios.clientes');
     Route::get('relatorios/empresas.csv', [PainelController::class, 'relatorioEmpresas'])->name('relatorios.empresas');
 

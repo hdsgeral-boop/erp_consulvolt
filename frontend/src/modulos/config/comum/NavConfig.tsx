@@ -9,6 +9,7 @@ export const SECCOES_CONFIG: { id: string; rotulo: string }[] = [
   { id: 'config_empresas', rotulo: 'Gestão de Empresas' },
   { id: 'config_licenca', rotulo: 'Licença e plano' },
   { id: 'plataforma_painel', rotulo: 'Plataforma: painel' },
+  { id: 'plataforma_monitorizacao', rotulo: 'Plataforma: monitorização' },
   { id: 'plataforma_clientes', rotulo: 'Plataforma: clientes' },
   { id: 'plataforma_suporte', rotulo: 'Plataforma: Suporte' },
   { id: 'plataforma_administradores', rotulo: 'Plataforma: Administradores' },

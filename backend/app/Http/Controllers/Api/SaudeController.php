@@ -3,15 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
+use App\Models\Utilizador;
+use App\Services\Sistema\ServicoSaude;
 use App\Support\Api\RespostaApi;
-use App\Support\Cache\Batimentos;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Redis;
-use RuntimeException;
-use Throwable;
 
 /**
  * GET /api/saude — estado das dependências, para healthchecks e monitorização (docs/PRODUCAO.md).
@@ -25,91 +20,21 @@ use Throwable;
  */
 final class SaudeController extends Controller
 {
-    /** Filas consumidas pelo worker (docker-compose*.yml), por prioridade. */
-    private const FILAS = ['alta', 'agt', 'default', 'pdfs', 'baixa'];
+    public function __construct(private readonly ServicoSaude $saude) {}
 
     public function __invoke(): JsonResponse
     {
         // OWASP A05: a rota é pública — as versões exactas do PostgreSQL/Redis (úteis para procurar CVE) só aparecem em
-        // depuração ou a quem chega com um token Sanctum válido; os healthchecks anónimos vêem só o estado.
-        $versoes = config('app.debug') || auth('sanctum')->check();
-        $verificacoes = [
-            'base_dados' => $this->verificar(function () use ($versoes) {
-                $versao = DB::selectOne('show server_version')->server_version;   // a consulta é a própria verificação
+        // depuração ou a um perfil de back-office (ePrivilegiado): um utilizador comum de uma empresa cliente autenticado
+        // não tem nenhuma razão para ver internals de infraestrutura (Fase 7 da extensão SaaS, segurança.txt secção 16).
+        $utilizador = auth('sanctum')->user();
+        $versoes = config('app.debug') || ($utilizador instanceof Utilizador && $utilizador->ePrivilegiado());
 
-                return $versoes ? "PostgreSQL {$versao}" : 'PostgreSQL';
-            }),
-            'redis' => $this->verificar(function () use ($versoes) {
-                $versao = Redis::connection()->info('server')['redis_version'] ?? '?';
-
-                return $versoes ? "Redis {$versao}" : 'Redis';
-            }),
-            'filas' => $this->verificar(fn () => $this->estadoFilas()),
-            'armazenamento' => $this->verificar(fn () => $this->estadoArmazenamento()),
-            // batimentos do scheduler e do worker (R11); a mensagem não tem segredos e mostra-se sempre (excepto se a cache falhar)
-            'processos' => $this->verificar(fn () => Batimentos::estado(), mostrarErro: true),
-        ];
-
+        $verificacoes = $this->saude->verificacoes($versoes);
         $ok = collect($verificacoes)->every(fn ($v) => $v['estado'] === 'OK');
 
         return $ok
-            ? RespostaApi::sucesso(['estado' => 'OK', 'versao' => $this->versao(), 'componentes' => $verificacoes, 'informacao' => $this->informacao()], 'Todos os serviços estão operacionais.')
+            ? RespostaApi::sucesso(['estado' => 'OK', 'versao' => $this->saude->versao(), 'componentes' => $verificacoes, 'informacao' => $this->saude->informacao()], 'Todos os serviços estão operacionais.')
             : RespostaApi::erro('Um ou mais serviços estão indisponíveis.', 503, 'SERVICO_INDISPONIVEL', $verificacoes);
-    }
-
-    /** @return array<string, array{estado: string, detalhe: string}> estados informativos (uma falha aqui não dá 503) */
-    private function informacao(): array
-    {
-        try {
-            $bai = app(ServicoCambiosBAIAutomaticos::class)->informacaoSaude();
-        } catch (Throwable) {
-            $bai = ['estado' => 'DESCONHECIDO', 'detalhe' => 'indisponível'];
-        }
-
-        return ['cambios_bai' => $bai];
-    }
-
-    /** Tamanho de cada fila e trabalhos falhados (informativo: uma fila longa não torna o serviço indisponível). */
-    private function estadoFilas(): string
-    {
-        $ligacao = Queue::connection();
-        $tamanhos = collect(self::FILAS)->map(fn (string $fila) => $fila.'='.$ligacao->size($fila))->implode(', ');
-        $falhados = DB::table((string) config('queue.failed.table', 'trabalhos_falhados'))->count();
-
-        return config('queue.default')." ({$tamanhos}); falhados={$falhados}";
-    }
-
-    private function estadoArmazenamento(): string
-    {
-        foreach (['app' => storage_path('app'), 'cache' => storage_path('framework/cache')] as $nome => $pasta) {
-            if (! is_dir($pasta) || ! is_writable($pasta)) {
-                throw new RuntimeException("storage/{$nome} sem permissão de escrita");
-            }
-        }
-
-        return 'gravável';
-    }
-
-    /** Versão da imagem (ficheiro VERSAO gravado no build de produção); "dev" fora das imagens de produção. */
-    private function versao(): string
-    {
-        $ficheiro = base_path('VERSAO');
-
-        return is_file($ficheiro) ? (trim((string) file_get_contents($ficheiro)) ?: 'desconhecida') : 'dev';
-    }
-
-    /** @return array{estado: string, detalhe: string, latencia_ms: float} */
-    private function verificar(callable $teste, bool $mostrarErro = false): array
-    {
-        $inicio = microtime(true);
-        try {
-            $detalhe = (string) $teste();
-            $estado = 'OK';
-        } catch (Throwable $e) {
-            $detalhe = config('app.debug') || ($mostrarErro && $e::class === RuntimeException::class) ? $e->getMessage() : 'indisponível';
-            $estado = 'FALHA';
-        }
-
-        return ['estado' => $estado, 'detalhe' => $detalhe, 'latencia_ms' => round((microtime(true) - $inicio) * 1000, 2)];
     }
 }
