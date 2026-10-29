@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api\Plataforma;
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Mail\AdministradorPlataformaCriadoMail;
+use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Utilizador;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -29,18 +31,22 @@ final class AdministradoresController extends Controller
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
             'email' => ['nullable', 'email', 'max:150'],
-            'palavra_passe' => ['required', 'string', 'min:10', 'max:255'],
         ]);
+
+        // A palavra-passe nunca é escolhida por um humano: é sempre gerada aleatoriamente e enviada por email, com
+        // troca obrigatória no primeiro acesso (deve_alterar_password, ExigirTrocaPassword) — tal como para os
+        // utilizadores de uma empresa (ServicoUtilizadores::criar).
+        $palavraPasse = Str::password(14);
 
         // Criado no tenant da plataforma (o do pedido): o hook de criação atribui-lhe o tenant.
         $novo = new Utilizador([
             'nome_utilizador' => $d['nome_utilizador'], 'nome_completo' => $d['nome_completo'] ?? null, 'email' => $d['email'] ?? null,
-            'palavra_passe' => $d['palavra_passe'], 'papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR,
-            'acesso_todas_empresas' => true, 'ativo' => true,
+            'palavra_passe' => $palavraPasse, 'papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR,
+            'acesso_todas_empresas' => true, 'ativo' => true, 'deve_alterar_password' => true,
         ]);
         $novo->save();
         if ($novo->email) {
-            Mail::to($novo->email)->send(new AdministradorPlataformaCriadoMail($novo->nome_completo ?: $novo->nome_utilizador, $novo->nome_utilizador, $d['palavra_passe']));
+            Mail::to($novo->email)->send(new AdministradorPlataformaCriadoMail($novo->nome_completo ?: $novo->nome_utilizador, $novo->nome_utilizador, $palavraPasse));
         }
 
         return RespostaApi::criado($this->apresentar($novo), 'Administrador criado com sucesso.');
@@ -68,22 +74,29 @@ final class AdministradoresController extends Controller
         $alvo = $this->consulta()->whereKey($administrador)->firstOrFail();
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
-            'palavra_passe' => ['sometimes', 'nullable', 'string', 'min:10', 'max:255'],
         ]);
 
-        $alteracoes = [];
         if (array_key_exists('nome_completo', $d)) {
-            $alteracoes['nome_completo'] = $d['nome_completo'];
-        }
-        if (! empty($d['palavra_passe'])) {
-            $alteracoes['palavra_passe'] = $d['palavra_passe'];
-            $alvo->tokens()->delete();
-        }
-        if ($alteracoes) {
-            $alvo->update($alteracoes);
+            $alvo->update(['nome_completo' => $d['nome_completo']]);
         }
 
         return RespostaApi::sucesso($this->apresentar($alvo->refresh()), 'Administrador actualizado.');
+    }
+
+    /** A palavra-passe nunca é escolhida pelo administrador: é sempre gerada e enviada por email (ver store()). */
+    public function reporPalavraPasse(int $administrador): JsonResponse
+    {
+        $alvo = $this->consulta()->whereKey($administrador)->firstOrFail();
+        $palavraPasse = Str::password(14);
+        $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
+        $alvo->tokens()->delete();
+        if ($alvo->email) {
+            Mail::to($alvo->email)->send(new PalavraPasseRedefinidaMail(
+                $alvo->nome_completo ?: $alvo->nome_utilizador, $alvo->nome_utilizador, $palavraPasse, 'Consulvolt — Administração da Plataforma'
+            ));
+        }
+
+        return RespostaApi::sucesso(null, 'Nova password gerada e enviada por email. As sessões abertas foram terminadas.');
     }
 
     public function eliminar(Request $r, int $administrador): JsonResponse

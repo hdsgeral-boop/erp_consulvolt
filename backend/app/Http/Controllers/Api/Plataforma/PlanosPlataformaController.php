@@ -39,6 +39,7 @@ final class PlanosPlataformaController extends Controller
 
     public function criarVersao(Request $r, int $plano): JsonResponse
     {
+        $this->exigir('plataforma_planos_gerir');
         $d = $r->validate(['copiar_de' => ['nullable', 'integer']]);
         $versao = $this->versoes->criarRascunho(PlanoLicenca::query()->findOrFail($plano), $d['copiar_de'] ?? null);
 
@@ -47,6 +48,7 @@ final class PlanosPlataformaController extends Controller
 
     public function atualizarVersao(Request $r, int $versao): JsonResponse
     {
+        $this->exigir('plataforma_planos_gerir');
         $d = $r->validate([
             'preco_mensal' => ['sometimes', 'numeric', 'min:0', 'max:999999999'],
             'moeda' => ['sometimes', 'string', 'size:3'],
@@ -61,12 +63,15 @@ final class PlanosPlataformaController extends Controller
 
     public function publicar(int $versao): JsonResponse
     {
+        $this->exigir('plataforma_planos_gerir');
+
         return RespostaApi::sucesso($this->versoes->apresentar($this->versoes->publicar(PlanoLicencaVersao::query()->findOrFail($versao))), 'Versão publicada.');
     }
 
     /** PUT /plataforma/clientes/{cliente}/plano */
     public function atribuirPlano(Request $r, Tenant $cliente): JsonResponse
     {
+        $this->exigir('plataforma_planos_gerir');
         $d = $r->validate(['plano' => ['nullable', 'string', Rule::exists('planos_licenca', 'codigo')]]);
         $cliente->update(['plano' => $d['plano'] ?? null]);
         // ModulosPlano tem tenant_id => código do plano em cache (ServicoPermissoes nunca consulta `tenants`).

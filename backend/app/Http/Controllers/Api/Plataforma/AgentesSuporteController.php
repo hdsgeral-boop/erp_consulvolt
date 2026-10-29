@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Plataforma;
 
 use App\Http\Controllers\Controller;
 use App\Mail\AgenteSuporteCriadoMail;
+use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoPerfis;
@@ -11,6 +12,7 @@ use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -41,19 +43,22 @@ final class AgentesSuporteController extends Controller
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
             'email' => ['nullable', 'email', 'max:150'],
-            'palavra_passe' => ['required', 'string', 'min:10', 'max:255'],
             'perfil_utilizador_id' => ['required', 'integer', Rule::exists('perfis_utilizador', 'id')->where('restrito_plataforma', true)],
         ]);
+
+        // A palavra-passe nunca é escolhida por um humano: é sempre gerada aleatoriamente e enviada por email, com
+        // troca obrigatória no primeiro acesso (deve_alterar_password, ExigirTrocaPassword).
+        $palavraPasse = Str::password(14);
 
         // Criado no tenant da plataforma (o do pedido): o hook de criação atribui-lhe o tenant.
         $novo = new Utilizador([
             'nome_utilizador' => $d['nome_utilizador'], 'nome_completo' => $d['nome_completo'] ?? null, 'email' => $d['email'] ?? null,
-            'palavra_passe' => $d['palavra_passe'], 'papel' => Utilizador::PAPEL_AGENTE_SUPORTE, 'perfil_utilizador_id' => $d['perfil_utilizador_id'],
-            'acesso_todas_empresas' => false, 'ativo' => true,
+            'palavra_passe' => $palavraPasse, 'papel' => Utilizador::PAPEL_AGENTE_SUPORTE, 'perfil_utilizador_id' => $d['perfil_utilizador_id'],
+            'acesso_todas_empresas' => false, 'ativo' => true, 'deve_alterar_password' => true,
         ]);
         $novo->save();
         if ($novo->email) {
-            Mail::to($novo->email)->send(new AgenteSuporteCriadoMail($novo->nome_completo ?: $novo->nome_utilizador, $novo->nome_utilizador, $d['palavra_passe']));
+            Mail::to($novo->email)->send(new AgenteSuporteCriadoMail($novo->nome_completo ?: $novo->nome_utilizador, $novo->nome_utilizador, $palavraPasse));
         }
 
         return RespostaApi::criado($this->apresentar($novo), 'Agente de suporte criado com sucesso.');
@@ -77,7 +82,6 @@ final class AgentesSuporteController extends Controller
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
             'email' => ['sometimes', 'nullable', 'email', 'max:150'],
-            'palavra_passe' => ['sometimes', 'nullable', 'string', 'min:10', 'max:255'],
             'perfil_utilizador_id' => ['sometimes', 'required', 'integer', Rule::exists('perfis_utilizador', 'id')->where('restrito_plataforma', true)],
         ]);
 
@@ -87,15 +91,27 @@ final class AgentesSuporteController extends Controller
                 $alteracoes[$campo] = $d[$campo];
             }
         }
-        if (! empty($d['palavra_passe'])) {
-            $alteracoes['palavra_passe'] = $d['palavra_passe'];
-            $alvo->tokens()->delete();
-        }
         if ($alteracoes) {
             $alvo->update($alteracoes);
         }
 
         return RespostaApi::sucesso($this->apresentar($alvo->refresh()), 'Agente actualizado.');
+    }
+
+    /** A palavra-passe nunca é escolhida pelo administrador: é sempre gerada e enviada por email (ver store()). */
+    public function reporPalavraPasse(int $agente): JsonResponse
+    {
+        $alvo = $this->consulta()->whereKey($agente)->firstOrFail();
+        $palavraPasse = Str::password(14);
+        $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
+        $alvo->tokens()->delete();
+        if ($alvo->email) {
+            Mail::to($alvo->email)->send(new PalavraPasseRedefinidaMail(
+                $alvo->nome_completo ?: $alvo->nome_utilizador, $alvo->nome_utilizador, $palavraPasse, 'Consulvolt — Backoffice de Suporte'
+            ));
+        }
+
+        return RespostaApi::sucesso(null, 'Nova password gerada e enviada por email. As sessões abertas foram terminadas.');
     }
 
     public function eliminar(int $agente): JsonResponse

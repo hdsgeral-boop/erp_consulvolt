@@ -54,10 +54,10 @@ class PlataformaGestaoTest extends TestCase
         [$eu, $sessao] = $this->admin();
         config(['erp.saas.ativo' => true]);
 
-        $novo = $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'adm_novo_plat', 'palavra_passe' => 'SenhaForte123'], $sessao)
+        $novo = $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'adm_novo_plat'], $sessao)
             ->assertCreated()->json('dados.id');
-        $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'adm_novo_plat', 'palavra_passe' => 'SenhaForte123'], $sessao)->assertStatus(422);
-        $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'curta', 'palavra_passe' => 'curta'], $sessao)->assertStatus(422);
+        $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'adm_novo_plat'], $sessao)->assertStatus(422);
+        $this->postJson('/api/plataforma/administradores', ['nome_utilizador' => 'outro_adm', 'email' => 'nao-e-email'], $sessao)->assertStatus(422);
 
         $this->putJson("/api/plataforma/administradores/{$eu->id}/estado", ['ativo' => false], $sessao)->assertStatus(422)->assertJsonPath('codigo', 'ADMIN_PROPRIO');
         $this->deleteJson("/api/plataforma/administradores/{$eu->id}", [], $sessao)->assertStatus(422)->assertJsonPath('codigo', 'ADMIN_PROPRIO');

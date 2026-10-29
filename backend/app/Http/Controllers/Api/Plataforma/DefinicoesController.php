@@ -25,6 +25,7 @@ final class DefinicoesController extends Controller
 
     public function atualizar(Request $r): JsonResponse
     {
+        $this->exigir('plataforma_definicoes_gerir');
         $regras = [];
         foreach (self::CHAVES as $chave => $regra) {
             $regras[$chave] = array_merge(['sometimes'], $regra);

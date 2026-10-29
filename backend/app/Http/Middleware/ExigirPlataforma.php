@@ -11,8 +11,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Área da plataforma SaaS (/api/plataforma/*): só o super-administrador do tenant da plataforma, e só com o SaaS activo.
- * É a única barreira destas rotas (negar por omissão): os controladores não voltam a decidir quem entra.
+ * Área da plataforma SaaS (/api/plataforma/*): o super-administrador do tenant da plataforma, ou um operador do
+ * back-office (Fase 4 da extensão SaaS — RBAC granular), e só com o SaaS activo. É a barreira de ENTRADA (negar por
+ * omissão): dentro da área, cada controlador sensível ainda exige a chave `plataforma_*_gerir` específica no perfil
+ * do operador (ver ServicoPermissoes::elegivelPlataforma/tem) — o super-administrador continua com acesso total.
  */
 final class ExigirPlataforma
 {
@@ -26,7 +28,9 @@ final class ExigirPlataforma
     public static function exigir(?Utilizador $utilizador, ?Request $request = null): void
     {
         $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
-        if (! $utilizador || (int) $utilizador->tenant_id !== $plataforma || ! $utilizador->eSuperAdministrador()) {
+        $elegivel = $utilizador && (int) $utilizador->tenant_id === $plataforma
+            && ($utilizador->eSuperAdministrador() || $utilizador->eOperadorPlataforma());
+        if (! $elegivel) {
             throw new ErroNegocio('Esta área é reservada à administração da plataforma.', 'AREA_RESERVADA', 403);
         }
 

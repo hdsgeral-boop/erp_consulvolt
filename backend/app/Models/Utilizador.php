@@ -36,6 +36,13 @@ class Utilizador extends Autenticavel
     /** Agente do backoffice de suporte (ADR-076, fase 4 fatia 3): tenant da plataforma, só tickets (ExigirSuporte). */
     public const PAPEL_AGENTE_SUPORTE = 'AGENTE_SUPORTE';
 
+    /**
+     * Operador do back-office da plataforma (Fase 4 da extensão SaaS, secção 12): tenant da plataforma, sem ser
+     * super-administrador — entra na área da plataforma (ExigirPlataforma), mas cada operação sensível exige a
+     * chave `plataforma_*_gerir` correspondente no seu perfil (ServicoPermissoes::elegivelPlataforma).
+     */
+    public const PAPEL_OPERADOR_PLATAFORMA = 'OPERADOR_PLATAFORMA';
+
     protected $table = 'utilizadores';
 
     protected string $moduloAuditoria = 'Sistema/Utilizadores';
@@ -113,6 +120,11 @@ class Utilizador extends Autenticavel
     public function eAgenteSuporte(): bool
     {
         return $this->papel === self::PAPEL_AGENTE_SUPORTE;
+    }
+
+    public function eOperadorPlataforma(): bool
+    {
+        return $this->papel === self::PAPEL_OPERADOR_PLATAFORMA;
     }
 
     public function temCredencialLegada(): bool

@@ -85,6 +85,7 @@ final class PlataformaSaasController extends Controller
     /** PUT /api/plataforma/saas/geral */
     public function atualizarGeral(Request $request): JsonResponse
     {
+        $this->exigir('plataforma_saas_gerir');
         $d = $request->validate([
             'saas_ativo' => ['nullable', 'boolean'],
             'licencas_ativas' => ['nullable', 'boolean'],
@@ -153,6 +154,7 @@ final class PlataformaSaasController extends Controller
     /** PUT /api/plataforma/saas/empresas/{empresa} */
     public function atualizarEmpresa(Request $request, int $empresaId): JsonResponse
     {
+        $this->exigir('plataforma_saas_gerir');
         $empresa = Empresa::query()->findOrFail($empresaId);
 
         $d = $request->validate([
@@ -220,6 +222,7 @@ final class PlataformaSaasController extends Controller
      */
     public function definirEstadoLicenca(Request $request, int $empresaId): JsonResponse
     {
+        $this->exigir('plataforma_saas_gerir');
         $empresa = Empresa::query()->findOrFail($empresaId);
 
         $d = $request->validate([

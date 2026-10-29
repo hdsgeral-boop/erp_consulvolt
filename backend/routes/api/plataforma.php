@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Plataforma\DashboardSuporteController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
 use App\Http\Controllers\Api\Plataforma\NotaInternaSuporteController;
+use App\Http\Controllers\Api\Plataforma\OperadoresPlataformaController;
 use App\Http\Controllers\Api\Plataforma\PainelController;
 use App\Http\Controllers\Api\Plataforma\PlanosPlataformaController;
 use App\Http\Controllers\Api\Plataforma\PlataformaSaasController;
@@ -81,6 +82,7 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::post('administradores', 'store')->name('administradores.store');
         Route::put('administradores/{administrador}/estado', 'estado')->whereNumber('administrador')->name('administradores.estado');
         Route::put('administradores/{administrador}', 'atualizar')->whereNumber('administrador')->name('administradores.atualizar');
+        Route::post('administradores/{administrador}/palavra-passe', 'reporPalavraPasse')->whereNumber('administrador')->name('administradores.palavra_passe');
         Route::delete('administradores/{administrador}', 'eliminar')->whereNumber('administrador')->name('administradores.eliminar');
     });
 
@@ -90,7 +92,18 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::post('agentes-suporte', 'store')->name('agentes_suporte.store');
         Route::put('agentes-suporte/{agente}/estado', 'estado')->whereNumber('agente')->name('agentes_suporte.estado');
         Route::put('agentes-suporte/{agente}', 'atualizar')->whereNumber('agente')->name('agentes_suporte.atualizar');
+        Route::post('agentes-suporte/{agente}/palavra-passe', 'reporPalavraPasse')->whereNumber('agente')->name('agentes_suporte.palavra_passe');
         Route::delete('agentes-suporte/{agente}', 'eliminar')->whereNumber('agente')->name('agentes_suporte.eliminar');
+    });
+
+    Route::controller(OperadoresPlataformaController::class)->group(function () {
+        Route::get('operadores-plataforma', 'index')->name('operadores_plataforma.index');
+        Route::get('perfis-plataforma', 'perfis')->name('perfis_plataforma.index');
+        Route::post('operadores-plataforma', 'store')->name('operadores_plataforma.store');
+        Route::put('operadores-plataforma/{operador}/estado', 'estado')->whereNumber('operador')->name('operadores_plataforma.estado');
+        Route::put('operadores-plataforma/{operador}', 'atualizar')->whereNumber('operador')->name('operadores_plataforma.atualizar');
+        Route::post('operadores-plataforma/{operador}/palavra-passe', 'reporPalavraPasse')->whereNumber('operador')->name('operadores_plataforma.palavra_passe');
+        Route::delete('operadores-plataforma/{operador}', 'eliminar')->whereNumber('operador')->name('operadores_plataforma.eliminar');
     });
 
     Route::controller(SessoesController::class)->group(function () {

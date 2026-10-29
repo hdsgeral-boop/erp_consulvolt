@@ -135,10 +135,15 @@ final class ServicoPermissoes
         return in_array($k, self::PORTAL_AUTOMATICO, true) && $empresaId !== null && $this->ligadoAColaborador($utilizador, $empresaId);
     }
 
-    /** Mesma condição do ExigirPlataforma: só o super-administrador do tenant que opera a plataforma. */
+    /**
+     * Mesma condição do ExigirPlataforma: super-administrador OU operador do back-office (Fase 4 da extensão SaaS),
+     * sempre no tenant que opera a plataforma. O operador só entra na área — cada operação sensível exige ainda a
+     * chave `plataforma_*_gerir` específica no seu perfil (ver `tem()`/`ePlataforma()` acima).
+     */
     public function elegivelPlataforma(Utilizador $utilizador): bool
     {
-        return $utilizador->eSuperAdministrador() && (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
+        return ($utilizador->eSuperAdministrador() || $utilizador->eOperadorPlataforma())
+            && (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
     }
 
     /** A chave (consulta de ecrã ou tarefa) pertence a um ecrã «plataforma_*» (administração do SaaS)? */

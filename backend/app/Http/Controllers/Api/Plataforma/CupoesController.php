@@ -27,6 +27,7 @@ final class CupoesController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->exigir('plataforma_cupoes_gerir');
         $d = $this->validarDados($request);
         $c = CupomDesconto::query()->create($d + ['criado_por' => $request->user()->getKey()]);
 
@@ -35,6 +36,7 @@ final class CupoesController extends Controller
 
     public function update(Request $request, int $cupom): JsonResponse
     {
+        $this->exigir('plataforma_cupoes_gerir');
         $c = CupomDesconto::query()->findOrFail($cupom);
         $d = $this->validarDados($request, $c->id);
         $c->fill($d)->save();
@@ -44,6 +46,7 @@ final class CupoesController extends Controller
 
     public function estado(Request $request, int $cupom): JsonResponse
     {
+        $this->exigir('plataforma_cupoes_gerir');
         $c = CupomDesconto::query()->findOrFail($cupom);
         $d = $request->validate(['ativo' => ['required', 'boolean']]);
         $c->update(['ativo' => $d['ativo']]);

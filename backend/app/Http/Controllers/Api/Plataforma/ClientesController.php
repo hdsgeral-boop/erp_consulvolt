@@ -27,6 +27,7 @@ final class ClientesController extends Controller
 
     public function store(Request $r): JsonResponse
     {
+        $this->exigir('plataforma_clientes_gerir');
         $d = $r->validate([
             'nome' => ['required', 'string', 'max:255'],
             'slug' => $this->regrasSlug(),
@@ -63,6 +64,7 @@ final class ClientesController extends Controller
 
     public function atualizar(Request $r, Tenant $cliente): JsonResponse
     {
+        $this->exigir('plataforma_clientes_gerir');
         $d = $r->validate([
             'nome' => ['sometimes', 'required', 'string', 'max:255'],
             'slug' => array_merge(['sometimes'], $this->regrasSlug($cliente->id)),
@@ -74,6 +76,7 @@ final class ClientesController extends Controller
 
     public function estado(Request $r, Tenant $cliente): JsonResponse
     {
+        $this->exigir('plataforma_clientes_gerir');
         $d = $r->validate(['estado' => ['required', Rule::in([Tenant::ESTADO_ATIVO, Tenant::ESTADO_SUSPENSO])]]);
         $actualizado = $this->clientes->definirEstado($cliente, $d['estado']);
 
@@ -82,11 +85,14 @@ final class ClientesController extends Controller
 
     public function arquivar(Request $r, Tenant $cliente): JsonResponse
     {
+        $this->exigir('plataforma_clientes_gerir');
+
         return RespostaApi::sucesso($this->apresentar($this->clientes->arquivar($cliente), $r), 'Cliente arquivado.');
     }
 
     public function atualizarEmpresa(Request $r, Tenant $cliente, int $empresa): JsonResponse
     {
+        $this->exigir('plataforma_clientes_gerir');
         $d = $r->validate([
             'nome' => ['sometimes', 'required', 'string', 'max:255'],
             'nif' => ['sometimes', 'required', 'string', 'max:30'],
@@ -113,6 +119,7 @@ final class ClientesController extends Controller
 
     public function redefinirSenha(Request $r, Tenant $cliente, int $utilizador): JsonResponse
     {
+        $this->exigir('plataforma_clientes_gerir');
         $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->whereKey($utilizador)->firstOrFail();
         $d = $r->validate(['palavra_passe' => ['required', 'string', 'min:10', 'max:255']], [], ['palavra_passe' => 'palavra-passe']);
 
