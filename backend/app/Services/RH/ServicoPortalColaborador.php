@@ -313,6 +313,8 @@ final class ServicoPortalColaborador
         $ano = (int) now()->format('Y');
         $ferias = collect($this->ferias->resumo($ano))->firstWhere('colaborador_id', $c->id)
             ?? ['direito' => $this->ferias->direito($c->id, $ano), 'marcados' => 0, 'saldo' => $this->ferias->direito($c->id, $ano)];
+        $periodoFerias = $this->ferias->periodoDoAno($ano);
+        $ferias['periodo'] = $periodoFerias ? ['data_inicio' => $periodoFerias->data_inicio->toDateString(), 'data_fim' => $periodoFerias->data_fim->toDateString()] : null;
         // art. 230.º da Lei 12/23 (mais de 3 no mês ou 12 no ano): o mesmo apuramento da efectividade (acumulado anual em cache),
         // só com os números do próprio colaborador; sem efectividade no ano, a estimativa pelas faltas detectadas e não justificadas
         $faltas = $this->assiduidade->faltasDoColaborador($c->id)

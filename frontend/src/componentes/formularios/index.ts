@@ -3,6 +3,7 @@
  * modais e guia de aplicação: docs/paridade/versao_actual/07_modais_grade_linhas.md.
  */
 export { ModalFormulario, type PropsModalFormulario } from './ModalFormulario';
+export { dropdownComCriar, ModalCriacaoRapida, type PropsModalCriacaoRapida } from './CriarEmLinha';
 export { PainelLinhas, NOTA_LINHAS, type PropsPainelLinhas } from './PainelLinhas';
 export { AlternarFormulario } from './AlternarFormulario';
 export { SeccaoFormulario } from './SeccaoFormulario';

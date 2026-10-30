@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\RH;
 
 use App\Http\Controllers\Controller;
 use App\Models\ItemProdutividadeRH;
+use App\Models\PeriodoFeriasEmpresa;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PeriodoProdutividadeRH;
 use App\Models\PlanoFeriasColaborador;
@@ -59,6 +60,34 @@ final class FeriasProdutividadeController extends Controller
     {
         $this->exigir('rh_ferias_edit');
         $this->ferias->eliminar(PlanoFeriasColaborador::query()->findOrFail($periodo));
+
+        return RespostaApi::sucesso(null, 'Período de férias eliminado.');
+    }
+
+    // ───────────── Férias: período do ano (janela em que o colaborador pode pedir, pelo Portal) ─────────────
+
+    public function periodosFerias(): JsonResponse
+    {
+        $this->exigir('rh_ferias_view', 'rh_ferias_edit', 'rh_ferias_periodo_gerir');
+
+        return RespostaApi::sucesso(PeriodoFeriasEmpresa::query()->orderByDesc('ano')->get(), 'Períodos de férias por ano.');
+    }
+
+    public function gravarPeriodoFerias(Request $r, ?int $periodo = null): JsonResponse
+    {
+        $this->exigir('rh_ferias_periodo_gerir');
+        $d = $r->validate(['ano' => ['required', 'integer', 'between:2000,2100'], 'data_inicio' => ['required', 'date_format:Y-m-d'], 'data_fim' => ['required', 'date_format:Y-m-d']]);
+        $d['criado_por'] = $r->user()?->nome_completo ?? $r->user()?->nome_utilizador;
+        $p = $periodo ? PeriodoFeriasEmpresa::query()->findOrFail($periodo) : null;
+        $res = $this->ferias->gravarPeriodo($d, $p);
+
+        return $p ? RespostaApi::sucesso($res, 'Período de férias actualizado.') : RespostaApi::criado($res, 'Período de férias criado.');
+    }
+
+    public function eliminarPeriodoFerias(int $periodo): JsonResponse
+    {
+        $this->exigir('rh_ferias_periodo_gerir');
+        $this->ferias->eliminarPeriodo(PeriodoFeriasEmpresa::query()->findOrFail($periodo));
 
         return RespostaApi::sucesso(null, 'Período de férias eliminado.');
     }

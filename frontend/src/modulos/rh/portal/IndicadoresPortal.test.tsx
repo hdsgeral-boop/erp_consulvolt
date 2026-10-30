@@ -5,7 +5,7 @@ import { IndicadoresPortal } from './IndicadoresPortal';
 const base: ResumoPortal = {
   colaborador: { id: 1, nome_completo: 'Ana Silva', nif: '123', estado: 'ACTIVO', cargo_funcao_id: null, unidade_organica_id: null, data_admissao: null },
   chefia_colaborador_id: null,
-  ferias: { direito: 22, marcados: 4, saldo: 18 },
+  ferias: { direito: 22, marcados: 4, saldo: 18, periodo: null },
   ano: 2026,
   faltas_por_justificar: 0,
   pedidos_pendentes: 2,

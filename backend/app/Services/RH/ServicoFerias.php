@@ -5,6 +5,7 @@ namespace App\Services\RH;
 use App\Exceptions\ErroNegocio;
 use App\Models\AusenciaFaltaColaborador;
 use App\Models\Colaborador;
+use App\Models\PeriodoFeriasEmpresa;
 use App\Models\PlanoFeriasColaborador;
 use Illuminate\Support\Facades\DB;
 
@@ -206,9 +207,58 @@ final class ServicoFerias
         });
     }
 
+    /** Período de férias do ano definido pelo administrador (null se nenhum tiver sido criado). */
+    public function periodoDoAno(int $ano): ?PeriodoFeriasEmpresa
+    {
+        return PeriodoFeriasEmpresa::query()->where('ano', $ano)->first();
+    }
+
+    /** @param  array<string, mixed>  $d  ano, data_inicio, data_fim, criado_por? — um só período por ano (constraint única). */
+    public function gravarPeriodo(array $d, ?PeriodoFeriasEmpresa $p = null): PeriodoFeriasEmpresa
+    {
+        if ($d['data_fim'] < $d['data_inicio']) {
+            throw new ErroNegocio('A data de fim não pode ser anterior à de início.', 'DATAS_INVALIDAS', 422);
+        }
+        $ano = (int) $d['ano'];
+        $existente = PeriodoFeriasEmpresa::query()->where('ano', $ano)->when($p, fn ($q) => $q->whereKeyNot($p->id))->first();
+        if ($existente) {
+            throw new ErroNegocio("Já existe um período de férias definido para {$ano}. Edite-o em vez de criar outro.", 'PERIODO_JA_EXISTE', 422);
+        }
+        $dados = ['ano' => $ano, 'data_inicio' => $d['data_inicio'], 'data_fim' => $d['data_fim'], 'criado_por' => $d['criado_por'] ?? $p?->criado_por];
+        $p ? $p->update($dados) : $p = PeriodoFeriasEmpresa::create($dados);
+
+        return $p->refresh();
+    }
+
+    public function eliminarPeriodo(PeriodoFeriasEmpresa $p): void
+    {
+        if (PlanoFeriasColaborador::query()->where('ano', $p->ano)->where('estado', 'PEDIDO')->exists()) {
+            throw new ErroNegocio('Há pedidos de férias pendentes para este ano: decida-os primeiro.', 'PEDIDOS_PENDENTES', 422);
+        }
+        $p->delete();
+    }
+
     /**
-     * Pedido pelo portal: início não passado, sem sobreposição e SEM exceder o direito (no portal o excesso é erro,
-     * como no legado); fica PEDIDO até à decisão.
+     * Exige que [$ini, $fim] caiba dentro do período de férias do ano definido pelo administrador — só no caminho do
+     * portal (pedido do colaborador); a criação directa pelo RH (`gravar()`) não fica sujeita a este período.
+     */
+    private function exigirDentroDoPeriodo(int $ano, string $ini, string $fim): void
+    {
+        $periodo = $this->periodoDoAno($ano);
+        if (! $periodo) {
+            throw new ErroNegocio("Ainda não foi definido o período de férias de {$ano}. Peça ao administrador para o configurar antes de pedir férias.", 'SEM_PERIODO_FERIAS', 422);
+        }
+        if ($ini < $periodo->data_inicio->toDateString() || $fim > $periodo->data_fim->toDateString()) {
+            throw new ErroNegocio(
+                "As datas têm de estar dentro do período de férias de {$ano}: {$periodo->data_inicio->toDateString()} a {$periodo->data_fim->toDateString()}.",
+                'FORA_DO_PERIODO_FERIAS', 422,
+            );
+        }
+    }
+
+    /**
+     * Pedido pelo portal: início não passado, dentro do período de férias do ano, sem sobreposição e SEM exceder o
+     * direito (no portal o excesso é erro, como no legado); fica PEDIDO até à decisão.
      */
     public function criarPedido(int $colaborador, string $ini, string $fim, ?string $observacoes): PlanoFeriasColaborador
     {
@@ -223,6 +273,7 @@ final class ServicoFerias
             throw new ErroNegocio('O período não tem dias úteis.', 'SEM_DIAS_UTEIS', 422);
         }
         $ano = (int) substr($ini, 0, 4);
+        $this->exigirDentroDoPeriodo($ano, $ini, $fim);
         $direito = $this->direito($colaborador, $ano);
         if ($aviso = $this->avisoAntiguidade($colaborador, $ini)) {
             throw new ErroNegocio($aviso, 'ANTIGUIDADE_INSUFICIENTE', 422);

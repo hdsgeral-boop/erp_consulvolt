@@ -169,7 +169,7 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
           </Col>
           <Col xs={24} md={12}>
             <Form.Item name="centro_custo_id" label="Centro de custo" rules={[{ required: tipo === 'INTERNO', message: 'Obrigatório num projecto interno.' }]}>
-              <SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} />
+              <SeletorAux tabela="centros-custo" permissaoCriar="aux_gerir" placeholder="Centro de custo" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           {tipo === 'EXTERNO' && (

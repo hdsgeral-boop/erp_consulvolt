@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\ErroNegocio;
 use App\Models\Colaborador;
 use App\Models\Empresa;
 use App\Models\InfotipoSalarial;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\RegistoProdutividadeRH;
 use App\Models\TipoOrganizacaoRH;
+use App\Services\RH\ServicoFerias;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -166,5 +168,58 @@ final class FeriasProdutividadeTest extends TestCase
         $this->assertSame(['166666.67', '166666.67', '166666.66'], $regs->map(fn ($r) => (string) $r->valor)->all());
         $this->assertSame(['3.333', '3.333', '3.333'], $regs->map(fn ($r) => (string) $r->quantidade_considerada)->all());   // só apresentação
         $this->postJson("/api/rh/produtividade/periodos/{$p}/fechar", [], $this->s)->assertOk()->assertJsonPath('dados.total_fecho', '500000.00');
+    }
+
+    #[Test]
+    public function periodo_de_ferias_do_ano_delimita_os_pedidos_do_portal(): void
+    {
+        $s = $this->sessao(['rh_ferias_view', 'rh_ferias_edit', 'rh_ferias_periodo_gerir']);
+
+        // sem período definido para 2027: o endpoint de gestão não tem nada, e o pedido pelo portal é recusado
+        $this->getJson('/api/rh/ferias-periodos', $s)->assertOk()->assertJsonCount(0, 'dados');
+        $semPeriodo = app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+            try {
+                app(ServicoFerias::class)->criarPedido($this->ids['ana'], '2027-03-10', '2027-03-12', null);
+
+                return null;
+            } catch (ErroNegocio $e) {
+                return $e->codigo;
+            }
+        });
+        $this->assertSame('SEM_PERIODO_FERIAS', $semPeriodo);
+
+        // cria o período de 2027 (1 de Março a 30 de Abril)
+        $periodo = $this->postJson('/api/rh/ferias-periodos', ['ano' => 2027, 'data_inicio' => '2027-03-01', 'data_fim' => '2027-04-30'], $s)
+            ->assertCreated()->assertJsonPath('dados.ano', 2027)->json('dados.id');
+        // um segundo período para o mesmo ano é recusado
+        $this->postJson('/api/rh/ferias-periodos', ['ano' => 2027, 'data_inicio' => '2027-05-01', 'data_fim' => '2027-05-10'], $s)
+            ->assertStatus(422)->assertJsonPath('codigo', 'PERIODO_JA_EXISTE');
+
+        // datas fora do período: recusado
+        $foraDoPeriodo = app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+            try {
+                app(ServicoFerias::class)->criarPedido($this->ids['ana'], '2027-05-10', '2027-05-12', null);
+
+                return null;
+            } catch (ErroNegocio $e) {
+                return $e->codigo;
+            }
+        });
+        $this->assertSame('FORA_DO_PERIODO_FERIAS', $foraDoPeriodo);
+
+        // datas dentro do período: aceite, fica PEDIDO
+        $pedido = app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => app(ServicoFerias::class)->criarPedido($this->ids['ana'], '2027-03-10', '2027-03-12', null));
+        $this->assertSame('PEDIDO', $pedido->estado);
+
+        // editar o período (estende até 31/05); eliminar continua bloqueado enquanto houver um pedido pendente
+        $this->putJson("/api/rh/ferias-periodos/{$periodo}", ['ano' => 2027, 'data_inicio' => '2027-03-01', 'data_fim' => '2027-05-31'], $s)
+            ->assertOk()->assertJsonPath('dados.data_fim', fn ($v) => str_starts_with($v, '2027-05-31'));
+        $this->deleteJson("/api/rh/ferias-periodos/{$periodo}", [], $s)->assertStatus(422)->assertJsonPath('codigo', 'PEDIDOS_PENDENTES');
+
+        // sem a permissão de gestão, só se vê (rh_ferias_view) mas não se grava
+        $leitura = $this->sessao(['rh_ferias_view']);
+        $this->getJson('/api/rh/ferias-periodos', $leitura)->assertOk();
+        $this->postJson('/api/rh/ferias-periodos', ['ano' => 2028, 'data_inicio' => '2028-01-01', 'data_fim' => '2028-01-31'], $leitura)->assertForbidden();
     }
 }

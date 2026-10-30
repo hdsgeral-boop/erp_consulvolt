@@ -564,6 +564,15 @@ export interface PeriodoFerias {
   pedido_portal_colaborador_id: number | null;
 }
 
+/** Período de férias do ano (janela em que o colaborador pode pedir, pelo Portal) — definido pelo administrador. */
+export interface PeriodoFeriasAno {
+  id: number;
+  ano: number;
+  data_inicio: string;
+  data_fim: string;
+  criado_por: string | null;
+}
+
 export interface ItemProdutividade {
   id: number;
   codigo: string;
@@ -653,7 +662,7 @@ export interface PedidoPortal {
 export interface ResumoPortal {
   colaborador: { id: number; nome_completo: string; nif: string; estado: string; cargo_funcao_id: number | null; unidade_organica_id: number | null; data_admissao: string | null };
   chefia_colaborador_id: number | null;
-  ferias: { direito: number; marcados: number; saldo: number; aprovados?: number; gozados?: number };
+  ferias: { direito: number; marcados: number; saldo: number; aprovados?: number; gozados?: number; periodo: { data_inicio: string; data_fim: string } | null };
   ano: number;
   faltas_por_justificar: number;
   /** art. 230.º da Lei 12/23: dias de falta injustificada (detectados, por justificar ou recusados) no mês e no ano. */

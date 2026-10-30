@@ -248,6 +248,11 @@
               "chave": "rh_ferias_edit",
               "rotulo": "Planear e aprovar férias",
               "sensivel": false
+            },
+            {
+              "chave": "rh_ferias_periodo_gerir",
+              "rotulo": "Definir o período de férias de cada ano (janela em que os colaboradores podem pedir, pelo Portal)",
+              "sensivel": false
             }
           ]
         },

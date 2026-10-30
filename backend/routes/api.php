@@ -387,6 +387,11 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
             Route::put('ferias/{periodo}', 'gravarFerias')->whereNumber('periodo')->name('ferias.update');
             Route::post('ferias/{periodo}/estado', 'estadoFerias')->whereNumber('periodo')->name('ferias.estado');
             Route::delete('ferias/{periodo}', 'eliminarFerias')->whereNumber('periodo')->name('ferias.destroy');
+            // período de férias do ano (janela em que o colaborador pode pedir, pelo Portal) — nomes próprios, sem colidir com ferias.store/update/destroy
+            Route::get('ferias-periodos', 'periodosFerias')->name('ferias.periodos.index');
+            Route::post('ferias-periodos', 'gravarPeriodoFerias')->name('ferias.periodos.store');
+            Route::put('ferias-periodos/{periodo}', 'gravarPeriodoFerias')->whereNumber('periodo')->name('ferias.periodos.update');
+            Route::delete('ferias-periodos/{periodo}', 'eliminarPeriodoFerias')->whereNumber('periodo')->name('ferias.periodos.destroy');
             Route::get('produtividade/itens', 'itens')->name('produtividade.itens.index');
             Route::post('produtividade/itens', 'gravarItem')->name('produtividade.itens.store');
             Route::put('produtividade/itens/{item}', 'gravarItem')->whereNumber('item')->name('produtividade.itens.update');

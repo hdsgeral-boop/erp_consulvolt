@@ -1,13 +1,15 @@
-import { AutoComplete, Button, Divider, Form, Input, Modal, Select, Space, Typography, message, type SelectProps } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { AutoComplete, Checkbox, Form, Input, InputNumber, Select, Switch, message, type SelectProps } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
+import { dropdownComCriar, ModalCriacaoRapida } from '@/componentes/formularios';
 import { SeletorConta as SeletorContaPlano } from '@/modulos/contab/comum/Seletores';
 import { prefixosConta } from '@/modulos/contab/tabelasAux/contasTerceiro';
-import { rotuloProduto, useArmazens, useCatalogo, type FichaTerceiro } from './referencias';
+import { useCategorias } from '@/modulos/vendas/produtos/Categorias';
+import type { Categoria } from '@/modulos/vendas/produtos/formularioProduto';
+import { rotuloProduto, useArmazens, useCatalogo, type Armazem, type FichaTerceiro, type ProdutoCatalogo } from './referencias';
 import { BotaoValidarNifAgt } from './ValidarNifAgt';
 
 type PropsBase<V> = Omit<SelectProps<V>, 'options' | 'showSearch' | 'filterOption' | 'onSearch' | 'loading'>;
@@ -31,37 +33,29 @@ function ModalCriarTerceiroRapido({ papel, aberto, podeCriar, aoFechar, aoCriar 
     onError: (e) => notificarErro(e, `Não foi possível criar o ${papel === 'CLIENTE' ? 'cliente' : 'fornecedor'}`),
   });
   return (
-    <Modal
-      open={aberto}
-      title={papel === 'CLIENTE' ? 'Criar novo cliente' : 'Criar novo fornecedor'}
-      okText="Criar"
-      cancelText="Cancelar"
-      onCancel={() => { form.resetFields(); aoFechar(); }}
-      okButtonProps={{ disabled: !podeCriar, loading: criar.isPending }}
-      onOk={() => form.submit()}
-      destroyOnHidden
+    <ModalCriacaoRapida<{ nome: string; nif?: string; conta: string }>
+      aberto={aberto}
+      titulo={papel === 'CLIENTE' ? 'Criar novo cliente' : 'Criar novo fornecedor'}
+      podeCriar={podeCriar}
+      aGravar={criar.isPending}
+      aoFechar={aoFechar}
+      form={form}
+      onFinish={(v) => criar.mutate(v)}
     >
-      {!podeCriar && (
-        <Typography.Paragraph type="warning">
-          Não tem a permissão para criar {papel === 'CLIENTE' ? 'clientes' : 'fornecedores'}.
-        </Typography.Paragraph>
-      )}
-      <Form form={form} layout="vertical" disabled={!podeCriar} onFinish={(v) => criar.mutate(v)}>
-        <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
-          <Input autoFocus />
-        </Form.Item>
-        <Form.Item name="nif" label="NIF" rules={[{ required: papel === 'FORNECEDOR', message: 'O NIF do fornecedor é obrigatório.' }, { max: 30 }]}>
-          <Input addonAfter={<BotaoValidarNifAgt nif={nifActual} tamanho="small" apenasIcone />} />
-        </Form.Item>
-        <Form.Item
-          name="conta"
-          label={papel === 'CLIENTE' ? 'Conta de cliente (classe 31)' : 'Conta de fornecedor (classe 32 ou 37.0)'}
-          rules={[{ required: true, message: 'Indique a conta.' }]}
-        >
-          <SeletorContaPlano prefixos={prefixosConta(papel)} placeholder={papel === 'CLIENTE' ? 'Ex.: 3112' : 'Ex.: 3211'} allowClear style={{ width: '100%' }} />
-        </Form.Item>
-      </Form>
-    </Modal>
+      <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
+        <Input autoFocus />
+      </Form.Item>
+      <Form.Item name="nif" label="NIF" rules={[{ required: papel === 'FORNECEDOR', message: 'O NIF do fornecedor é obrigatório.' }, { max: 30 }]}>
+        <Input addonAfter={<BotaoValidarNifAgt nif={nifActual} tamanho="small" apenasIcone />} />
+      </Form.Item>
+      <Form.Item
+        name="conta"
+        label={papel === 'CLIENTE' ? 'Conta de cliente (classe 31)' : 'Conta de fornecedor (classe 32 ou 37.0)'}
+        rules={[{ required: true, message: 'Indique a conta.' }]}
+      >
+        <SeletorContaPlano prefixos={prefixosConta(papel)} placeholder={papel === 'CLIENTE' ? 'Ex.: 3112' : 'Ex.: 3211'} allowClear style={{ width: '100%' }} />
+      </Form.Item>
+    </ModalCriacaoRapida>
   );
 }
 
@@ -92,19 +86,7 @@ export function SeletorTerceiro({ papel, onEscolher, permissaoCriar, ...props }:
         loading={consulta.isFetching}
         placeholder={papel === 'CLIENTE' ? 'Pesquisar cliente (nome ou NIF)' : 'Pesquisar fornecedor (nome ou NIF)'}
         options={(consulta.data?.itens ?? []).map((t) => ({ value: t.id, label: `${t.nome.trim()}${t.nif ? ` (NIF ${t.nif})` : ''}` }))}
-        dropdownRender={permissaoCriar ? (menu) => (
-          <>
-            {menu}
-            <Divider style={{ margin: '4px 0' }} />
-            {podeCriar ? (
-              <Button type="text" block icon={<PlusOutlined />} onMouseDown={(e) => e.preventDefault()} onClick={() => setACriar(true)}>
-                Criar novo {papel === 'CLIENTE' ? 'cliente' : 'fornecedor'}
-              </Button>
-            ) : (
-              <Space style={{ padding: '4px 11px' }}><Typography.Text type="secondary" style={{ fontSize: 12 }}>Sem permissão para criar.</Typography.Text></Space>
-            )}
-          </>
-        ) : undefined}
+        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: papel === 'CLIENTE' ? 'cliente' : 'fornecedor', aoClicar: () => setACriar(true) })}
         {...props}
         onChange={(v, o) => { props.onChange?.(v, o); onEscolher?.((consulta.data?.itens ?? []).find((t) => t.id === v)); }}
       />
@@ -125,32 +107,195 @@ export function SeletorTerceiro({ papel, onEscolher, permissaoCriar, ...props }:
   );
 }
 
-/** Produto do catálogo (produtos activos), com pesquisa por código ou nome. */
-export function SeletorProduto({ apenasStock, ...props }: PropsBase<number> & { apenasStock?: boolean }) {
-  const { data, isLoading } = useCatalogo();
+/** Criação mínima de uma categoria de produtos (só o nome; as contas ficam para depois, em Vendas › Categorias). */
+function ModalCriarCategoriaRapida({ aberto, podeCriar, aoFechar, aoCriar }: { aberto: boolean; podeCriar: boolean; aoFechar: () => void; aoCriar: (c: Categoria) => void }) {
+  const [form] = Form.useForm<{ nome: string }>();
+  const criar = useMutation({
+    mutationFn: (v: { nome: string }) => enviar<Categoria>('post', '/logistica/categorias-produtos', { nome: v.nome.trim() }),
+    onSuccess: ({ dados, mensagem }) => {
+      message.success(mensagem);
+      form.resetFields();
+      aoCriar(dados);
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível criar a categoria'),
+  });
   return (
-    <Select<number>
-      showSearch
-      optionFilterProp="label"
-      loading={isLoading}
-      placeholder="Produto ou serviço"
-      options={(data ?? []).filter((p) => !apenasStock || p.movimenta_stock).map((p) => ({ value: p.id, label: rotuloProduto(p) }))}
-      {...props}
-    />
+    <ModalCriacaoRapida<{ nome: string }> aberto={aberto} titulo="Criar nova categoria" podeCriar={podeCriar} aGravar={criar.isPending} aoFechar={aoFechar} form={form} onFinish={(v) => criar.mutate(v)}>
+      <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
+        <Input autoFocus />
+      </Form.Item>
+    </ModalCriacaoRapida>
   );
 }
 
-export function SeletorArmazem(props: PropsBase<number>) {
-  const { data, isLoading } = useArmazens();
+/** Categoria de produtos. permissaoCriar: mostra «+ Criar nova categoria» no fundo da lista. */
+export function SeletorCategoria({ permissaoCriar, ...props }: PropsBase<number> & { permissaoCriar?: string }) {
+  const { pode } = useSessao();
+  const consultas = useQueryClient();
+  const { data, isLoading } = useCategorias();
+  const [aCriar, setACriar] = useState(false);
+  const podeCriar = !!permissaoCriar && pode(permissaoCriar);
   return (
-    <Select<number>
-      showSearch
-      optionFilterProp="label"
-      loading={isLoading}
-      placeholder="Armazém"
-      options={(data ?? []).map((a) => ({ value: a.id, label: `${a.nome}${a.predefinido ? ' (predefinido)' : ''}` }))}
-      {...props}
-    />
+    <>
+      <Select<number>
+        showSearch
+        optionFilterProp="label"
+        loading={isLoading}
+        placeholder="Categoria"
+        options={(data ?? []).map((c) => ({ value: c.id, label: c.nome }))}
+        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'categoria', aoClicar: () => setACriar(true) })}
+        {...props}
+      />
+      {permissaoCriar && (
+        <ModalCriarCategoriaRapida
+          aberto={aCriar}
+          podeCriar={podeCriar}
+          aoFechar={() => setACriar(false)}
+          aoCriar={(c) => {
+            void consultas.invalidateQueries({ queryKey: ['logistica', 'categorias'] });
+            setACriar(false);
+            props.onChange?.(c.id, { value: c.id, label: c.nome });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+interface ValoresProdutoRapido { codigo: string; nome: string; categoria_produto_id: number; preco_unitario?: number; e_servico?: boolean }
+
+/** Criação mínima de um produto (código, nome, categoria — obrigatória no servidor — e preço; o resto fica para a ficha completa). */
+function ModalCriarProdutoRapido({ aberto, podeCriar, aoFechar, aoCriar }: { aberto: boolean; podeCriar: boolean; aoFechar: () => void; aoCriar: (p: ProdutoCatalogo) => void }) {
+  const [form] = Form.useForm<ValoresProdutoRapido>();
+  const criar = useMutation({
+    mutationFn: (v: ValoresProdutoRapido) =>
+      enviar<ProdutoCatalogo>('post', '/logistica/produtos', { codigo: v.codigo.trim(), nome: v.nome.trim(), categoria_produto_id: v.categoria_produto_id, preco_unitario: v.preco_unitario ?? null, e_servico: !!v.e_servico, movimenta_stock: !v.e_servico }),
+    onSuccess: ({ dados, mensagem }) => {
+      message.success(mensagem);
+      form.resetFields();
+      aoCriar(dados);
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível criar o produto'),
+  });
+  return (
+    <ModalCriacaoRapida<ValoresProdutoRapido> aberto={aberto} titulo="Criar novo produto" podeCriar={podeCriar} aGravar={criar.isPending} aoFechar={aoFechar} form={form} onFinish={(v) => criar.mutate(v)}>
+      <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }, { max: 50 }]}>
+        <Input autoFocus />
+      </Form.Item>
+      <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
+        <Input />
+      </Form.Item>
+      <Form.Item name="categoria_produto_id" label="Categoria" rules={[{ required: true, message: 'Indique a categoria.' }]}>
+        <SeletorCategoria style={{ width: '100%' }} />
+      </Form.Item>
+      <Form.Item name="preco_unitario" label="Preço unitário">
+        <InputNumber min={0} style={{ width: '100%' }} decimalSeparator="," />
+      </Form.Item>
+      <Form.Item name="e_servico" label="É um serviço (não movimenta stock)" valuePropName="checked">
+        <Switch />
+      </Form.Item>
+    </ModalCriacaoRapida>
+  );
+}
+
+/** Produto do catálogo (produtos activos), com pesquisa por código ou nome. permissaoCriar: mostra «+ Criar novo produto». */
+export function SeletorProduto({ apenasStock, permissaoCriar, ...props }: PropsBase<number> & { apenasStock?: boolean; permissaoCriar?: string }) {
+  const { pode } = useSessao();
+  const consultas = useQueryClient();
+  const { data, isLoading } = useCatalogo();
+  const [aCriar, setACriar] = useState(false);
+  const podeCriar = !!permissaoCriar && pode(permissaoCriar);
+  return (
+    <>
+      <Select<number>
+        showSearch
+        optionFilterProp="label"
+        loading={isLoading}
+        placeholder="Produto ou serviço"
+        options={(data ?? []).filter((p) => !apenasStock || p.movimenta_stock).map((p) => ({ value: p.id, label: rotuloProduto(p) }))}
+        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'produto', aoClicar: () => setACriar(true) })}
+        {...props}
+      />
+      {permissaoCriar && (
+        <ModalCriarProdutoRapido
+          aberto={aCriar}
+          podeCriar={podeCriar}
+          aoFechar={() => setACriar(false)}
+          aoCriar={(p) => {
+            void consultas.invalidateQueries({ queryKey: ['logistica', 'catalogo'] });
+            setACriar(false);
+            props.onChange?.(p.id, { value: p.id, label: rotuloProduto(p) });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+interface ValoresArmazem { nome: string; codigo?: string; localizacao?: string; predefinido?: boolean }
+
+/** Criação mínima de um armazém (os mesmos campos de `Armazens.tsx` → `dadosArmazem`; só o nome é obrigatório). */
+function ModalCriarArmazemRapido({ aberto, podeCriar, aoFechar, aoCriar }: { aberto: boolean; podeCriar: boolean; aoFechar: () => void; aoCriar: (a: Armazem) => void }) {
+  const [form] = Form.useForm<ValoresArmazem>();
+  const criar = useMutation({
+    mutationFn: (v: ValoresArmazem) =>
+      enviar<Armazem>('post', '/logistica/armazens', { nome: v.nome.trim(), codigo: v.codigo?.trim() || null, localizacao: v.localizacao?.trim() || null, predefinido: !!v.predefinido }),
+    onSuccess: ({ dados, mensagem }) => {
+      message.success(mensagem);
+      form.resetFields();
+      aoCriar(dados);
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível criar o armazém'),
+  });
+  return (
+    <ModalCriacaoRapida<ValoresArmazem> aberto={aberto} titulo="Criar novo armazém" podeCriar={podeCriar} aGravar={criar.isPending} aoFechar={aoFechar} form={form} onFinish={(v) => criar.mutate(v)}>
+      <Form.Item name="nome" label="Nome / Identificação" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
+        <Input autoFocus />
+      </Form.Item>
+      <Form.Item name="codigo" label="Código" rules={[{ max: 20 }]}>
+        <Input />
+      </Form.Item>
+      <Form.Item name="localizacao" label="Localização / Endereço" rules={[{ max: 150 }]}>
+        <Input />
+      </Form.Item>
+      <Form.Item name="predefinido" valuePropName="checked">
+        <Checkbox>Armazém predefinido</Checkbox>
+      </Form.Item>
+    </ModalCriacaoRapida>
+  );
+}
+
+/** permissaoCriar: com a permissão indicada (ex.: «armazem_config»), mostra «+ Criar novo armazém» no fundo da lista. */
+export function SeletorArmazem({ permissaoCriar, ...props }: PropsBase<number> & { permissaoCriar?: string }) {
+  const { pode } = useSessao();
+  const consultas = useQueryClient();
+  const { data, isLoading } = useArmazens();
+  const [aCriar, setACriar] = useState(false);
+  const podeCriar = !!permissaoCriar && pode(permissaoCriar);
+  return (
+    <>
+      <Select<number>
+        showSearch
+        optionFilterProp="label"
+        loading={isLoading}
+        placeholder="Armazém"
+        options={(data ?? []).map((a) => ({ value: a.id, label: `${a.nome}${a.predefinido ? ' (predefinido)' : ''}` }))}
+        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'armazém', aoClicar: () => setACriar(true) })}
+        {...props}
+      />
+      {permissaoCriar && (
+        <ModalCriarArmazemRapido
+          aberto={aCriar}
+          podeCriar={podeCriar}
+          aoFechar={() => setACriar(false)}
+          aoCriar={(a) => {
+            void consultas.invalidateQueries({ queryKey: ['logistica'] });
+            setACriar(false);
+            props.onChange?.(a.id, { value: a.id, label: a.nome });
+          }}
+        />
+      )}
+    </>
   );
 }
 

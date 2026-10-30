@@ -121,7 +121,7 @@ export function EditorLinhasDC({
       largura: 'minmax(180px, 2.2fr)',
       celula: (name) => (
         <Form.Item {...item} name={[name, 'codigo_conta']} rules={[{ required: true, message: 'Conta' }]}>
-          <SeletorConta style={{ width: '100%' }} prefixos={prefixosConta} />
+          <SeletorConta style={{ width: '100%' }} prefixos={prefixosConta} permissaoCriar="contab_plano_gerir" />
         </Form.Item>
       ),
     },
@@ -208,7 +208,7 @@ export function EditorLinhasDC({
           )}
           {campos.centroCusto && (
             <Form.Item {...item} name={[name, 'centro_custo_id']} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-              <SeletorAux tabela="centros-custo" placeholder="C. Custo" style={{ width: '100%' }} />
+              <SeletorAux tabela="centros-custo" permissaoCriar="aux_gerir" placeholder="C. Custo" style={{ width: '100%' }} />
             </Form.Item>
           )}
           {/* legado (ui_lancamentos.js:1612): «Repartir» na própria célula UNº / CC */}

@@ -12,7 +12,7 @@ import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData } from '@/utilitarios/formatacao';
-import { ESTADOS_FERIAS_RH, ROTULOS_ESTADO, type ConfiguracaoRH, type PeriodoFerias, type ResumoFerias } from './api';
+import { ESTADOS_FERIAS_RH, ROTULOS_ESTADO, type ConfiguracaoRH, type PeriodoFerias, type PeriodoFeriasAno, type ResumoFerias } from './api';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { htmlTabela, seccaoHtml } from './comum/impressao';
@@ -75,7 +75,7 @@ export default function Ferias() {
   const [termo, setTermo] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [edicao, setEdicao] = useState<PeriodoFerias | 'novo' | null>(null);
-  const [sep, setSep] = useSeparadorUrl(['resumo', 'periodos', 'regras']);
+  const [sep, setSep] = useSeparadorUrl(['resumo', 'periodos', 'periodo-ano', 'regras']);
   const [form] = Form.useForm<ValoresFerias>();
   const plano = useQuery({ queryKey: ['rh', 'ferias', ano, colaborador], queryFn: () => obter<Plano>('/rh/ferias', { ano, colaborador_id: colaborador }) });
   useAvisarErro(plano.error);
@@ -236,6 +236,7 @@ export default function Ferias() {
             ),
           },
           { key: 'periodos', label: `Períodos (${periodos.length})`, children: <TabelaComModos<PeriodoFerias> idVista="periodos" rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
+          { key: 'periodo-ano', label: 'Período de férias do ano', children: <PeriodoFeriasAnoTab /> },
           { key: 'regras', label: 'Regras (LGT)', children: <RegrasFerias editar={editar} /> },
         ]} />
       </Card>
@@ -256,6 +257,76 @@ export default function Ferias() {
         </Form>
       </ModalFormulario>
     </>
+  );
+}
+
+interface ValoresPeriodoAno {
+  ano: number;
+  periodo: [Dayjs, Dayjs];
+}
+
+/**
+ * Período de férias do ano (RH › Programa de Férias › «Período de férias do ano»): o administrador define a janela
+ * em que os colaboradores podem pedir férias pelo Portal (ServicoFerias::exigirDentroDoPeriodo); sem período definido
+ * para o ano, o pedido pelo Portal é recusado. Um só período por ano.
+ */
+function PeriodoFeriasAnoTab() {
+  const { pode } = useSessao();
+  const editar = pode('rh_ferias_periodo_gerir');
+  const [edicao, setEdicao] = useState<PeriodoFeriasAno | 'novo' | null>(null);
+  const [form] = Form.useForm<ValoresPeriodoAno>();
+  const q = useQuery({ queryKey: ['rh', 'ferias-periodos'], queryFn: () => obter<PeriodoFeriasAno[]>('/rh/ferias-periodos') });
+  useAvisarErro(q.error);
+  const accao = useAccaoRh(() => setEdicao(null));
+
+  const abrir = (p: PeriodoFeriasAno | 'novo') => {
+    form.resetFields();
+    if (p !== 'novo') form.setFieldsValue({ ano: p.ano, periodo: [dayjs(p.data_inicio), dayjs(p.data_fim)] });
+    setEdicao(p);
+  };
+
+  const colunas: ColunaApi<PeriodoFeriasAno>[] = [
+    { title: 'Ano', dataIndex: 'ano', width: 100, sorter: (a, b) => a.ano - b.ano },
+    { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
+    { title: 'Fim', dataIndex: 'data_fim', render: formatarData },
+    { title: 'Criado por', dataIndex: 'criado_por', render: (v: string | null) => v ?? '—' },
+    {
+      title: '', key: 'accoes',
+      render: (_, p) => editar && (
+        <Space size={4}>
+          <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" onClick={() => abrir(p)} />
+          <Popconfirm title="Eliminar o período de férias deste ano?" okText="Eliminar" okButtonProps={{ danger: true }} cancelText="Cancelar"
+            onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/ferias-periodos/${p.id}` })}>
+            <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <Card variant="borderless">
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Janela de pedidos de férias pelo Portal"
+        description="Enquanto não houver período definido para um ano, os colaboradores não conseguem pedir férias desse ano pelo Portal do Colaborador. A marcação directa pelo RH (acima, em «Períodos») não é limitada por este período." />
+      {editar && <Button type="primary" icon={<PlusOutlined />} style={{ marginBottom: 16 }} onClick={() => abrir('novo')}>Novo período</Button>}
+      <TabelaComModos<PeriodoFeriasAno> idVista="periodo-ano-ferias" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()} modos={false}
+        vazio={{ icone: 'calendar-alt', titulo: 'Sem períodos definidos', texto: 'Crie o período de férias de um ano para os colaboradores poderem pedir férias pelo Portal.' }} />
+      <Modal open={edicao !== null} title={edicao === 'novo' ? 'Novo período de férias' : 'Editar período de férias'} okText="Gravar" cancelText="Cancelar"
+        confirmLoading={accao.isPending} onCancel={() => setEdicao(null)} onOk={() => form.submit()} destroyOnHidden>
+        <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({
+          metodo: edicao && edicao !== 'novo' ? 'put' : 'post',
+          url: edicao && edicao !== 'novo' ? `/rh/ferias-periodos/${edicao.id}` : '/rh/ferias-periodos',
+          dados: { ano: v.ano, data_inicio: dataDe(v.periodo[0]), data_fim: dataDe(v.periodo[1]) },
+        })}>
+          <Form.Item name="ano" label="Ano" rules={[{ required: true, message: 'Indique o ano.' }]}>
+            <InputNumber min={2000} max={2100} style={{ width: '100%' }} disabled={edicao !== 'novo'} />
+          </Form.Item>
+          <Form.Item name="periodo" label="Período em que se pode pedir férias deste ano" rules={[{ required: true, message: 'Indique as datas.' }]}>
+            <DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
   );
 }
 

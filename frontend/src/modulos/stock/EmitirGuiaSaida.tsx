@@ -226,7 +226,7 @@ export default function EmitirGuiaSaida() {
         <Row gutter={16} align="bottom">
           <Col xs={24} md={6}>
             <Field rotulo="Armazém de Saída">
-              <SeletorArmazem aria-label="Armazém de Saída" value={armazem} onChange={setArmazem} style={{ width: '100%' }} />
+              <SeletorArmazem aria-label="Armazém de Saída" permissaoCriar="armazem_config" value={armazem} onChange={setArmazem} style={{ width: '100%' }} />
             </Field>
           </Col>
           <Col xs={24} md={6}>
@@ -244,7 +244,7 @@ export default function EmitirGuiaSaida() {
           {tipo === 'VENDA' && (
             <Col xs={24} md={4}>
               <Field rotulo="Projecto/Obra">
-                <SeletorProjecto aria-label="Projecto/Obra" allowClear value={projeto} onChange={setProjeto} disabled={!!encomenda} style={{ width: '100%' }} />
+                <SeletorProjecto aria-label="Projecto/Obra" allowClear permissaoCriar="proj_gerir" value={projeto} onChange={setProjeto} disabled={!!encomenda} style={{ width: '100%' }} />
               </Field>
             </Col>
           )}
@@ -323,6 +323,7 @@ export default function EmitirGuiaSaida() {
                     aria-label="Produto"
                     apenasStock={!l.item_origem_id}
                     disabled={!!l.item_origem_id}
+                    permissaoCriar={l.item_origem_id ? undefined : 'vendas_produtos_gerir'}
                     value={l.produto_id}
                     onChange={(id: number) => mudarLinha(l.chave, { produto_id: id })}
                     placeholder="-- Selecione --"

@@ -121,14 +121,22 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
         expandable={{ expandedRowRender: (p) => <EtapasPedido pedido={p} /> }} />
 
       <Modal title={tipo ? `Pedido — ${TIPOS_PEDIDO[tipo]}` : ''} open={tipo !== null} width={larguraModal(640)} onCancel={() => setTipo(null)} okText="Enviar pedido" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+        confirmLoading={accao.isPending} okButtonProps={{ disabled: tipo === 'FERIAS' && !resumo.ferias.periodo }} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={enviarPedido}>
           {tipo === 'FERIAS' && (
-            <>
-              <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Saldo disponível: ${resumo.ferias.saldo} dias úteis. As férias não podem começar no passado.`} />
-              <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}><DatePicker.RangePicker format="DD/MM/YYYY" disabledDate={(d) => d.isBefore(dayjs(), 'day')} style={{ width: '100%' }} /></Form.Item>
-              <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={2000} /></Form.Item>
-            </>
+            resumo.ferias.periodo ? (
+              <>
+                <Alert type="info" showIcon style={{ marginBottom: 12 }}
+                  message={`Saldo disponível: ${resumo.ferias.saldo} dias úteis. Período de férias de ${resumo.ano}: ${formatarData(resumo.ferias.periodo.data_inicio)} a ${formatarData(resumo.ferias.periodo.data_fim)}.`} />
+                <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}>
+                  <DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }}
+                    disabledDate={(d) => d.isBefore(dayjs(), 'day') || d.isBefore(dayjs(resumo.ferias.periodo!.data_inicio), 'day') || d.isAfter(dayjs(resumo.ferias.periodo!.data_fim), 'day')} />
+                </Form.Item>
+                <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={2000} /></Form.Item>
+              </>
+            ) : (
+              <Alert type="warning" showIcon message={`Ainda não foi definido o período de férias de ${resumo.ano}. Peça ao administrador para o configurar antes de pedir férias.`} />
+            )
           )}
           {tipo === 'AUSENCIA' && (
             <>

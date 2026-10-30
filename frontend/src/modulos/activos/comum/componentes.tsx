@@ -1,8 +1,10 @@
 import { Select, Tag, type SelectProps } from 'antd';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { obter, obterPagina } from '@/api/cliente';
-import type { CampoFormulario } from '@/componentes/formularios';
+import { dropdownComCriar, type CampoFormulario } from '@/componentes/formularios';
+import { ModalProjecto } from '@/modulos/projectos/ModalProjecto';
+import { useSessao } from '@/sessao/SessaoContexto';
 import type { Activo, CategoriaActivo } from './tipos';
 
 /** Componentes e consultas partilhados do módulo Activos. Chaves de cache: ['activos', ...]. */
@@ -93,19 +95,40 @@ export interface ProjectoResumo {
   estado?: string | null;
 }
 
-/** Projectos activos (GET /projetos/ativos), para afectações e transferências. */
-export function SeletorProjecto(props: PropsSelect<number>) {
+/**
+ * Projectos activos (GET /projetos/ativos), para afectações e transferências.
+ * permissaoCriar: mostra «+ Criar novo projecto» no fundo da lista, abrindo o mesmo `ModalProjecto` usado na Carteira.
+ */
+export function SeletorProjecto({ permissaoCriar, ...props }: PropsSelect<number> & { permissaoCriar?: string }) {
+  const { pode } = useSessao();
+  const consultas = useQueryClient();
   const q = useQuery({ queryKey: ['projectos', 'activos-resumo'], queryFn: () => obter<ProjectoResumo[]>('/projetos/ativos'), staleTime: CINCO_MIN, retry: false });
+  const [aCriar, setACriar] = useState(false);
+  const podeCriar = !!permissaoCriar && pode(permissaoCriar);
   return (
-    <Select<number>
-      showSearch
-      optionFilterProp="label"
-      loading={q.isLoading}
-      placeholder="Projecto"
-      popupMatchSelectWidth={false}
-      options={(q.data ?? []).map((p) => ({ value: p.id, label: `${p.codigo ?? ''} — ${p.nome}` }))}
-      {...props}
-    />
+    <>
+      <Select<number>
+        showSearch
+        optionFilterProp="label"
+        loading={q.isLoading}
+        placeholder="Projecto"
+        popupMatchSelectWidth={false}
+        options={(q.data ?? []).map((p) => ({ value: p.id, label: `${p.codigo ?? ''} — ${p.nome}` }))}
+        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'projecto', aoClicar: () => setACriar(true) })}
+        {...props}
+      />
+      {permissaoCriar && (
+        <ModalProjecto
+          aberto={aCriar}
+          aoFechar={() => setACriar(false)}
+          aoGravar={(p) => {
+            void consultas.invalidateQueries({ queryKey: ['projectos'] });
+            setACriar(false);
+            props.onChange?.(p.id, { value: p.id, label: `${p.codigo ?? ''} — ${p.nome}` });
+          }}
+        />
+      )}
+    </>
   );
 }
 
