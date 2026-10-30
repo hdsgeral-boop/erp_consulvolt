@@ -23,14 +23,11 @@ export function limparNomeFicheiro(nome: string): string {
 }
 
 /**
- * Rodapé de cada página com a identificação do documento (título + data/hora de emissão) sempre acrescentada: o
- * cabeçalho nativo do browser (que também mostra data/hora) não é controlável pela aplicação, por isso só fica
- * garantido ao imprimir ou guardar como PDF — mesmo que o utilizador desligue «Cabeçalhos e rodapés» — através do
- * rodapé próprio (`paginacao.ts`). `rodapeBase` é o rodapé da empresa (ou a sobreposição do pedido), se houver.
+ * Rodapé de cada página com a identificação do documento (título) sempre acrescentada. `rodapeBase` é o rodapé da
+ * empresa (ou a sobreposição do pedido), se houver.
  */
-export function rodapeComIdentificacao(rodapeBase: string | null | undefined, titulo: string, emitidoEm: Date): string | null {
-  const identificacao = [titulo, dayjs(emitidoEm).format('DD/MM/YYYY HH:mm')].filter(Boolean).join(' — ');
-  return [rodapeBase, identificacao].filter(Boolean).join(' · ') || null;
+export function rodapeComIdentificacao(rodapeBase: string | null | undefined, titulo: string): string | null {
+  return [rodapeBase, titulo].filter(Boolean).join(' · ') || null;
 }
 
 /**

@@ -130,11 +130,10 @@ describe('documento', () => {
     expect(nomeFicheiroPadrao('Mapa: IRT/2026', 'Empresa', new Date(2026, 1, 3))).toBe('Mapa IRT 2026 - Empresa - 2026-02-03');
   });
 
-  it('rodapé: acrescenta sempre o título e a data/hora de emissão, com ou sem rodapé da empresa', () => {
-    const quando = new Date(2026, 9, 23, 17, 8);
-    expect(rodapeComIdentificacao('Rodapé da empresa', 'Factura FA 2026/20', quando)).toBe('Rodapé da empresa · Factura FA 2026/20 — 23/10/2026 17:08');
-    expect(rodapeComIdentificacao(null, 'Factura FA 2026/20', quando)).toBe('Factura FA 2026/20 — 23/10/2026 17:08');
-    expect(rodapeComIdentificacao(undefined, 'Factura FA 2026/20', quando)).toBe('Factura FA 2026/20 — 23/10/2026 17:08');
+  it('rodapé: acrescenta sempre o título, com ou sem rodapé da empresa', () => {
+    expect(rodapeComIdentificacao('Rodapé da empresa', 'Factura FA 2026/20')).toBe('Rodapé da empresa · Factura FA 2026/20');
+    expect(rodapeComIdentificacao(null, 'Factura FA 2026/20')).toBe('Factura FA 2026/20');
+    expect(rodapeComIdentificacao(undefined, 'Factura FA 2026/20')).toBe('Factura FA 2026/20');
   });
 });
 

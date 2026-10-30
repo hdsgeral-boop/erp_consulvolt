@@ -175,10 +175,10 @@ describe('@page e estilos do documento paginado', () => {
   });
 
   it('altura útil de cada folha (papel − margens − desconto de segurança)', () => {
-    expect(alturaPaginaMm({ papel: 'A4', orientacao: 'retrato' })).toBe(278.2);
-    expect(alturaPaginaMm({ papel: 'A4', orientacao: 'paisagem' })).toBe(191.2);
-    expect(alturaPaginaMm({ papel: 'A3', orientacao: 'paisagem' })).toBe(278.2);
-    expect(alturaPaginaMm({ papel: 'A3', orientacao: 'retrato' })).toBe(401.2);
+    expect(alturaPaginaMm({ papel: 'A4', orientacao: 'retrato' })).toBe(274);
+    expect(alturaPaginaMm({ papel: 'A4', orientacao: 'paisagem' })).toBe(187);
+    expect(alturaPaginaMm({ papel: 'A3', orientacao: 'paisagem' })).toBe(274);
+    expect(alturaPaginaMm({ papel: 'A3', orientacao: 'retrato' })).toBe(397);
   });
 
   it('CSS das folhas: altura fixa, quebra depois de cada folha e rodapé no fundo', () => {

@@ -21,8 +21,13 @@ export const MARGEM_BAIXO_SEM_PAGINACAO_MM = 14;
 export const ALTURA_RODAPE_MM = 7;
 /** Folga de segurança no fundo da zona de conteúdo (arredondamentos entre o ecrã, onde se mede, e a impressão). */
 export const FOLGA_PAGINA_MM = 1.5;
-/** Desconto na altura de cada folha (evita uma página em branco por arredondamento). */
-export const DESCONTO_FOLHA_MM = 0.8;
+/**
+ * Desconto na altura de cada folha (evita uma página em branco por arredondamento): a medição é feita no ecrã
+ * (`getBoundingClientRect`), mas a impressão real (`@page`, Chromium) acumula pequenas diferenças de arredondamento
+ * por linha — visíveis sobretudo em folhas com muitas linhas curtas (ex.: o índice, com dezenas de `.rc-ind`) — que
+ * ultrapassavam uma folga de 0,8 mm e empurravam o resto da folha para uma página extra, por vezes quase em branco.
+ */
+export const DESCONTO_FOLHA_MM = 5;
 export const COLUNAS_PAISAGEM = 9;
 export const ESCALA_MINIMA = 0.55;
 /** Redução aceite em A4 paisagem antes de passar a A3 (legível e imprimível em qualquer impressora). */

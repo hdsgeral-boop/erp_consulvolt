@@ -114,7 +114,7 @@ async function preparar(o: OpcoesDocumento): Promise<Preparacao> {
   const nomeFicheiro = limparNomeFicheiro(o.nomeFicheiro || nomeFicheiroPadrao(o.titulo, o.identidade?.nome, emitidoEm));
   const opcoes = { ...o, conteudo, emitidoEm, nomeFicheiro };
   const estilos = comEstilos ? estilosParaImpressao(estilosDaPagina()) : '';
-  const rodape = rodapeComIdentificacao(o.rodape ?? o.identidade?.rodape, o.titulo, emitidoEm);
+  const rodape = rodapeComIdentificacao(o.rodape ?? o.identidade?.rodape, o.titulo);
 
   const iframe = criarIframe();
   try {

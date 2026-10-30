@@ -6,8 +6,9 @@
  * Demonstração dos Resultados e Demonstração dos Fluxos de Caixa (cada uma com «Valores expressos em» e assinaturas),
  * Notas às Contas (composição, movimentos, CMVMC na Nota 27 e apuramento do imposto na Nota 35) e Anexos escolhidos na
  * configuração. Acrescentos do sistema novo: síntese de indicadores e rácios (cartões, grandezas, rácios e alertas), índice
- * numerado com a página de cada secção, cabeçalho corrido (empresa · exercício) e rodapé «Página X de Y» em todas as folhas,
- * A4 vertical. Funções puras (testáveis); a paginação é a do motor comum (`@/componentes/impressao`).
+ * numerado com a página de cada secção e rodapé curto (empresa · NIF · exercício · estado · «Página X de Y») em todas as
+ * folhas, sem cabeçalho repetido no topo — A4 vertical. Funções puras (testáveis); a paginação é a do motor comum
+ * (`@/componentes/impressao`).
  *
  * Números da página no índice: o documento é preparado duas vezes — a primeira (com o mesmo conteúdo e números
  * provisórios de largura fixa) dá a folha em que começa cada secção (`paginasDasAncoras`); a segunda leva os números.
@@ -265,7 +266,7 @@ export function htmlCapa(e: EntradaDocumentoRC): string {
 <div class="rc-capa-topo">${logo ? `<img class="rc-capa-logo" src="${logo}" alt="Logótipo">` : ''}<div class="rc-capa-nome">${esc(emp.nome)}</div>
 <div class="rc-capa-dados">${[emp.nif ? `NIF ${esc(emp.nif)}` : '', esc(emp.morada), esc(emp.contactos)].filter(Boolean).join('<br>')}</div></div>
 <div class="rc-capa-centro"><div class="rc-capa-sobre">Exercício de ${esc(e.dados.ano)}</div><div class="rc-capa-titulo">Relatório e Contas</div><div class="rc-capa-ano">${esc(e.dados.ano)}</div>
-<div class="rc-capa-sub">Relatório de Gestão · Demonstrações Financeiras · Notas às Contas</div>${estado}</div>
+<div class="rc-capa-sub-linha"><div class="rc-capa-sub">Relatório de Gestão · Demonstrações Financeiras · Notas às Contas</div>${estado}</div></div>
 <div class="rc-capa-pe">${orgao}<div class="rc-capa-local">${esc([local, 'Angola'].filter(Boolean).join(', '))}${data ? `<br>${esc(data)}` : ''}</div></div>
 </section>`;
 }
@@ -584,9 +585,7 @@ export function montarDocumentoRC(e: EntradaDocumentoRC, paginas?: Record<string
 
   // índice: as entradas acima (o próprio índice não se lista)
   const numerado = numerarIndice(indice);
-  const emp = identificacaoEmpresa(e);
-  const corrido = `<div class="imp-repetir rc-corrido"><span>${esc(emp.nome)}</span><span>Relatório e Contas ${esc(anoN)}${ehProvisorio(e) ? ' · <b>Provisório</b>' : ''}</span></div>`;
-  const html = `<div class="rc-doc">${htmlCapa(e)}<div class="rc-corpo">${corrido}<section class="rc-parte rc-parte-indice">${htmlIndice(numerado, paginas)}</section>${partes.join('')}</div></div>`;
+  const html = `<div class="rc-doc">${htmlCapa(e)}<div class="rc-corpo"><section class="rc-parte rc-parte-indice">${htmlIndice(numerado, paginas)}</section>${partes.join('')}</div></div>`;
   return { html, indice: numerado };
 }
 
@@ -596,7 +595,7 @@ export function rodapeRC(e: Pick<EntradaDocumentoRC, 'dados' | 'config' | 'ident
   return [emp.nome, emp.nif ? `NIF ${emp.nif}` : '', `Relatório e Contas · Exercício de ${e.dados.ano}`, ehProvisorio(e) ? 'Versão provisória' : ''].filter(Boolean).join(' · ');
 }
 
-/** Opções do pedido de impressão (A4 vertical, sem o cabeçalho genérico: a capa e o cabeçalho corrido fazem esse papel). */
+/** Opções do pedido de impressão (A4 vertical, sem o cabeçalho genérico: a capa identifica a empresa e o rodapé de cada folha chega para o resto). */
 export function opcoesDocumentoRC(e: EntradaDocumentoRC) {
   const emp = identificacaoEmpresa(e);
   return {
@@ -629,17 +628,13 @@ body.imp-paginado .rc-capa { height: calc((var(--imp-altura-pagina) - 7mm - 4mm)
 .rc-capa-sobre { font-size: 11pt; letter-spacing: .2em; text-transform: uppercase; color: #0ea5e9; font-weight: 700; }
 .rc-capa-titulo { font-size: 34pt; font-weight: 800; color: #1e3a8a; line-height: 1.1; margin-top: 2mm; }
 .rc-capa-ano { font-size: 54pt; font-weight: 200; color: #1e3a8a; line-height: 1; margin-top: 1mm; }
-.rc-capa-sub { font-size: 10pt; color: #475569; margin-top: 6mm; padding-top: 3mm; border-top: 0.6mm solid #1e3a8a; display: inline-block; }
-.rc-capa-estado { margin-top: 6mm; font-size: 9pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #334155; }
+.rc-capa-sub-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 4mm; margin-top: 6mm; padding-top: 3mm; border-top: 0.6mm solid #1e3a8a; }
+.rc-capa-sub { font-size: 10pt; color: #475569; }
+.rc-capa-estado { font-size: 9pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #334155; }
 .rc-capa-prov { color: #b91c1c; border: 0.5mm solid #b91c1c; display: inline-block; padding: 1.2mm 4mm; border-radius: 1mm; }
 .rc-capa-pe { padding-left: 6mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm; font-size: 9.5pt; color: #334155; }
 .rc-capa-orgao-tit { font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: .08em; font-size: 8.5pt; margin-bottom: 1mm; }
 .rc-capa-local { text-align: right; text-transform: uppercase; letter-spacing: .06em; }
-/* cabeçalho corrido (repetido no topo de cada folha a seguir à capa) */
-.rc-corrido { display: flex; align-items: baseline; justify-content: space-between; gap: 6mm; font-size: 7.5pt; color: #475569; border-bottom: 0.3mm solid #1e3a8a; padding-bottom: 1.4mm; margin-bottom: 10mm; white-space: nowrap; }
-.rc-corrido span:first-child { flex: 1 1 auto; min-width: 0; font-weight: 700; color: #1e3a8a; overflow: hidden; text-overflow: ellipsis; }
-.rc-corrido span:last-child { flex: 0 0 auto; }
-.rc-corrido b { color: #b91c1c; }
 /* partes: cada uma em folha nova */
 .rc-parte, .rc-nova { break-before: page; page-break-before: always; }
 .rc-parte-indice { break-before: auto; page-break-before: auto; }

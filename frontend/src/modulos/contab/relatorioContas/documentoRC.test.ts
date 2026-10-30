@@ -129,8 +129,8 @@ describe('Relatório e Contas — documento', () => {
     expect(indice.some((e) => e.id === 'nota-10')).toBe(true);
     // cada entrada do índice tem a sua âncora no documento
     indice.forEach((e) => expect(html).toContain(`data-rc-ancora="${e.id}"`));
-    // cabeçalho corrido repetido em cada folha
-    expect(html).toContain('class="imp-repetir rc-corrido"');
+    // sem cabeçalho repetido no topo de cada folha (só a capa e o rodapé identificam o documento)
+    expect(html).not.toContain('rc-corrido');
   });
 
   it('sem gráficos quando a configuração os desliga; notas excluídas não saem', () => {
@@ -140,11 +140,10 @@ describe('Relatório e Contas — documento', () => {
     expect(html).toContain('Nota 28 —');
   });
 
-  it('provisório: marca na capa, no cabeçalho corrido e no rodapé; Conselho de Administração na capa', () => {
+  it('provisório: marca na capa e no rodapé; Conselho de Administração na capa', () => {
     const e = entrada({ concluido: false, config: { ...entrada().config, conselho: 'Ana — Presidente\n\nRui — Vogal' } });
     const { html } = montarDocumentoRC(e);
     expect(html).toContain('Versão provisória');
-    expect(html).toContain('<b>Provisório</b>');
     expect(rodapeRC(e)).toContain('Versão provisória');
     expect(html).toContain('Conselho de Administração');
     expect(membrosConselho(e.config)).toEqual(['Ana — Presidente', 'Rui — Vogal']);
