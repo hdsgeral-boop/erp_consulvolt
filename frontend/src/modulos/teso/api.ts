@@ -190,6 +190,23 @@ export interface MeioPagamento {
   tipo?: 'BANCO' | 'CAIXA' | 'CARTAO';
 }
 
+/** Conta 42/43/cartão do plano com os dados bancários (GET /tesouraria/contas-bancarias) — visão agregada, independente de ter ou não um Meio de Pagamento criado. */
+export interface ContaBancariaPlano {
+  id: number;
+  codigo: string;
+  descricao: string | null;
+  codigo_moeda: string;
+  banco_nome: string | null;
+  banco_balcao: string | null;
+  banco_numero_conta: string | null;
+  banco_iban: string | null;
+  banco_swift: string | null;
+  banco_titular: string | null;
+  titular_efectivo: string | null;
+  /** tem IBAN preenchido — só assim a conta pode emitir cartas de ordem de pagamento. */
+  completa: boolean;
+}
+
 export type EstadoSessao = 'ABERTA' | 'FECHADA' | 'CONTABILIZADA';
 
 /** Bem/serviço disponível para a contrapartida automática da despesa na folha de caixa (conta de custo já resolvida). */

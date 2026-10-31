@@ -1,16 +1,16 @@
-import { Button, Card, Checkbox, Form, Input, Select, Space, Tag, Tooltip, message, theme } from 'antd';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button, Card, Checkbox, Form, Input, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { enviar } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { usePlanoContas } from '../contab/comum/dados';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
-import type { MeioPagamento } from './api';
+import type { ContaBancariaPlano, MeioPagamento } from './api';
 import { useMeiosPagamento } from './comum';
-import { larguraModal } from '@/componentes/responsivo';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { CartaoKpi, GrelhaKpi, TabelaComModos, type AccaoLinha, type ColunaLegado } from '@/componentes/vistas';
 
 interface ValoresMeio {
@@ -89,6 +89,9 @@ export default function MeiosPagamento() {
   const gerir = pode('teso_meios_gerir');
   const lista = meios.data ?? [];
   const resumo = resumoMeios(lista);
+  // Visão agregada das contas 42/43/cartão do plano (independente de já terem ou não um Meio de Pagamento criado);
+  // opcional — algumas permissões que dão acesso a este ecrã não dão acesso a esta rota, por isso falha em silêncio.
+  const contasBancarias = useQuery({ queryKey: ['teso', 'contas-bancarias'], queryFn: () => obter<ContaBancariaPlano[]>('/tesouraria/contas-bancarias'), retry: false });
 
   const mutacao = useMutation({
     mutationFn: ({ metodo, url, corpo }: { metodo: 'post' | 'put' | 'delete'; url: string; corpo?: unknown }) => enviar<MeioPagamento | null>(metodo, url, corpo),
@@ -176,6 +179,44 @@ export default function MeiosPagamento() {
           <CartaoKpi rotulo="Ativos" valor={resumo.activos} icone="check-circle" cor="#7c3aed" corValor="#7c3aed" />
         </GrelhaKpi>
       </div>
+      {contasBancarias.data && (
+        <Card
+          style={{ marginTop: 16, borderTop: '4px solid #0891b2' }}
+          title={
+            <div style={{ whiteSpace: 'normal', padding: '8px 0' }}>
+              <span><IconeFa nome="university" style={{ color: '#0891b2' }} /> Contas Bancárias do Plano</span>
+              <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 400, color: token.colorTextSecondary }}>
+                Todas as contas 42/43 e cartões de tesouraria do plano de contas, mesmo sem Meio de Pagamento criado — para conferir rapidamente quais têm os dados bancários completos.
+                Os dados editam-se na ficha da conta, em Contabilidade › Plano de Contas.
+              </p>
+            </div>
+          }
+        >
+          <TabelaComModos<ContaBancariaPlano>
+            rowKey="id"
+            size="small"
+            dataSource={contasBancarias.data}
+            scroll={scrollTabela()}
+            modos={false}
+            columns={[
+              { title: 'Conta', dataIndex: 'codigo', key: 'codigo', render: (v: string) => <Tag style={{ fontFamily: 'monospace' }}>{v}</Tag> },
+              { title: 'Descrição', dataIndex: 'descricao', key: 'descricao', render: (v: string | null) => v ?? '—' },
+              { title: 'Moeda', dataIndex: 'codigo_moeda', key: 'moeda', render: (v: string) => <Tag>{v}</Tag> },
+              { title: 'Banco', dataIndex: 'banco_nome', key: 'banco', render: (v: string | null) => v ?? <Typography.Text type="secondary">—</Typography.Text> },
+              { title: 'IBAN', dataIndex: 'banco_iban', key: 'iban', render: (v: string | null) => codigo(v, { fundo: token.colorFillTertiary, borda: token.colorBorderSecondary }, token.colorTextQuaternary) },
+              { title: 'SWIFT / BIC', dataIndex: 'banco_swift', key: 'swift', render: (v: string | null) => codigo(v, { fundo: 'rgba(3,105,161,0.1)', borda: 'rgba(3,105,161,0.35)', texto: '#0369a1' }, token.colorTextQuaternary) },
+              { title: 'Titular', dataIndex: 'titular_efectivo', key: 'titular', render: (v: string | null) => v ?? '—' },
+              {
+                title: 'Completa', dataIndex: 'completa', key: 'completa', align: 'center',
+                render: (v: boolean) => (v
+                  ? <Tag color="success" icon={<IconeFa nome="check" />}> Pode emitir cartas</Tag>
+                  : <Tooltip title="Sem IBAN: não emite cartas de ordem de pagamento"><Tag icon={<IconeFa nome="exclamation-triangle" />}> Sem IBAN</Tag></Tooltip>),
+              },
+            ]}
+            vazio={{ icone: 'university', titulo: 'Nenhuma conta bancária no plano.', texto: 'Contas das classes 42/43 ou marcadas como cartão de tesouraria aparecem aqui.' }}
+          />
+        </Card>
+      )}
       <ModalFormulario chave="teso.meios_pagamento" width={larguraModal(560)} titulo={edicao === 'novo' ? 'Novo Meio de Pagamento' : 'Editar Meio de Pagamento'} aberto={edicao !== null} aoFechar={() => setEdicao(null)}
         criacao={edicao === 'novo'} form={form} campos={campos} nomeRegistos="meios de pagamento" invalidar={[['teso', 'meios']]}
         gravarLinha={(r) => enviar('post', '/tesouraria/meios-pagamento', dadosMeio(r))}
