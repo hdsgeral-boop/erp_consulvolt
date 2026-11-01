@@ -75,7 +75,7 @@ describe('Rotinas (8.3.1)', () => {
 describe('Tabelas auxiliares (8.6.1)', () => {
   it('tem o separador Terceiros na posição do legado', () => {
     expect(SEPARADORES_AUX.map((s) => s.rotulo)).toEqual([
-      'Diários', 'Terceiros', 'Notas de Demonstrações', 'Notas de Fluxo de Caixa', 'Centros de Custo', 'Unidades de Negócio', 'Plano de contas', 'Reciclagem',
+      'Diários', 'Terceiros', 'Credores e Devedores', 'Notas de Demonstrações', 'Notas de Fluxo de Caixa', 'Centros de Custo', 'Unidades de Negócio', 'Plano de contas', 'Reciclagem',
     ]);
   });
 

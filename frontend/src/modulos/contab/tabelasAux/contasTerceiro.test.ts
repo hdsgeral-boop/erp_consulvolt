@@ -46,8 +46,8 @@ describe('contas do terceiro por papel (contas_terceiro.js)', () => {
     expect(temPapel('COLABORADOR', 'CLIENTE')).toBe(false);
     expect(rotuloTipo('CLIENTE_FORNECEDOR')).toBe('Fornecedor + Cliente');
     expect(rotuloTipo(null)).toBe('—');
-    expect(camposConta('FORNECEDOR')).toEqual({ cliente: false, fornecedor: true });
-    expect(camposConta('COLABORADOR')).toEqual({ cliente: false, fornecedor: false });
+    expect(camposConta('FORNECEDOR')).toEqual({ cliente: false, fornecedor: true, credorDevedor: false });
+    expect(camposConta('COLABORADOR')).toEqual({ cliente: false, fornecedor: false, credorDevedor: false });
   });
 
   it('exige a conta de cada papel do tipo, da classe certa', () => {

@@ -9,6 +9,7 @@ use App\Models\ContratoTrabalho;
 use App\Models\DependenteColaborador;
 use App\Models\Empresa;
 use App\Models\InfotipoSalarial;
+use App\Models\PeriodoFeriasEmpresa;
 use App\Models\PlanoFeriasColaborador;
 use App\Models\PostoTrabalho;
 use App\Models\TipoOrganizacaoRH;
@@ -121,6 +122,13 @@ final class EstruturaPortalTest extends TestCase
     {
         $ini = now()->addMonth()->startOfMonth()->addDays(2)->toDateString();
         $fim = now()->addMonth()->startOfMonth()->addDays(13)->toDateString();
+        // Período de férias do ano (Fase B): sem isto, o pedido de FERIAS do portal é rejeitado (SEM_PERIODO_FERIAS).
+        // Cobre o ano actual e o seguinte — os pedidos deste teste vão de +1 a +3 meses e podem atravessar o ano.
+        $this->em(function () {
+            foreach ([now()->year, now()->year + 1] as $ano) {
+                PeriodoFeriasEmpresa::create(['ano' => $ano, 'data_inicio' => "{$ano}-01-01", 'data_fim' => "{$ano}-12-31"]);
+            }
+        });
         $p = $this->postJson('/api/rh/portal/pedidos', ['tipo' => 'FERIAS', 'data_inicio' => $ini, 'data_fim' => $fim], $this->h('ana'))->assertCreated()
             ->assertJsonPath('dados.estado', 'PENDENTE_CHEFIA')->assertJsonPath('dados.etapas.0.aprovador_colaborador_id', $this->ids['chefe'])->json('dados');
         $this->assertSame('PEDIDO', $this->em(fn () => PlanoFeriasColaborador::query()->find($p['plano_ferias_colaborador_id'])->estado));

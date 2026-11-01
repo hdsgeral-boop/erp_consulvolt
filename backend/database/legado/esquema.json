@@ -3023,6 +3023,15 @@
           "dominio": null
         },
         {
+          "coluna": "conta_credor_devedor",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "conta_compra_transitoria",
           "legado": "account_purchase_clearing",
           "tipo": "varchar(20)",
@@ -6930,6 +6939,18 @@
         },
         {
           "coluna": "item_encomenda_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "itens_compra",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "item_pedido_id",
           "legado": null,
           "tipo": "bigint",
           "nulo": true,
