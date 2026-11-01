@@ -36,8 +36,8 @@ export function RegistarEmpresa() {
     setErro(null);
     setDetalhesErros([]);
     try {
-      const r = await enviar<{ token: string; empresa_id: number }>('post', '/autenticacao/registar-empresa', v);
-      await autenticarAposRegisto(r.dados.token, r.dados.empresa_id);
+      const r = await enviar<{ empresa_id: number }>('post', '/autenticacao/registar-empresa', v);
+      await autenticarAposRegisto(r.dados.empresa_id);
       try {
         sessionStorage.setItem(CHAVE_SESSAO_MOSTRAR_TOUR, '1');
       } catch {

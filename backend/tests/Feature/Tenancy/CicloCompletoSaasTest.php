@@ -42,7 +42,7 @@ final class CicloCompletoSaasTest extends TestCase
         ])->assertCreated();
         $tenantId = (int) $registo->json('dados.tenant_id');
         $empresaId = (int) $registo->json('dados.empresa_id');
-        $sessaoDona = ['Authorization' => 'Bearer '.$registo->json('dados.token'), 'X-Empresa-Id' => $empresaId];
+        $sessaoDona = ['Authorization' => 'Bearer '.$this->tokenDoCookie($registo), 'X-Empresa-Id' => $empresaId];
 
         $empresa = Empresa::query()->findOrFail($empresaId);
         $this->assertSame(Empresa::LICENCA_TRIAL, $empresa->estado_licenca, 'Período de demonstração: a empresa nasce em TRIAL.');

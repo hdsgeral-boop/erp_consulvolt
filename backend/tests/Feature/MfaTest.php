@@ -26,7 +26,7 @@ class MfaTest extends TestCase
 
         $r = $this->postJson('/api/autenticacao/entrar', ['nome_utilizador' => 'sem_mfa', 'palavra_passe' => 'Palavra#Passe2026'])->assertOk();
         $this->assertFalse($r->json('dados.mfa_pendente'));
-        $this->assertNotNull($r->json('dados.token'));
+        $this->assertNotNull($this->tokenDoCookie($r));
     }
 
     public function test_fluxo_completo_de_configuracao_e_login_com_mfa(): void
@@ -64,10 +64,10 @@ class MfaTest extends TestCase
         $this->postJson('/api/autenticacao/mfa/verificar', ['codigo' => '000000'], $tokenMfa)->assertStatus(422);
 
         // código certo no 2.º passo: emite a sessão completa
-        $final = $this->postJson('/api/autenticacao/mfa/verificar', ['codigo' => $this->codigoAtual($u->fresh()->mfa_segredo)], $tokenMfa)
-            ->assertOk()->json('dados');
-        $this->assertFalse($final['mfa_pendente']);
-        $tokenCompleto = ['Authorization' => "Bearer {$final['token']}"];
+        $respostaFinal = $this->postJson('/api/autenticacao/mfa/verificar', ['codigo' => $this->codigoAtual($u->fresh()->mfa_segredo)], $tokenMfa)
+            ->assertOk();
+        $this->assertFalse($respostaFinal->json('dados.mfa_pendente'));
+        $tokenCompleto = ['Authorization' => 'Bearer '.$this->tokenDoCookie($respostaFinal)];
         $this->getJson('/api/autenticacao/eu', $tokenCompleto)->assertOk();
 
         // o token limitado já não serve de nada (foi substituído, não só "completado")

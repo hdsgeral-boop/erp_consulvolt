@@ -45,6 +45,9 @@ vi.mock('@/api/cliente', () => ({
   enviar: (...a: unknown[]) => (enviarMock as unknown as (...x: unknown[]) => Promise<unknown>)(...a),
   obterPagina: vi.fn(),
   http: { post: vi.fn() },
+  identificadorSessao: vi.fn(() => null),
+  possivelSessaoActiva: vi.fn(() => false),
+  definirAoExpirar: vi.fn(),
 }));
 
 function montar(caminho = '/') {

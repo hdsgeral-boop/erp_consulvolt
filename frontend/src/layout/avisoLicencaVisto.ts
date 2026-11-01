@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { armazenamento } from '@/sessao/armazenamento';
+import { identificadorSessao } from '@/api/cliente';
 
 /**
- * Dispensa do pop-up de aviso de licença, por utilizador e por login: a chave guarda o token da sessão em que foi
- * dispensado. Um login novo (SessaoContexto.entrar) grava um token diferente, por isso o pop-up volta a aparecer;
- * um simples recarregar da página reaproveita o mesmo token (SessaoContexto, arranque) e não o reabre.
+ * Dispensa do pop-up de aviso de licença, por utilizador e por login: a chave guarda o identificador da sessão em
+ * que foi dispensado (cookie CSRF — Fase D; o token em si vai num cookie HttpOnly, nunca lido aqui). Um login novo
+ * (SessaoContexto.entrar) gera um identificador diferente, por isso o pop-up volta a aparecer; um simples
+ * recarregar da página reaproveita o mesmo (SessaoContexto, arranque) e não o reabre.
  */
 const chaveLocal = (utilizador?: number | string | null) => `erp.licenca.avisoVisto.${utilizador ?? 'anonimo'}`;
 
@@ -25,7 +26,7 @@ function gravarVisto(utilizador: number | string | null | undefined, token: stri
 }
 
 export function useAvisoLicencaVisto(utilizador?: number | string | null): { visto: boolean; dispensar: () => void } {
-  const token = armazenamento.token();
+  const token = identificadorSessao();
   const [vistoToken, setVistoToken] = useState<string | null>(() => lerVisto(utilizador));
 
   const dispensar = useCallback(() => {

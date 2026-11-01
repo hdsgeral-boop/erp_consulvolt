@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Autenticacao\ServicoTotp;
 use App\Support\Api\RespostaApi;
+use App\Support\Autenticacao\CookiesSessao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -100,12 +101,12 @@ final class MfaController extends Controller
             $utilizador, $request->string('dispositivo')->toString() ?: 'api', $request->ip(), $request->userAgent(),
         );
 
-        return RespostaApi::sucesso([
+        // Fase D: tal como em AutenticacaoController::entrar, o token só vai no cookie HttpOnly, nunca no corpo.
+        return CookiesSessao::anexar(RespostaApi::sucesso([
             'mfa_pendente' => false,
-            'token' => $sessao['token'],
             'tipo_token' => 'Bearer',
             'expira_em' => $sessao['expira_em']->toAtomString(),
-        ], 'Sessão iniciada com sucesso.');
+        ], 'Sessão iniciada com sucesso.'), $sessao['token'], $sessao['expira_em']);
     }
 
     /** Um código de recuperação só serve uma vez: se válido, é removido da lista antes de devolver true. */

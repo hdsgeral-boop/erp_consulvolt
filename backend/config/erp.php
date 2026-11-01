@@ -25,6 +25,12 @@ return [
         'tentativas_por_minuto' => (int) env('ERP_SESSAO_TENTATIVAS_POR_MINUTO', 5),
         // Tentativas de login por minuto a partir do mesmo IP, com qualquer nome de utilizador (contra password spraying).
         'tentativas_por_minuto_ip' => (int) env('ERP_SESSAO_TENTATIVAS_POR_MINUTO_IP', 60),
+        // Cookie HttpOnly do token (Fase D, reforço de autenticação) e cookie/cabeçalho do padrão duplo-submit do
+        // CSRF (CookiesSessao, VerificarCsrfDuploSubmit). Os atributos de segurança (secure/domain/samesite/path)
+        // vêm de config/session.php — já preparados para produção (OWASP A02) — em vez de duplicados aqui.
+        'cookie_token' => 'erp_token',
+        'cookie_csrf' => 'XSRF-TOKEN',
+        'cabecalho_csrf' => 'X-XSRF-TOKEN',
     ],
 
     'api' => [

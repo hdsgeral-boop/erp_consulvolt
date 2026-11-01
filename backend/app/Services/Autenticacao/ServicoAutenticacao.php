@@ -111,6 +111,11 @@ final class ServicoAutenticacao
     /** @return array{token: string, expira_em: Carbon, utilizador: Utilizador} */
     private function emitirTokenCompleto(Utilizador $utilizador, string $dispositivo, ?string $ip, ?string $agente): array
     {
+        // Fase D: um único token completo activo por dispositivo — um novo login do mesmo dispositivo invalida de
+        // imediato qualquer sessão completa anterior ainda activa nesse dispositivo (não afecta outros dispositivos
+        // do mesmo utilizador, nem o token limitado 'mfa:pendente', que tem outro nome — ver entrar()).
+        $utilizador->tokens()->where('nome', $dispositivo)->delete();
+
         $expiraEm = now()->addHours(config('erp.sessao.validade_horas'));
         $novo = $utilizador->createToken($dispositivo, ['*'], $expiraEm);
 

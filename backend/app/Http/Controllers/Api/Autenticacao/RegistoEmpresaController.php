@@ -16,6 +16,7 @@ use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPerfis;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
+use App\Support\Autenticacao\CookiesSessao;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use App\Support\Tenancy\ModulosPlano;
@@ -86,6 +87,7 @@ final class RegistoEmpresaController extends Controller
         $nomePlano = $d['plano'] ?? null ? PlanoLicenca::query()->where('codigo', $d['plano'])->value('nome') : null;
         Mail::to($d['email'])->send(new BoasVindasEmpresaMail($d['nome_completo'], $d['nome_comercial'], $diasTeste, $nomePlano));
 
-        return RespostaApi::criado(['token' => $sessao['token'], 'tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo.");
+        // Fase D: o token vai só no cookie HttpOnly (CookiesSessao), nunca no corpo — tal como em AutenticacaoController::entrar.
+        return CookiesSessao::anexar(RespostaApi::criado(['tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo."), $sessao['token'], $sessao['expira_em']);
     }
 }

@@ -4,10 +4,37 @@ import { ErroApi, type Envelope, type Pagina } from './tipos';
 import { armazenamento } from '@/sessao/armazenamento';
 
 /**
- * Cliente HTTP da API (/api). Acrescenta o token Bearer e o X-Empresa-Id da sessão, desembrulha o envelope
- * e converte qualquer erro em ErroApi (mensagem em português vinda do servidor, código e detalhes).
+ * Cliente HTTP da API (/api). O token viaja num cookie HttpOnly (withCredentials; nunca acessível a JavaScript —
+ * Fase D), acrescenta o X-Empresa-Id da sessão e o cabeçalho CSRF nos pedidos que alteram estado, desembrulha o
+ * envelope e converte qualquer erro em ErroApi (mensagem em português vinda do servidor, código e detalhes).
  */
-export const http = axios.create({ baseURL: '/api', headers: { Accept: 'application/json' }, timeout: 120_000 });
+export const http = axios.create({ baseURL: '/api', headers: { Accept: 'application/json' }, timeout: 120_000, withCredentials: true });
+
+const METODOS_MUTAVEIS = new Set(['post', 'put', 'patch', 'delete']);
+
+/** Lê um cookie legível por JavaScript (não-HttpOnly) pelo nome — usado só para o duplo-submit do CSRF. */
+function lerCookie(nome: string): string | null {
+  const alvo = `${nome}=`;
+  for (const parte of document.cookie.split(';')) {
+    const c = parte.trim();
+    if (c.startsWith(alvo)) return decodeURIComponent(c.slice(alvo.length));
+  }
+  return null;
+}
+
+/**
+ * O token de sessão vai num cookie HttpOnly (invisível a JavaScript, Fase D), mas o cookie CSRF que o acompanha
+ * (valor próprio, gerado de novo em cada login, mesma validade) não é HttpOnly — serve de identificador local da
+ * sessão actual, sem nunca ler o token: diferente a cada login (SessaoContexto.entrar), igual num simples
+ * recarregar da página (avisoLicencaVisto), nulo quando não há sessão nenhuma (SessaoContexto, arranque).
+ */
+export function identificadorSessao(): string | null {
+  return lerCookie('XSRF-TOKEN');
+}
+
+export function possivelSessaoActiva(): boolean {
+  return identificadorSessao() !== null;
+}
 
 let aoExpirar: (() => void) | null = null;
 /** A sessão regista aqui o que fazer quando o servidor responde 401 (sessão expirada ou inválida). */
@@ -39,10 +66,13 @@ function avisarLicencaExpirada(mensagem: string): void {
 }
 
 http.interceptors.request.use((config) => {
-  const token = armazenamento.token();
   const empresa = armazenamento.empresaId();
-  if (token) config.headers.set('Authorization', `Bearer ${token}`);
   if (empresa && !config.headers.has('X-Empresa-Id')) config.headers.set('X-Empresa-Id', String(empresa));
+  const metodo = (config.method ?? 'get').toLowerCase();
+  if (METODOS_MUTAVEIS.has(metodo)) {
+    const csrf = lerCookie('XSRF-TOKEN');
+    if (csrf) config.headers.set('X-XSRF-TOKEN', csrf);
+  }
   return config;
 });
 

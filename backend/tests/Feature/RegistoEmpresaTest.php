@@ -35,7 +35,7 @@ final class RegistoEmpresaTest extends TestCase
 
         $r->assertCreated();
         $r->assertJsonPath('sucesso', true);
-        $this->assertNotEmpty($r->json('dados.token'));
+        $this->assertNotEmpty($this->tokenDoCookie($r));   // Fase D: nunca no corpo — só no cookie HttpOnly
         $this->assertNotEmpty($r->json('dados.empresa_id'));
 
         $this->assertDatabaseHas('tenants', [
@@ -115,7 +115,7 @@ final class RegistoEmpresaTest extends TestCase
             'email' => 'dona@loja.co.ao', 'palavra_passe' => 'Segredo@2026!Forte', 'plano' => 'basico',
         ];
         $r = $this->postJson('/api/autenticacao/registar-empresa', $payload)->assertCreated();
-        $auth = ['Authorization' => 'Bearer '.$r->json('dados.token'), 'X-Empresa-Id' => $r->json('dados.empresa_id')];
+        $auth = ['Authorization' => 'Bearer '.$this->tokenDoCookie($r), 'X-Empresa-Id' => $r->json('dados.empresa_id')];
         $perfilTotal = \App\Models\PerfilUtilizador::query()->get()->first(fn ($p) => ($p->permissoes['all'] ?? null) === true);
 
         // Ainda em demonstração (nenhuma empresa com licença paga): não pode criar um 2.º utilizador, mesmo o plano

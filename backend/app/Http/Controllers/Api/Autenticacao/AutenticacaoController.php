@@ -13,6 +13,7 @@ use App\Services\Sistema\ServicoPermissoes;
 use App\Services\Sistema\ServicoUtilizadores;
 use App\Models\Utilizador;
 use App\Support\Api\RespostaApi;
+use App\Support\Autenticacao\CookiesSessao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -48,14 +49,15 @@ final class AutenticacaoController extends Controller
             ], 'Introduza o código da aplicação de autenticação.');
         }
 
-        return RespostaApi::sucesso([
+        // Fase D: o token nunca vai no corpo da resposta — só no cookie HttpOnly (CookiesSessao), inacessível a
+        // JavaScript. O frontend já não o guarda; a sessão é confirmada por GET /autenticacao/eu.
+        return CookiesSessao::anexar(RespostaApi::sucesso([
             'mfa_pendente' => false,
-            'token' => $sessao['token'],
             'tipo_token' => 'Bearer',
             'expira_em' => $sessao['expira_em']->toAtomString(),
             'inatividade_minutos' => config('erp.sessao.inatividade_minutos'),
             ...$this->perfilSessao($sessao['utilizador']),
-        ], 'Sessão iniciada com sucesso.');
+        ], 'Sessão iniciada com sucesso.'), $sessao['token'], $sessao['expira_em']);
     }
 
     /** POST /api/autenticacao/sair */
@@ -63,7 +65,7 @@ final class AutenticacaoController extends Controller
     {
         $this->autenticacao->sair($request->user());
 
-        return RespostaApi::sucesso(null, 'Sessão terminada com sucesso.');
+        return CookiesSessao::limpar(RespostaApi::sucesso(null, 'Sessão terminada com sucesso.'));
     }
 
     /** GET /api/autenticacao/eu */

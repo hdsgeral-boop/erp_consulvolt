@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { definirAoExpirar, enviar, obter } from '@/api/cliente';
+import { definirAoExpirar, enviar, obter, possivelSessaoActiva } from '@/api/cliente';
 import type { Empresa, ModuloMenu, Utilizador } from '@/api/tipos';
 import { armazenamento } from './armazenamento';
 
@@ -32,8 +32,8 @@ interface Sessao {
   recarregarEmpresas: () => Promise<void>;
   /** Actualiza os dados do utilizador na sessão (ex.: depois de «Gerir Dados Pessoais»), sem novo pedido ao servidor. */
   actualizarUtilizador: (parcial: Partial<Utilizador>) => void;
-  /** Sincroniza a sessão do utilizador e selecciona a empresa imediatamente após registo. */
-  autenticarAposRegisto: (token: string, empresaId: number) => Promise<void>;
+  /** Sincroniza a sessão do utilizador e selecciona a empresa imediatamente após registo (o token já chegou num cookie). */
+  autenticarAposRegisto: (empresaId: number) => Promise<void>;
 }
 
 const Contexto = createContext<Sessao | null>(null);
@@ -69,10 +69,12 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setPermissoesEmpresa(r.permissoes);
   }, []);
 
-  // arranque: reaproveita o token guardado
+  // arranque: o token vem num cookie HttpOnly invisível a JavaScript (Fase D) — o cookie CSRF que o acompanha
+  // (não-HttpOnly, mesma validade) serve de sinal de que vale a pena perguntar ao servidor; sem ele, nunca houve
+  // sessão nenhuma e pedir /autenticacao/eu só mostraria, sem razão, "a sessão expirou" a quem nunca entrou.
   useEffect(() => {
     definirAoExpirar(() => limparSessao('A sessão expirou. Entre novamente.'));
-    if (!armazenamento.token()) {
+    if (!possivelSessaoActiva()) {
       setEstado('anonimo');
       return;
     }
@@ -111,12 +113,11 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, [estado, limparSessao]);
 
   const entrar = useCallback(async (nomeUtilizador: string, palavraPasse: string) => {
-    const { dados: r } = await enviar<DadosSessao & { token: string; inatividade_minutos?: number }>('post', '/autenticacao/entrar', {
+    const { dados: r } = await enviar<DadosSessao & { inatividade_minutos?: number }>('post', '/autenticacao/entrar', {
       nome_utilizador: nomeUtilizador,
       palavra_passe: palavraPasse,
-      dispositivo: 'web',
+      dispositivo: armazenamento.idDispositivo(),
     });
-    armazenamento.definirToken(r.token);
     armazenamento.definirEmpresa(null);
     inatividade.current = r.inatividade_minutos ?? INATIVIDADE_PADRAO_MIN;
     setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes });
@@ -162,8 +163,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const autenticarAposRegisto = useCallback(
-    async (token: string, novaEmpresaId: number) => {
-      armazenamento.definirToken(token);
+    async (novaEmpresaId: number) => {
       armazenamento.definirEmpresa(novaEmpresaId);
       const d = await obter<DadosSessao>('/autenticacao/eu');
       setDados(d);

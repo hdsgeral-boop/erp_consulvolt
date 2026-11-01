@@ -37,8 +37,10 @@ final class DadosPessoaisTest extends TestCase
     public function palavra_passe_exige_a_actual_e_termina_as_outras_sessoes(): void
     {
         $u = $this->criarUtilizador();
-        $outra = $this->entrar($u);
-        $s = $this->entrar($u);
+        // dispositivos diferentes: senão a 2.ª chamada substitui de imediato o token da 1.ª (Fase D, um só token
+        // completo activo por dispositivo) e já não haveria "outra sessão" nenhuma para a mudança de password terminar.
+        $outra = $this->entrar($u, dispositivo: 'Computador de casa');
+        $s = $this->entrar($u, dispositivo: 'Computador do escritorio');
 
         $this->putJson('/api/autenticacao/palavra-passe', ['palavra_passe_actual' => 'errada-123', 'palavra_passe_nova' => 'NovaSenha#2026', 'palavra_passe_nova_confirmation' => 'NovaSenha#2026'], $s)
             ->assertStatus(422)->assertJsonPath('codigo', 'PALAVRA_PASSE_ACTUAL_ERRADA');

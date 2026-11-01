@@ -2,6 +2,7 @@
 
 use App\Jobs\Sistema\BatimentoWorker;
 use App\Models\ContratoFornecedor;
+use App\Models\TokenAcesso;
 use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
 use App\Support\Cache\Batimentos;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -35,6 +36,11 @@ Schedule::call(function () {
 // sem sucesso hoje, até 3 tentativas). O resultado fica só pendente de validação (nada é gravado nos câmbios).
 Schedule::call(fn () => app(ServicoCambiosBAIAutomaticos::class)->executarSeDevido())
     ->everyMinute()->name('sistema:cambios-bai')->withoutOverlapping(15);
+
+// Tokens expirados (Fase D, reforço de autenticação): tokens_acesso não tem RLS por tenant (migração
+// saas_rls_tenant_do_token), por isso esta limpeza corre uma só vez por todos os tenants, sem ContextoTenant::porTenant.
+Schedule::call(fn () => TokenAcesso::query()->whereNotNull('expira_em')->where('expira_em', '<', now())->delete())
+    ->dailyAt('03:30')->name('autenticacao:tokens-expirados')->withoutOverlapping();
 
 // Batimentos (R11): o /api/saude marca FALHA se o scheduler ou o worker deixarem de bater.
 Schedule::call(fn () => Batimentos::registar(Batimentos::SCHEDULER))->everyMinute()->name('sistema:batimento-scheduler');

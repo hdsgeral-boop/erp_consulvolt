@@ -78,15 +78,31 @@ abstract class TestCase extends BaseTestCase
         return (string) $propriedade->getValue($mailable);
     }
 
-    /** Inicia sessão pela API e devolve os cabeçalhos Authorization prontos a usar. */
-    protected function entrar(Utilizador $utilizador, string $palavraPasse = 'Palavra#Passe2026'): array
+    /**
+     * Inicia sessão pela API e devolve os cabeçalhos Authorization prontos a usar. Fase D: um novo login do MESMO
+     * dispositivo substitui a sessão completa anterior desse dispositivo (ServicoAutenticacao::emitirTokenCompleto)
+     * — para simular dois dispositivos distintos (duas sessões a coexistir), indicar um `$dispositivo` diferente em
+     * cada chamada; sem indicar, ambas caem no omisso 'api' e a segunda chamada substitui a primeira.
+     */
+    protected function entrar(Utilizador $utilizador, string $palavraPasse = 'Palavra#Passe2026', ?string $dispositivo = null): array
     {
-        $token = $this->postJson('/api/autenticacao/entrar', [
+        $resposta = $this->postJson('/api/autenticacao/entrar', array_filter([
             'nome_utilizador' => $utilizador->nome_utilizador,
             'palavra_passe' => $palavraPasse,
-        ])->assertOk()->json('dados.token');
+            'dispositivo' => $dispositivo,
+        ], fn ($v) => $v !== null))->assertOk();
 
-        return ['Authorization' => "Bearer {$token}"];
+        return ['Authorization' => 'Bearer '.$this->tokenDoCookie($resposta)];
+    }
+
+    /**
+     * Fase D: o token de uma sessão completa já não vai no corpo da resposta, só no cookie HttpOnly (CookiesSessao).
+     * Os testes continuam a autenticar por Authorization: Bearer (também aceite — AppServiceProvider::configurarSanctum
+     * tenta o cabeçalho primeiro, só cai para o cookie se faltar), para não reescrever toda a suite.
+     */
+    protected function tokenDoCookie(\Illuminate\Testing\TestResponse $resposta): ?string
+    {
+        return $resposta->getCookie(config('erp.sessao.cookie_token'), false)?->getValue();
     }
 
     /** Estrutura comum a todas as respostas da API. */

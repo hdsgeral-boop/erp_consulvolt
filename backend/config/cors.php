@@ -11,8 +11,11 @@ return [
     'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', (string) env('ERP_CORS_ORIGENS', ''))))),
     'allowed_origins_patterns' => [],
-    'allowed_headers' => ['Authorization', 'Content-Type', 'Accept', 'X-Empresa-Id', 'X-Requested-With'],
+    'allowed_headers' => ['Authorization', 'Content-Type', 'Accept', 'X-Empresa-Id', 'X-Requested-With', 'X-XSRF-TOKEN'],
     'exposed_headers' => ['Content-Disposition', 'Retry-After'],
     'max_age' => 600,
-    'supports_credentials' => false,
+    // Fase D: o token passou a viajar num cookie (CookiesSessao) — sem isto, um cliente numa origem alguma vez
+    // listada em ERP_CORS_ORIGENS não conseguiria enviá-lo. Sem efeito enquanto não houver nenhuma origem cruzada
+    // configurada (mesma origem não passa pelo CORS do browser).
+    'supports_credentials' => true,
 ];

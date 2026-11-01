@@ -7,6 +7,7 @@ use App\Http\Middleware\ExigirTrocaPassword;
 use App\Http\Middleware\ForcarRespostaJson;
 use App\Http\Middleware\ResolverEmpresaAtiva;
 use App\Http\Middleware\ResolverTenantAtivo;
+use App\Http\Middleware\VerificarCsrfDuploSubmit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,7 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->api(prepend: [ForcarRespostaJson::class]);
+        // Duplo-submit do CSRF (Fase D): só actua quando há cookie de sessão (ver VerificarCsrfDuploSubmit) — o
+        // mais cedo possível, antes de gastar trabalho de autenticação/tenant num pedido que já se sabe inválido.
+        $middleware->api(prepend: [ForcarRespostaJson::class, VerificarCsrfDuploSubmit::class]);
         // MFA (Fase 4 da extensão SaaS): um token limitado ('mfa:pendente') nunca pode servir de sessão completa —
         // verificado o mais cedo possível, antes de qualquer outra coisa decidir algo com base no utilizador.
         $middleware->api(append: [BloquearTokenMfaPendente::class]);

@@ -121,7 +121,10 @@ class AppServiceProvider extends ServiceProvider
         // devolve um tenant_id a partir do id do token, nunca dados pessoais — o mesmo bypass do login
         // (login_localizar_utilizador), aqui para a autenticação por token.
         Sanctum::getAccessTokenFromRequestUsing(function (Request $request) {
-            $token = $request->bearerToken();
+            // Fase D: o token continua a ser o mesmo Bearer opaco do Sanctum, só a entrega muda — o cabeçalho
+            // Authorization serve clientes que não sejam o SPA (ex.: scripts, Power BI); o SPA passa a enviá-lo
+            // num cookie HttpOnly (CookiesSessao), nunca acessível a JavaScript.
+            $token = $request->bearerToken() ?: $request->cookie(config('erp.sessao.cookie_token'));
             if ($token && ContextoTenant::ativo() && str_contains($token, '|')) {
                 [$id] = explode('|', $token, 2);
                 if (ctype_digit($id)) {
