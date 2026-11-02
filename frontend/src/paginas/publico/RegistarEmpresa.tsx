@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Row, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
@@ -13,9 +13,23 @@ export function RegistarEmpresa() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const { autenticarAposRegisto } = useSessao();
+  const [parametros] = useSearchParams();
   const [erro, setErro] = useState<string | null>(null);
   const [detalhesErros, setDetalhesErros] = useState<string[]>([]);
   const [aGuardar, setAGuardar] = useState(false);
+  // Chegou aqui vindo do login Google sem conta ainda (AutenticacaoGoogleController): nome e email pré-preenchidos,
+  // o resto (NIF, telefone, província, nome de utilizador, palavra-passe) continua a ser preenchido à mão.
+  const deGoogle = parametros.has('email');
+
+  useEffect(() => {
+    const nome = parametros.get('nome');
+    const email = parametros.get('email');
+    if (nome || email) {
+      form.setFieldsValue({ nome_completo: nome || undefined, email: email || undefined });
+    }
+    // só no arranque: a query string não muda depois disto, e não queremos reaplicar a cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const logotipo = useQuery({
     queryKey: ['logotipo-login'],
@@ -98,6 +112,15 @@ export function RegistarEmpresa() {
             {diasTeste} dias de demonstração gratuitos, sem qualquer compromisso · Comece em 2 minutos
           </Typography.Text>
         </Flex>
+
+        {deGoogle && (
+          <Alert
+            type="info"
+            showIcon
+            message="Nome e email preenchidos a partir da sua conta Google. Falta só completar os dados da empresa e escolher uma palavra-passe."
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         {erro && (
           <Alert

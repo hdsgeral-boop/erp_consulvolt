@@ -3,6 +3,7 @@
 namespace App\Support\Autenticacao;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
@@ -12,11 +13,12 @@ use Illuminate\Support\Str;
  * autenticação). O Sanctum continua "só token" (config/sanctum.php guard=[]): isto só muda a ENTREGA do mesmo
  * token Bearer opaco — de corpo JSON para cookie — para nunca ficar acessível a JavaScript (XSS). A leitura do
  * cookie está em AppServiceProvider::configurarSanctum (Sanctum::getAccessTokenFromRequestUsing) e a verificação
- * do CSRF em VerificarCsrfDuploSubmit.
+ * do CSRF em VerificarCsrfDuploSubmit. Aceita também RedirectResponse (partilha o mesmo ResponseTrait/withCookie
+ * do JsonResponse) porque o login Google (AutenticacaoGoogleController) termina num redirect, não numa resposta JSON.
  */
 final class CookiesSessao
 {
-    public static function anexar(JsonResponse $resposta, string $token, Carbon $expiraEm): JsonResponse
+    public static function anexar(JsonResponse|RedirectResponse $resposta, string $token, Carbon $expiraEm): JsonResponse|RedirectResponse
     {
         $minutos = max(1, (int) now()->diffInMinutes($expiraEm));
 

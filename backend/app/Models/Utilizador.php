@@ -55,7 +55,7 @@ class Utilizador extends Autenticavel
 
     protected $fillable = [
         'nome_utilizador', 'nome_completo', 'email', 'telefone', 'palavra_passe', 'papel', 'perfil_utilizador_id',
-        'acesso_todas_empresas', 'ativo', 'deve_alterar_password',
+        'acesso_todas_empresas', 'ativo', 'deve_alterar_password', 'google_id',
         'mfa_segredo', 'mfa_ativo', 'mfa_codigos_recuperacao', 'mfa_ativado_em',
     ];
 

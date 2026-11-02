@@ -64,11 +64,24 @@ final class ServicoAutenticacao
         // há um token; este é o 1.º).
         $this->tenant->definir((int) $utilizador->tenant_id);
 
-        return DB::transaction(function () use ($utilizador, $palavraPasse, $dispositivo, $ip, $agente) {
-            $this->modernizarHash($utilizador, $palavraPasse);
+        DB::transaction(fn () => $this->modernizarHash($utilizador, $palavraPasse));
 
-            // MFA (Fase 4 da extensão SaaS): com MFA activo, a password certa só dá um token limitado — a sessão
-            // completa (habilidade '*') só é emitida depois do código TOTP confirmado (ver verificarMfaEEmitirToken).
+        return $this->emitirSessaoOuMfa($utilizador, $dispositivo, $ip, $agente);
+    }
+
+    /**
+     * A partir de um utilizador já identificado (por password ou por outro meio, ex.: login Google — ver
+     * AutenticacaoGoogleController), decide entre sessão completa e o 2.º passo do MFA, exactamente como `entrar()`
+     * fazia antes de ser extraído daqui: só muda a forma como o utilizador foi encontrado, nunca o que acontece
+     * a seguir (um único token completo por dispositivo, MFA obrigatório se activo, auditoria).
+     *
+     * @return array{mfa_pendente: bool, token?: string, token_mfa?: string, expira_em: Carbon, utilizador: Utilizador}
+     */
+    public function emitirSessaoOuMfa(Utilizador $utilizador, string $dispositivo, ?string $ip, ?string $agente): array
+    {
+        return DB::transaction(function () use ($utilizador, $dispositivo, $ip, $agente) {
+            // MFA (Fase 4 da extensão SaaS): com MFA activo, a identificação certa só dá um token limitado — a sessão
+            // completa (habilidade '*') só é emitida depois do código TOTP confirmado (ver MfaController::verificar).
             if ($utilizador->mfa_ativo) {
                 $expiraPendente = now()->addMinutes(5);
                 $pendente = $utilizador->createToken($dispositivo.':mfa-pendente', ['mfa:pendente'], $expiraPendente);

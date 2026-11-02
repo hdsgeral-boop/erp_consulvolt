@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Login com o Google (AutenticacaoGoogleController, routes/web.php). O redirect tem de bater certo com o
+    // "Authorized redirect URI" configurado na Google Cloud Console.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
 ];
