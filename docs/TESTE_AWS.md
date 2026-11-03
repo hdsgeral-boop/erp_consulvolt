@@ -63,10 +63,19 @@ Logótipos (empresas e ecrã de entrada) e imagens de produtos vão para um buck
    `r2.dev` (ou ligar um domínio próprio). Copiar o URL público e o *S3 API endpoint* (`https://<account_id>.r2.cloudflarestorage.com`).
 3. R2 › *Manage API tokens* › *Create API token* com **Object Read & Write** limitado a esse bucket. Copiar Access Key ID
    e Secret Access Key.
-4. Em `/opt/erp/.env.prod`: `ERP_IMAGENS_DISCO=imagens`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_URL_PUBLICA`, `R2_ACCESS_KEY_ID`,
-   `R2_SECRET_ACCESS_KEY`; depois `prod.sh up -d --force-recreate app worker scheduler`.
-5. Migrar o que já existe: `docker exec erp_consulvolt_prod-app-1 php artisan erp:imagens:migrar --simular` e, se bater
-   certo, sem `--simular`.
+4. No servidor, `ferramentas/operacao/activar-r2-teste.sh` faz o resto (grava as variáveis em `/opt/erp/.env.prod` com
+   cópia de segurança, recria app/worker/scheduler, testa escrita/leitura no bucket e corre a migração em simulação;
+   com `--migrar` corre também a migração real; se o bucket falhar, repõe a configuração anterior):
+
+   ```sh
+   R2_BUCKET=meuerp-teste-imagens R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com    R2_URL_PUBLICA=https://pub-<id>.r2.dev R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=...    sh /opt/erp/ferramentas/operacao/activar-r2-teste.sh --migrar
+   ```
+
+   À mão, o equivalente é: `ERP_IMAGENS_DISCO=imagens` + as cinco variáveis `R2_*` em `.env.prod`,
+   `prod.sh up -d --force-recreate app worker scheduler` e `php artisan erp:imagens:migrar --simular` / sem `--simular`.
+5. O bucket, o acesso público e as regras CORS também se criam pela API (`POST /accounts/{id}/r2/buckets`,
+   `PUT .../buckets/{nome}/domains/managed`, `PUT .../buckets/{nome}/cors`); só a activação do R2 e o token S3
+   (*Manage API tokens*) exigem o painel.
 6. CORS do bucket (só se as impressões/PDF desenharem o logótipo numa canvas): origem `https://teste.consulvolt.meuerp.ao`, método GET.
 
 A CSP do nginx (`docker/nginx/producao/cabecalhos-seguranca.conf`) já permite `img-src https://*.r2.dev`; com um domínio
