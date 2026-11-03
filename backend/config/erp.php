@@ -1,5 +1,16 @@
 <?php
 
+use App\Mail\BoasVindasEmpresaMail;
+use App\Mail\ContaSuspensaMail;
+use App\Mail\LicencaAVencerMail;
+use App\Mail\LicencaExpiradaMail;
+use App\Mail\NotificacaoRHMail;
+use App\Mail\TicketCriadoMail;
+use App\Mail\TicketRespostaMail;
+use App\Mail\TicketSlaVioladoMail;
+use App\Support\Outbox\Manipuladores\EmailEnviarManipulador;
+use App\Support\Outbox\Manipuladores\NotificacaoRHManipulador;
+
 /*
 |--------------------------------------------------------------------------
 | Configuração específica do ERP Consulvolt
@@ -152,6 +163,32 @@ return [
             'erp:produtos:converter-contas-categorias', 'erp:migracao:corrigir-dados', 'erp:saft:documentos-importados',
             'erp:migrar-backup-legado', 'erp:migracao:pos-carga', 'erp:tesouraria:diferencas-cambio',
             'erp:tesouraria:reconciliar-recibos', 'erp:e2e:preparar',
+        ],
+    ],
+
+    // Transactional Outbox genérico (ADR-080): eventos gravados na MESMA transacção da escrita de negócio e entregues «pelo menos uma
+    // vez» a manipuladores IDEMPOTENTES, por tipo. Publicação imediata após o COMMIT + agendador de minuto a minuto (erp:outbox:publicar).
+    'outbox' => [
+        'max_tentativas' => (int) env('ERP_OUTBOX_MAX_TENTATIVAS', 8),
+        // recuo (segundos) entre tentativas, com jitter de ±20 %: 30 s, 2 min, 10 min, 30 min, 2 h, 6 h, 12 h (o último repete-se)
+        'recuo_segundos' => [30, 120, 600, 1800, 7200, 21600, 43200],
+        'reserva_segundos' => (int) env('ERP_OUTBOX_RESERVA_SEGUNDOS', 120),   // lease de um evento em processamento
+        'aviso_atraso_segundos' => 600,                                          // /api/saude: AVISO se o pendente mais antigo exceder
+        // tipo de evento => classe ManipuladorOutbox (resolvida no contentor)
+        'manipuladores' => [
+            'notificacao.rh' => NotificacaoRHManipulador::class,
+            'email.enviar' => EmailEnviarManipulador::class,
+        ],
+        // lista branca dos Mailables que o evento `email.enviar` pode instanciar (nunca uma classe vinda da carga sem constar aqui)
+        'emails_permitidos' => [
+            BoasVindasEmpresaMail::class,
+            ContaSuspensaMail::class,
+            TicketCriadoMail::class,
+            TicketRespostaMail::class,
+            TicketSlaVioladoMail::class,
+            LicencaAVencerMail::class,
+            LicencaExpiradaMail::class,
+            NotificacaoRHMail::class,
         ],
     ],
 

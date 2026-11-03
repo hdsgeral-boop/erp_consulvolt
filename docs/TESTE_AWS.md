@@ -60,6 +60,21 @@ Só os perfis com o nome de um perfil-modelo, no formato v2 e sem acesso total, 
 para o ver à mão: `php artisan erp:rh:alertas-prazos`. O e-mail das notificações é opcional e vem desligado
 (`ERP_NOTIFICACOES_EMAIL=false` em `.env.prod`).
 
+### Outbox e jobs repetíveis (ADR-080)
+
+O publicador do outbox corre no scheduler (`erp:outbox:publicar`, de minuto a minuto) e `QUEUE_AFTER_COMMIT=true` vem em `.env.prod`. Para ver e tratar os
+eventos que não chegaram ao destino (e-mails, notificações) no servidor de teste:
+
+```sh
+docker compose exec app php artisan erp:outbox:estado                # pendentes, o mais antigo, mortos (sai com 1 se houver mortos)
+docker compose exec app php artisan erp:outbox:reprocessar 123       # volta um evento MORTO a pendente (depois de corrigida a causa)
+docker compose exec app php artisan erp:outbox:reprocessar --mortos  # todos os mortos
+docker compose exec app php artisan erp:outbox:publicar              # força já uma passagem do publicador
+```
+
+`curl -s https://teste.consulvolt.meuerp.ao/api/saude` mostra `dados.informacao.outbox` (`AVISO` se há mortos ou um pendente com mais de 10 minutos). Depois do
+deploy, corre-se `php artisan migrate --force` (cria `outbox_eventos` e `execucoes_idempotentes`; no teste, com a ligação do dono, como as outras migrações).
+
 ## Migração PostgreSQL 16 → 18 (feita uma vez)
 
 ```sh

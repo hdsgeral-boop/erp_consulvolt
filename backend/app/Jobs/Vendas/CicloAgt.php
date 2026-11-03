@@ -20,6 +20,7 @@ final class CicloAgt implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
+    /** Não se repete (ADR-080): o ciclo já tem o seu outbox (agt_submissoes, UUID fixo) e é reagendado de 2 em 2 minutos; repetir só empilharia pedidos à AGT. */
     public int $tries = 1;
 
     public int $timeout = 300;

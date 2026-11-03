@@ -17,13 +17,13 @@ use App\Services\Sistema\ServicoPerfis;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
 use App\Support\Autenticacao\CookiesSessao;
+use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -58,7 +58,8 @@ final class RegistoEmpresaController extends Controller
         ]);
         $diasTeste = DefinicoesPlataforma::diasTestePadrao();
         $perfilTotal = $this->perfis->perfilAcessoTotal();
-        $resultado = DB::transaction(function () use ($d, $diasTeste, $perfilTotal) {
+        $nomePlano = ($d['plano'] ?? null) ? PlanoLicenca::query()->where('codigo', $d['plano'])->value('nome') : null;
+        $resultado = DB::transaction(function () use ($d, $diasTeste, $perfilTotal, $nomePlano) {
             $base = Str::limit(Str::slug($d['nome_comercial']) ?: 'empresa', 32, '');
             $slug = $base;
             $n = 1;
@@ -74,7 +75,7 @@ final class RegistoEmpresaController extends Controller
                 ModulosPlano::invalidar();
             }
 
-            return $this->tenants->executarComo((int) $tenant->id, function () use ($d, $tenant, $diasTeste, $perfilTotal) {
+            return $this->tenants->executarComo((int) $tenant->id, function () use ($d, $tenant, $diasTeste, $perfilTotal, $nomePlano) {
                 // Papel ADMINISTRADOR (não SUPER_ADMINISTRADOR, de propósito): um super-administrador fica isento da
                 // expiração da licença (ResolverEmpresaAtiva::licenca) e isso anularia o próprio período de
                 // demonstração. O acesso completo aos módulos de negócio vem, em vez disso, de um perfil de acesso
@@ -85,14 +86,14 @@ final class RegistoEmpresaController extends Controller
                 $empresa = Empresa::create(['nome' => $d['nome_comercial'], 'nif' => $d['nif'], 'telefone' => $d['telefone'], 'provincia' => $d['provincia'], 'email' => $d['email'], 'moeda_funcional' => 'AOA', 'licenca_origem' => Empresa::LICENCA_TESTE, 'licenca_inicio' => now()->toDateString(), 'licenca_fim' => now()->addDays($diasTeste)->toDateString()]);
                 $admin->empresas()->attach($empresa->id);
                 $this->planoContasModelo->semear($empresa->id);
+                // Outbox (ADR-080): o e-mail de boas-vindas nasce na mesma transacção do registo — se esta falhar não há e-mail, se fizer COMMIT nunca se perde
+                Outbox::email(BoasVindasEmpresaMail::class, $d['email'], ['nomeAdministrador' => $d['nome_completo'], 'nomeEmpresa' => $d['nome_comercial'], 'diasTeste' => $diasTeste, 'nomePlano' => $nomePlano], "email:boas-vindas:empresa:{$empresa->id}");
 
                 return compact('tenant', 'empresa');
             });
         });
         $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], 'web-registo', $r->ip(), $r->userAgent());
         $u = $sessao['utilizador'];
-        $nomePlano = $d['plano'] ?? null ? PlanoLicenca::query()->where('codigo', $d['plano'])->value('nome') : null;
-        Mail::to($d['email'])->send(new BoasVindasEmpresaMail($d['nome_completo'], $d['nome_comercial'], $diasTeste, $nomePlano));
 
         // Fase D: o token vai só no cookie HttpOnly (CookiesSessao), nunca no corpo — tal como em AutenticacaoController::entrar.
         return CookiesSessao::anexar(RespostaApi::criado(['tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo."), $sessao['token'], $sessao['expira_em']);

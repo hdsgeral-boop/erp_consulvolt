@@ -5,9 +5,10 @@ namespace App\Console\Commands;
 use App\Mail\TicketSlaVioladoMail;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
+use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Avisa a equipa de suporte da plataforma quando um ticket excede o prazo de SLA (Fase 6 da extensão SaaS, secção 14
@@ -40,10 +41,12 @@ final class SlaSuporteAvisarCommand extends Command
 
         $nomes = Tenant::query()->pluck('nome', 'id');
         foreach ($tickets as $ticket) {
-            Mail::to($emailSuporte)->send(new TicketSlaVioladoMail(
-                $ticket->id, $nomes[$ticket->tenant_id] ?? '', $ticket->assunto, $ticket->prioridade, $ticket->prazo_sla->toDateTimeString(),
-            ));
-            $ticket->update(['sla_violado_avisado_em' => now()]);
+            // Outbox (ADR-080): o pedido do e-mail e a marca «avisado» são atómicos (antes: enviava e depois marcava — um crash entre os dois repetia o aviso)
+            DB::transaction(function () use ($ticket, $nomes, $emailSuporte) {
+                Outbox::email(TicketSlaVioladoMail::class, $emailSuporte, ['ticketId' => $ticket->id, 'nomeCliente' => $nomes[$ticket->tenant_id] ?? '', 'assunto' => $ticket->assunto,
+                    'prioridade' => $ticket->prioridade, 'prazoSla' => $ticket->prazo_sla->toDateTimeString()], "email:sla-violado:{$ticket->id}");
+                $ticket->update(['sla_violado_avisado_em' => now()]);
+            });
         }
 
         $this->info("{$tickets->count()} aviso(s) de SLA violado enviado(s).");

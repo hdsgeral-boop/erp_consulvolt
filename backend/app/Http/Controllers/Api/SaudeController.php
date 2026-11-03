@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
  *
  * `informacao` (só na resposta de sucesso) traz estados meramente informativos que nunca tornam o serviço indisponível:
  * a obtenção automática dos câmbios do BAI (DESACTIVADO, OK, PENDENTE ou FALHA da última obtenção).
+ * e o outbox transaccional (OK, ou AVISO se o evento pendente mais antigo tem mais de 10 minutos ou há eventos MORTOS; ADR-080).
  */
 final class SaudeController extends Controller
 {

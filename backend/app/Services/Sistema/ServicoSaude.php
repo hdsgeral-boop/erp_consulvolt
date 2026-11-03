@@ -51,7 +51,14 @@ final class ServicoSaude
             $bai = ['estado' => 'DESCONHECIDO', 'detalhe' => 'indisponível'];
         }
 
-        return ['cambios_bai' => $bai];
+        try {
+            $outbox = app(ServicoOutbox::class)->saude();
+        } catch (Throwable) {
+            $outbox = ['estado' => 'DESCONHECIDO', 'detalhe' => 'indisponível'];
+        }
+
+        // Outbox (ADR-080): AVISO se o pendente mais antigo tem mais de 10 min ou há eventos MORTOS — informativo, nunca dá 503.
+        return ['cambios_bai' => $bai, 'outbox' => $outbox];
     }
 
     /** Versão da imagem (ficheiro VERSAO gravado no build de produção); "dev" fora das imagens de produção. */

@@ -68,6 +68,7 @@ final class ServicoNotificacoes
         ?string $link = null,
         ?int $utilizadorId = null,
         ?string $autorNome = null,
+        ?string $chaveOrigem = null,
     ): NotificacaoSistema {
         return NotificacaoSistema::query()->create([
             'empresa_id' => $empresaId,
@@ -79,6 +80,7 @@ final class ServicoNotificacoes
             'mensagem' => $mensagem,
             'link' => $link,
             'lida' => false,
+            'chave_origem' => $chaveOrigem,
         ]);
     }
 

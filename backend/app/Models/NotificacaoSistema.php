@@ -29,6 +29,7 @@ class NotificacaoSistema extends ModeloBase
         'link',
         'lida',
         'lida_em',
+        'chave_origem',
     ];
 
     protected function casts(): array

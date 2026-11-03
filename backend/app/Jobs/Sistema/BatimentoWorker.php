@@ -14,6 +14,7 @@ final class BatimentoWorker implements ShouldQueue
 {
     use Queueable;
 
+    /** Não se repete (ADR-080): um batimento atrasado ou repetido falsearia a prova de vida do worker; o próximo agendamento (5 min) substitui-o. */
     public int $tries = 1;
 
     public int $timeout = 30;

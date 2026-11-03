@@ -26,6 +26,13 @@ Schedule::command('erp:rh:alertas-prazos')->dailyAt('07:30')->onOneServer()->wit
 // Alertas de SLA de suporte violado (Fase 6 da extensão SaaS): corre com frequência porque o prazo é em horas, não em dias.
 Schedule::command('erp:suporte:avisar-sla')->everyFifteenMinutes()->withoutOverlapping();
 
+// Transactional Outbox (ADR-080): publica os eventos pendentes (a publicação imediata depois do COMMIT já trata quase todos; isto apanha
+// as falhas, as retentativas devidas e os processos que morreram a meio). Limpeza diária dos publicados e das execuções idempotentes
+// concluídas (os eventos MORTOS nunca se apagam sozinhos).
+Schedule::command('erp:outbox:publicar')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('erp:outbox:limpar --dias=14')->dailyAt('03:10')->onOneServer()->withoutOverlapping();
+Schedule::command('erp:idempotencia:limpar --dias=30')->dailyAt('03:20')->onOneServer()->withoutOverlapping();
+
 // Facturação electrónica: envio automático e consulta de estados na AGT (no legado corria no browser, de 2 em 2 min).
 Schedule::command('erp:agt:ciclo')->everyTwoMinutes()->withoutOverlapping();
 

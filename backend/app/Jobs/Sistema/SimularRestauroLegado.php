@@ -19,6 +19,7 @@ final class SimularRestauroLegado implements ShouldQueue
 {
     use Queueable;
 
+    /** Não se repete (ADR-080): a simulação bloqueia tabelas durante minutos e corre dentro de uma transacção desfeita no fim — repeti-la sozinha seria perigoso. */
     public int $tries = 1;
 
     /** Abaixo do retry_after da fila (REDIS_QUEUE_RETRY_AFTER=660): nunca é entregue duas vezes. */

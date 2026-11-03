@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Despacho só depois do COMMIT (ADR-080)
+    |--------------------------------------------------------------------------
+    |
+    | Com `after_commit` ligado, um trabalho despachado dentro de uma transacção só entra na fila quando ela fizer
+    | COMMIT (e é descartado se fizer ROLLBACK). Sem isto, um worker rápido podia apanhar o trabalho antes de o COMMIT
+    | (não via os dados) e um ROLLBACK deixava um trabalho órfão na fila. QUEUE_AFTER_COMMIT=false só para depuração.
+    | Fora de transacções o comportamento é o de sempre (entra logo). Os drivers `sync` e `null` não o usam.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------
     |
@@ -41,7 +53,7 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
         'beanstalkd' => [
@@ -50,7 +62,7 @@ return [
             'queue' => env('BEANSTALKD_QUEUE', 'default'),
             'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
             'block_for' => 0,
-            'after_commit' => false,
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
         'sqs' => [
@@ -61,7 +73,7 @@ return [
             'queue' => env('SQS_QUEUE', 'default'),
             'suffix' => env('SQS_SUFFIX'),
             'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-            'after_commit' => false,
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
         'redis' => [
@@ -70,7 +82,7 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
         'deferred' => [

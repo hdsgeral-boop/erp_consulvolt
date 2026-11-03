@@ -6,10 +6,10 @@ use App\Mail\LicencaAVencerMail;
 use App\Mail\LicencaExpiradaMail;
 use App\Models\Empresa;
 use App\Models\Utilizador;
+use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Avisa o administrador de cada empresa antes (7 e 3 dias) e no dia em que a licença expira (ADR-074). Corre uma vez
@@ -56,11 +56,12 @@ final class AvisarLicencasCommand extends Command
                     continue;
                 }
                 $nome = $admin->nome_completo ?: $admin->nome_utilizador;
-                $mail = $dias === 0
-                    ? new LicencaExpiradaMail($nome, $empresa->nome)
-                    : new LicencaAVencerMail($nome, $empresa->nome, $dias, $empresa->licenca_fim->toDateString());
-                Mail::to($admin->email)->send($mail);
-                $total++;
+                // Outbox (ADR-080): a chave (empresa, dias, data de fim) torna o aviso idempotente se o comando correr duas vezes no mesmo dia
+                $chave = "email:licenca:{$empresa->id}:{$dias}:".$empresa->licenca_fim->toDateString();
+                $criado = $dias === 0
+                    ? Outbox::email(LicencaExpiradaMail::class, $admin->email, ['nomeCompleto' => $nome, 'nomeEmpresa' => $empresa->nome], $chave)
+                    : Outbox::email(LicencaAVencerMail::class, $admin->email, ['nomeCompleto' => $nome, 'nomeEmpresa' => $empresa->nome, 'diasRestantes' => $dias, 'dataFim' => $empresa->licenca_fim->toDateString()], $chave);
+                $total += $criado === null ? 0 : 1;
             }
         });
 

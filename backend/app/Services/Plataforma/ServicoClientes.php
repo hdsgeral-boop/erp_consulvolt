@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoGestaoEmpresas;
 use App\Services\Sistema\ServicoPerfis;
+use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -158,10 +159,13 @@ final class ServicoClientes
     public function definirEstado(Tenant $cliente, string $estado): Tenant
     {
         $this->naoMexerNaPlataforma($cliente, $estado === Tenant::ESTADO_SUSPENSO);
-        $cliente->update(['estado' => $estado]);
-        if ($estado === Tenant::ESTADO_SUSPENSO) {
-            $this->notificarSuspensao($cliente);
-        }
+        // Outbox (ADR-080): a mudança de estado e o pedido do e-mail de suspensão são atómicos
+        DB::transaction(function () use ($cliente, $estado) {
+            $cliente->update(['estado' => $estado]);
+            if ($estado === Tenant::ESTADO_SUSPENSO) {
+                $this->notificarSuspensao($cliente);
+            }
+        });
 
         return $cliente->refresh();
     }
@@ -174,7 +178,8 @@ final class ServicoClientes
             ->whereNotNull('email')->orderBy('id')->first());
 
         if ($admin?->email) {
-            Mail::to($admin->email)->send(new ContaSuspensaMail($admin->nome_completo ?: $admin->nome_utilizador, $cliente->nome));
+            Outbox::email(ContaSuspensaMail::class, $admin->email, ['nomeCompleto' => $admin->nome_completo ?: $admin->nome_utilizador, 'nomeCliente' => $cliente->nome],
+                "email:conta-suspensa:{$cliente->id}:".Str::uuid());
         }
     }
 

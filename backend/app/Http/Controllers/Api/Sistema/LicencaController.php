@@ -19,11 +19,12 @@ use App\Services\Plataforma\ServicoAnexosSuporte;
 use App\Services\Plataforma\ServicoSlaSuporte;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
+use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -193,15 +194,21 @@ final class LicencaController extends Controller
             'categoria' => ['nullable', Rule::in(TicketSuporte::CATEGORIAS)],
         ]);
         $tenantId = (int) $request->user()->tenant_id;
-        $t = TicketSuporte::query()->create($d + [
-            'tenant_id' => $tenantId, 'categoria' => $d['categoria'] ?? 'GERAL', 'prioridade' => 'NORMAL',
-            'estado' => TicketSuporte::ABERTO, 'criado_por' => $request->user()->nome_utilizador,
-            'prazo_sla' => $this->sla->calcularPrazo('NORMAL'),
-        ]);
-        if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
-            $nomeCliente = Tenant::query()->find($tenantId)?->nome ?? '';
-            Mail::to($emailSuporte)->send(new TicketCriadoMail($t->id, $nomeCliente, $t->assunto, 'NORMAL', $t->categoria, $t->descricao));
-        }
+        // Outbox (ADR-080): o ticket e o pedido do e-mail à equipa de suporte são atómicos
+        $t = DB::transaction(function () use ($d, $tenantId, $request) {
+            $t = TicketSuporte::query()->create($d + [
+                'tenant_id' => $tenantId, 'categoria' => $d['categoria'] ?? 'GERAL', 'prioridade' => 'NORMAL',
+                'estado' => TicketSuporte::ABERTO, 'criado_por' => $request->user()->nome_utilizador,
+                'prazo_sla' => $this->sla->calcularPrazo('NORMAL'),
+            ]);
+            if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
+                $nomeCliente = Tenant::query()->find($tenantId)?->nome ?? '';
+                Outbox::email(TicketCriadoMail::class, $emailSuporte, ['ticketId' => $t->id, 'nomeCliente' => $nomeCliente, 'assunto' => $t->assunto, 'prioridade' => 'NORMAL',
+                    'categoria' => $t->categoria, 'descricao' => $t->descricao], "email:ticket-criado:{$t->id}");
+            }
+
+            return $t;
+        });
 
         return RespostaApi::criado(['id' => $t->id, 'assunto' => $t->assunto, 'estado' => 'ABERTO'], 'Pedido de suporte aberto.');
     }
@@ -219,18 +226,24 @@ final class LicencaController extends Controller
             'ficheiros' => ['sometimes', 'array', 'max:'.ServicoAnexosSuporte::MAX_FICHEIROS],
             'ficheiros.*' => ['file', 'max:'.ServicoAnexosSuporte::TAMANHO_MAXIMO_KB],
         ]);
-        $m = MensagemSuporte::query()->create([
-            'ticket_id' => $t->id, 'autor_tipo' => MensagemSuporte::CLIENTE, 'autor_nome' => $request->user()->nome_utilizador, 'mensagem' => $d['mensagem'],
-        ]);
-        foreach ($request->file('ficheiros', []) as $ficheiro) {
-            $this->anexos->guardar($m, $ficheiro);
-        }
-        if (in_array($t->estado, TicketSuporte::ESTADOS_TERMINAIS, true)) {
-            $t->update(['estado' => TicketSuporte::REABERTO]);
-        }
-        if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
-            Mail::to($emailSuporte)->send(new TicketRespostaMail($t->id, $t->assunto, 'Equipa de suporte', $request->user()->nome_utilizador, $d['mensagem'], rtrim((string) config('app.url'), '/').'/admin/suporte'));
-        }
+        // Outbox (ADR-080): a mensagem, a reabertura do ticket e o pedido do e-mail à equipa de suporte são atómicos
+        $m = DB::transaction(function () use ($t, $d, $request) {
+            $m = MensagemSuporte::query()->create([
+                'ticket_id' => $t->id, 'autor_tipo' => MensagemSuporte::CLIENTE, 'autor_nome' => $request->user()->nome_utilizador, 'mensagem' => $d['mensagem'],
+            ]);
+            foreach ($request->file('ficheiros', []) as $ficheiro) {
+                $this->anexos->guardar($m, $ficheiro);
+            }
+            if (in_array($t->estado, TicketSuporte::ESTADOS_TERMINAIS, true)) {
+                $t->update(['estado' => TicketSuporte::REABERTO]);
+            }
+            if ($emailSuporte = DefinicoesPlataforma::emailSuporte()) {
+                Outbox::email(TicketRespostaMail::class, $emailSuporte, ['ticketId' => $t->id, 'assunto' => $t->assunto, 'nomeDestinatario' => 'Equipa de suporte',
+                    'nomeAutor' => $request->user()->nome_utilizador, 'mensagem' => $d['mensagem'], 'url' => rtrim((string) config('app.url'), '/').'/admin/suporte'], "email:ticket-resposta:{$m->id}");
+            }
+
+            return $m;
+        });
 
         return RespostaApi::criado(ConversaSuportePlataformaController::apresentar($m->refresh()), 'Mensagem enviada.');
     }

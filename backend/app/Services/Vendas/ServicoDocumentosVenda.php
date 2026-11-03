@@ -222,6 +222,8 @@ final class ServicoDocumentosVenda
                 if ($venda->fe_regime && $venda->fe_estado === 'PRONTO' && ! empty($config?->servico['auto'])) {
                     // R4: o lock único e o push usam o Redis e correm DEPOIS do COMMIT — uma falha aí devolvia 500 com a factura já
                     // gravada (e o utilizador podia voltar a emitir). Regista-se um aviso: o agendador (erp:agt:ciclo) recolhe-a.
+                    // ADR-080: com `queue.connections.*.after_commit` o dispatch já só entra na fila depois do COMMIT; este afterCommit fica porque
+                    // também isola o try/catch (uma falha do Redis aqui nunca devolve 500 com a factura gravada).
                     DB::afterCommit(function () use ($empresa, $venda) {
                         try {
                             CicloAgt::dispatch($empresa)->delay(now()->addSeconds(3));

@@ -10,11 +10,12 @@ use App\Models\TicketSuporte;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoAnexosSuporte;
 use App\Support\Api\RespostaApi;
+use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -41,17 +42,22 @@ final class ConversaSuportePlataformaController extends Controller
             'ficheiros' => ['sometimes', 'array', 'max:'.ServicoAnexosSuporte::MAX_FICHEIROS],
             'ficheiros.*' => ['file', 'max:'.ServicoAnexosSuporte::TAMANHO_MAXIMO_KB],
         ]);
-        $m = MensagemSuporte::query()->create([
-            'ticket_id' => $ticket->id, 'autor_tipo' => MensagemSuporte::PLATAFORMA,
-            'autor_nome' => $r->user()->nome_utilizador, 'mensagem' => $d['mensagem'],
-        ]);
-        foreach ($r->file('ficheiros', []) as $ficheiro) {
-            $this->anexos->guardar($m, $ficheiro);
-        }
-        $primeiraResposta = $ticket->primeira_resposta_em === null;
-        $ticket->update(['estado' => $ticket->estado === TicketSuporte::ABERTO ? TicketSuporte::EM_CURSO : $ticket->estado]
-            + ($primeiraResposta ? ['primeira_resposta_em' => now()] : []));
-        $this->notificarCliente($ticket, $d['mensagem'], $r->user()->nome_utilizador);
+        // Outbox (ADR-080): a mensagem, a mudança de estado do ticket e o pedido do e-mail ao cliente são atómicos
+        $m = DB::transaction(function () use ($r, $ticket, $d) {
+            $m = MensagemSuporte::query()->create([
+                'ticket_id' => $ticket->id, 'autor_tipo' => MensagemSuporte::PLATAFORMA,
+                'autor_nome' => $r->user()->nome_utilizador, 'mensagem' => $d['mensagem'],
+            ]);
+            foreach ($r->file('ficheiros', []) as $ficheiro) {
+                $this->anexos->guardar($m, $ficheiro);
+            }
+            $primeiraResposta = $ticket->primeira_resposta_em === null;
+            $ticket->update(['estado' => $ticket->estado === TicketSuporte::ABERTO ? TicketSuporte::EM_CURSO : $ticket->estado]
+                + ($primeiraResposta ? ['primeira_resposta_em' => now()] : []));
+            $this->notificarCliente($ticket, $d['mensagem'], $r->user()->nome_utilizador, $m->id);
+
+            return $m;
+        });
 
         return RespostaApi::criado(self::apresentar($m->refresh()), 'Resposta enviada.');
     }
@@ -89,7 +95,7 @@ final class ConversaSuportePlataformaController extends Controller
      * `utilizadores` tem RLS por tenant_id (IsolamentoRls::TENANT_DIRETAS): fora do contexto do próprio cliente a
      * consulta ficaria vazia, daí o executarComo (o pedido corre no tenant da plataforma, não no do cliente do ticket).
      */
-    private function notificarCliente(TicketSuporte $ticket, string $mensagem, string $autorNome): void
+    private function notificarCliente(TicketSuporte $ticket, string $mensagem, string $autorNome, int $mensagemId): void
     {
         $destinatario = $this->tenant->executarComo($ticket->tenant_id, function () use ($ticket) {
             $autor = Utilizador::query()->where('tenant_id', $ticket->tenant_id)->where('nome_utilizador', $ticket->criado_por)->whereNotNull('email')->first();
@@ -100,9 +106,9 @@ final class ConversaSuportePlataformaController extends Controller
         });
 
         if ($destinatario?->email) {
-            Mail::to($destinatario->email)->send(new TicketRespostaMail(
-                $ticket->id, $ticket->assunto, $destinatario->nome_completo ?: $destinatario->nome_utilizador, $autorNome, $mensagem, config('app.url'),
-            ));
+            Outbox::email(TicketRespostaMail::class, $destinatario->email, ['ticketId' => $ticket->id, 'assunto' => $ticket->assunto,
+                'nomeDestinatario' => $destinatario->nome_completo ?: $destinatario->nome_utilizador, 'nomeAutor' => $autorNome, 'mensagem' => $mensagem, 'url' => (string) config('app.url')],
+                "email:ticket-resposta-cliente:{$mensagemId}");
         }
     }
 }
