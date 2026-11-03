@@ -56,7 +56,8 @@ final class ExigirAreaPortalTest extends TestCase
     #[Test]
     public function na_area_portal_as_rotas_da_lista_branca_passam(): void
     {
-        foreach (['portal.acesso', 'rh.portal.resumo', 'rh.portal.compras.aprovacoes', 'rh.portal.projetos.tarefas',
+        foreach (['portal.acesso', 'rh.portal.resumo', 'rh.portal.compras.aprovacoes', 'rh.portal.projetos.tarefas', 'rh.portal.entregaveis.index', 'rh.portal.aprovacoes.entregas',
+            'rh.portal.compras.decidir', 'rh.assiduidade.ausencias.catalogo', 'rh.avaliacao.equipa', 'compras.pedidos.decidir', 'rh.estrutura.chefia',
             'autenticacao.sair', 'autenticacao.eu', 'sistema.empresas.index', 'sistema.menu', 'sistema.identidade'] as $nome) {
             $this->assertTrue($this->passou($this->pedidoComRota('portal.meuerp.online', $nome)), "Rota '{$nome}' devia passar no portal.");
         }
@@ -65,7 +66,8 @@ final class ExigirAreaPortalTest extends TestCase
     #[Test]
     public function na_area_portal_qualquer_outra_rota_e_recusada(): void
     {
-        foreach (['crm.contactos.index', 'vendas.documentos.store', 'plataforma.clientes.index', 'suporte.tickets.index', 'sistema.logs.index'] as $nome) {
+        foreach (['crm.contactos.index', 'vendas.documentos.store', 'plataforma.clientes.index', 'suporte.tickets.index', 'sistema.logs.index',
+            'rh.assiduidade.ausencias.index', 'compras.pedidos.index', 'rh.estrutura.arvore', 'rh.estrutura.entregaveis.atrasos'] as $nome) {
             try {
                 $this->passou($this->pedidoComRota('portal.meuerp.online', $nome));
                 $this->fail("A rota '{$nome}' devia ter sido recusada na área do portal.");

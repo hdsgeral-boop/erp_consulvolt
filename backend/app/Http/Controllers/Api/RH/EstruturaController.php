@@ -21,11 +21,24 @@ final class EstruturaController extends Controller
 {
     public function __construct(private readonly ServicoEstruturaOrg $estrutura) {}
 
+    /** Consulta da estrutura: também os ecrãs só de leitura da estrutura (organigrama, mapa) — Fase J, ADR-078. */
+    public const VER = ['est_estrutura_view', 'colaboradores_view', 'est_organigrama_view', 'est_mapa_view'];
+
     public function arvore(): JsonResponse
     {
-        $this->exigir('est_estrutura_view', 'colaboradores_view');
+        $this->exigir(...self::VER);
 
         return RespostaApi::sucesso($this->estrutura->arvore(), 'Estrutura orgânica.');
+    }
+
+    /** POST /estrutura/unidades/{u}/arrumar — trás/frente/subir/descer/apoio (estArrumar, estrutura_ui.js:371-405). */
+    public function arrumar(Request $r, int $unidade): JsonResponse
+    {
+        $this->exigir('est_editar');
+        $d = $r->validate(['accao' => ['required', Rule::in(['TRAS', 'FRENTE', 'SUBIR', 'DESCER', 'APOIO'])]]);
+        $res = $this->estrutura->arrumar(UnidadeOrganica::query()->findOrFail($unidade), $d['accao']);
+
+        return RespostaApi::sucesso($res, $res['alterado'] ? 'Unidade arrumada.' : (string) $res['mensagem']);
     }
 
     /** GET /estrutura/mapa — mapa de pessoal por unidade e por cargo; a massa salarial só com est_ver_salarios (ADR-064). */
@@ -45,7 +58,9 @@ final class EstruturaController extends Controller
             'unidade_organica_pai_id' => ['nullable', 'integer'], 'colaborador_responsavel_id' => ['nullable', 'integer', $existe('colaboradores')],
             'missao' => ['nullable', 'string', 'max:5000'], 'atribuicoes' => ['nullable', 'string', 'max:5000'], 'centro_custo_id' => ['nullable', 'integer', $existe('centros_custo')],
             'unidade_negocio_id' => ['nullable', 'integer', $existe('unidades_negocio')], 'ordem' => ['nullable', 'integer'], 'ativo' => ['nullable', 'boolean'],
-            'apoio' => ['nullable', 'boolean'], 'cor' => ['nullable', 'string', 'max:20']]);
+            'apoio' => ['nullable', 'boolean'], 'cor' => ['nullable', 'string', 'max:20'],
+            // Fase J: utilizador responsável e utilizadores da unidade (nomes de utilizador com acesso à empresa; validados no serviço)
+            'utilizador_responsavel' => ['sometimes', 'nullable', 'string', 'max:100'], 'utilizadores' => ['sometimes', 'nullable', 'array', 'max:50'], 'utilizadores.*' => ['string', 'max:100']]);
         $u = $unidade ? UnidadeOrganica::query()->findOrFail($unidade) : null;
         $res = $this->estrutura->guardarUnidade($d, $u);
 
@@ -95,7 +110,7 @@ final class EstruturaController extends Controller
 
     public function chefia(int $colaborador): JsonResponse
     {
-        $this->exigir('est_estrutura_view', 'colaboradores_view');
+        $this->exigir(...self::VER);
         $chefe = $this->estrutura->chefiaDe($colaborador);
 
         return RespostaApi::sucesso(['colaborador_id' => $colaborador, 'chefia_colaborador_id' => $chefe, 'equipa_directa' => $this->estrutura->equipaDirecta($colaborador)],

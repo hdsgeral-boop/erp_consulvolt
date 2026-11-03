@@ -3,6 +3,7 @@
 namespace App\Services\Gestao\Fluxos\Avaliadores;
 
 use App\Services\RH\ServicoFerias;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -10,11 +11,17 @@ use Illuminate\Support\Facades\DB;
  * corrente para todos os activos e os anos anteriores (até ao ano passado) de quem tem períodos. Etapas: direito anual →
  * marcação → aprovação da chefia (pedidos do portal) → aprovação do RH → gozo → saldo do ano. Regras do legado: o ano
  * fechado sem férias marcadas e o saldo negativo bloqueiam; períodos aprovados já terminados são para marcar como gozados.
- * O direito do ano segue a regra do módulo (ServicoFerias::direito, ADR-039: o último direito gravado; 22 por omissão),
- * lido aqui de uma só vez para todos os planos. O legado lia o direito do último período por data de início.
+ * O direito do ano segue a regra do módulo (ServicoFerias::direitoDoAno — Fase J/ADR-078: o último direito gravado ou, sem
+ * registo, o cálculo da LGT com o transporte do ano anterior; antes era «gravado ou 22»). O legado lia o direito do último
+ * período por data de início.
  */
 final class FluxoFerias extends AvaliadorFluxo
 {
+    public function __construct(ContextoEmpresa $contexto, private readonly ServicoFerias $ferias)
+    {
+        parent::__construct($contexto);
+    }
+
     public function temActividade(): bool
     {
         $e = $this->empresa();
@@ -50,7 +57,7 @@ final class FluxoFerias extends AvaliadorFluxo
         foreach ($chaves as $k => [$c, $ano]) {
             $ps = $porColabAno[$k] ?? collect();
             $validos = $ps->where('estado', '<>', 'CANCELADO');
-            $direito = (int) ($direitos[$k]->direito ?? ServicoFerias::DIREITO_PADRAO);
+            $direito = isset($direitos[$k]) ? (int) $direitos[$k]->direito : $this->ferias->calculoDireito((int) $c->id, $ano)['total'];
             $dias = fn ($f) => (int) $validos->filter($f)->sum('dias');
             $marcados = $dias(fn () => true);
             $gozados = $dias(fn ($p) => $p->estado === 'GOZADO');
@@ -60,7 +67,7 @@ final class FluxoFerias extends AvaliadorFluxo
             $reqs = $pedPorColabAno[$k] ?? collect();
             $listaP = $ps->map(fn ($p) => self::data($p->data_inicio).' a '.self::data($p->data_fim)." ({$p->dias} d, ".mb_strtolower((string) $p->estado).')')->implode('; ');
             $E = [];
-            $E['direito'] = self::feito("{$direito} dias úteis", [self::f('Direito', "{$direito} dias úteis"), self::f('Origem', isset($direitos[$k]) ? 'Programa de férias' : 'Valor padrão')], [self::accao('Programa de férias', 'rh_ferias')]);
+            $E['direito'] = self::feito("{$direito} dias úteis", [self::f('Direito', "{$direito} dias úteis"), self::f('Origem', isset($direitos[$k]) ? 'Programa de férias' : 'Lei Geral do Trabalho (com transporte)')], [self::accao('Programa de férias', 'rh_ferias')]);
             if (! $marcados) {
                 $E['marcacao'] = $fechado
                     ? self::etapa('bloqueada', 'Sem férias marcadas', [], [self::erro("O ano {$ano} terminou sem férias marcadas ({$direito} dias de direito).")], [self::accao('Programa de férias', 'rh_ferias', true)])

@@ -67,3 +67,16 @@ describe('Regras do assunto 5W1H', () => {
     expect(resumoCusto(lista)).toEqual({ total: 175.5, comprometido: 100, rascunho: 25, cancelado: 50.5 });
   });
 });
+
+describe('Fase J — departamento pela unidade orgânica', () => {
+  it('«Por departamento» agrupa pela unidade orgânica quando existe, senão pela unidade de negócio; «onde» junta as duas', () => {
+    const lista = [
+      linha({ id: 1, unidade_negocio_nome: 'Oficina', unidade_organica_nome: 'Direcção Técnica', custo_estimado: '10.00' }),
+      linha({ id: 2, unidade_negocio_nome: 'Oficina', custo_estimado: '20.00' }),
+      linha({ id: 3, local_tipo: 'EXTERNO', cliente_nome: 'Cliente Fictício', unidade_negocio_nome: null, unidade_organica_nome: 'Direcção Comercial', custo_estimado: '5.00' }),
+    ];
+    expect(agrupar(lista, 'departamento').map((g) => [g.chave, g.itens.map((a) => a.id)])).toEqual([['Direcção Comercial', [3]], ['Direcção Técnica', [1]], ['Oficina', [2]]]);
+    expect(onde(lista[0])).toBe('Direcção Técnica · Oficina');
+    expect(onde(lista[1])).toBe('Oficina');
+  });
+});

@@ -1,4 +1,4 @@
-import { Alert, Button, Checkbox, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Tabs, theme } from 'antd';
+import { Alert, AutoComplete, Button, Checkbox, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Tabs, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -17,6 +17,11 @@ import { ModalVariasUnidades, useEstruturaBase } from './comum/ModaisCriacao';
 import { TIPOS_UNIDADE, aplanar, construirArvore, descendentes, tipoInfo, type Estrutura as DadosEstrutura, type NoUnidade, type Posto, type Unidade } from './comum/arvore';
 import { caminho, estadoVagas, linhasMembros, mapaSalarios, nomePosto, ocupantesPorPosto, type ColaboradorEstrutura, type SalariosApi } from './comum/legado';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { TarefasUnidade } from './tarefas/TarefasUnidade';
+import { arrumarUnidade } from './tarefas/api';
+import { useMutacao } from './tarefas/comum';
+import type { AccaoArrumar } from './tarefas/tipos';
+import type { UtilizadorEmpresa } from '@/modulos/rh/api';
 import './comum/estrutura.css';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
@@ -57,7 +62,37 @@ const PROPS_SIM_NAO = { valuePropName: 'checked', getValueProps: (v: unknown) =>
 
 /** Unidade orgânica: corpo do pedido comum à grade e à vista Linhas (cor só em texto; apoio e activa em booleano). */
 export function dadosUnidade(v: Record<string, unknown>): Record<string, unknown> {
-  return { ...v, cor: typeof v.cor === 'string' && v.cor ? v.cor : null, apoio: simNao(v.apoio), ativo: simNao(v.ativo, true) };
+  const d: Record<string, unknown> = { ...v, cor: typeof v.cor === 'string' && v.cor ? v.cor : null, apoio: simNao(v.apoio), ativo: simNao(v.ativo, true) };
+  // Fase J: utilizador responsável e utilizadores da unidade (nomes de utilizador); só se o formulário os tiver
+  if ('utilizador_responsavel' in v) d.utilizador_responsavel = typeof v.utilizador_responsavel === 'string' && v.utilizador_responsavel.trim() ? v.utilizador_responsavel.trim() : null;
+  if ('utilizadores' in v) d.utilizadores = Array.isArray(v.utilizadores) ? v.utilizadores.map(String).filter(Boolean) : [];
+  return d;
+}
+
+/** Utilizadores da empresa (GET /rh/portal/utilizadores) para os campos da unidade; sem permissão, os campos aceitam o nome escrito. */
+function useUtilizadoresEmpresa(activo: boolean) {
+  return useQuery({ queryKey: ['rh', 'portal', 'utilizadores'], queryFn: () => obter<UtilizadorEmpresa[]>('/rh/portal/utilizadores'), enabled: activo, retry: false, staleTime: 5 * 60_000 });
+}
+
+/** Botões «arrumar» da unidade seleccionada (estrutura_ui.js estArrumar, 371-405): trás, frente, subir, descer e apoio. */
+const ACCOES_ARRUMAR: { accao: AccaoArrumar; icone: string; titulo: string }[] = [
+  { accao: 'TRAS', icone: 'arrow-left', titulo: 'Trás: troca a ordem com a unidade anterior do mesmo grupo' },
+  { accao: 'FRENTE', icone: 'arrow-right', titulo: 'Frente: troca a ordem com a unidade seguinte do mesmo grupo' },
+  { accao: 'SUBIR', icone: 'arrow-up', titulo: 'Subir: passa a reportar à unidade acima da actual (avô)' },
+  { accao: 'DESCER', icone: 'arrow-down', titulo: 'Descer: passa a reportar à unidade irmã anterior' },
+  { accao: 'APOIO', icone: 'user-tie', titulo: 'Alternar a marcação de unidade de apoio (staff / assessoria)' },
+];
+
+function BotoesArrumar({ unidade }: { unidade: Unidade }) {
+  const accao = useMutacao((a: AccaoArrumar) => arrumarUnidade(unidade.id, a), { invalidar: CHAVES });
+  return (
+    <Space.Compact size="small" title="Arrumar a unidade no organigrama">
+      {ACCOES_ARRUMAR.map((a) => (
+        <Button key={a.accao} size="small" icon={<Icone nome={a.icone} />} title={a.titulo} aria-label={`Arrumar: ${a.accao.toLowerCase()}`} loading={accao.isPending && accao.variables === a.accao}
+          type={a.accao === 'APOIO' && unidade.apoio ? 'primary' : 'default'} onClick={() => accao.mutate(a.accao)} />
+      ))}
+    </Space.Compact>
+  );
 }
 
 /** Cargo (posto) da unidade: corpo do pedido comum à grade e à vista Linhas. */
@@ -286,6 +321,7 @@ function PainelEstrutura({ arvore, dados, aCarregar, seleccionada, seleccionar, 
             </div>
             {editar && (
               <div className="est-accoes">
+                <BotoesArrumar unidade={u} />
                 <Button size="small" icon={<Icone nome="plus" />} onClick={() => editarUnidade('nova', u.id)}>Subunidade</Button>
                 <Button size="small" icon={<Icone nome="layer-group" />} title="Criar várias subunidades desta unidade de uma só vez" onClick={() => variasUnidades(u.id)}>Várias subunidades</Button>
                 <Button size="small" icon={<Icone nome="edit" />} onClick={() => editarUnidade(u, u.unidade_organica_pai_id)}>Editar</Button>
@@ -366,6 +402,9 @@ function PainelEstrutura({ arvore, dados, aCarregar, seleccionada, seleccionar, 
             </div>
           ) : <p style={{ color: '#64748b', fontSize: '0.84rem' }}>Sem colaboradores afectos.</p>}
 
+          {/* Fase J: tarefas da unidade com entregáveis mensuráveis (estrutura_tarefas_ui.js seccao) */}
+          <TarefasUnidade unidade={u} />
+
           {actual.filhos.length > 0 && (
             <>
               <h4 className="est-h4">Subunidades</h4>
@@ -392,14 +431,17 @@ function FormUnidade({ edicao, arvore, aoFechar }: { edicao: { unidade: Unidade 
   const un = useUnidadesNegocio(!!unidade);
   const cc = useTabelaAux('centros-custo', !!unidade);
   const colaboradores = useColaboradores();
+  const utilizadores = useUtilizadoresEmpresa(!!unidade);
   const accao = useAccao<{ id: number }>({ invalidar: CHAVES, aoSucesso: (d) => aoFechar(d?.id) });
   const nova = unidade === 'nova';
+  const opcoesUtilizadores = (utilizadores.data ?? []).filter((x) => x.ativo).map((x) => ({ value: x.nome_utilizador, label: `${x.nome_utilizador}${x.nome_completo ? ` — ${x.nome_completo}` : ''}` }));
   const proibidos = unidade && unidade !== 'nova' ? descendentes(arvore, unidade.id) : new Set<number>();
   const cams = useMemo(() => caminhos(arvore), [arvore]);
   useEffect(() => {
     if (!edicao) return;
     form.resetFields();
-    form.setFieldsValue(edicao.unidade === 'nova' ? { unidade_organica_pai_id: edicao.pai, tipo: 'DEPARTAMENTO', ativo: 1, apoio: 0 } : { ...edicao.unidade, apoio: !!edicao.unidade.apoio });
+    form.setFieldsValue(edicao.unidade === 'nova' ? { unidade_organica_pai_id: edicao.pai, tipo: 'DEPARTAMENTO', ativo: 1, apoio: 0, utilizadores: [] }
+      : { ...edicao.unidade, apoio: !!edicao.unidade.apoio, utilizador_responsavel: edicao.unidade.utilizador_responsavel ?? undefined, utilizadores: edicao.unidade.utilizadores ?? [] });
   }, [edicao, form]);
   const opcoesTipo = Object.entries(TIPOS_UNIDADE).map(([value, label]) => ({ value, label }));
   const opcoesPai = aplanar(arvore).filter((n) => !proibidos.has(n.unidade.id)).map((n) => ({ value: n.unidade.id, label: cams.get(n.unidade.id) ?? n.unidade.nome }));
@@ -440,6 +482,21 @@ function FormUnidade({ edicao, arvore, aoFechar }: { edicao: { unidade: Unidade 
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}><Form.Item name="colaborador_responsavel_id" label="Responsável (colaborador)"><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Utilizadores da unidade" recolhida={nova}>
+          {/* Fase J: nomes de utilizador com acesso à empresa (o servidor valida); a lista vem do portal quando há permissão, senão escreve-se o nome */}
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="utilizador_responsavel" label="Utilizador responsável" extra="Nome de utilizador com acesso à empresa.">
+                <AutoComplete allowClear options={opcoesUtilizadores} filterOption={(t, o) => String(o?.label ?? '').toLowerCase().includes(t.toLowerCase())} placeholder="— nenhum —" maxLength={100} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="utilizadores" label="Utilizadores" extra="Utilizadores que trabalham nesta unidade (escreva o nome e carregue em Enter).">
+                <Select mode="tags" allowClear options={opcoesUtilizadores} tokenSeparators={[',', ';']} placeholder="— nenhum —" />
+              </Form.Item>
+            </Col>
           </Row>
         </SeccaoFormulario>
         <SeccaoFormulario titulo="Centro de custo e unidade de negócio">

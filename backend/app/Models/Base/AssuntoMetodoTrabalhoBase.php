@@ -28,7 +28,7 @@ abstract class AssuntoMetodoTrabalhoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'titulo', 'descricao', 'responsaveis', 'responsavel_principal', 'responsavel_principal_ref', 'data_inicio', 'data_fim', 'local_tipo', 'unidade_negocio_id', 'cliente_id', 'encomenda', 'morada', 'fundamentacao', 'causa_raiz', 'recursos', 'custo_estimado', 'codigo_moeda', 'gerar_pedido_compra', 'anexos', 'atualizado_por', 'numero', 'estado', 'criado_por', 'metodo_resolucao', 'projeto_id', 'projeto_modo', 'deliberacao', 'pedido_compra_id', 'concluido_em', 'concluido_por', 'cancelado_em', 'cancelado_por', 'motivo_cancelamento', 'centro_custo_id', 'encomenda_venda_id', 'linhas_pedido_compra',
+        'empresa_id', 'titulo', 'descricao', 'responsaveis', 'responsavel_principal', 'responsavel_principal_ref', 'data_inicio', 'data_fim', 'local_tipo', 'unidade_negocio_id', 'cliente_id', 'encomenda', 'morada', 'fundamentacao', 'causa_raiz', 'recursos', 'custo_estimado', 'codigo_moeda', 'gerar_pedido_compra', 'anexos', 'atualizado_por', 'numero', 'estado', 'criado_por', 'metodo_resolucao', 'projeto_id', 'projeto_modo', 'deliberacao', 'pedido_compra_id', 'concluido_em', 'concluido_por', 'cancelado_em', 'cancelado_por', 'motivo_cancelamento', 'centro_custo_id', 'encomenda_venda_id', 'linhas_pedido_compra', 'unidade_organica_id',
     ];
 
     protected function casts(): array

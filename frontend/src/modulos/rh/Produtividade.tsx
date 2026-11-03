@@ -25,6 +25,8 @@ import {
   type ExplicacaoCalculo, type LinhaResumoProdutividade, type MetricasProdutividade, type ValoresSimulacao,
 } from './produtividade/regrasProdutividade';
 import { PonteProdutividade } from '@/modulos/projectos/comum/PonteProdutividade';
+import { EntregaveisUnidades } from './produtividade/EntregaveisUnidades';
+import { Elegibilidade } from './produtividade/Elegibilidade';
 import { campoSimNao, dataDe, numeroDe, textoDe } from './comum/linhasRh';
 
 /** Métricas e bases de cálculo descritas pelo servidor (GET /rh/produtividade/metricas — a mesma fonte da explicação do cálculo). */
@@ -88,6 +90,9 @@ const SEPARADORES = [
   ['elegiveis', 'Colaboradores elegíveis', 'user-check'],
   // Versão Actual (produtividade_projectos.js:251-386): horas, quantidades medidas e tarefas concluídas dos projectos
   ['projectos', 'Execução de projectos', 'hard-hat'],
+  // Fase J (estrutura_tarefas_ui.js aba, 842-870; db_v2.js v1284): entregáveis das unidades orgânicas e elegibilidade fora do contrato
+  ['entregaveis', 'Entregáveis das unidades', 'exchange-alt'],
+  ['elegibilidade', 'Elegibilidade', 'user-plus'],
   ['periodos', 'Períodos', 'list'],
 ] as const;
 type Separador = (typeof SEPARADORES)[number][0];
@@ -124,8 +129,10 @@ function EcraProdutividade() {
         items={SEPARADORES.map(([k, rotulo, icone]) => ({ key: k, label: <span><IconeFa nome={icone} /> {rotulo}</span> }))} />
       {sep === 'itens' && <ItensProdutividade />}
       {sep === 'projectos' && <ExecucaoProjectos />}
+      {sep === 'entregaveis' && <EntregaveisUnidades periodos={periodos.data ?? []} periodoInicial={periodoId} />}
+      {sep === 'elegibilidade' && <Elegibilidade />}
       {sep === 'periodos' && <ListaPeriodos aoAbrir={(pid) => { irPara(pid); setSep('registos'); }} />}
-      {sep !== 'itens' && sep !== 'periodos' && sep !== 'projectos' && (periodoId === undefined
+      {sep !== 'itens' && sep !== 'periodos' && sep !== 'projectos' && sep !== 'entregaveis' && sep !== 'elegibilidade' && (periodoId === undefined
         ? <Card loading={periodos.isLoading}>{!periodos.isLoading && <Alert type="info" showIcon title="Crie primeiro o período de cálculo da produtividade (botão «Novo período»)." />}</Card>
         : <PainelPeriodo id={periodoId} separador={sep} />)}
       <NovoPeriodo aberto={novo} aoFechar={() => setNovo(false)} aoCriar={(p) => { setNovo(false); irPara(p.id); setSep('registos'); }} />
@@ -348,7 +355,7 @@ interface ValoresRegisto {
 }
 
 /** Separadores que dependem do período: registos, resumo, importar e colaboradores elegíveis. */
-function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separador, 'itens' | 'periodos'> }) {
+function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separador, 'itens' | 'periodos' | 'projectos' | 'entregaveis' | 'elegibilidade'> }) {
   const { pode } = useSessao();
   const q = useDetalhe(id);
   const itens = useQuery({ queryKey: ['rh', 'produtividade', 'itens'], queryFn: () => obter<ItemProdutividade[]>('/rh/produtividade/itens') });

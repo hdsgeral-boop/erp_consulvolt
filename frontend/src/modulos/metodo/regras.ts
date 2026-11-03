@@ -87,8 +87,8 @@ export function tarefasDosRecursos(recursos: string | null | undefined, titulo: 
 }
 
 /** Onde (WHERE) em texto: unidade de negócio ou cliente · encomenda. */
-export function onde(a: Pick<ResumoAssunto, 'local_tipo' | 'unidade_negocio_nome' | 'cliente_nome' | 'encomenda'>): string {
-  if (a.local_tipo === 'INTERNO') return a.unidade_negocio_nome ?? '—';
+export function onde(a: Pick<ResumoAssunto, 'local_tipo' | 'unidade_negocio_nome' | 'cliente_nome' | 'encomenda' | 'unidade_organica_nome'>): string {
+  if (a.local_tipo === 'INTERNO') return [a.unidade_organica_nome, a.unidade_negocio_nome].filter(Boolean).join(' · ') || '—';
   if (a.local_tipo === 'EXTERNO') return `${a.cliente_nome ?? '—'}${a.encomenda ? ` · ${a.encomenda}` : ''}`;
   return '—';
 }
@@ -96,7 +96,8 @@ export function onde(a: Pick<ResumoAssunto, 'local_tipo' | 'unidade_negocio_nome
 /** Agrupamento das vistas por departamento / cliente / responsável (desenharVista, assuntos_ui.js:96-99). */
 export function agrupar(lista: ResumoAssunto[], vista: Vista): { chave: string; itens: ResumoAssunto[]; custo: number }[] {
   const chaveDe: Partial<Record<Vista, (a: ResumoAssunto) => string>> = {
-    departamento: (a) => (a.local_tipo === 'INTERNO' ? a.unidade_negocio_nome ?? '—' : '— externos —'),
+    // Fase J: o departamento é a unidade orgânica quando está preenchida; senão a unidade de negócio (como no legado)
+    departamento: (a) => a.unidade_organica_nome || (a.local_tipo === 'INTERNO' ? a.unidade_negocio_nome ?? '—' : '— externos —'),
     cliente: (a) => (a.local_tipo === 'EXTERNO' ? onde(a) : '— internos —'),
     responsavel: (a) => a.responsavel_principal_nome || '—',
     prazo: (a) => (a.data_fim ?? '').slice(0, 7),

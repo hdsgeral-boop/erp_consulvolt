@@ -2,6 +2,7 @@
 
 namespace App\Services\Gestao\Paineis;
 
+use App\Services\Estrutura\ServicoEntregaveis;
 use App\Services\RH\ServicoEstruturaOrg;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class PainelEstrutura implements Painel
 {
-    public function __construct(private readonly ConsultasPaineis $consultas, private readonly ServicoEstruturaOrg $estrutura) {}
+    public function __construct(private readonly ConsultasPaineis $consultas, private readonly ServicoEstruturaOrg $estrutura, private readonly ServicoEntregaveis $entregaveis) {}
 
     public function filtraDimensoes(): bool
     {
@@ -63,12 +64,17 @@ final class PainelEstrutura implements Painel
         $semResp = $unidades->filter(fn ($u) => ! in_array($u['ativo'] ?? true, [false, 0, '0'], true) && empty($u['colaborador_responsavel_id']))->count();
         $activos = $unidades->sum('membros') + (int) $a['sem_unidade'];
 
+        // Fase J: entregáveis das unidades — em atraso (só com alerta) e entregas por validar (PENDENTES de toda a empresa)
+        $atrasos = count($this->entregaveis->entregaveisEmAtraso(['soComAlerta' => true]));
+        $porValidar = DB::table('execucoes_entregavel')->where('empresa_id', $this->consultas->empresa())->where('validacao', 'PENDENTE')->whereNull('periodo_produtividade_id')->count();
         $kpis = [
             Indicadores::kpi('unidades', 'Unidades Orgânicas', $unidades->count(), 'num', "{$semResp} sem responsável"),
             Indicadores::kpi('vagas_previstas', 'Vagas Previstas', (int) $postos->sum('vagas'), 'num'),
             Indicadores::kpi('vagas_em_aberto', 'Vagas em Aberto', (int) $postos->sum('livres'), 'num'),
             Indicadores::kpi('acima_vagas', 'Acima das Vagas', (int) $postos->sum($acima), 'num'),
             Indicadores::kpi('sem_unidade', 'Colaboradores sem Unidade', (int) $a['sem_unidade'], 'num', "{$activos} activos"),
+            Indicadores::kpi('entregaveis_atraso', 'Entregáveis em atraso', $atrasos, 'num', 'Só os marcados para avisar'),
+            Indicadores::kpi('entregas_validar', 'Entregas por validar', $porValidar, 'num'),
         ];
         $graficos = [Indicadores::grafico('pessoas_unidade', 'Pessoas por Unidade (1.º nível)', 'barras', $tot1->pluck('rotulo')->all(), [
             Indicadores::serie('pessoas', 'Pessoas', $tot1->pluck('pessoas')->all()), Indicadores::serie('em_aberto', 'Vagas em aberto', $tot1->pluck('em_aberto')->all())], false)];

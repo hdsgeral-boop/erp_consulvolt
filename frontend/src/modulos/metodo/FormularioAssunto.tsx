@@ -21,6 +21,7 @@ interface Campos {
   data_fim?: Dayjs | null;
   local_tipo?: LocalTipo;
   unidade_negocio_id?: number;
+  unidade_organica_id?: number;
   cliente_id?: number;
   encomenda?: string;
   morada?: string;
@@ -120,7 +121,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
     form.setFieldsValue({
       titulo: a.titulo ?? '', descricao: a.descricao ?? undefined,
       data_inicio: a.data_inicio ? dayjs(a.data_inicio) : null, data_fim: a.data_fim ? dayjs(a.data_fim) : null,
-      local_tipo: a.local_tipo ?? undefined, unidade_negocio_id: a.unidade_negocio_id ?? undefined, cliente_id: a.cliente_id ?? undefined,
+      local_tipo: a.local_tipo ?? undefined, unidade_negocio_id: a.unidade_negocio_id ?? undefined, unidade_organica_id: a.unidade_organica_id ?? undefined, cliente_id: a.cliente_id ?? undefined,
       encomenda: a.encomenda ?? undefined, morada: a.morada ?? undefined, fundamentacao: a.fundamentacao ?? undefined, causa_raiz: a.causa_raiz ?? undefined,
       recursos: a.recursos ?? undefined, custo_estimado: a.custo_estimado ? Number(a.custo_estimado) : undefined, codigo_moeda: a.codigo_moeda ?? 'AOA',
       metodo_resolucao: a.metodo_resolucao ?? 'ACCAO', projeto_modo: a.projeto_modo ?? 'NOVO', projeto_id: a.projeto_id ?? undefined,
@@ -145,7 +146,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
     return {
       titulo: v.titulo ?? '', descricao: v.descricao ?? null, responsaveis: resp, responsavel_principal: principal,
       data_inicio: dataApi(v.data_inicio ?? null) ?? null, data_fim: dataApi(v.data_fim ?? null) ?? null,
-      local_tipo: v.local_tipo ?? null, unidade_negocio_id: v.unidade_negocio_id ?? null, cliente_id: v.cliente_id ?? null,
+      local_tipo: v.local_tipo ?? null, unidade_negocio_id: v.unidade_negocio_id ?? null, unidade_organica_id: v.unidade_organica_id ?? null, cliente_id: v.cliente_id ?? null,
       encomenda: v.encomenda ?? null, morada: v.morada ?? null, fundamentacao: v.fundamentacao ?? null, causa_raiz: v.causa_raiz ?? null,
       recursos: v.recursos ?? null, custo_estimado: v.custo_estimado ?? null, codigo_moeda: v.codigo_moeda || 'AOA',
       metodo_resolucao: v.metodo_resolucao ?? 'ACCAO', projeto_modo: v.projeto_modo ?? 'NOVO', projeto_id: v.projeto_id ?? null,
@@ -297,6 +298,10 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
                   <Col span={10}><Form.Item name="encomenda" label="Encomenda"><Input /></Form.Item></Col>
                 </Row>
               )}
+              {/* Fase J: departamento = unidade orgânica (opcional); a vista «Por departamento» agrupa por ela */}
+              <Form.Item name="unidade_organica_id" label="Departamento (unidade orgânica)">
+                <Select allowClear showSearch optionFilterProp="label" placeholder="— opcional —" options={o?.unidades_organicas?.map((u) => ({ value: u.id, label: u.caminho || u.nome })) ?? []} />
+              </Form.Item>
               <Form.Item name="morada" label="Local físico / endereço (opcional)" style={{ marginBottom: 0 }}><Input /></Form.Item>
             </Bloco>
 

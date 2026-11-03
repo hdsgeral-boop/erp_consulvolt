@@ -56,6 +56,7 @@ final class AssuntosMetodoController extends Controller
             'fornecedores' => $terceiros->filter(fn ($t) => $t->eFornecedor())->values()->map->only(['id', 'nome', 'nif']),
             'clientes' => $terceiros->filter(fn ($t) => $t->eCliente())->values()->map->only(['id', 'nome', 'nif']),
             'unidades_negocio' => UnidadeNegocio::query()->orderBy('codigo')->get(['id', 'codigo', 'nome']),
+            'unidades_organicas' => $this->assuntos->unidadesOrganicas(),   // Fase J: departamento (unidade orgânica) no WHERE
             'centros_custo' => CentroCusto::query()->orderBy('codigo')->get(['id', 'codigo', 'descricao']),
             'pode_criar' => $this->pode(self::CRIAR),
             'gestor' => $this->assuntos->eGestor(),
@@ -192,6 +193,7 @@ final class AssuntosMetodoController extends Controller
             'data_fim' => ['nullable', 'date_format:Y-m-d'],
             'local_tipo' => ['nullable', Rule::in(AssuntoMetodoTrabalho::LOCAIS)],
             'unidade_negocio_id' => ['nullable', 'integer', 'min:1'],
+            'unidade_organica_id' => ['nullable', 'integer', 'min:1'],
             'cliente_id' => ['nullable', 'integer', 'min:1'],
             'encomenda' => ['nullable', 'string', 'max:255'],
             'morada' => ['nullable', 'string', 'max:500'],

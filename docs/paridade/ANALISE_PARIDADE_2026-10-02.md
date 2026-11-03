@@ -138,6 +138,7 @@
 | Avaliação de desempenho e itens | `avaliacao.js` | `/rh/avaliacao/avaliacoes`, `/itens` | MIGRADO | — |
 | Ciclos 360º, parecer, bonificações (calcular, aprovar, lançar, anular) | `aval360_*.js` | `/rh/avaliacao/ciclos/*`, `bonificacoes/*` | MIGRADO | — |
 | Portal do colaborador (férias, ausências, documentos, agregado, autoavaliação, ascendente, recibos) | `portal_*.js` | `/rh/portal/*`, `Portal.tsx`, `PortalAvaliacao.tsx` | MIGRADO | — |
+| **Portal — Fase J (ADR-078, 2026-11-08):** Entregáveis (meus, registar, reenviar, impedimentos), Aprovações por secções (entregas por validar, impedimentos, atrasos, equipa directa, férias da equipa, painel «Analisar» do pedido, decisão de compras pelo portal), lista branca do subdomínio corrigida | `portal_ui.js:120-125, 792-900, 1091-1530`, `portal_dados.js:492-499` | `/rh/portal/entregaveis*`, `/rh/portal/aprovacoes/*`, `/rh/portal/equipa*`, `/rh/portal/pedidos/{id}/analise`, `/rh/portal/compras/{pedido}/decidir`, `resumo.aprovacoes_detalhe` | MIGRADO (backend) | Ecrãs em curso |
 | Pedidos do portal (decidir, emitir, modelos, ligar utilizadores) | `portalAprovarEmitir`, `portalGravarModelo`, `portalLigarUtilizador` | `/rh/portal/pedidos/*`, `/modelos`, `/ligacoes`, `PortalGestao.tsx` | MIGRADO | — |
 | Fluxo RH no Fluxo de Processos | `fluxo_rh.js` | `/gestao/fluxos/{fluxo}` | MIGRADO | — |
 
@@ -162,6 +163,8 @@
 | Férias, avaliação, mapa de pessoal: exportar Excel | `ferias.js:589`, `avaliacao.js:1033`, `estrutura_ui.js:714` | Impressão/PDF ou CSV | PARCIAL | `.xlsx` (baixa) |
 
 ### 1.1 Estrutura Orgânica
+
+> **Actualização 2026-11-08 (Fase J, ADR-078):** passaram a MIGRADO as tarefas das unidades com entregáveis mensuráveis (`org_unit_tasks`, `org_task_deliverables`, `org_task_executions`, `org_task_impediments` → `/rh/estrutura/unidades/{u}/tarefas`, `/tarefas`, `/entregaveis/*`, `/execucoes/*`, `/impedimentos/*`, `/entregaveis/atrasos`, ponte CRM `/entregaveis/{e}/crm/*` e conversão `/rh/produtividade/periodos/{p}/entregaveis/*`), a elegibilidade de produtividade fora do contrato (`rh_prod_eligibility` → `/rh/produtividade/elegibilidade`), o arrumar do organigrama (`estArrumar` → `POST /rh/estrutura/unidades/{u}/arrumar`), os campos `utilizador_responsavel`/`utilizadores` da unidade e a leitura da estrutura e dos colaboradores só com `est_organigrama_view`. Continua em falta: criação múltipla de unidades, estrutura base e disposição em coluna (baixa).
 
 | Item legado | Legado | Equivalente novo | Estado | O que falta |
 |---|---|---|---|---|

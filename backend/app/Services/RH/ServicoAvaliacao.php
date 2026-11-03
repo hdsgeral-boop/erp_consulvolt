@@ -9,6 +9,7 @@ use App\Models\BonificacaoAvaliacaoRH;
 use App\Models\CicloAvaliacao360;
 use App\Models\Colaborador;
 use App\Models\CriterioAvaliacaoRH;
+use App\Services\Estrutura\ServicoEntregaveis;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +40,7 @@ final class ServicoAvaliacao
     public function __construct(
         private readonly ServicoEstruturaOrg $estrutura,
         private readonly ServicoPortalColaborador $portal,
+        private readonly ServicoEntregaveis $entregaveis,
     ) {}
 
     // ───────────── Cálculo ─────────────
@@ -105,6 +107,33 @@ final class ServicoAvaliacao
         return CriterioAvaliacaoRH::query()->where('ativo', true)->where('tipo', $tipo)
             ->where(fn ($q) => $q->where('ambito', 'COMUM')->orWhere(fn ($x) => $x->where('ambito', 'ESPECIFICO')->where('colaborador_id', $colaborador)))
             ->orderBy('ordem')->ordenarPorNome()->get()->all();
+    }
+
+    /**
+     * Objectivos quantitativos virtuais dos entregáveis das unidades marcados para avaliação e executados pela pessoa no intervalo
+     * do período (Fase J, ADR-078): chave ENT-<id>, âmbito ENTREGAVEL, atingido = Σ entregas que contam. Nunca se gravam em
+     * criterios_avaliacao_rh. Isolado: uma falha na estrutura não impede a avaliação.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function objectivosEntregaveis(int $colaborador, int $ano, string $periodo): array
+    {
+        try {
+            [$de, $ate] = ServicoAvaliacao360::datasPeriodo($ano, $periodo);
+
+            return $this->entregaveis->objectivosAvaliacao($colaborador, $de, $ate);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /** Objectivos aplicáveis a um colaborador no período: itens OBJECTIVO (comuns + específicos) e os virtuais ENT-* dos entregáveis. @return list<mixed> */
+    public function objectivosDe(int $colaborador, int $ano, string $periodo): array
+    {
+        return array_merge(array_map(fn ($i) => $i->toArray() + ['virtual' => false], $this->itensDe($colaborador, 'OBJECTIVO')),
+            array_map(fn ($o) => $o + ['virtual' => true, 'tipo' => 'OBJECTIVO', 'nome' => $o['descricao']], $this->objectivosEntregaveis($colaborador, $ano, $periodo)));
     }
 
     public function guardarItem(array $d, ?CriterioAvaliacaoRH $i = null): CriterioAvaliacaoRH
@@ -189,6 +218,16 @@ final class ServicoAvaliacao
                     'atingido' => $r['atingido'] ?? null, 'nota_qual' => $r['nota_qual'] ?? null, 'comentario' => $r['comentario'] ?? null,
                     'resultado' => $qual ? self::resultadoQualitativo($r['nota_qual'] ?? null) : self::resultadoQuantitativo($r['atingido'] ?? null, $i->meta, $i->sentido)];
             })->values()->all();
+            // Fase J (ADR-078): objectivos virtuais ENT-* dos entregáveis executados no período (nunca gravados em criterios_avaliacao_rh);
+            // um `atingido` indicado à mão (ou já gravado) prevalece sobre a soma das entregas
+            $gravados = collect($a?->objetivos ?? [])->keyBy('chave');
+            foreach ($this->objectivosEntregaveis($colab->id, (int) $d['ano'], (string) $d['periodo']) as $o) {
+                $r = $res[$o['chave']] ?? [];
+                $manual = array_key_exists('atingido', $r) && $r['atingido'] !== null && $r['atingido'] !== '' ? $r['atingido'] : ($gravados[$o['chave']]['atingido_manual'] ?? null);
+                $atingido = $manual !== null ? (float) $manual : $o['atingido'];
+                $objetivos[] = array_merge($o, ['atingido_manual' => $manual !== null ? (float) $manual : null, 'atingido_entregas' => $o['atingido'], 'comentario' => $r['comentario'] ?? ($gravados[$o['chave']]['comentario'] ?? null),
+                    'atingido' => $atingido, 'resultado' => self::resultadoQuantitativo($atingido, $o['meta'], 'MAIOR')]);
+            }
             $peso = isset($d['peso_objetivos']) && $d['peso_objetivos'] !== '' && $d['peso_objetivos'] !== null ? (float) $d['peso_objetivos'] : self::PESO_OBJECTIVOS;
             $calc = self::calcular($criterios, $objetivos, $peso);
             $concluir = ! empty($d['concluir']);
@@ -271,6 +310,11 @@ final class ServicoAvaliacao
             $res = collect($d['objetivos'] ?? [])->keyBy('chave');
             $objetivos = collect($this->itensDe($c->id, 'OBJECTIVO'))->map(fn ($i) => ['chave' => $i->chave, 'descricao' => $i->nome,
                 'resultado' => isset($res[$i->chave]['resultado']) ? max(0, min(200, (float) $res[$i->chave]['resultado'])) : null])->all();
+            // Fase J: os entregáveis executados entram na autoavaliação com o resultado calculado (atingido ÷ meta, até 200 %), salvo valor indicado
+            foreach ($this->objectivosEntregaveis($c->id, (int) $d['ano'], (string) $d['periodo']) as $o) {
+                $objetivos[] = ['chave' => $o['chave'], 'descricao' => $o['descricao'], 'ambito' => 'ENTREGAVEL', 'meta' => $o['meta'], 'unidade' => $o['unidade'], 'atingido' => $o['atingido'],
+                    'resultado' => isset($res[$o['chave']]['resultado']) ? max(0, min(200, (float) $res[$o['chave']]['resultado'])) : self::resultadoQuantitativo($o['atingido'], $o['meta'], 'MAIOR')];
+            }
             $submeter = ! empty($d['submeter']);
             if ($submeter && (collect($criterios)->contains(fn ($x) => $x['nota'] === null) || mb_strlen(trim((string) ($d['realizacoes'] ?? ''))) < 10)) {
                 throw new ErroNegocio('Para submeter, dê nota a todos os critérios e descreva as realizações (mínimo 10 caracteres).', 'AUTOAVALIACAO_INCOMPLETA', 422);

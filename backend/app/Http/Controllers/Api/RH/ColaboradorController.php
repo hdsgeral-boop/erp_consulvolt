@@ -17,7 +17,9 @@ final class ColaboradorController extends Controller
 {
     /** Consulta: a ficha e os ecrãs de RH que listam colaboradores (bancário, efectividade, produtividade, férias, avaliação, portal, mapas). */
     private const VER = ['colaboradores_view', 'contratos_view', 'calcular_view', 'processamento_view', 'bancario_view', 'rh_assiduidade_view',
-        'rh_produtividade_view', 'rh_ferias_view', 'rh_avaliacao_view', 'rh_avaliacao_ciclo_view', 'rh_portal_gestao_view', 'rh_rel_remuneracoes_view', 'rh_rel_irt_view', 'rh_rel_inss_view', 'rh_rel_pagamentos_view', 'rh_rel_banco_view', 'rh_rel_recibos_view', 'rh_recibos_emitir', 'relatorios_view'];
+        'rh_produtividade_view', 'rh_ferias_view', 'rh_avaliacao_view', 'rh_avaliacao_ciclo_view', 'rh_portal_gestao_view', 'rh_rel_remuneracoes_view', 'rh_rel_irt_view', 'rh_rel_inss_view', 'rh_rel_pagamentos_view', 'rh_rel_banco_view', 'rh_rel_recibos_view', 'rh_recibos_emitir', 'relatorios_view',
+        // Fase J (ADR-078): os ecrãs da estrutura orgânica (só leitura) também listam colaboradores (membros, responsável, organigrama nominal)
+        'est_estrutura_view', 'est_organigrama_view', 'est_mapa_view'];
 
     public function __construct(private readonly ServicoColaboradores $colaboradores) {}
 

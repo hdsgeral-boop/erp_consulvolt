@@ -72,15 +72,17 @@ final class AtividadesCRMController extends Controller
     {
         $this->exigir('crm_editar');
 
-        return RespostaApi::sucesso($this->atividades->reabrir(AtividadeComercialCRM::query()->findOrFail($atividade)), 'Actividade reaberta.');
+        $r = $this->atividades->reabrir(AtividadeComercialCRM::query()->findOrFail($atividade));
+
+        return RespostaApi::sucesso($r['atividade'], 'Actividade reaberta.'.($r['aviso'] ? ' '.$r['aviso'] : ''));
     }
 
     public function eliminar(int $atividade): JsonResponse
     {
         $this->exigir('crm_editar');
-        AtividadeComercialCRM::query()->findOrFail($atividade)->delete();
+        $aviso = $this->atividades->eliminar(AtividadeComercialCRM::query()->findOrFail($atividade));
 
-        return RespostaApi::sucesso(null, 'Actividade eliminada.');
+        return RespostaApi::sucesso(null, 'Actividade eliminada.'.($aviso ? ' '.$aviso : ''));
     }
 
     // ───────────── Emails e campanhas ─────────────

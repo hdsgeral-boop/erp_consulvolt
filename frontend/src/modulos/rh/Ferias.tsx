@@ -23,6 +23,7 @@ import { anosDisponiveis, conflitos, contaSaldo, corEstadoFerias, ESTADOS_FERIAS
 import { MapaAnualFerias } from './ferias/MapaAnualFerias';
 import { dataDe, numeroDe, opcoesColaboradores, textoDe } from './comum/linhasRh';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
+import { aplanar, construirArvore, type Estrutura } from '@/modulos/estrutura/comum/arvore';
 
 interface Plano {
   resumo: ResumoFerias[];
@@ -72,12 +73,16 @@ export default function Ferias() {
   const colaboradores = useColaboradores();
   const [ano, setAno] = useState(dayjs().year());
   const [colaborador, setColaborador] = useState<number>();
+  // Fase J: filtro por unidade orgânica (unidade + descendentes, no servidor); sem acesso à estrutura o filtro não aparece
+  const [unidade, setUnidade] = useState<number>();
+  const estrutura = useQuery({ queryKey: ['rh', 'estrutura'], queryFn: () => obter<Estrutura>('/rh/estrutura'), retry: false, staleTime: 5 * 60_000 });
+  const nos = useMemo(() => (estrutura.data?.unidades ? aplanar(construirArvore(estrutura.data.unidades)) : []), [estrutura.data]);
   const [termo, setTermo] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [edicao, setEdicao] = useState<PeriodoFerias | 'novo' | null>(null);
   const [sep, setSep] = useSeparadorUrl(['resumo', 'periodos', 'periodo-ano', 'regras']);
   const [form] = Form.useForm<ValoresFerias>();
-  const plano = useQuery({ queryKey: ['rh', 'ferias', ano, colaborador], queryFn: () => obter<Plano>('/rh/ferias', { ano, colaborador_id: colaborador }) });
+  const plano = useQuery({ queryKey: ['rh', 'ferias', ano, colaborador, unidade], queryFn: () => obter<Plano>('/rh/ferias', { ano, colaborador_id: colaborador, unidade_id: unidade }) });
   useAvisarErro(plano.error);
   const accao = useAccaoRh();
   const camposLinhas = useMemo(() => camposFerias(opcoesColaboradores(colaboradores.lista, true)), [colaboradores.lista]);
@@ -119,6 +124,7 @@ export default function Ferias() {
 
   const colResumo: ColunaApi<ResumoFerias>[] = [
     { title: 'Colaborador', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong>, sorter: (a, b) => a.nome.localeCompare(b.nome, 'pt') },
+    { title: 'Unidade', dataIndex: 'unidade', render: (v: string | null | undefined) => v ?? '—', sorter: (a, b) => (a.unidade ?? '').localeCompare(b.unidade ?? '', 'pt'), valorImpressao: (r) => r.unidade ?? '' },
     { title: 'Direito', dataIndex: 'direito', align: 'right', render: (d: number, r) => (
       <Space size={4}>{d}{r.ano_admissao && <Tooltip title="Ano de admissão: 2 dias úteis por mês completo (LGT)"><Tag color="blue">1.º ano</Tag></Tooltip>}
         {(r.transporte ?? 0) > 0 && <Tooltip title="Saldo transportado do ano anterior"><Tag color="gold">+{r.transporte}</Tag></Tooltip>}</Space>
@@ -200,7 +206,7 @@ export default function Ferias() {
         impressao={async () => ({
           titulo: 'Programa de férias',
           periodo: String(ano),
-          filtros: [colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null, termo ? `Pesquisa: ${termo}` : null],
+          filtros: [colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null, unidade ? `Unidade: ${nos.find((n) => n.unidade.id === unidade)?.unidade.nome ?? unidade}` : null, termo ? `Pesquisa: ${termo}` : null],
           conteudo: seccaoHtml('Resumo por colaborador', await htmlTabela(colResumo, resumo)) + seccaoHtml(`Períodos (${periodos.length})`, await htmlTabela(colPeriodos, periodos)),
         })}
       />
@@ -220,6 +226,10 @@ export default function Ferias() {
           <Select<number> aria-label="Ano" prefix="Ano" value={ano} onChange={setAno} style={{ width: 130 }}
             options={anosDisponiveis(dayjs().year(), ano).map((a) => ({ value: a, label: String(a) }))} />
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
+          {nos.length > 0 && (
+            <Select<number> allowClear showSearch optionFilterProp="label" placeholder="Unidade orgânica" aria-label="Unidade orgânica" style={{ width: 240 }} value={unidade} onChange={setUnidade}
+              options={nos.map((n) => ({ value: n.unidade.id, label: `${'— '.repeat(n.nivel)}${n.unidade.nome}` }))} />
+          )}
           <PesquisaLocal aoMudar={setTermo} placeholder="Pesquisar colaborador" />
           <Select<string> value={estadoFiltro} onChange={setEstadoFiltro} style={{ width: 240 }} aria-label="Estado"
             options={[{ value: '', label: 'Estado: todos' }, ...ESTADOS_FERIAS.map((e) => ({ value: e.k, label: `Com períodos: ${e.r.toLowerCase()}` })), { value: 'SEM', label: 'Sem férias planeadas' }]} />

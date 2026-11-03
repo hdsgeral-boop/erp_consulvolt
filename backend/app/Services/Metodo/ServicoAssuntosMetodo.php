@@ -12,6 +12,7 @@ use App\Models\Produto;
 use App\Models\Projeto;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
+use App\Models\UnidadeOrganica;
 use App\Models\Venda;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -50,7 +51,7 @@ final class ServicoAssuntosMetodo
     /** Campos seguidos no histórico «Alterado» (ROTULOS, :163-170). */
     private const ROTULOS = [
         'titulo' => 'Título', 'descricao' => 'Descrição', 'responsaveis' => 'Responsáveis', 'responsavel_principal' => 'Responsável principal',
-        'data_inicio' => 'Data de início', 'data_fim' => 'Data de fim', 'local_tipo' => 'Localização', 'unidade_negocio_id' => 'Unidade de negócio',
+        'data_inicio' => 'Data de início', 'data_fim' => 'Data de fim', 'local_tipo' => 'Localização', 'unidade_negocio_id' => 'Unidade de negócio', 'unidade_organica_id' => 'Departamento',
         'cliente_id' => 'Cliente', 'encomenda' => 'Encomenda', 'morada' => 'Morada', 'fundamentacao' => 'Fundamentação',
         'causa_raiz' => 'Causa raiz', 'recursos' => 'Recursos', 'custo_estimado' => 'Custo estimado', 'codigo_moeda' => 'Moeda',
         'metodo_resolucao' => 'Método de resolução', 'projeto_modo' => 'Projecto (novo ou existente)', 'projeto_id' => 'Projecto',
@@ -397,6 +398,8 @@ final class ServicoAssuntosMetodo
             'data_inicio' => self::data($d['data_inicio'] ?? null), 'data_fim' => self::data($d['data_fim'] ?? null),
             'local_tipo' => $local,
             'unidade_negocio_id' => $local === 'INTERNO' && ! empty($d['unidade_negocio_id']) ? (int) $d['unidade_negocio_id'] : null,
+            // Fase J: departamento (unidade orgânica) opcional no WHERE — o legado guardava departamento_id = org_units
+            'unidade_organica_id' => ! empty($d['unidade_organica_id']) ? (int) $d['unidade_organica_id'] : null,
             'cliente_id' => $local === 'EXTERNO' && ! empty($d['cliente_id']) ? (int) $d['cliente_id'] : null,
             'encomenda' => $txt('encomenda') ?: null, 'morada' => $txt('morada') ?: null,
             'fundamentacao' => $txt('fundamentacao') ?: null, 'causa_raiz' => $txt('causa_raiz') ?: null,
@@ -444,6 +447,9 @@ final class ServicoAssuntosMetodo
         }
         if ($r['unidade_negocio_id'] && ! UnidadeNegocio::query()->whereKey($r['unidade_negocio_id'])->exists()) {
             $falha('WHERE: a unidade de negócio não existe nesta empresa.');
+        }
+        if (! empty($r['unidade_organica_id']) && ! UnidadeOrganica::query()->whereKey($r['unidade_organica_id'])->exists()) {
+            $falha('WHERE: o departamento (unidade orgânica) não existe nesta empresa.');
         }
         if ($r['cliente_id'] && ! Terceiro::query()->find($r['cliente_id'])?->eCliente()) {
             $falha('WHERE: o terceiro escolhido não é cliente desta empresa.');
@@ -593,6 +599,35 @@ final class ServicoAssuntosMetodo
         return ['assuntos' => $linhas, 'alertas' => $this->alertas($linhas)];
     }
 
+    /**
+     * Assuntos com deliberação PENDENTE à espera da minha decisão: aprovador designado ou gestor (`mt_aprovar`), nunca o criador
+     * (Fase J — contador «Assuntos à minha espera» no Início).
+     *
+     * @return list<AssuntoMetodoTrabalho>
+     */
+    public function paraMinhaDecisao(): array
+    {
+        return AssuntoMetodoTrabalho::query()->whereNotNull('numero')->whereRaw("deliberacao->>'estado' = 'PENDENTE'")->orderBy('id')->get()
+            ->filter(fn ($a) => $this->podeDecidir($a))->values()->all();
+    }
+
+    /** Unidades orgânicas activas com o caminho na árvore (opções do formulário, vista «por departamento»). @return list<array{id: int, nome: string, caminho: string}> */
+    public function unidadesOrganicas(): array
+    {
+        $todas = UnidadeOrganica::query()->orderBy('ordem')->ordenarPorNome()->get(['id', 'nome', 'unidade_organica_pai_id', 'ativo'])->keyBy('id');
+        $caminho = function (int $id) use ($todas): string {
+            $nomes = [];
+            for ($u = $todas->get($id), $n = 0; $u && $n < 50; $u = $u->unidade_organica_pai_id ? $todas->get((int) $u->unidade_organica_pai_id) : null, $n++) {
+                array_unshift($nomes, $u->nome);
+            }
+
+            return implode(' › ', $nomes);
+        };
+
+        return $todas->filter(fn ($u) => $u->ativo !== false)->map(fn ($u) => ['id' => (int) $u->id, 'nome' => (string) $u->nome, 'caminho' => $caminho((int) $u->id)])
+            ->sortBy('caminho', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+    }
+
     /** @return array<string, mixed> */
     public function detalhe(AssuntoMetodoTrabalho $a): array
     {
@@ -616,6 +651,7 @@ final class ServicoAssuntosMetodo
     {
         return [
             'un' => UnidadeNegocio::query()->whereIn('id', $assuntos->pluck('unidade_negocio_id')->filter()->unique())->get()->mapWithKeys(fn ($u) => [$u->id => $u->nome ?? $u->descricao ?? $u->codigo])->all(),
+            'uo' => UnidadeOrganica::query()->withTrashed()->whereIn('id', $assuntos->pluck('unidade_organica_id')->filter()->unique())->pluck('nome', 'id')->all(),
             'cli' => Terceiro::query()->withTrashed()->whereIn('id', $assuntos->pluck('cliente_id')->filter()->unique())->pluck('nome', 'id')->all(),
             'proj' => Projeto::query()->whereIn('id', $assuntos->pluck('projeto_id')->filter()->unique())->get(['id', 'codigo', 'nome', 'estado'])->keyBy('id')->all(),
             'pc' => PedidoCompra::query()->whereIn('id', $assuntos->pluck('pedido_compra_id')->filter()->unique())->get(['id', 'numero_pedido', 'estado'])->keyBy('id')->all(),
@@ -633,6 +669,7 @@ final class ServicoAssuntosMetodo
             'id' => $a->id, 'numero' => $a->numero, 'titulo' => $a->titulo, 'estado' => $a->estado,
             'responsavel_principal_nome' => $a->nomePrincipal() ?: null,
             'local_tipo' => $a->local_tipo, 'unidade_negocio_id' => $a->unidade_negocio_id, 'unidade_negocio_nome' => $a->unidade_negocio_id ? ($n['un'][$a->unidade_negocio_id] ?? null) : null,
+            'unidade_organica_id' => $a->unidade_organica_id, 'unidade_organica_nome' => $a->unidade_organica_id ? ($n['uo'][$a->unidade_organica_id] ?? null) : null,
             'cliente_id' => $a->cliente_id, 'cliente_nome' => $a->cliente_id ? ($n['cli'][$a->cliente_id] ?? null) : null, 'encomenda' => $a->encomenda,
             'data_inicio' => $a->data_inicio?->toDateString(), 'data_fim' => $fim, 'custo_estimado' => $a->custo_estimado, 'codigo_moeda' => $a->codigo_moeda,
             'metodo_resolucao' => $a->metodo_resolucao, 'projeto_id' => $a->projeto_id,

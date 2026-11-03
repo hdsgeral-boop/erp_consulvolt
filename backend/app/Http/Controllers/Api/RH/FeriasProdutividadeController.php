@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\RH;
 
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\ItemProdutividadeRH;
 use App\Models\PeriodoFeriasEmpresa;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PeriodoProdutividadeRH;
 use App\Models\PlanoFeriasColaborador;
 use App\Models\RegistoProdutividadeRH;
+use App\Services\Estrutura\ServicoEntregaveis;
 use App\Services\RH\ServicoFerias;
 use App\Services\RH\ServicoProdutividade;
 use App\Support\Api\RespostaApi;
@@ -29,10 +31,17 @@ final class FeriasProdutividadeController extends Controller
     public function ferias(Request $r): JsonResponse
     {
         $this->exigir('rh_ferias_view', 'rh_ferias_edit');
-        $f = $r->validate(['ano' => ['required', 'integer', 'between:2000,2100'], 'colaborador_id' => ['nullable', 'integer']]);
+        $f = $r->validate(['ano' => ['required', 'integer', 'between:2000,2100'], 'colaborador_id' => ['nullable', 'integer'], 'unidade_id' => ['nullable', 'integer']]);
+        // Fase J: filtro por unidade orgânica (a unidade e as suas descendentes)
+        $colaboradores = null;
+        if (! empty($f['unidade_id'])) {
+            $unidades = app(ServicoEntregaveis::class)->descendentes([(int) $f['unidade_id']]);
+            $colaboradores = Colaborador::query()->whereIn('unidade_organica_id', $unidades ?: [0])->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
 
-        return RespostaApi::sucesso(['resumo' => $this->ferias->resumo((int) $f['ano']),
+        return RespostaApi::sucesso(['resumo' => $this->ferias->resumo((int) $f['ano'], $colaboradores),
             'periodos' => PlanoFeriasColaborador::query()->where('ano', $f['ano'])->when($f['colaborador_id'] ?? null, fn ($q, $c) => $q->where('colaborador_id', $c))
+                ->when($colaboradores !== null, fn ($q) => $q->whereIn('colaborador_id', $colaboradores ?: [0]))
                 ->orderBy('data_inicio')->get()], 'Plano de férias.');
     }
 
@@ -41,7 +50,8 @@ final class FeriasProdutividadeController extends Controller
         $this->exigir('rh_ferias_edit');
         $d = $r->validate(['colaborador_id' => ['required', 'integer'], 'data_inicio' => ['required', 'date_format:Y-m-d'], 'data_fim' => ['required', 'date_format:Y-m-d'],
             'estado' => ['nullable', Rule::in(ServicoFerias::ESTADOS_RH)], 'direito' => ['nullable', 'integer', 'between:0,60'], 'observacoes' => ['nullable', 'string', 'max:1000'],
-            'confirmar_excesso' => ['nullable', 'boolean']]);
+            // confirmações explícitas do RH: exceder o direito e gozo antes dos 6 meses de serviço (Fase J corrige o descarte de confirmar_antiguidade)
+            'confirmar_excesso' => ['nullable', 'boolean'], 'confirmar_antiguidade' => ['nullable', 'boolean']]);
         $p = $periodo ? PlanoFeriasColaborador::query()->findOrFail($periodo) : null;
         $res = $this->ferias->gravar($d, $p);
 

@@ -9,9 +9,11 @@ use App\Models\ContactoCRM;
 use App\Models\Empresa;
 use App\Models\ModeloEmailCRM;
 use App\Models\OportunidadeVendaCRM;
+use App\Services\Estrutura\ServicoEntregaveisCRM;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Actividades comerciais, agenda, emails e campanhas (crm_dados.js:232-252 e 329-359; crm_ui_gestao.js:204-214 e 331-381).
@@ -68,15 +70,42 @@ final class ServicoAtividadesCRM
     {
         $a->update(['concluida' => true, 'concluida_em' => now(), 'resultado' => mb_substr(trim((string) $resultado), 0, 50) ?: null, 'concluida_por' => Auth::user()?->nome_utilizador]);
         $this->tocar($a->oportunidade_crm_id);
+        // Fase J: ponte para os entregáveis das unidades (origem CRM) — isolada: uma falha na ponte nunca impede o CRM
+        try {
+            app(ServicoEntregaveisCRM::class)->aoConcluirActividade($a);
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         return $a;
     }
 
-    public function reabrir(AtividadeComercialCRM $a): AtividadeComercialCRM
+    /** @return array{atividade: AtividadeComercialCRM, aviso: ?string} */
+    public function reabrir(AtividadeComercialCRM $a): array
     {
         $a->update(['concluida' => false, 'concluida_em' => null]);
 
-        return $a;
+        return ['atividade' => $a, 'aviso' => $this->aoSair($a)];
+    }
+
+    /** Eliminar a actividade; a entrega que dela nasceu num entregável CRM sai se ainda estiver por validar (senão fica, com aviso). */
+    public function eliminar(AtividadeComercialCRM $a): ?string
+    {
+        $aviso = $this->aoSair($a);
+        $a->delete();
+
+        return $aviso;
+    }
+
+    private function aoSair(AtividadeComercialCRM $a): ?string
+    {
+        try {
+            return app(ServicoEntregaveisCRM::class)->aoSairActividade($a)['aviso'];
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /**

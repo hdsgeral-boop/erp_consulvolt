@@ -47,6 +47,9 @@ export interface Unidade {
   cor: string | null;
   /** organigrama vertical: 'COLUNA' = subunidades umas por baixo das outras; nulo = lado a lado */
   disposicao?: string | null;
+  /** Fase J: utilizador responsável (nome de utilizador com acesso à empresa) e utilizadores da unidade */
+  utilizador_responsavel?: string | null;
+  utilizadores?: string[] | null;
   membros: number;
   postos: Posto[];
 }

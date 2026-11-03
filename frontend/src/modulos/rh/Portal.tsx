@@ -3,7 +3,7 @@ import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -20,6 +20,13 @@ import { AMinhaEquipa } from './comum/AMinhaEquipa';
 import { ReciboSalario } from './comum/ReciboSalario';
 import { IndicadoresPortal } from './portal/IndicadoresPortal';
 import { PortalContrato, PortalEmprestimos, PortalEscala } from './portal/PortalFaseB';
+import { Aprovacoes } from './portal/Aprovacoes';
+import { FeriasPortal } from './portal/FeriasPortal';
+import { PortalEntregaveis } from './portal/PortalEntregaveis';
+import { PortalProjectos } from './portal/PortalProjectos';
+
+/** Aprovações por secções (portal/Aprovacoes.tsx) — também usadas pelo portal autónomo de quem aprova sem colaborador ligado. */
+export { Aprovacoes };
 import { pedidoPendente } from './comum/regras';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
@@ -27,7 +34,8 @@ import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 /** Portal do Colaborador (ecrã rh_portal): os próprios dados, recibos, pedidos e aprovações da equipa. */
 export default function Portal() {
   const resumo = useQuery({ queryKey: ['rh', 'portal', 'resumo'], queryFn: () => obter<ResumoPortal>('/rh/portal/resumo'), retry: false });
-  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'recibos', 'faltas', 'escala', 'contrato', 'emprestimos', 'avaliacao', 'equipa', 'aprovacoes', 'dados']);
+  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'ferias', 'recibos', 'faltas', 'escala', 'contrato', 'emprestimos', 'avaliacao', 'equipa', 'projectos', 'entregaveis', 'aprovacoes', 'dados']);
+  const [pedirFerias, setPedirFerias] = useState(false);
   if (resumo.isLoading) return <Card loading />;
   if (resumo.error || !resumo.data) {
     const msg = resumo.error instanceof ErroApi ? resumo.error.message : 'Não foi possível abrir o portal.';
@@ -39,7 +47,9 @@ export default function Portal() {
       <CabecalhoPagina titulo={`Olá, ${r.colaborador.nome_completo.split(' ')[0]}`} subtitulo="Portal do Colaborador" />
       <IndicadoresPortal resumo={r} aoAbrirFaltas={() => setSeparador('faltas')} />
       <Tabs activeKey={separador} onChange={setSeparador} items={[
-        { key: 'pedidos', label: 'Os meus pedidos', children: <MeusPedidos resumo={r} /> },
+        { key: 'pedidos', label: 'Os meus pedidos', children: <MeusPedidos resumo={r} abrirFerias={pedirFerias} aoAbrirFerias={() => setPedirFerias(false)} /> },
+        // Fase J (portal_ui.js:116-125): Férias com «A minha equipa» para a chefia
+        { key: 'ferias', label: 'Férias', children: <FeriasPortal resumo={r} aoPedir={() => { setPedirFerias(true); setSeparador('pedidos'); }} /> },
         { key: 'recibos', label: 'Recibos', children: <Recibos resumo={r} /> },
         { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas resumo={r} /> },
         // Versão Actual (portal_ui.js:398-620): escala, contrato e empréstimos
@@ -48,6 +58,9 @@ export default function Portal() {
         { key: 'emprestimos', label: 'Empréstimos', children: <PortalEmprestimos /> },
         { key: 'avaliacao', label: 'A minha avaliação', children: <PortalAvaliacao /> },
         { key: 'equipa', label: 'A minha equipa', children: <AMinhaEquipa /> },
+        // Fase J: Projectos só para quem está em equipas de projecto; Entregáveis só a quem tenham sido atribuídos ou responda por eles
+        ...(r.tem_projetos ? [{ key: 'projectos', label: 'Projectos', children: <PortalProjectos /> }] : []),
+        ...(r.tem_entregaveis ? [{ key: 'entregaveis', label: r.entregaveis_pendentes ? `Entregáveis (${r.entregaveis_pendentes})` : 'Entregáveis', children: <PortalEntregaveis /> }] : []),
         { key: 'aprovacoes', label: `Aprovações (${r.aprovacoes_para_mim})`, children: <Aprovacoes /> },
         {
           key: 'dados',
@@ -71,11 +84,15 @@ export default function Portal() {
   );
 }
 
-function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
+function MeusPedidos({ resumo, abrirFerias, aoAbrirFerias }: { resumo: ResumoPortal; abrirFerias?: boolean; aoAbrirFerias?: () => void }) {
   const { empresa } = useSessao();
   const [tipo, setTipo] = useState<TipoPedido | null>(null);
   const [documento, setDocumento] = useState<PedidoPortal | null>(null);
   const [form] = Form.useForm();
+  // «Pedir férias» no separador Férias abre aqui o pedido de férias
+  useEffect(() => {
+    if (abrirFerias) { form.resetFields(); setTipo('FERIAS'); aoAbrirFerias?.(); }
+  }, [abrirFerias, aoAbrirFerias, form]);
   const q = useQuery({ queryKey: ['rh', 'portal', 'meus-pedidos'], queryFn: () => obter<PedidoPortal[]>('/rh/portal/meus-pedidos') });
   useAvisarErro(q.error);
   const catalogo = useQuery({ queryKey: ['rh', 'assiduidade', 'tipos-ausencia'], queryFn: () => obter<Record<string, TipoAusencia>>('/rh/assiduidade/tipos-ausencia'), staleTime: Infinity, enabled: tipo === 'AUSENCIA' });
@@ -217,38 +234,6 @@ function Recibos({ resumo }: { resumo: ResumoPortal }) {
     </Card>
   );
 }
-
-/** Pedidos à espera do utilizador (chefia directa; o RH decide em «Pedidos do Portal»). */
-export function Aprovacoes() {
-  const q = useQuery({ queryKey: ['rh', 'portal', 'aprovacoes'], queryFn: () => obter<PedidoPortal[]>('/rh/portal/aprovacoes') });
-  useAvisarErro(q.error);
-  const [decidir, setDecidir] = useState<PedidoPortal | null>(null);
-  const [form] = Form.useForm<{ decisao: 'APROVADO' | 'RECUSADO'; nota?: string }>();
-  const decisao = Form.useWatch('decisao', form);
-  const accao = useAccaoRh(() => setDecidir(null));
-  return (
-    <Card>
-      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()}
-        columns={[
-          { title: 'N.º', dataIndex: 'id', render: (v: number) => `#${v}` },
-          { title: 'Pedido por', dataIndex: 'criado_por' },
-          { title: 'Tipo', dataIndex: 'tipo', render: (t: TipoPedido) => TIPOS_PEDIDO[t] },
-          { title: 'Resumo', render: (_, p) => resumoPedido(p) },
-          { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
-          { title: '', key: 'a', render: (_, p) => p.tipo !== 'DOCUMENTO' && <Button size="small" type="primary" onClick={() => { form.resetFields(); form.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Decidir</Button> },
-        ]}
-        expandable={{ expandedRowRender: (p) => <EtapasPedido pedido={p} /> }} />
-      <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
-        {decidir && <Typography.Paragraph>{TIPOS_PEDIDO[decidir.tipo]} — {resumoPedido(decidir)}</Typography.Paragraph>}
-        <Form form={form} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${decidir.id}/decidir`, dados: v })}>
-          <Form.Item name="decisao" label="Decisão"><Select options={[{ value: 'APROVADO', label: 'Aprovar' }, { value: 'RECUSADO', label: 'Recusar' }]} /></Form.Item>
-          <Form.Item name="nota" label="Nota" rules={[{ required: decisao === 'RECUSADO', min: 3, message: 'Indique o motivo da recusa.' }]}><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
-        </Form>
-      </Modal>
-    </Card>
-  );
-}
-
 
 /** As minhas faltas (GET /rh/portal/ausencias): justificar uma falta por justificar cria um pedido «Ausência» ligado à falta. */
 function MinhasFaltas({ resumo }: { resumo?: ResumoPortal }) {

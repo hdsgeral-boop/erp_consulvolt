@@ -52,6 +52,9 @@ export interface ResumoAssunto {
   local_tipo: LocalTipo | null;
   unidade_negocio_id: number | null;
   unidade_negocio_nome: string | null;
+  /** Fase J: departamento = unidade orgânica (opcional; a vista «Por departamento» agrupa por ela, senão pela UN) */
+  unidade_organica_id?: number | null;
+  unidade_organica_nome?: string | null;
   cliente_id: number | null;
   cliente_nome: string | null;
   encomenda: string | null;
@@ -119,6 +122,8 @@ export interface OpcoesAssunto {
   fornecedores: { id: number; nome: string; nif: string | null }[];
   clientes: { id: number; nome: string; nif: string | null }[];
   unidades_negocio: { id: number; codigo: string; nome: string }[];
+  /** Fase J: unidades orgânicas (departamentos) com o caminho «A › B › C» */
+  unidades_organicas?: { id: number; nome: string; caminho: string }[];
   centros_custo: { id: number; codigo: string; descricao: string }[];
   pode_criar: boolean;
   gestor: boolean;
@@ -150,6 +155,7 @@ export interface DadosAssunto {
   data_fim?: string | null;
   local_tipo?: LocalTipo | null;
   unidade_negocio_id?: number | null;
+  unidade_organica_id?: number | null;
   cliente_id?: number | null;
   encomenda?: string | null;
   morada?: string | null;

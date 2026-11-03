@@ -9,7 +9,9 @@ use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PostoTrabalho;
 use App\Models\ResultadoFolhaSalarial;
 use App\Models\UnidadeOrganica;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Dados\VerificadorReferencias;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -137,6 +139,14 @@ final class ServicoEstruturaOrg
         if (! empty($d['centro_custo_id']) && UnidadeOrganica::query()->where('centro_custo_id', $d['centro_custo_id'])->when($u, fn ($q) => $q->whereKeyNot($u->id))->exists()) {
             $aviso = 'O centro de custo já está ligado a outra unidade.';
         }
+        // Fase J (ADR-078): utilizador responsável e utilizadores da unidade (recurso alternativo de Compras e do Método) — nomes de
+        // utilizador com acesso à empresa activa; nulo/vazio limpa
+        if (array_key_exists('utilizador_responsavel', $d)) {
+            $d['utilizador_responsavel'] = $this->utilizadorDaEmpresa($d['utilizador_responsavel']);
+        }
+        if (array_key_exists('utilizadores', $d)) {
+            $d['utilizadores'] = array_values(array_unique(array_filter(array_map(fn ($n) => $this->utilizadorDaEmpresa($n), (array) ($d['utilizadores'] ?? [])))));
+        }
 
         return DB::transaction(function () use ($d, $u, $aviso) {
             $user = Auth::user()?->nome_utilizador;
@@ -147,6 +157,100 @@ final class ServicoEstruturaOrg
             $u->refresh()->setAttribute('aviso', $aviso);
 
             return $u;
+        });
+    }
+
+    /** Nome de utilizador (tal como está gravado) com acesso à empresa activa; nulo se vazio; erro se não existir. */
+    private function utilizadorDaEmpresa(mixed $nome): ?string
+    {
+        $n = trim((string) $nome);
+        if ($n === '') {
+            return null;
+        }
+        $real = DB::table('utilizador_empresa as ue')->join('utilizadores as u', 'u.id', '=', 'ue.utilizador_id')->where('ue.empresa_id', app(ContextoEmpresa::class)->obrigatorio())
+            ->whereNull('u.eliminado_em')->whereRaw('lower(u.nome_utilizador) = lower(?)', [$n])->value('u.nome_utilizador');
+        if ($real === null) {
+            throw new ErroNegocio("O utilizador «{$n}» não existe ou não tem acesso a esta empresa.", 'UTILIZADOR_INVALIDO', 422);
+        }
+
+        return (string) $real;
+    }
+
+    /**
+     * Arrumação das caixas do organigrama (estArrumar, estrutura_ui.js:371-405): TRAS/FRENTE trocam a ordem com o vizinho do mesmo
+     * grupo (apoio ou não) depois de renumerar os irmãos 10, 20, 30…; SUBIR passa a reportar ao avô com ordem = ordem do pai + 5;
+     * DESCER passa a reportar ao irmão anterior; APOIO alterna a marca de unidade de apoio.
+     *
+     * @return array{unidade: UnidadeOrganica, alterado: bool, mensagem: ?string}
+     */
+    public function arrumar(UnidadeOrganica $u, string $accao): array
+    {
+        return DB::transaction(function () use ($u, $accao) {
+            $lista = UnidadeOrganica::query()->lockForUpdate()->get(['id', 'nome', 'unidade_organica_pai_id', 'ordem', 'apoio', 'ativo']);
+            $u = $lista->firstWhere('id', $u->id);
+            $pai = $u->unidade_organica_pai_id ? $lista->firstWhere('id', (int) $u->unidade_organica_pai_id) : null;
+            $irmaosDe = fn (?int $paiId) => $lista->filter(fn ($x) => (int) ($x->unidade_organica_pai_id ?? 0) === (int) ($paiId ?? 0))
+                ->sortBy([fn ($a, $b) => ((bool) $b->apoio <=> (bool) $a->apoio) ?: ((int) $a->ordem <=> (int) $b->ordem) ?: ($a->id <=> $b->id)])->values();
+            $renumerar = function (?int $paiId) use ($irmaosDe) {
+                $irm = $irmaosDe($paiId);
+                foreach ($irm as $i => $x) {
+                    $novo = ($i + 1) * 10;
+                    if ((int) $x->ordem !== $novo) {
+                        UnidadeOrganica::query()->whereKey($x->id)->update(['ordem' => $novo]);
+                        $x->ordem = $novo;
+                    }
+                }
+
+                return $irm;
+            };
+            $mensagem = null;
+            $alterado = true;
+            switch ($accao) {
+                case 'APOIO':
+                    UnidadeOrganica::query()->whereKey($u->id)->update(['apoio' => $u->apoio ? 0 : 1]);
+                    break;
+                case 'TRAS':
+                case 'FRENTE':
+                    $irm = $renumerar($u->unidade_organica_pai_id ? (int) $u->unidade_organica_pai_id : null)->filter(fn ($x) => (bool) $x->apoio === (bool) $u->apoio)->values();
+                    $i = $irm->search(fn ($x) => (int) $x->id === (int) $u->id);
+                    $j = $accao === 'TRAS' ? $i - 1 : $i + 1;
+                    if ($i === false || $j < 0 || $j >= $irm->count()) {
+                        $alterado = false;
+                        $mensagem = $accao === 'TRAS' ? 'Já é a primeira unidade deste nível.' : 'Já é a última unidade deste nível.';
+                        break;
+                    }
+                    [$a, $c] = [$irm[$i], $irm[$j]];
+                    UnidadeOrganica::query()->whereKey($a->id)->update(['ordem' => (int) $c->ordem]);
+                    UnidadeOrganica::query()->whereKey($c->id)->update(['ordem' => (int) $a->ordem]);
+                    break;
+                case 'SUBIR':
+                    if (! $pai) {
+                        $alterado = false;
+                        $mensagem = 'Esta unidade já está no topo da estrutura.';
+                        break;
+                    }
+                    $renumerar($pai->unidade_organica_pai_id ? (int) $pai->unidade_organica_pai_id : null);
+                    UnidadeOrganica::query()->whereKey($u->id)->update(['unidade_organica_pai_id' => $pai->unidade_organica_pai_id ?: null, 'ordem' => (int) $pai->ordem + 5]);
+                    break;
+                case 'DESCER':
+                    $irm = $irmaosDe($u->unidade_organica_pai_id ? (int) $u->unidade_organica_pai_id : null);
+                    $i = $irm->search(fn ($x) => (int) $x->id === (int) $u->id);
+                    $novoPai = $i > 0 ? $irm[$i - 1] : null;
+                    if (! $novoPai) {
+                        $alterado = false;
+                        $mensagem = 'Não há uma unidade acima desta no mesmo nível para lhe passar a reportar.';
+                        break;
+                    }
+                    UnidadeOrganica::query()->whereKey($u->id)->update(['unidade_organica_pai_id' => $novoPai->id, 'ordem' => ($irmaosDe((int) $novoPai->id)->count() + 1) * 10]);
+                    break;
+                default:
+                    throw new ErroNegocio('Acção de arrumação desconhecida.', 'ACCAO_INVALIDA', 422);
+            }
+            if ($alterado) {
+                app(ServicoAuditoria::class)->registar('Estrutura orgânica', 'Arrumar no organigrama', "{$u->nome}: {$accao}", 'unidades_organicas', $u->id);
+            }
+
+            return ['unidade' => UnidadeOrganica::query()->findOrFail($u->id), 'alterado' => $alterado, 'mensagem' => $mensagem];
         });
     }
 

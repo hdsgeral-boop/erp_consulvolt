@@ -31190,6 +31190,15 @@
           "dominio": null
         },
         {
+          "coluna": "unidade_organica_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "atualizado_em",
           "legado": "actualizado_em",
           "tipo": "timestamptz",

@@ -7,6 +7,7 @@ use App\Models\AusenciaFaltaColaborador;
 use App\Models\Colaborador;
 use App\Models\PeriodoFeriasEmpresa;
 use App\Models\PlanoFeriasColaborador;
+use App\Models\UnidadeOrganica;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,6 +45,56 @@ final class ServicoFerias
             ->orderByDesc('atualizado_em')->orderByDesc('id')->value('direito');
 
         return $gravado !== null ? (int) $gravado : $this->calculoDireito($colaborador, $ano)['total'];
+    }
+
+    /** Direito do ano (o gravado no plano ou o calculado pela LGT com transporte) — nome usado pelo Fluxo de Processos e pelo Portal (Fase J). */
+    public function direitoDoAno(int $colaborador, int $ano): int
+    {
+        return $this->direito($colaborador, $ano);
+    }
+
+    /**
+     * Revalidação de um pedido do portal no momento da decisão (Fase J, ADR-078): o período do ano ainda cobre as datas, não há
+     * sobreposição com outras férias ou ausências entretanto registadas e o saldo ainda chega. Lança ErroNegocio com o motivo;
+     * quem decide traduz para PEDIDO_INVALIDO sem decidir.
+     */
+    public function revalidarPedidoPortal(PlanoFeriasColaborador $p): void
+    {
+        [$ini, $fim] = [$p->data_inicio->toDateString(), $p->data_fim->toDateString()];
+        $this->exigirDentroDoPeriodo((int) $p->ano, $ini, $fim);
+        $sobre = PlanoFeriasColaborador::query()->where('colaborador_id', $p->colaborador_id)->where('estado', '<>', 'CANCELADO')->whereKeyNot($p->id)
+            ->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $ini)->first();
+        if ($sobre) {
+            throw new ErroNegocio("Sobrepõe-se às férias de {$sobre->data_inicio->toDateString()} a {$sobre->data_fim->toDateString()}.", 'SOBREPOSICAO', 422);
+        }
+        if (AusenciaFaltaColaborador::query()->where('colaborador_id', $p->colaborador_id)->whereNotIn('estado', ['CANCELADO', 'RECUSADO', 'POR_JUSTIFICAR'])
+            ->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $ini)->exists()) {
+            throw new ErroNegocio('Sobrepõe-se a uma ausência do colaborador registada entretanto.', 'SOBREPOSICAO', 422);
+        }
+        $direito = $this->direito((int) $p->colaborador_id, (int) $p->ano);
+        $outros = (int) PlanoFeriasColaborador::query()->where('colaborador_id', $p->colaborador_id)->where('ano', $p->ano)->where('estado', '<>', 'CANCELADO')->whereKeyNot($p->id)->sum('dias');
+        if ($outros + (int) $p->dias > $direito) {
+            throw new ErroNegocio("Excede o saldo de férias de {$p->ano}: direito {$direito}, já marcados {$outros}, este pedido {$p->dias}.", 'SALDO_EXCEDIDO', 422,
+                ['direito' => $direito, 'marcados' => $outros, 'dias' => (int) $p->dias]);
+        }
+    }
+
+    /**
+     * Férias de um conjunto de colaboradores num ano (não canceladas), para a chefia ver a equipa.
+     *
+     * @param  list<int>  $colaboradores
+     * @return list<array<string, mixed>>
+     */
+    public function feriasDe(array $colaboradores, int $ano): array
+    {
+        if (! $colaboradores) {
+            return [];
+        }
+        $nomes = Colaborador::query()->withTrashed()->whereIn('id', $colaboradores)->pluck('nome_completo', 'id');
+
+        return PlanoFeriasColaborador::query()->whereIn('colaborador_id', $colaboradores)->where('ano', $ano)->where('estado', '<>', 'CANCELADO')->orderBy('data_inicio')->orderBy('id')
+            ->get(['id', 'colaborador_id', 'ano', 'data_inicio', 'data_fim', 'dias', 'estado', 'pedido_portal_colaborador_id'])
+            ->map(fn ($f) => $f->toArray() + ['colaborador_nome' => $nomes[$f->colaborador_id] ?? null])->values()->all();
     }
 
     /**
@@ -126,8 +177,11 @@ final class ServicoFerias
         return $meses < $minimo ? "O colaborador só tem {$meses} mês(es) completo(s) de serviço: a lei só permite o gozo de férias depois de {$minimo} meses." : null;
     }
 
-    /** @return list<array<string, mixed>> por colaborador activo: direito, marcados, gozados, saldo */
-    public function resumo(int $ano): array
+    /**
+     * @param  list<int>|null  $colaboradores  Fase J: restringir a estes colaboradores (filtro por unidade orgânica)
+     * @return list<array<string, mixed>> por colaborador activo: direito, marcados, gozados, saldo, unidade
+     */
+    public function resumo(int $ano, ?array $colaboradores = null): array
     {
         $periodos = PlanoFeriasColaborador::query()->where('ano', $ano)->where('estado', '<>', 'CANCELADO')->get()->groupBy('colaborador_id');
         // Desempenho (Fase 6): o direito de todos os colaboradores numa só consulta (antes, uma por colaborador — N+1),
@@ -139,18 +193,24 @@ final class ServicoFerias
         $cfg = $this->configRH->config();
         $anteriores = PlanoFeriasColaborador::query()->where('ano', $ano - 1)->orderByDesc('atualizado_em')->orderByDesc('id')->get()->groupBy('colaborador_id');
 
-        return Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get()->map(function ($c) use ($periodos, $direitos, $ano, $cfg, $anteriores) {
-            $meus = $periodos[$c->id] ?? collect();
-            $calculo = isset($direitos[$c->id]) ? null
-                : self::calcular($c->data_admissao ? substr((string) $c->data_admissao, 0, 10) : null, $ano, $cfg, isset($anteriores[$c->id]) ? self::anoAnterior($anteriores[$c->id]) : null);
-            $direito = (int) ($direitos[$c->id] ?? $calculo['total']);
-            $marcados = (int) $meus->sum('dias');
+        $colabs = Colaborador::query()->where('estado', 'ACTIVO')->when($colaboradores !== null, fn ($q) => $q->whereIn('id', $colaboradores ?: [0]))->ordenarPorNome('nome_completo')->get();
+        // o nome da unidade só se lê se alguém a tiver (uma consulta, nunca uma por colaborador)
+        $unidades = $colabs->contains(fn ($c) => $c->unidade_organica_id) ? UnidadeOrganica::query()->withTrashed()->pluck('nome', 'id') : collect();
 
-            return ['colaborador_id' => $c->id, 'nome' => $c->nome_completo, 'direito' => $direito, 'marcados' => $marcados,
-                'direito_gravado' => isset($direitos[$c->id]), 'transporte' => $calculo['transporte'] ?? null, 'ano_admissao' => $calculo['ano_admissao'] ?? false,
-                'aprovados' => (int) $meus->whereIn('estado', ['APROVADO', 'GOZADO'])->sum('dias'), 'gozados' => (int) $meus->where('estado', 'GOZADO')->sum('dias'),
-                'pedidos' => (int) $meus->where('estado', 'PEDIDO')->sum('dias'), 'saldo' => $direito - $marcados];
-        })->all();
+        return $colabs
+            ->map(function ($c) use ($periodos, $direitos, $ano, $cfg, $anteriores, $unidades) {
+                $meus = $periodos[$c->id] ?? collect();
+                $calculo = isset($direitos[$c->id]) ? null
+                    : self::calcular($c->data_admissao ? substr((string) $c->data_admissao, 0, 10) : null, $ano, $cfg, isset($anteriores[$c->id]) ? self::anoAnterior($anteriores[$c->id]) : null);
+                $direito = (int) ($direitos[$c->id] ?? $calculo['total']);
+                $marcados = (int) $meus->sum('dias');
+
+                return ['colaborador_id' => $c->id, 'nome' => $c->nome_completo, 'unidade_organica_id' => $c->unidade_organica_id,
+                    'unidade' => $c->unidade_organica_id ? ($unidades[$c->unidade_organica_id] ?? null) : null, 'direito' => $direito, 'marcados' => $marcados,
+                    'direito_gravado' => isset($direitos[$c->id]), 'transporte' => $calculo['transporte'] ?? null, 'ano_admissao' => $calculo['ano_admissao'] ?? false,
+                    'aprovados' => (int) $meus->whereIn('estado', ['APROVADO', 'GOZADO'])->sum('dias'), 'gozados' => (int) $meus->where('estado', 'GOZADO')->sum('dias'),
+                    'pedidos' => (int) $meus->where('estado', 'PEDIDO')->sum('dias'), 'saldo' => $direito - $marcados];
+            })->all();
     }
 
     /** @param  array<string, mixed>  $d  colaborador_id, data_inicio, data_fim, estado?, direito?, observacoes?, confirmar_excesso?, confirmar_antiguidade? */

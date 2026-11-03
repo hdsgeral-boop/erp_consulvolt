@@ -4,8 +4,10 @@ namespace App\Services\Gestao\Paineis;
 
 use App\Models\Utilizador;
 use App\Services\Ativos\ServicoAquisicoesAtivos;
+use App\Services\Estrutura\ServicoEntregaveis;
 use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
 use App\Services\Logistica\ServicoNiveisStock;
+use App\Services\Metodo\ServicoAssuntosMetodo;
 use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoEstruturaOrg;
 use App\Services\RH\ServicoPortalColaborador;
@@ -63,6 +65,8 @@ final class ServicoInicio
         private readonly ServicoEstruturaOrg $estrutura,
         private readonly ServicoPortalColaborador $portal,
         private readonly ServicoComparacaoEmpresas $comparacao,
+        private readonly ServicoEntregaveis $entregaveis,
+        private readonly ServicoAssuntosMetodo $assuntos,
     ) {}
 
     /** @return array<string, mixed> */
@@ -203,6 +207,19 @@ final class ServicoInicio
                 fn () => (int) DB::table('cambios_bai_pendentes')->where('estado', ServicoCambiosBAIAutomaticos::PENDENTE)->count()],
             ['portal_pedidos', 'Pedidos de colaboradores por decidir', 'rh_portal', fn () => true, fn () => count($this->portal->pendentesParaMim())],
             ['avaliacao_360', 'Avaliação de desempenho: acções pendentes', 'rh_portal', fn () => true, fn () => $this->pendentes360()],
+            // Fase J (ui_dashboard.js:746-750): entregas e impedimentos à espera do meu visto como responsável de unidade; entregáveis
+            // em atraso (só os marcados para avisar); assuntos do Método à minha espera e com prazo ultrapassado
+            ['estrutura_entregas_validar', 'Entregas por validar', 'rh_portal', fn () => true, function () {
+                $eu = $this->portal->colaboradorDe();
+
+                return $eu ? count($this->entregaveis->entregasParaValidar($eu)) + count($this->entregaveis->impedimentosParaDecidir($eu)) : 0;
+            }],
+            ['estrutura_entregaveis_atraso', 'Entregáveis em atraso', 'est_estrutura', fn () => $this->podeVer(['est_estrutura']), fn () => count($this->entregaveis->entregaveisEmAtraso(['soComAlerta' => true]))],
+            ['metodo_decidir', 'Assuntos à minha espera', 'mt_assuntos', fn () => $this->podeVer(['mt_assuntos']), fn () => count($this->assuntos->paraMinhaDecisao())],
+            ['metodo_atrasados', 'Assuntos com prazo ultrapassado', 'mt_assuntos', fn () => $this->podeVer(['mt_assuntos']),
+                fn () => $n("SELECT COUNT(*) AS n FROM assuntos_metodo_trabalho WHERE empresa_id = ? AND numero IS NOT NULL AND estado NOT IN ('CONCLUIDO', 'CANCELADO') AND data_fim IS NOT NULL AND data_fim < ?", [$hoje])],
+            ['metodo_deliberacoes', 'Deliberações por tomar', 'mt_assuntos', fn () => $this->podeTarefa('mt_aprovar'),
+                fn () => $n("SELECT COUNT(*) AS n FROM assuntos_metodo_trabalho WHERE empresa_id = ? AND numero IS NOT NULL AND deliberacao->>'estado' = 'PENDENTE'")],
         ];
         $saida = [];
         foreach ($definicoes as [$id, $rotulo, $vista, $pode, $contar]) {

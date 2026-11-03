@@ -2330,6 +2330,11 @@
               "chave": "est_eliminar",
               "rotulo": "Eliminar unidades e cargos",
               "sensivel": true
+            },
+            {
+              "chave": "est_validar_entregas",
+              "rotulo": "Validar entregas de entregáveis sem ser responsável da unidade",
+              "sensivel": true
             }
           ]
         },
@@ -3113,7 +3118,8 @@
         "rh_tabela_irt_gerir": true,
         "rh_emprestimos_view": true,
         "rh_emp_gerir": true,
-        "rh_emp_lancar": true
+        "rh_emp_lancar": true,
+        "rh_ferias_periodo_gerir": true
       }
     },
     {
@@ -3167,7 +3173,8 @@
         "rh_prod_config": true,
         "rh_emp_gerir": true,
         "rh_emp_lancar": true,
-        "rh_emp_config": true
+        "rh_emp_config": true,
+        "rh_ferias_periodo_gerir": true
       }
     },
     {
@@ -3661,7 +3668,8 @@
         "colaboradores_view": true,
         "funcoes_view": true,
         "est_editar": true,
-        "est_eliminar": true
+        "est_eliminar": true,
+        "est_validar_entregas": true
       }
     },
     {

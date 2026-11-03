@@ -562,6 +562,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         require __DIR__.'/api/r3_teso.php';   // Ronda 3: Tesouraria — importação de movimentos na Folha de Caixa
         require __DIR__.'/api/r4_agt.php';    // Ronda 4: AGT por empresa — ligação, monitorização, comunicações, correcções, SAF-T integrados
         require __DIR__.'/api/saas_licenca.php';   // SaaS: licença da empresa e cobrança por plano e tempo (ADR-074)
+        require __DIR__.'/api/fj_entregaveis.php';   // Fase J: Estrutura Orgânica — tarefas e entregáveis, portal e férias (ADR-078)
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

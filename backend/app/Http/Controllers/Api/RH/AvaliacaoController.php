@@ -267,7 +267,7 @@ final class AvaliacaoController extends Controller
         $c = $this->portal->exigirColaborador();
 
         return RespostaApi::sucesso(['autoavaliacao' => AutoavaliacaoColaborador::query()->where('colaborador_id', $c->id)->where('ano', $f['ano'])->where('periodo', $f['periodo'])->first(),
-            'criterios' => $this->avaliacao->itensDe($c->id, 'CRITERIO'), 'objetivos' => $this->avaliacao->itensDe($c->id, 'OBJECTIVO')], 'Autoavaliação.');
+            'criterios' => $this->avaliacao->itensDe($c->id, 'CRITERIO'), 'objetivos' => $this->avaliacao->objectivosDe($c->id, (int) $f['ano'], (string) $f['periodo'])], 'Autoavaliação.');
     }
 
     public function gravarAutoavaliacao(Request $r): JsonResponse

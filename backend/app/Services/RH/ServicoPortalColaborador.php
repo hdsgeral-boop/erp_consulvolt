@@ -20,6 +20,7 @@ use App\Models\PrestacaoEmprestimo;
 use App\Models\ResultadoFolhaSalarial;
 use App\Models\UtilizadorEmpresa;
 use App\Services\Compras\ServicoDeliberacaoCompras;
+use App\Services\Estrutura\ServicoEntregaveis;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
@@ -63,6 +64,7 @@ final class ServicoPortalColaborador
         private readonly ServicoEmprestimos $emprestimos,
         private readonly ServicoAssiduidade $assiduidade,
         private readonly ServicoDeliberacaoCompras $comprasDeliberacao,
+        private readonly ServicoEntregaveis $entregaveis,
     ) {}
 
     // ───────────── Ligação utilizador ↔ colaborador ─────────────
@@ -92,7 +94,7 @@ final class ServicoPortalColaborador
     {
         $id = $this->colaboradorDe();
         $colaborador = $id ? Colaborador::query()->find($id, ['id', 'nome_completo']) : null;
-        $pendentes = count($this->pendentesParaMim()) + count($this->comprasParaMim());
+        $pendentes = array_sum($this->aprovacoesDetalhe($id));
         $aprovaRh = Gate::any(['rh_portal_aprovar']);
         if (! $colaborador && $pendentes === 0 && ! $aprovaRh) {
             throw new ErroNegocio('O portal do colaborador só está disponível para utilizadores associados a um colaborador desta empresa ou com aprovações pendentes. Peça ao RH que associe o seu utilizador ao seu registo de colaborador, ou escolha outra empresa.',
@@ -221,6 +223,15 @@ final class ServicoPortalColaborador
                 $etapas[$seguinte]['estado'] = 'PENDENTE';
             }
             $estado = $decisao === 'RECUSADO' ? 'RECUSADO' : ($seguinte !== false ? 'PENDENTE_'.$etapas[$seguinte]['nivel'] : 'APROVADO');
+            // Fase J (ADR-078): ao aprovar férias (chefia ou RH) revalida-se o pedido — período do ano, sobreposição e saldo podem ter
+            // mudado desde o pedido; se falhar, não se decide
+            if ($decisao === 'APROVADO' && $p->tipo === 'FERIAS' && $p->plano_ferias_colaborador_id && ($plano = PlanoFeriasColaborador::query()->find($p->plano_ferias_colaborador_id))) {
+                try {
+                    $this->ferias->revalidarPedidoPortal($plano);
+                } catch (ErroNegocio $e) {
+                    throw new ErroNegocio("O pedido já não pode ser aprovado: {$e->getMessage()} Recuse-o e peça ao colaborador um novo pedido.", 'PEDIDO_INVALIDO', 422, ['motivo' => $e->codigo]);
+                }
+            }
             $this->efeitos($p, $estado, $remunerada, $nota);
             $p->update(['etapas' => $etapas, 'estado' => $estado, 'decidido_em' => in_array($estado, ['APROVADO', 'RECUSADO'], true) ? now() : null]);
             $this->auditoria->registar('Portal do Colaborador', $decisao === 'APROVADO' ? 'Aprovar pedido' : 'Recusar pedido', "{$p->tipo} #{$p->id} → {$estado}", 'pedidos_portal_colaborador', $p->id);
@@ -321,6 +332,8 @@ final class ServicoPortalColaborador
             ?? ['mes' => $this->diasDeFalta($c->id, now()->format('Y-m-01'), now()->format('Y-m-t')), 'ano' => $this->diasDeFalta($c->id, "{$ano}-01-01", "{$ano}-12-31")];
 
         $auto = AutoavaliacaoColaborador::query()->where('colaborador_id', $c->id)->where('ano', $ano)->where('periodo', 'ANUAL')->value('estado');
+        $detalhe = $this->aprovacoesDetalhe($c->id);
+        $entregaveis = $this->entregaveis->contadoresPortal($c->id);
 
         return ['colaborador' => $c->only(['id', 'nome_completo', 'nif', 'estado', 'cargo_funcao_id', 'unidade_organica_id', 'data_admissao']),
             'chefia_colaborador_id' => $this->estrutura->chefiaDe($c->id), 'ferias' => $ferias, 'ano' => $ano,
@@ -333,8 +346,137 @@ final class ServicoPortalColaborador
             'autoavaliacao' => ['ano' => $ano, 'periodo' => 'ANUAL', 'estado' => match ($auto) {
                 null => 'POR_FAZER', 'SUBMETIDA' => 'SUBMETIDA', default => 'RASCUNHO'
             }],
-            // O contador do separador «Aprovações» soma RH (pendentesParaMim) + Compras (comprasParaMim).
-            'aprovacoes_para_mim' => count($this->pendentesParaMim()) + count($this->comprasParaMim())];
+            // O contador do separador «Aprovações» soma RH (pendentesParaMim) + Compras (comprasParaMim) + entregas, impedimentos e
+            // atrasos dos entregáveis das unidades por que respondo (Fase J); `aprovacoes_detalhe` separa-os para o ecrã
+            'aprovacoes_para_mim' => array_sum($detalhe), 'aprovacoes_detalhe' => $detalhe, 'entregaveis_pendentes' => $entregaveis['recusadas'] + $entregaveis['devolvidas'],
+            'entregaveis_contadores' => $entregaveis, 'tem_projetos' => $this->temProjetos(), 'tem_entregaveis' => $this->entregaveis->temEntregaveis($c->id)];
+    }
+
+    /** Contadores das aprovações à minha espera, por secção (resumo e portal autónomo). @return array{pedidos: int, compras: int, entregas: int, impedimentos: int, atrasos: int} */
+    public function aprovacoesDetalhe(?int $eu = null): array
+    {
+        $eu ??= $this->colaboradorDe();
+        $contar = function (callable $f): int {
+            try {
+                return count($f());
+            } catch (\Throwable $e) {
+                report($e);
+
+                return 0;
+            }
+        };
+
+        return ['pedidos' => count($this->pendentesParaMim()), 'compras' => count($this->comprasParaMim()),
+            'entregas' => $eu ? $contar(fn () => $this->entregaveis->entregasParaValidar($eu)) : 0,
+            'impedimentos' => $eu ? $contar(fn () => $this->entregaveis->impedimentosParaDecidir($eu)) : 0,
+            'atrasos' => $eu ? $contar(fn () => $this->entregaveis->atrasosDasMinhasUnidades($eu)) : 0];
+    }
+
+    private function temProjetos(): bool
+    {
+        try {
+            return count(app(ServicoPortalProjetos::class)->minhasTarefas()) > 0;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Equipa directa (chefia = eu), com unidade, cargo, férias marcadas no ano e o último pedido do portal (Fase J).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function equipa(): array
+    {
+        $c = $this->exigirColaborador();
+        $ids = $this->estrutura->equipaDirecta($c->id);
+        if (! $ids) {
+            return [];
+        }
+        $ano = (int) now()->format('Y');
+        $membros = Colaborador::query()->whereIn('id', $ids)->ordenarPorNome('nome_completo')->get(['id', 'nome_completo', 'unidade_organica_id', 'cargo_funcao_id', 'posto_trabalho_id', 'data_admissao']);
+        $unidades = DB::table('unidades_organicas')->whereIn('id', $membros->pluck('unidade_organica_id')->filter()->unique()->all() ?: [0])->pluck('nome', 'id');
+        $cargos = DB::table('cargos_funcoes')->whereIn('id', $membros->pluck('cargo_funcao_id')->filter()->unique()->all() ?: [0])->pluck('nome', 'id');
+        $postos = DB::table('postos_trabalho')->whereIn('id', $membros->pluck('posto_trabalho_id')->filter()->unique()->all() ?: [0])->pluck('titulo', 'id');
+        $ferias = collect($this->ferias->feriasDe($ids, $ano))->groupBy('colaborador_id');
+        $resumo = collect($this->ferias->resumo($ano, $ids))->keyBy('colaborador_id');
+        $ultimos = PedidoPortalColaborador::query()->whereIn('colaborador_id', $ids)->orderByDesc('id')->get(['id', 'colaborador_id', 'tipo', 'estado', 'criado_em', 'dados'])->unique('colaborador_id')->keyBy('colaborador_id');
+
+        return $membros->map(fn ($m) => ['id' => (int) $m->id, 'nome_completo' => $m->nome_completo, 'data_admissao' => $m->data_admissao ? substr((string) $m->data_admissao, 0, 10) : null,
+            'unidade_organica_id' => $m->unidade_organica_id, 'unidade' => $m->unidade_organica_id ? ($unidades[$m->unidade_organica_id] ?? null) : null,
+            'cargo' => $m->posto_trabalho_id && ! empty($postos[$m->posto_trabalho_id]) ? $postos[$m->posto_trabalho_id] : ($m->cargo_funcao_id ? ($cargos[$m->cargo_funcao_id] ?? null) : null),
+            'ferias' => ['ano' => $ano, 'direito' => $resumo[$m->id]['direito'] ?? null, 'marcados' => $resumo[$m->id]['marcados'] ?? 0, 'saldo' => $resumo[$m->id]['saldo'] ?? null,
+                'periodos' => ($ferias[$m->id] ?? collect())->map(fn ($f) => ['id' => $f['id'], 'data_inicio' => $f['data_inicio'], 'data_fim' => $f['data_fim'], 'dias' => $f['dias'], 'estado' => $f['estado']])->values()->all()],
+            'ultimo_pedido' => ($u = $ultimos[$m->id] ?? null) ? ['id' => (int) $u->id, 'tipo' => $u->tipo, 'estado' => $u->estado, 'criado_em' => $u->criado_em?->toIso8601String()] : null])->values()->all();
+    }
+
+    /** Férias (não canceladas) da equipa directa no ano, para a chefia. @return array{ano: int, ferias: list<array<string, mixed>>} */
+    public function feriasEquipa(?int $ano = null): array
+    {
+        $c = $this->exigirColaborador();
+        $ano ??= (int) now()->format('Y');
+
+        return ['ano' => $ano, 'ferias' => $this->ferias->feriasDe($this->estrutura->equipaDirecta($c->id), $ano)];
+    }
+
+    /**
+     * Painel «Analisar» antes de decidir um pedido (analisePedidoRH, portal_ui.js:1303): saldo de férias, quem mais da equipa do
+     * requerente está ausente no mesmo período, os últimos pedidos do mesmo tipo e os avisos. Só para quem pode decidir o pedido.
+     *
+     * @return array<string, mixed>
+     */
+    public function analisePedido(PedidoPortalColaborador $p): array
+    {
+        $this->etapaADecidir($p);
+        $colab = Colaborador::query()->withTrashed()->find($p->colaborador_id);
+        $d = (array) ($p->dados ?? []);
+        $avisos = [];
+        $saldo = null;
+        $ausentes = [];
+        $ini = isset($d['data_inicio']) ? substr((string) $d['data_inicio'], 0, 10) : null;
+        $fim = isset($d['data_fim']) ? substr((string) $d['data_fim'], 0, 10) : null;
+        if ($p->tipo === 'FERIAS' && $colab) {
+            $ano = (int) ($d['ano'] ?? substr((string) ($ini ?: $p->criado_em?->toDateString()), 0, 4));
+            $r = collect($this->ferias->resumo($ano, [(int) $colab->id]))->first();
+            $direito = $r['direito'] ?? $this->ferias->direito((int) $colab->id, $ano);
+            $marcados = (int) ($r['marcados'] ?? 0);   // inclui este pedido (PEDIDO conta como marcado)
+            $saldo = ['ano' => $ano, 'direito' => $direito, 'marcados' => $marcados, 'gozados' => (int) ($r['gozados'] ?? 0), 'saldo' => $direito - $marcados, 'dias_pedidos' => (int) ($d['dias'] ?? 0)];
+            if ($saldo['saldo'] < 0) {
+                $avisos[] = 'Com este pedido, o colaborador fica com saldo negativo no ano.';
+            }
+        }
+        if ($ini && $fim && $colab) {
+            // a equipa directa do requerente = quem tem a mesma chefia que ele (ou, sem chefia, a sua unidade)
+            $chefe = $this->estrutura->chefiaDe((int) $colab->id);
+            $equipa = $chefe ? $this->estrutura->equipaDirecta($chefe) : Colaborador::query()->where('estado', 'ACTIVO')->where('unidade_organica_id', $colab->unidade_organica_id)->whereNotNull('unidade_organica_id')->pluck('id')->all();
+            $equipa = array_values(array_filter(array_map('intval', $equipa), fn ($id) => $id !== (int) $colab->id));
+            if ($equipa) {
+                $nomes = Colaborador::query()->withTrashed()->whereIn('id', $equipa)->pluck('nome_completo', 'id');
+                foreach (PlanoFeriasColaborador::query()->whereIn('colaborador_id', $equipa)->where('estado', '<>', 'CANCELADO')->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $ini)->orderBy('data_inicio')->get() as $f) {
+                    $ausentes[] = ['colaborador_id' => (int) $f->colaborador_id, 'nome' => $nomes[$f->colaborador_id] ?? "#{$f->colaborador_id}", 'tipo' => 'FERIAS', 'estado' => $f->estado,
+                        'de' => $f->data_inicio->toDateString(), 'ate' => $f->data_fim->toDateString()];
+                }
+                foreach (AusenciaFaltaColaborador::query()->whereIn('colaborador_id', $equipa)->whereIn('estado', ['APROVADO', 'PENDENTE_CHEFIA', 'PENDENTE_RH'])->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $ini)->orderBy('data_inicio')->get() as $a) {
+                    $ausentes[] = ['colaborador_id' => (int) $a->colaborador_id, 'nome' => $nomes[$a->colaborador_id] ?? "#{$a->colaborador_id}", 'tipo' => 'AUSENCIA', 'estado' => $a->estado,
+                        'de' => $a->data_inicio->toDateString(), 'ate' => $a->data_fim->toDateString()];
+                }
+            }
+            $n = count(array_unique(array_column($ausentes, 'colaborador_id')));
+            if ($n > 0) {
+                $avisos[] = 'Aprovar deixa a equipa com '.($n + 1).' pessoa(s) ausente(s) no mesmo período.';
+            }
+        }
+        $ultimos = PedidoPortalColaborador::query()->where('colaborador_id', $p->colaborador_id)->where('tipo', $p->tipo)->whereKeyNot($p->id)->orderByDesc('id')->limit(6)->get()
+            ->map(fn ($x) => ['id' => (int) $x->id, 'estado' => $x->estado, 'criado_em' => $x->criado_em?->toIso8601String(), 'dados' => $x->dados, 'decidido_em' => $x->decidido_em?->toIso8601String(),
+                'decisao' => collect($x->etapas)->filter(fn ($e) => in_array($e['estado'] ?? null, ['APROVADO', 'RECUSADO'], true))->map(fn ($e) => ($e['nivel'] ?? '').': '.($e['estado'] ?? '').(! empty($e['nota']) ? " — {$e['nota']}" : ''))->values()->all()])
+            ->values()->all();
+
+        return ['pedido' => ['id' => (int) $p->id, 'tipo' => $p->tipo, 'estado' => $p->estado, 'criado_em' => $p->criado_em?->toIso8601String(), 'dados' => $d, 'etapas' => $p->etapas],
+            'colaborador' => $colab ? ['id' => (int) $colab->id, 'nome_completo' => $colab->nome_completo, 'data_admissao' => $colab->data_admissao ? substr((string) $colab->data_admissao, 0, 10) : null,
+                'unidade' => $colab->unidade_organica_id ? DB::table('unidades_organicas')->where('id', $colab->unidade_organica_id)->value('nome') : null,
+                'chefia_colaborador_id' => $this->estrutura->chefiaDe((int) $colab->id)] : null,
+            'saldo_ferias' => $saldo, 'equipa_ausente' => $ausentes, 'ultimos_pedidos' => $ultimos, 'avisos' => $avisos,
+            'anexos' => ! empty($d['documento_url']) ? [['rotulo' => 'Documento de justificação', 'url' => $d['documento_url']]] : []];
     }
 
     /** Pedidos à espera do utilizador actual (chefia directa ou, com a permissão, RH). */

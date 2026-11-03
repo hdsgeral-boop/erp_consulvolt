@@ -549,6 +549,8 @@ export interface ResumoFerias {
   direito_gravado?: boolean;
   transporte?: number | null;
   ano_admissao?: boolean;
+  /** Fase J: nome da unidade orgânica do colaborador (para agrupar / filtrar) */
+  unidade?: string | null;
 }
 
 export interface PeriodoFerias {
@@ -673,7 +675,14 @@ export interface ResumoPortal {
   documentos_emitidos?: number;
   /** Autoavaliação ANUAL do ano corrente (portal_ui.js:180). */
   autoavaliacao?: { ano: number; periodo: string; estado: 'SUBMETIDA' | 'RASCUNHO' | 'POR_FAZER' };
+  /** Fase J: pedidos + compras + entregas + impedimentos + atrasos à minha espera (portal_ui.js:160). */
   aprovacoes_para_mim: number;
+  aprovacoes_detalhe?: { pedidos: number; compras: number; entregas: number; impedimentos: number; atrasos: number };
+  /** entregas minhas recusadas + devolvidas (contador do separador «Entregáveis») */
+  entregaveis_pendentes?: number;
+  /** mostrar/esconder os separadores «Projectos» e «Entregáveis» */
+  tem_projetos?: boolean;
+  tem_entregaveis?: boolean;
 }
 
 export interface ModeloDocumento {

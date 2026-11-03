@@ -121,6 +121,14 @@
    "nome": "Estrutura Orgânica",
    "resumo": "Unidades orgânicas, cargos e postos de trabalho, organigrama e mapa de pessoal.",
    "regras": []
+  },
+  "metodo": {
+   "nome": "Método de Trabalho",
+   "resumo": "Registo de Assunto 5W1H (o quê, quem, quando, onde, porquê, como) com deliberação pela chefia, projecto ou pedido de compra gerados.",
+   "regras": [
+    "Um assunto só avança depois de aprovado pelo responsável do nível acima no organigrama.",
+    "O departamento do assunto é a unidade orgânica; sem ela, a vista «Por departamento» agrupa pela unidade de negócio."
+   ]
   }
  },
  "moduloPorCatalogo": {
@@ -138,7 +146,8 @@
   "crm": "crm",
   "acrescimos": "acrescimos",
   "orcamento": "orcamento",
-  "estrutura": "estrutura"
+  "estrutura": "estrutura",
+  "metodo": "metodo"
  },
  "ecras": {
   "dashboard": {
@@ -1115,6 +1124,71 @@
     "As validações da regra que falharem pedem confirmação antes de abrir o formulário.",
     "As contas que não existem no plano são assinaladas na lista de regras.",
     "A chave do serviço de IA fica sempre no servidor; a IA está desligada por omissão em cada empresa."
+   ]
+  },
+  "est_estrutura": {
+   "modulo": "estrutura",
+   "titulo": "Estrutura orgânica — unidades, cargos, tarefas e entregáveis",
+   "serve": "Desenhar as unidades da empresa, os cargos com vagas, afectar colaboradores e definir, por unidade, as tarefas com entregáveis mensuráveis (meta, prazo, remuneração e avaliação).",
+   "passos": [
+    "Crie as unidades (uma a uma, várias de uma vez ou a estrutura base) e indique o responsável de cada uma: é ele quem valida as entregas.",
+    "Use os botões «arrumar» (trás, frente, subir, descer, apoio) para ordenar a unidade seleccionada no organigrama.",
+    "Na secção «Tarefas e entregáveis», acrescente a tarefa (o que a unidade faz) e os seus entregáveis (o que se mede), com meta, prazo «dia D do mês M do período», alerta e multa.",
+    "Em «Entregas» registe o que foi entregue (ou deixe que quem executa o faça no portal); o responsável valida, devolve para correcção ou recusa.",
+    "Ligue o entregável a um item de produtividade (existente ou criado agora) para as entregas validadas serem pagas em RH › Produtividade › Entregáveis das unidades."
+   ],
+   "dicas": [
+    "Só entregas validadas contam para a produtividade; quem entregou ou registou nunca valida a própria entrega.",
+    "Um impedimento aceite justifica o período e retira o entregável dos atrasos.",
+    "Entregáveis alimentados pelo CRM: cada actividade concluída vale uma entrega de 1 unidade; «Actualizar» põe o entregável a par do CRM sem duplicar.",
+    "Não se elimina uma tarefa ou entregável com entregas registadas: desactive-o.",
+    "O «utilizador responsável» e os «utilizadores» da unidade são nomes de utilizador com acesso à empresa."
+   ]
+  },
+  "rh_produtividade": {
+   "modulo": "rh",
+   "titulo": "Subsídio de produtividade",
+   "serve": "Medir a produtividade por quantidade, horas, objectivo, pontos ou tarefas e pagá-la no processamento salarial do mês.",
+   "passos": [
+    "Crie o período de cálculo (mês e janela de medição) e registe os valores, à mão, por Excel ou a partir dos projectos.",
+    "Em «Entregáveis das unidades» escolha o período aberto, analise e converta as entregas validadas dos entregáveis das unidades orgânicas; «Anular conversão» desfaz.",
+    "Em «Elegibilidade» veja quem pode ter registos: itens do contrato (só leitura) mais as linhas acrescentadas aqui ou ganhas por entregáveis.",
+    "Feche o período para o importar no cálculo salarial."
+   ],
+   "dicas": [
+    "A conversão é idempotente: repetir soma ao registo existente em vez de duplicar.",
+    "Grupos não validados, sem item de produtividade, já convertidos ou entregues fora do prazo (quando o entregável não paga fora de prazo) ficam listados com o motivo.",
+    "Quem executa um entregável passa a elegível para o item ao converter — sem tocar no contrato."
+   ]
+  },
+  "rh_portal": {
+   "modulo": "rh",
+   "titulo": "Portal do Colaborador",
+   "serve": "Os seus pedidos (férias, ausências, documentos, agregado, empréstimos), recibos, escala, contrato, avaliação, projectos, entregáveis e as aprovações à sua espera.",
+   "passos": [
+    "Em «Férias» veja o direito, os dias marcados e o saldo do ano e peça férias dentro do período definido pela empresa.",
+    "Em «Projectos» lance as horas e actualize a folha de medição das tarefas pelas quais responde.",
+    "Em «Entregáveis» registe o que entregou (com evidência), reenvie o que foi devolvido depois de corrigir e reporte quando não há condições de executar.",
+    "Em «Aprovações», como chefia, analise e decida os pedidos da equipa, os pedidos de compra, as entregas a validar, os impedimentos e acompanhe os entregáveis em atraso."
+   ],
+   "dicas": [
+    "O contador de «Aprovações» soma pedidos, compras, entregas, impedimentos e atrasos à sua espera.",
+    "«Analisar» um pedido mostra o saldo de férias, quem mais da equipa está fora no mesmo período e os últimos pedidos do mesmo tipo.",
+    "A validação de uma entrega é sempre de outra pessoa: quem lança não valida o que lançou."
+   ]
+  },
+  "mt_assuntos": {
+   "modulo": "metodo",
+   "titulo": "Registo de Assuntos (5W1H)",
+   "serve": "Registar um assunto respondendo às seis perguntas e levá-lo à deliberação da chefia; pode gerar um projecto e um pedido de compra.",
+   "passos": [
+    "Preencha WHAT (título), WHO (responsáveis e o principal), WHEN (prazo), WHERE (interno com unidade de negócio e, se quiser, o departamento / unidade orgânica; ou externo com cliente), WHY (fundamentação) e HOW (recursos, custo e método de resolução).",
+    "Grave o rascunho e submeta a aprovação; a decisão cabe ao responsável do nível acima no organigrama.",
+    "Use as vistas «Por departamento», «Por cliente», «Por responsável», «Por prazo» e «Por custo» para acompanhar."
+   ],
+   "dicas": [
+    "A vista «Por departamento» agrupa pela unidade orgânica quando está preenchida; senão pela unidade de negócio.",
+    "A caixa de alertas mostra os assuntos à espera da sua decisão, os atrasados e os bloqueados pelo pedido de compra."
    ]
   }
  }
