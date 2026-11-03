@@ -39,7 +39,7 @@ class PlanosComerciaisSeeder extends Seeder
                 'max_utilizadores' => 10,
                 'ativo' => true,
                 'ordem' => 2,
-                'modulos' => ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'rh'],
+                'modulos' => ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'acrescimos', 'rh', 'estrutura', 'metodo'],
             ],
             [
                 'codigo' => 'empresarial',
@@ -51,7 +51,7 @@ class PlanosComerciaisSeeder extends Seeder
                 'max_utilizadores' => 50,
                 'ativo' => true,
                 'ordem' => 3,
-                'modulos' => ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'rh', 'activos', 'crm', 'projectos', 'orcamento'],
+                'modulos' => ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'acrescimos', 'rh', 'estrutura', 'metodo', 'activos', 'crm', 'projectos', 'orcamento'],
             ],
         ];
 

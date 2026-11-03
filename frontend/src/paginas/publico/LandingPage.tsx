@@ -66,6 +66,9 @@ const DESCRICOES_MODULOS: Record<string, string> = {
   crm: 'CRM Comercial',
   projectos: 'Gestão de Projectos',
   orcamento: 'Gestão Orçamental',
+  acrescimos: 'Acréscimos e Diferimentos',
+  estrutura: 'Estrutura Orgânica, Organigrama e Entregáveis',
+  metodo: 'Método de Trabalho (Registo de Assuntos 5W1H)',
 };
 
 const DESCRICOES_MODULOS_EN: Record<string, string> = {
@@ -80,10 +83,13 @@ const DESCRICOES_MODULOS_EN: Record<string, string> = {
   crm: 'Sales CRM',
   projectos: 'Project Management',
   orcamento: 'Budget Management',
+  acrescimos: 'Accruals & Deferrals',
+  estrutura: 'Organisation Structure, Org Chart & Deliverables',
+  metodo: 'Work Method (5W1H Issue Register)',
 };
 
 /** Ordem de exibição da tabela de comparação — os mesmos códigos que o backend usa para bloquear o acesso por plano. */
-const ORDEM_MODULOS = ['vendas', 'pos', 'stock', 'teso', 'compras', 'contab', 'rh', 'activos', 'crm', 'projectos', 'orcamento'];
+const ORDEM_MODULOS = ['vendas', 'pos', 'stock', 'teso', 'compras', 'contab', 'rh', 'activos', 'crm', 'projectos', 'orcamento', 'acrescimos', 'estrutura', 'metodo'];
 
 const PLANOS_SISTEMA_PADRAO: PlanoApi[] = [
   {
@@ -106,7 +112,7 @@ const PLANOS_SISTEMA_PADRAO: PlanoApi[] = [
     max_utilizadores: 10,
     max_empresas: 3,
     ativo: true,
-    modulos: ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'rh'],
+    modulos: ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'acrescimos', 'rh', 'estrutura', 'metodo'],
   },
   {
     id: 3,
@@ -117,7 +123,7 @@ const PLANOS_SISTEMA_PADRAO: PlanoApi[] = [
     max_utilizadores: 50,
     max_empresas: 20,
     ativo: true,
-    modulos: ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'rh', 'activos', 'crm', 'projectos', 'orcamento'],
+    modulos: ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'acrescimos', 'rh', 'estrutura', 'metodo', 'activos', 'crm', 'projectos', 'orcamento'],
   }
 ];
 
