@@ -2335,6 +2335,16 @@
               "chave": "est_validar_entregas",
               "rotulo": "Validar entregas de entregáveis sem ser responsável da unidade",
               "sensivel": true
+            },
+            {
+              "chave": "est_multas_gerir",
+              "rotulo": "Propor, aplicar, dispensar e lançar na folha as multas de entregáveis",
+              "sensivel": true
+            },
+            {
+              "chave": "est_delegar",
+              "rotulo": "Criar delegações de chefia em nome de outros colaboradores",
+              "sensivel": true
             }
           ]
         },
@@ -3092,6 +3102,8 @@
         "est_estrutura_view": true,
         "est_organigrama_view": true,
         "est_mapa_view": true,
+        "est_multas_gerir": true,
+        "est_delegar": true,
         "colaboradores_detail": true,
         "colaboradores_import": true,
         "rh_ferias_edit": true,
@@ -3155,6 +3167,7 @@
         "est_estrutura_view": true,
         "est_organigrama_view": true,
         "est_mapa_view": true,
+        "est_multas_gerir": true,
         "processamento_validate": true,
         "processamento_integrate": true,
         "processamento_reopen": true,
@@ -3669,7 +3682,9 @@
         "funcoes_view": true,
         "est_editar": true,
         "est_eliminar": true,
-        "est_validar_entregas": true
+        "est_validar_entregas": true,
+        "est_multas_gerir": true,
+        "est_delegar": true
       }
     },
     {

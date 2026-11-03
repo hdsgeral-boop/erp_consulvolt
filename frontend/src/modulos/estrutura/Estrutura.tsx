@@ -17,6 +17,8 @@ import { ModalVariasUnidades, useEstruturaBase } from './comum/ModaisCriacao';
 import { TIPOS_UNIDADE, aplanar, construirArvore, descendentes, tipoInfo, type Estrutura as DadosEstrutura, type NoUnidade, type Posto, type Unidade } from './comum/arvore';
 import { caminho, estadoVagas, linhasMembros, mapaSalarios, nomePosto, ocupantesPorPosto, type ColaboradorEstrutura, type SalariosApi } from './comum/legado';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
+import Multas from './multas/Multas';
+import { DelegacoesEstrutura } from './faseK/DelegacoesEstrutura';
 import { TarefasUnidade } from './tarefas/TarefasUnidade';
 import { arrumarUnidade } from './tarefas/api';
 import { useMutacao } from './tarefas/comum';
@@ -118,7 +120,7 @@ export default function Estrutura() {
   const [varias, setVarias] = useState<{ pai: number | null } | null>(null);
   const [emMassa, setEmMassa] = useState<{ unidade: number | null; soSem: boolean } | null>(null);
   const arvore = useMemo(() => construirArvore(estrutura.data?.unidades ?? []), [estrutura.data]);
-  const [sep, setSep] = useSeparadorUrl(['estrutura', 'cargos']);
+  const [sep, setSep] = useSeparadorUrl(['estrutura', 'cargos', 'multas', 'delegacoes']);
 
   return (
     <>
@@ -161,6 +163,9 @@ export default function Estrutura() {
             ),
           },
           { key: 'cargos', label: 'Cargos e funções', children: <Cargos /> },
+          // Fase K: multas de entregáveis (K3) e delegação da chefia (K5)
+          ...(pode('est_multas_gerir') ? [{ key: 'multas', label: 'Multas de entregáveis', children: <Multas /> }] : []),
+          ...(pode('est_estrutura_view', 'est_delegar') ? [{ key: 'delegacoes', label: 'Delegações', children: <DelegacoesEstrutura /> }] : []),
         ]}
       />
       <FormUnidade edicao={edicao} arvore={arvore} aoFechar={(id) => { setEdicao(null); if (id) setSeleccionada(id); }} />

@@ -31,6 +31,9 @@ export function IndicadoresPortal({ resumo: r, aoAbrirFaltas }: { resumo: Resumo
       {r.aprovacoes_para_mim > 0 && (
         <CartaoKpi barra="nenhuma" rotulo="Aprovações à sua espera" valor={r.aprovacoes_para_mim} cor="vermelho" corValor="#b91c1c" style={ALERTA} />
       )}
+      {(r.delegacoes_recebidas_ativas ?? 0) > 0 && (
+        <CartaoKpi barra="nenhuma" rotulo="Delegações recebidas" valor={r.delegacoes_recebidas_ativas} ajuda="Está a decidir em nome de outra chefia" />
+      )}
     </GrelhaKpi>
   );
 }

@@ -16,6 +16,7 @@ use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoNotasPorConta;
+use App\Services\Estrutura\ServicoMultasEntregaveis;
 use App\Services\Projetos\ServicoExecucaoProjetos;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -160,6 +161,7 @@ final class ServicoFolhaSalarial
                 throw new ErroNegocio('Este lançamento é uma bonificação de desempenho: anule-a na Avaliação.', 'LANCAMENTO_DE_BONIFICACAO', 422);
             }
             ServicoEmprestimos::libertarPrestacoes([$l->id]);   // Fase B: a prestação do empréstimo volta a «por descontar»
+            ServicoMultasEntregaveis::libertarMultas([$l->id]);   // Fase K: a multa de entregável volta a «aplicada»
             $l->delete();
         });
     }
@@ -336,6 +338,7 @@ final class ServicoFolhaSalarial
                     'horas' => array_key_exists('horas', $campos) ? $campos['horas'] : $l->horas, 'origem' => $l->origem ?? 'MANUAL']);
                 if ($novaRubrica !== (int) $l->infotipo_salarial_id) {
                     ServicoEmprestimos::libertarPrestacoes([$l->id]);
+                    ServicoMultasEntregaveis::libertarMultas([$l->id]);
                     $l->delete();   // mudou de rubrica: o lançamento passou para a nova (gravado ou substituído acima)
                 }
             }
@@ -359,6 +362,7 @@ final class ServicoFolhaSalarial
             }
 
             ServicoEmprestimos::libertarPrestacoes(array_map('intval', $ids));
+            ServicoMultasEntregaveis::libertarMultas(array_map('intval', $ids));
 
             return $q->delete();
         });
@@ -380,7 +384,9 @@ final class ServicoFolhaSalarial
             foreach (['fechos_mensais_assiduidade', 'periodos_produtividade_rh'] as $t) {
                 DB::table($t)->where('empresa_id', $this->contexto->obrigatorio())->where('periodo_processamento_salarial_id', $p->id)->update(['periodo_processamento_salarial_id' => null]);
             }
-            ServicoEmprestimos::libertarPrestacoes(LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->pluck('id')->all());
+            $linhasDoPeriodo = LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->pluck('id')->all();
+            ServicoEmprestimos::libertarPrestacoes($linhasDoPeriodo);
+            ServicoMultasEntregaveis::libertarMultas($linhasDoPeriodo, $p->id);
             LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->delete();
             ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->delete();
             $p->delete();

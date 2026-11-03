@@ -331,6 +331,9 @@ export interface ConfiguracaoRH {
   subsidio_natal_pct: number;
   tabela_irt: EscalaoTabelaIrt[];
   tabela_irt_personalizada: boolean;
+  /** Fase K (K3): rubrica de desconto das multas de entregáveis e tecto em % do salário base (0 = sem tecto). */
+  infotipo_multa_entregavel_id?: number | null;
+  multas_entregavel_max_pct?: number;
 }
 
 /** Relatório de uma importação Excel (simulação ou gravação). */
@@ -635,6 +638,8 @@ export interface EtapaPedido {
   em?: string;
   nota?: string | null;
   aprovador_nome?: string;
+  /** Fase K (K5): etapa decidida por um delegado — em nome de quem. */
+  por_delegado_de?: { nome?: string | null; colaborador_id?: number | null } | null;
 }
 
 export interface DocumentoEmitido {
@@ -680,6 +685,8 @@ export interface ResumoPortal {
   aprovacoes_detalhe?: { pedidos: number; compras: number; entregas: number; impedimentos: number; atrasos: number };
   /** entregas minhas recusadas + devolvidas (contador do separador «Entregáveis») */
   entregaveis_pendentes?: number;
+  /** Fase K (K5): delegações de chefia que recebi e estão em vigor. */
+  delegacoes_recebidas_ativas?: number;
   /** mostrar/esconder os separadores «Projectos» e «Entregáveis» */
   tem_projetos?: boolean;
   tem_entregaveis?: boolean;

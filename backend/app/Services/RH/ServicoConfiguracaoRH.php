@@ -4,6 +4,7 @@ namespace App\Services\RH;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\ConfiguracaoRH;
+use App\Models\InfotipoSalarial;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -20,6 +21,10 @@ use Illuminate\Support\Facades\DB;
  *     Os parâmetros são configuráveis por empresa porque a lei e os acordos colectivos podem fixar regras diferentes.
  * Fecho da Versão Actual (#8, minuta do contrato): percentagens do subsídio de férias e do subsídio de Natal sobre o salário
  * base (art. 238.º/1 da Lei n.º 12/23: mínimo legal de 50 %; legado companies.subsidio_ferias_pct/subsidio_natal_pct).
+ * Fase K (ADR-079), multas de entregáveis na folha: `infotipo_multa_entregavel_id` (rubrica de DESCONTO onde se lançam; sem ela não se
+ * lança nada) e `multas_entregavel_max_pct` (tecto opcional, % do salário base do contrato vigente que as multas de um colaborador
+ * podem descontar num período; 0 = sem tecto). Descontos por penalização pecuniária podem estar limitados pela Lei Geral do
+ * Trabalho: validar juridicamente antes de activar.
  */
 final class ServicoConfiguracaoRH
 {
@@ -31,6 +36,8 @@ final class ServicoConfiguracaoRH
         'ferias_transporte_max_dias' => 22,
         'subsidio_ferias_pct' => 50,
         'subsidio_natal_pct' => 50,
+        'multas_entregavel_max_pct' => 0,
+        'infotipo_multa_entregavel_id' => null,
     ];
 
     /** Mínimo legal dos subsídios de férias e de Natal (art. 238.º/1 da Lei n.º 12/23) e um tecto de sanidade. */
@@ -47,6 +54,9 @@ final class ServicoConfiguracaoRH
                 $cfg[$r->chave] = is_bool(self::PADRAO[$r->chave]) ? (bool) $r->valor : (int) $r->valor;
             }
         }
+        // sem rubrica configurada (0 gravado) a configuração devolve null
+        $cfg['infotipo_multa_entregavel_id'] = $cfg['infotipo_multa_entregavel_id'] ? (int) $cfg['infotipo_multa_entregavel_id'] : null;
+        $cfg['multas_entregavel_max_pct'] = max(0, min(100, (int) $cfg['multas_entregavel_max_pct']));
         // a minuta nunca promete menos do que a lei (valores antigos ou gravados à mão abaixo do mínimo)
         foreach (['subsidio_ferias_pct', 'subsidio_natal_pct'] as $k) {
             $cfg[$k] = max(self::SUBSIDIO_MINIMO_PCT, (int) $cfg[$k]);
@@ -69,6 +79,12 @@ final class ServicoConfiguracaoRH
                     throw new ErroNegocio("Configuração de RH desconhecida: {$chave}.", 'CONFIG_DESCONHECIDA', 422);
                 }
                 $valor = is_bool(self::PADRAO[$chave]) ? (bool) $valor : (int) $valor;
+                if ($chave === 'infotipo_multa_entregavel_id' && $valor > 0 && InfotipoSalarial::query()->find($valor)?->tipo !== 'DESCONTO') {
+                    throw new ErroNegocio('A rubrica das multas de entregáveis tem de ser uma rubrica do tipo DESCONTO.', 'RUBRICA_NAO_DESCONTO', 422);
+                }
+                if ($chave === 'multas_entregavel_max_pct' && $valor > 100) {
+                    throw new ErroNegocio('O tecto das multas é uma percentagem entre 0 e 100 do salário base.', 'DADOS_INVALIDOS', 422);
+                }
                 if (! is_bool($valor) && $valor < 0) {
                     throw new ErroNegocio('Os valores das férias não podem ser negativos.', 'DADOS_INVALIDOS', 422);
                 }

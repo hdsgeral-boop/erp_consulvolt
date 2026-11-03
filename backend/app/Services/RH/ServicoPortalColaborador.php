@@ -21,6 +21,7 @@ use App\Models\ResultadoFolhaSalarial;
 use App\Models\UtilizadorEmpresa;
 use App\Services\Compras\ServicoDeliberacaoCompras;
 use App\Services\Estrutura\ServicoEntregaveis;
+use App\Services\Sistema\NotificadorRH;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +47,11 @@ use Illuminate\Support\Facades\Gate;
  *     segue as decisões do pedido (ServicoEmprestimos::aoDecidir); aprovado gera o plano;
  *   - consultas novas: a minha escala do mês (com o horário do contrato nos dias sem escala), o meu contrato (o vigente,
  *     mesmo suspenso ou cessado — só consulta) e os meus empréstimos (limites, simulação e plano).
+ * Fase K (ADR-079):
+ *   - delegação da chefia (ServicoDelegacoesChefia, âmbito PORTAL): na etapa CHEFIA decide o aprovador designado OU o seu delegado
+ *     no período; o delegado vê os pendentes do delegante, nunca decide os pedidos que são seus nem fura a segregação CHEFIA → RH
+ *     (a mesma pessoa não aprova as duas etapas); a decisão por delegação fica na etapa (`por_delegado_de`) e na auditoria;
+ *   - notificações isoladas (NotificadorRH): pedido novo → aprovador; etapa decidida → requerente (e RH ao passar a RH).
  */
 final class ServicoPortalColaborador
 {
@@ -65,6 +71,8 @@ final class ServicoPortalColaborador
         private readonly ServicoAssiduidade $assiduidade,
         private readonly ServicoDeliberacaoCompras $comprasDeliberacao,
         private readonly ServicoEntregaveis $entregaveis,
+        private readonly ServicoDelegacoesChefia $delegacoes,
+        private readonly NotificadorRH $notificador,
     ) {}
 
     // ───────────── Ligação utilizador ↔ colaborador ─────────────
@@ -172,13 +180,44 @@ final class ServicoPortalColaborador
             if ($p->ausencia_falta_id) {
                 AusenciaFaltaColaborador::query()->whereKey($p->ausencia_falta_id)->update(['pedido_portal_colaborador_id' => $p->id]);
             }
+            $this->avisarAprovador($p->refresh(), $c);
 
-            return $p->refresh();
+            return $p;
         });
     }
 
-    /** Pode o utilizador actual decidir este pedido? Devolve a etapa ou lança o motivo. */
+    private const ROTULOS_TIPO = ['FERIAS' => 'férias', 'AUSENCIA' => 'ausência', 'DOCUMENTO' => 'documento', 'AGREGADO' => 'actualização do agregado', 'EMPRESTIMO' => 'empréstimo'];
+
+    /** Pedido novo (ou que passou de etapa) → quem decide a etapa actual: a chefia designada e o seu delegado, ou o RH (`rh_portal_aprovar`). */
+    private function avisarAprovador(PedidoPortalColaborador $p, Colaborador $requerente): void
+    {
+        $i = collect($p->etapas)->search(fn ($e) => $e['estado'] === 'PENDENTE');
+        if ($i === false) {
+            return;
+        }
+        $etapa = $p->etapas[$i];
+        $titulo = 'Novo pedido de '.(self::ROTULOS_TIPO[$p->tipo] ?? $p->tipo).' de '.$requerente->nome_completo;
+        $mensagem = $titulo.' à espera da sua decisão'.($etapa['nivel'] === 'RH' ? ' (etapa do RH).' : '.');
+        if ($etapa['nivel'] === 'CHEFIA') {
+            $chefe = self::aprovador($etapa);
+            $this->notificador->paraColaboradores(array_merge([$chefe], $chefe ? $this->delegacoes->substitutoDe($chefe, 'PORTAL') : []), $titulo, $mensagem, '/m/rh/rh_portal', 'rh', 'AVISO');
+        } else {
+            $this->notificador->paraPermissao('rh_portal_aprovar', $titulo, $mensagem, '/m/rh/rh_portal', 'rh', 'AVISO', [(int) $requerente->id]);
+        }
+    }
+
+    /** Pode o utilizador actual decidir este pedido? Devolve o índice da etapa ou lança o motivo. */
     public function etapaADecidir(PedidoPortalColaborador $p): int
+    {
+        return $this->etapaEDelegacao($p)[0];
+    }
+
+    /**
+     * A etapa a decidir e, se o utilizador decide em nome de outra pessoa (delegação da chefia), quem delegou.
+     *
+     * @return array{0: int, 1: array{colaborador_id: int, nome: string}|null}
+     */
+    private function etapaEDelegacao(PedidoPortalColaborador $p): array
     {
         if (! str_starts_with((string) $p->estado, 'PENDENTE')) {
             throw new ErroNegocio("O pedido está {$p->estado}: não há decisão pendente.", 'ESTADO_INVALIDO', 422);
@@ -189,8 +228,13 @@ final class ServicoPortalColaborador
         }
         $i = collect($p->etapas)->search(fn ($e) => $e['estado'] === 'PENDENTE');
         $etapa = $p->etapas[$i];
+        $emNomeDe = null;
         if ($etapa['nivel'] === 'CHEFIA' && self::aprovador($etapa) !== (int) $eu) {
-            throw new ErroNegocio('Este pedido aguarda a decisão da chefia directa do colaborador.', 'SEM_PERMISSAO_ETAPA', 403);
+            // delegação da chefia (âmbito PORTAL): o delegado do aprovador designado decide no período
+            $emNomeDe = $eu ? $this->delegacoes->emNomeDe($eu, 'PORTAL', [self::aprovador($etapa)]) : null;
+            if (! $emNomeDe) {
+                throw new ErroNegocio('Este pedido aguarda a decisão da chefia directa do colaborador.', 'SEM_PERMISSAO_ETAPA', 403);
+            }
         }
         if ($etapa['nivel'] === 'RH') {
             if (! Gate::any(['rh_portal_aprovar'])) {
@@ -202,14 +246,14 @@ final class ServicoPortalColaborador
             }
         }
 
-        return $i;
+        return [$i, $emNomeDe];
     }
 
     public function decidir(PedidoPortalColaborador $p, string $decisao, ?string $nota, ?string $remunerada = null): PedidoPortalColaborador
     {
         return DB::transaction(function () use ($p, $decisao, $nota, $remunerada) {
             $p = PedidoPortalColaborador::query()->lockForUpdate()->findOrFail($p->id);
-            $i = $this->etapaADecidir($p);
+            [$i, $emNomeDe] = $this->etapaEDelegacao($p);
             if ($decisao === 'RECUSADO' && mb_strlen(trim((string) $nota)) < 3) {
                 throw new ErroNegocio('Indique o motivo da recusa.', 'NOTA_EM_FALTA', 422);
             }
@@ -217,7 +261,8 @@ final class ServicoPortalColaborador
                 throw new ErroNegocio('Os pedidos de documentos aprovam-se emitindo o documento.', 'USAR_EMISSAO', 422);
             }
             $etapas = $p->etapas;
-            $etapas[$i] = array_merge($etapas[$i], ['estado' => $decisao, 'por' => Auth::user()?->nome_utilizador, 'por_id' => Auth::id(), 'em' => now()->toIso8601String(), 'nota' => $nota]);
+            $etapas[$i] = array_merge($etapas[$i], ['estado' => $decisao, 'por' => Auth::user()?->nome_utilizador, 'por_id' => Auth::id(), 'em' => now()->toIso8601String(), 'nota' => $nota]
+                + ($emNomeDe ? ['por_delegado_de' => $emNomeDe] : []));
             $seguinte = $decisao === 'APROVADO' ? collect($etapas)->search(fn ($e, $k) => $k > $i && in_array($e['estado'], ['AGUARDA', 'PENDENTE'], true)) : false;
             if ($seguinte !== false) {
                 $etapas[$seguinte]['estado'] = 'PENDENTE';
@@ -234,10 +279,34 @@ final class ServicoPortalColaborador
             }
             $this->efeitos($p, $estado, $remunerada, $nota);
             $p->update(['etapas' => $etapas, 'estado' => $estado, 'decidido_em' => in_array($estado, ['APROVADO', 'RECUSADO'], true) ? now() : null]);
-            $this->auditoria->registar('Portal do Colaborador', $decisao === 'APROVADO' ? 'Aprovar pedido' : 'Recusar pedido', "{$p->tipo} #{$p->id} → {$estado}", 'pedidos_portal_colaborador', $p->id);
+            $this->auditoria->registar('Portal do Colaborador', $decisao === 'APROVADO' ? 'Aprovar pedido' : 'Recusar pedido', "{$p->tipo} #{$p->id} → {$estado}".($emNomeDe ? " — decidiu em nome de {$emNomeDe['nome']}" : ''),
+                'pedidos_portal_colaborador', $p->id);
+            $this->avisarDecisao($p->refresh(), $decisao, $estado, $nota, $emNomeDe);
 
-            return $p->refresh();
+            return $p;
         });
+    }
+
+    /** Etapa decidida → o requerente; ao passar à etapa do RH, os utilizadores `rh_portal_aprovar`. */
+    private function avisarDecisao(PedidoPortalColaborador $p, string $decisao, string $estado, ?string $nota, ?array $emNomeDe): void
+    {
+        $tipo = self::ROTULOS_TIPO[$p->tipo] ?? $p->tipo;
+        $quem = $emNomeDe ? " (decidido em nome de {$emNomeDe['nome']})" : '';
+        $motivo = trim((string) $nota) !== '' ? ': '.trim((string) $nota) : '.';
+        if ($decisao === 'RECUSADO') {
+            $this->notificador->paraColaborador((int) $p->colaborador_id, 'Pedido recusado', "O seu pedido de {$tipo} foi recusado{$quem}{$motivo}", '/m/rh/rh_portal', 'rh', 'AVISO');
+
+            return;
+        }
+        if ($estado === 'APROVADO') {
+            $this->notificador->paraColaborador((int) $p->colaborador_id, 'Pedido aprovado', "O seu pedido de {$tipo} foi aprovado{$quem}.", '/m/rh/rh_portal', 'rh', 'SUCESSO');
+
+            return;
+        }
+        $this->notificador->paraColaborador((int) $p->colaborador_id, 'Pedido aprovado pela chefia', "O seu pedido de {$tipo} foi aprovado pela chefia{$quem} e segue para o RH.", '/m/rh/rh_portal', 'rh', 'INFO');
+        if ($c = Colaborador::query()->find($p->colaborador_id)) {
+            $this->avisarAprovador($p, $c);
+        }
     }
 
     public function cancelar(PedidoPortalColaborador $p): PedidoPortalColaborador
@@ -304,6 +373,7 @@ final class ServicoPortalColaborador
                 'emitido_por' => Auth::user()?->nome_utilizador, 'emitido_em' => now()->toIso8601String()];
             $p->update(['etapas' => $etapas, 'estado' => 'EMITIDO', 'documento' => $documento, 'decidido_em' => now()]);
             $this->auditoria->registar('Portal do Colaborador', 'Emitir documento', "{$documento['numero']} (pedido #{$p->id})", 'pedidos_portal_colaborador', $p->id);
+            $this->notificador->paraColaborador((int) $p->colaborador_id, 'Documento emitido', "O documento {$documento['numero']} que pediu já está emitido.", '/m/rh/rh_portal', 'rh', 'SUCESSO');
 
             return ['emitido' => true, 'pedido' => $p->refresh()];
         });
@@ -349,7 +419,8 @@ final class ServicoPortalColaborador
             // O contador do separador «Aprovações» soma RH (pendentesParaMim) + Compras (comprasParaMim) + entregas, impedimentos e
             // atrasos dos entregáveis das unidades por que respondo (Fase J); `aprovacoes_detalhe` separa-os para o ecrã
             'aprovacoes_para_mim' => array_sum($detalhe), 'aprovacoes_detalhe' => $detalhe, 'entregaveis_pendentes' => $entregaveis['recusadas'] + $entregaveis['devolvidas'],
-            'entregaveis_contadores' => $entregaveis, 'tem_projetos' => $this->temProjetos(), 'tem_entregaveis' => $this->entregaveis->temEntregaveis($c->id)];
+            'entregaveis_contadores' => $entregaveis, 'tem_projetos' => $this->temProjetos(), 'tem_entregaveis' => $this->entregaveis->temEntregaveis($c->id),
+            'delegacoes_recebidas_ativas' => $this->delegacoes->contarRecebidasAtivas($c->id)];
     }
 
     /** Contadores das aprovações à minha espera, por secção (resumo e portal autónomo). @return array{pedidos: int, compras: int, entregas: int, impedimentos: int, atrasos: int} */
@@ -479,19 +550,37 @@ final class ServicoPortalColaborador
             'anexos' => ! empty($d['documento_url']) ? [['rotulo' => 'Documento de justificação', 'url' => $d['documento_url']]] : []];
     }
 
-    /** Pedidos à espera do utilizador actual (chefia directa ou, com a permissão, RH). */
+    /**
+     * Pedidos à espera do utilizador actual: chefia directa, os dos seus delegantes (delegação activa, âmbito PORTAL — com
+     * `em_nome_de`) ou, com a permissão, RH. Nunca os próprios.
+     */
     public function pendentesParaMim(): array
     {
         $eu = $this->colaboradorDe();
         $rh = Gate::any(['rh_portal_aprovar']);
+        $delegantes = $eu ? $this->delegacoes->delegantesDe($eu, 'PORTAL') : [];
 
-        return PedidoPortalColaborador::query()->where('estado', 'like', 'PENDENTE%')->orderBy('id')->get()->filter(function ($p) use ($eu, $rh) {
+        return PedidoPortalColaborador::query()->where('estado', 'like', 'PENDENTE%')->orderBy('id')->get()->filter(function ($p) use ($eu, $rh, $delegantes) {
             if ($eu && (int) $p->colaborador_id === $eu) {
                 return false;
             }
             $e = collect($p->etapas)->firstWhere('estado', 'PENDENTE');
+            if (! $e) {
+                return false;
+            }
+            if ($e['nivel'] === 'RH') {
+                return $rh;
+            }
+            if ($eu && self::aprovador($e) === $eu) {
+                return true;
+            }
+            if (in_array(self::aprovador($e), $delegantes, true)) {
+                $p->setAttribute('em_nome_de', $this->delegacoes->rotulo(self::aprovador($e)));
 
-            return $e && (($e['nivel'] === 'CHEFIA' && $eu && self::aprovador($e) === $eu) || ($e['nivel'] === 'RH' && $rh));
+                return true;
+            }
+
+            return false;
         })->values()->all();
     }
 

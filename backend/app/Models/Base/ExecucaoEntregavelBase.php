@@ -25,7 +25,7 @@ abstract class ExecucaoEntregavelBase extends ModeloBase
     protected string $moduloAuditoria = 'Estrutura orgânica › Tarefas';
 
     protected $fillable = [
-        'empresa_id', 'entregavel_id', 'tarefa_unidade_id', 'unidade_organica_id', 'colaborador_id', 'quantidade', 'data', 'observacoes', 'url_evidencia', 'registado_por', 'registado_por_colaborador_id', 'origem', 'origem_chave', 'validacao', 'validacao_motivo', 'validada_por', 'validada_por_colaborador_id', 'validada_em', 'validada_como', 'devolucao_anterior', 'periodo_produtividade_id', 'convertida_em', 'convertida_por', 'criado_por', 'atualizado_por',
+        'empresa_id', 'entregavel_id', 'tarefa_unidade_id', 'unidade_organica_id', 'colaborador_id', 'quantidade', 'data', 'observacoes', 'url_evidencia', 'registado_por', 'registado_por_colaborador_id', 'origem', 'origem_chave', 'validacao', 'validacao_motivo', 'validada_por', 'validada_por_colaborador_id', 'validada_em', 'validada_como', 'devolucao_anterior', 'por_delegado_de', 'periodo_produtividade_id', 'convertida_em', 'convertida_por', 'criado_por', 'atualizado_por',
     ];
 
     protected function casts(): array
@@ -42,6 +42,7 @@ abstract class ExecucaoEntregavelBase extends ModeloBase
             'validada_por_colaborador_id' => 'integer',
             'validada_em' => 'datetime',
             'devolucao_anterior' => 'array',
+            'por_delegado_de' => 'array',
             'periodo_produtividade_id' => 'integer',
             'convertida_em' => 'datetime',
             'criado_em' => 'datetime',

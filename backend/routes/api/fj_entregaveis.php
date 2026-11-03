@@ -26,6 +26,9 @@ Route::prefix('rh/estrutura')->name('rh.estrutura.')->group(function () {
         Route::post('entregaveis/{entregavel}/criar-item', 'criarItem')->whereNumber('entregavel')->name('entregaveis.criar-item');
         Route::get('entregaveis/{entregavel}/execucoes', 'execucoes')->whereNumber('entregavel')->name('entregaveis.execucoes.index');
         Route::post('entregaveis/{entregavel}/execucoes', 'gravarExecucao')->whereNumber('entregavel')->name('entregaveis.execucoes.store');
+        // Fase K (ADR-079): importação Excel de entregas (modelo + validar/importar, tudo ou nada)
+        Route::get('entregaveis/{entregavel}/execucoes/modelo', 'modeloExecucoes')->whereNumber('entregavel')->middleware('throttle:pesado')->name('entregaveis.execucoes.modelo');
+        Route::post('entregaveis/{entregavel}/execucoes/importar', 'importarExecucoes')->whereNumber('entregavel')->middleware('throttle:pesado')->name('entregaveis.execucoes.importar');
         Route::put('execucoes/{execucao}', 'actualizarExecucao')->whereNumber('execucao')->name('execucoes.update');
         Route::delete('execucoes/{execucao}', 'eliminarExecucao')->whereNumber('execucao')->name('execucoes.destroy');
         Route::post('execucoes/{execucao}/validar', 'validar')->whereNumber('execucao')->name('execucoes.validar');

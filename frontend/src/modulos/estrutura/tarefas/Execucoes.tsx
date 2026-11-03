@@ -11,6 +11,8 @@ import { useColaboradores } from '@/modulos/rh/comum/consultas';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { actualizarExecucao, CHAVE_EXECUCOES, eliminarExecucao, execucoesDoEntregavel, registarExecucao, reenviarExecucao, reporValidacao, validarExecucao } from './api';
 import { LigacaoAnexo, ModalMotivoCurto, TagValidacao, useMutacao } from './comum';
+import { ImportarEntregas } from '../faseK/ImportarEntregas';
+import { etiquetaEmNomeDe } from '../faseK/regras';
 import { accoesValidacao, fq, normalizarUrl, totalValidado } from './regras';
 import type { DadosExecucao, DecisaoValidacao, Entregavel, Execucao } from './tipos';
 
@@ -33,6 +35,7 @@ export function Execucoes({ entregavel, aoFechar }: { entregavel: Entregavel | n
   const colaboradores = useColaboradores();
   const q = useQuery({ queryKey: [...CHAVE_EXECUCOES, entregavel?.id], queryFn: () => execucoesDoEntregavel(entregavel!.id), enabled: !!entregavel, retry: false });
   const [edicao, setEdicao] = useState<Execucao | 'nova' | null>(null);
+  const [importar, setImportar] = useState(false);
   const [motivo, setMotivo] = useState<{ execucao: Execucao; decisao: Exclude<DecisaoValidacao, 'VALIDADA'> } | null>(null);
   const [form] = Form.useForm<CamposEntrega>();
   const gravar = useMutacao((p: { id?: number; d: DadosExecucao }) => (p.id ? actualizarExecucao(p.id, p.d) : registarExecucao(entregavel!.id, p.d)), { aoSucesso: () => setEdicao(null) });
@@ -64,7 +67,7 @@ export function Execucoes({ entregavel, aoFechar }: { entregavel: Entregavel | n
       render: (_, x) => (
         <>
           <TagValidacao estado={x.validacao} />
-          {x.validada_por && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{x.validada_por} · {formatarData(x.validada_em)}{x.validada_como === 'PERMISSAO' ? ' · por permissão' : ''}</div>}
+          {x.validada_por && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{x.validada_por} · {formatarData(x.validada_em)}{x.validada_como === 'PERMISSAO' ? ' · por permissão' : ''}{etiquetaEmNomeDe(x.por_delegado_de) ? ` · ${etiquetaEmNomeDe(x.por_delegado_de)}` : ''}</div>}
           {x.validacao_motivo && (x.validacao === 'DEVOLVIDA' || x.validacao === 'RECUSADA') && <div style={{ fontSize: '0.74rem', color: x.validacao === 'DEVOLVIDA' ? '#9a3412' : '#b91c1c' }}>{x.validacao_motivo}</div>}
         </>
       ),
@@ -108,7 +111,12 @@ export function Execucoes({ entregavel, aoFechar }: { entregavel: Entregavel | n
 
   return (
     <Drawer open title={`Entregas — ${e.nome}`} onClose={aoFechar} width={larguraGaveta(980)} destroyOnHidden
-      extra={editar && <Button type="primary" icon={<IconeFa nome="plus-circle" />} onClick={() => setEdicao('nova')}>Registar entrega</Button>}>
+      extra={editar && (
+        <Space wrap>
+          <Button icon={<IconeFa nome="file-excel" />} onClick={() => setImportar(true)}>Importar Excel</Button>
+          <Button type="primary" icon={<IconeFa nome="plus-circle" />} onClick={() => setEdicao('nova')}>Registar entrega</Button>
+        </Space>
+      )}>
       <Alert type="warning" showIcon style={{ marginBottom: 12 }}
         title={<><b>Só entregas validadas vão para a produtividade.</b>{porValidar ? <> <b style={{ color: '#b45309' }}>{porValidar} por validar.</b></> : null}</>}
         description="Quem valida é o responsável da unidade ou de uma unidade acima (ou quem tenha a tarefa «validar entregas»). Quem entregou ou registou a entrega nunca a valida." />
@@ -144,6 +152,7 @@ export function Execucoes({ entregavel, aoFechar }: { entregavel: Entregavel | n
         mensagem={motivo?.decisao === 'DEVOLVIDA' ? 'O que tem de ser melhorado ou corrigido? É isto que quem entregou vai ler no portal.' : 'Porque é que esta entrega não é aceite? Ao contrário da devolução, uma recusa não volta a contar.'}
         rotulo={motivo?.decisao === 'DEVOLVIDA' ? 'O que corrigir' : 'Motivo'} textoOk={motivo?.decisao === 'DEVOLVIDA' ? 'Devolver' : 'Recusar'}
         aoFechar={() => setMotivo(null)} aoConfirmar={(m) => motivo && validar.mutate({ id: motivo.execucao.id, decisao: motivo.decisao, motivo: m })} />
+      <ImportarEntregas entregavel={e} aberto={importar} aoFechar={() => setImportar(false)} />
       {q.isError && <Typography.Text type="danger">Não foi possível carregar as entregas.</Typography.Text>}
     </Drawer>
   );

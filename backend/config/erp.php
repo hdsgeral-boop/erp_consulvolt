@@ -155,6 +155,12 @@ return [
         ],
     ],
 
+    // Notificações de RH / Método / Estrutura (Fase K, ADR-079): o centro de notificações é sempre usado; o e-mail é uma ponte
+    // opcional (desligada por omissão) que envia, em fila, o mesmo texto ao e-mail do utilizador destinatário.
+    'notificacoes' => [
+        'email' => (bool) env('ERP_NOTIFICACOES_EMAIL', false),
+    ],
+
     // Licença por empresa (ADR-074). Desligado: sem expiração nem período de teste (comportamento anterior).
     // Módulos que um plano pode incluir (registados na versão do plano; condicionam o menu e o Gate — ver ModulosPlano).
     'planos_catalogo' => [

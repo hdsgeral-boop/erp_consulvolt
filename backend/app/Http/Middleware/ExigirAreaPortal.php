@@ -20,7 +20,7 @@ final class ExigirAreaPortal
     /** Nomes de rota (ou prefixos terminados em `.`) alcançáveis a partir de portal.<base>. */
     private const ROTAS_PERMITIDAS = [
         'portal.acesso',
-        'rh.portal.',          // todas as rotas do portal do colaborador (/rh/portal/*)
+        'rh.portal.',          // todas as rotas do portal do colaborador (/rh/portal/*), incluindo rh.portal.delegacoes.* (Fase K)
         // Fase J (ADR-078): chamadas que os separadores do portal já faziam e a lista branca bloqueava no subdomínio
         'rh.assiduidade.ausencias.catalogo',   // tipos de ausência e falta (pedido de ausência / justificação)
         'rh.avaliacao.',                       // «A minha avaliação» e «A minha equipa»

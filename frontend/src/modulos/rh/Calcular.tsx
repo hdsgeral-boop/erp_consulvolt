@@ -30,6 +30,7 @@ import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
 import { BotaoFolhaDetalhada, ModalSimulacaoColaborador } from './comum/SimulacaoColaborador';
 import { ModalImportarEmprestimos } from './calcular/ImportarEmprestimos';
+import type { ResultadoMultasFolha } from '../estrutura/faseK/tipos';
 import { gruposPeriodos, periodoCorresponde, periodoPorOmissao } from './calcular/periodos';
 import { accoesPeriodo, mesPorExtenso } from './comum/regras';
 import { folhaSalariosHtml, pedidoTabela } from './comum/impressao';
@@ -180,6 +181,9 @@ function PeriodoCalculo() {
   const [produtividade, setProdutividade] = useState(false);
   const [importarExcel, setImportarExcel] = useState(false);
   const [emprestimos, setEmprestimos] = useState(false);
+  // Fase K (K3): multas de entregáveis aplicadas, descontadas na folha
+  const [multas, setMultas] = useState(false);
+  const [substituirMultas, setSubstituirMultas] = useState(false);
   const [resultadoImport, setResultadoImport] = useState<{ titulo: string; linhas: string[] } | null>(null);
   const [selecionados, setSelecionados] = useState<number[]>([]);
   const [editarLote, setEditarLote] = useState(false);
@@ -201,12 +205,17 @@ function PeriodoCalculo() {
     setLancar(null);
     setEfectividade(false);
     setProdutividade(false);
+    setMultas(false);
     setEditarLote(false);
     setSelecionados([]);
     if (pedido.url.endsWith('importar-contratos') && dados) {
       // Fase B: avisos de contratos suspensos em parte do mês ou cessados a meio (ajustar os dias trabalhados)
       const ign = [...((dados.avisos as string[] | undefined) ?? []).map((x) => `Aviso — ${x}`), ...((dados.ignorados as string[] | undefined) ?? [])];
       setResultadoImport({ titulo: `Importação dos contratos: ${dados.criados ?? 0} lançamento(s) criado(s), ${dados.ja_existentes ?? 0} já existente(s).`, linhas: ign });
+    }
+    if (pedido.url.endsWith('importar-multas-entregaveis') && dados) {
+      const r = dados as unknown as ResultadoMultasFolha;
+      setResultadoImport({ titulo: `Multas de entregáveis: ${r.lancados ?? 0} lançada(s), ${r.actualizados ?? 0} actualizada(s), ${r.ignorados ?? 0} ignorada(s) — total ${formatarKz(r.total ?? 0, true)}.`, linhas: (r.avisos ?? []).map((a) => `Aviso — ${a}`) });
     }
     if (pedido.url.endsWith('/copiar') && dados) {
       setResultadoImport({ titulo: `Cópia: ${dados.copiados ?? 0} lançamento(s) copiado(s), ${dados.substituidos ?? 0} substituído(s), ${dados.ja_existentes ?? 0} já existente(s).`,
@@ -260,6 +269,8 @@ function PeriodoCalculo() {
   const abrirProdutividade = () => { setSubstituir(true); setProdutividade(true); };
   // legado (emprestimos_ui.js:245-265): primeiro a tabela das prestações do mês, depois o lançamento
   const importarEmprestimos = () => setEmprestimos(true);
+  const importarMultas = () => { setSubstituirMultas(false); setMultas(true); };
+  const anularMultas = () => Modal.confirm({ title: 'Anular os descontos de multas deste período?', content: 'Retira os lançamentos criados por «Importar multas» e repõe as multas como aplicadas (voltam a poder ser descontadas).', okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/anular-multas-entregaveis` }) });
   const anularEmprestimos = () => Modal.confirm({ title: 'Anular os descontos de empréstimos deste período?', content: 'Retira os lançamentos criados por «Importar empréstimos» e repõe as prestações por descontar.', okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/anular-emprestimos` }) });
   const encerrarComConfirmacao = () => Modal.confirm({
     title: `Encerrar o cálculo de ${p.mes_ano}?`,
@@ -332,6 +343,7 @@ function PeriodoCalculo() {
                   { key: 'produtividade', label: 'Importar produtividade' },
                   // Fase B (Versão Actual, app_v2.js:5406): prestações do mês dos empréstimos aprovados
                   ...(pode('rh_emp_lancar') ? [{ key: 'emprestimos', label: 'Importar empréstimos (prestações do mês)' }, { key: 'anular-emprestimos', label: 'Anular empréstimos importados', danger: true }] : []),
+                  ...(pode('est_multas_gerir') ? [{ key: 'multas', label: 'Importar multas (entregáveis aplicadas)' }, { key: 'anular-multas', label: 'Anular multas importadas', danger: true }] : []),
                   ...(ac.lancar ? [{ type: 'divider' as const }, { key: 'excel', label: 'Importar Excel (lançamentos)', icon: <FileExcelOutlined /> }] : []),
                 ],
                 onClick: ({ key }) => {
@@ -340,6 +352,8 @@ function PeriodoCalculo() {
                   if (key === 'produtividade') abrirProdutividade();
                   if (key === 'emprestimos') importarEmprestimos();
                   if (key === 'anular-emprestimos') anularEmprestimos();
+                  if (key === 'multas') importarMultas();
+                  if (key === 'anular-multas') anularMultas();
                   if (key === 'excel') setImportarExcel(true);
                 },
               }}>
@@ -388,6 +402,7 @@ function PeriodoCalculo() {
               <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>Horas extra e horas de falta apuradas na biometria (RH ▸ Efectividade), já sem férias e ausências justificadas.</Typography.Text>
               <Button block icon={<IconeFa nome="chart-line" />} onClick={abrirProdutividade}>Importar Produtividade</Button>
               {pode('rh_emp_lancar') && <Button block icon={<IconeFa nome="hand-holding-usd" />} onClick={importarEmprestimos}>Importar Empréstimos</Button>}
+              {pode('est_multas_gerir') && <Button block icon={<IconeFa nome="gavel" />} onClick={importarMultas}>Importar Multas</Button>}
               <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>Subsídio de produtividade do período fechado (RH ▸ Produtividade): quantidade × preço de cada item do contrato.</Typography.Text>
             </Col>
           </Row>
@@ -588,6 +603,12 @@ function PeriodoCalculo() {
         onOk={() => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-produtividade`, dados: { substituir } })}>
         <Typography.Paragraph type="secondary">Subsídio de produtividade do período fechado (RH › Produtividade): quantidade × preço de cada item do contrato.</Typography.Paragraph>
         <Space><Switch checked={substituir} onChange={setSubstituir} />Substituir os lançamentos de produtividade existentes</Space>
+      </Modal>
+
+      <Modal title="Importar multas de entregáveis" open={multas} onCancel={() => setMultas(false)} okText="Lançar no período" cancelText="Cancelar" confirmLoading={accao.isPending}
+        onOk={() => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-multas-entregaveis`, dados: { substituir: substituirMultas } })}>
+        <Typography.Paragraph type="secondary">Soma, por colaborador, as multas já <b>aplicadas</b> (Estrutura orgânica › Multas de entregáveis) e lança-as como desconto na rubrica configurada. As multas passam a descontadas; se houver tecto em % do salário base, o excedente fica por descontar e aparece nos avisos.</Typography.Paragraph>
+        <Space><Switch checked={substituirMultas} onChange={setSubstituirMultas} />Substituir o valor se o colaborador já tiver lançamento nessa rubrica</Space>
       </Modal>
 
       <ModalImportarEmprestimos periodoId={Number(id)} mesAno={p.mes_ano} aberto={emprestimos} aoFechar={() => setEmprestimos(false)}

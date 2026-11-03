@@ -19,6 +19,10 @@ Schedule::command('erp:licencas:sincronizar')->dailyAt('00:30')->withoutOverlapp
 // Avisos de licença por email: 7 e 3 dias antes de expirar, e no próprio dia (ADR-074). Sem efeito com licenças desligadas.
 Schedule::command('erp:licencas:avisar')->dailyAt('07:00')->withoutOverlapping();
 
+// Alertas de prazos de RH (Fase K, ADR-079): entregáveis em atraso, férias a começar, pedidos e assuntos pendentes há mais de 3 dias e
+// delegações a terminar. Idempotente (não repete avisos), um só servidor de cada vez.
+Schedule::command('erp:rh:alertas-prazos')->dailyAt('07:30')->onOneServer()->withoutOverlapping();
+
 // Alertas de SLA de suporte violado (Fase 6 da extensão SaaS): corre com frequência porque o prazo é em horas, não em dias.
 Schedule::command('erp:suporte:avisar-sla')->everyFifteenMinutes()->withoutOverlapping();
 

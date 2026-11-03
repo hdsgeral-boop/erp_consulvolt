@@ -16,6 +16,7 @@ import { Execucoes } from './Execucoes';
 import { Impedimentos } from './Impedimentos';
 import { agruparAtrasosPorUnidade, ESTADO_PERIODO, fq, nomeMetrica, num, pctMeta, PERIODICIDADES, prazoTexto, totalMultas } from './regras';
 import { SincronizarCRM } from './SincronizarCRM';
+import { EtiquetaMulta } from '../faseK/EtiquetaMulta';
 import type { Atraso, Entregavel, TarefaUnidade as Tarefa } from './tipos';
 
 /** Faixa dos entregáveis em atraso (portal_ui.js:1504-1528 e KPI «Entregáveis em atraso» do painel): prazo passado sem estar cumprido. */
@@ -30,7 +31,7 @@ export function FaixaAtrasos({ atrasos, titulo = 'Entregáveis em atraso' }: { a
             <li key={`${a.entregavel.id}-${a.periodo_de}`}>
               <b>{a.entregavel.nome}</b> ({a.unidade?.nome ?? g.unidade}) — limite {formatarData(a.limite)}, há {a.dias_atraso} dia(s);
               {a.falta != null ? ` falta ${fq(a.falta)} ${a.entregavel.unidade}` : ' por fazer'}{a.meta != null ? ` (feito ${fq(a.realizado)} de ${fq(a.meta)})` : ''}
-              {a.multa_valor ? <> · multa <b>{formatarKz(a.multa_valor, true)}</b></> : null}{a.multa_descricao ? ` (${a.multa_descricao})` : ''}
+              {a.multa_valor ? <> · multa <b>{formatarKz(a.multa_valor, true)}</b></> : null}{a.multa_descricao ? ` (${a.multa_descricao})` : ''}{a.multa ? <> <EtiquetaMulta multa={a.multa} /></> : null}
               {a.dono ? ` · ${a.dono.nome}` : ''}
               {a.impedimento ? <> · <span style={{ color: '#b45309' }}>impedimento por decidir: {a.impedimento.motivo}</span></> : null}
             </li>

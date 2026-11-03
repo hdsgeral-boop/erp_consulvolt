@@ -42,7 +42,7 @@ final class NotificacoesController extends Controller
     public function marcarLida(int $id): JsonResponse
     {
         $empresaId = $this->contexto->obrigatorio();
-        $this->servico->marcarLida($id, $empresaId);
+        $this->servico->marcarLida($id, $empresaId, request()->user());
 
         return RespostaApi::sucesso(null, 'Notificação marcada como lida.');
     }
@@ -50,7 +50,7 @@ final class NotificacoesController extends Controller
     public function marcarTodasLidas(): JsonResponse
     {
         $empresaId = $this->contexto->obrigatorio();
-        $total = $this->servico->marcarTodasLidas($empresaId);
+        $total = $this->servico->marcarTodasLidas($empresaId, request()->user());
 
         return RespostaApi::sucesso(['atualizadas' => $total], 'Todas as notificações foram marcadas como lidas.');
     }

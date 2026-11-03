@@ -1,6 +1,7 @@
 import { Steps } from 'antd';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ROTULOS_ESTADO, type DocumentoEmitido, type PedidoPortal } from '../api';
+import { etiquetaEmNomeDe } from '@/modulos/estrutura/faseK/regras';
 
 /** Texto curto do pedido (datas das férias/ausência, documento pedido, n.º de dependentes). */
 export function resumoPedido(p: Pick<PedidoPortal, 'tipo' | 'dados'>): string {
@@ -34,7 +35,7 @@ export function EtapasPedido({ pedido }: { pedido: PedidoPortal }) {
     <Steps size="small" style={{ maxWidth: 640 }} items={etapas.map((e) => ({
       title: e.nivel === 'CHEFIA' ? `Chefia${e.aprovador_nome ? ` (${e.aprovador_nome})` : ''}` : 'Recursos Humanos',
       status: estado(e.estado),
-      description: [ROTULOS_ESTADO[e.estado] ?? e.estado, e.por ? `por ${e.por}` : '', e.em ? formatarDataHora(e.em) : '', e.nota ? `«${e.nota}»` : ''].filter(Boolean).join(' · '),
+      description: [ROTULOS_ESTADO[e.estado] ?? e.estado, e.por ? `por ${e.por}` : '', etiquetaEmNomeDe(e.por_delegado_de) ?? '', e.em ? formatarDataHora(e.em) : '', e.nota ? `«${e.nota}»` : ''].filter(Boolean).join(' · '),
     }))} />
   );
 }

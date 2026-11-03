@@ -9,6 +9,7 @@
 | **5** | Frontend React + TypeScript com o layout do legado (sidebar, top header, DataTables, modais, impressões A4), módulo a módulo, com a matriz de paridade | Em curso (Ant Design + TypeScript; base + Vendas piloto concluídos, ADR-061) |
 | **6** | Testes E2E, reconciliação contabilística cêntimo a cêntimo com o legado, homologação | Planeada |
 | **Fase J** | Estrutura Orgânica: tarefas das unidades com entregáveis mensuráveis (execuções validadas pelo responsável, impedimentos, atrasos, ponte CRM, conversão em produtividade, objectivos na avaliação), elegibilidade de produtividade fora do contrato, portal (Entregáveis, Aprovações por secções, equipa, análise do pedido, compras), afinação das férias (confirmar antiguidade, revalidação na decisão, direito LGT no fluxo, filtro por unidade), departamento no Método, arrumar o organigrama, `est_validar_entregas` — ADR-078 | ✅ Backend concluído (2026-11-08); frontend em paralelo |
+| **Fase K** | Perfis existentes (`erp:perfis:actualizar-modelos`), importação Excel de entregas (`origem = EXCEL`, tudo ou nada, idempotente), multas de entregáveis na folha (proposta → decisão humana → desconto, tecto opcional, rubrica explícita), notificações de RH/Método/Estrutura (`NotificadorRH`, isoladas, e-mail opcional, alertas diários `erp:rh:alertas-prazos`) e delegação da chefia (portal, Método e entregáveis, sem cadeia, com rasto `por_delegado_de`) — ADR-079 | ✅ Backend concluído (2026-11-12); frontend em paralelo |
 
 ---
 

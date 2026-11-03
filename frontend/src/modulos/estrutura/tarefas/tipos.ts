@@ -1,3 +1,4 @@
+import type { EstadoMulta, PorDelegadoDe } from '../faseK/tipos';
 /**
  * Tipos da Fase J — tarefas das unidades orgânicas com entregáveis mensuráveis, execuções (entregas), validação,
  * impedimentos, atrasos, ponte CRM e ponte para a produtividade (rotas `/rh/estrutura/*`, `/rh/produtividade/*`
@@ -149,6 +150,8 @@ export interface Atraso {
   multa_descricao: string | null;
   impedimento: Pick<Impedimento, 'id' | 'estado' | 'motivo' | 'periodo_de'> | null;
   dono: ReferenciaNome | null;
+  /** Fase K (K3): proposta de multa já criada para este atraso, se existir. */
+  multa?: { id: number; estado: EstadoMulta } | null;
 }
 
 /** Resposta de GET /rh/estrutura/unidades/{u}/tarefas. */
@@ -179,6 +182,8 @@ export interface Execucao {
   validada_por_colaborador_id?: number | null;
   validada_em: string | null;
   validada_como: ValidadaComo | null;
+  /** Fase K (K5): decidida por delegação — em nome de quem. */
+  por_delegado_de?: PorDelegadoDe | null;
   periodo_produtividade_id: number | null;
   convertida_em?: string | null;
   convertida_por?: string | null;

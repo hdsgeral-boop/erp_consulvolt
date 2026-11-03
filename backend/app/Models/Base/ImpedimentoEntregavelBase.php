@@ -24,7 +24,7 @@ abstract class ImpedimentoEntregavelBase extends ModeloBase
     protected string $moduloAuditoria = 'Estrutura orgânica › Tarefas';
 
     protected $fillable = [
-        'empresa_id', 'entregavel_id', 'tarefa_unidade_id', 'unidade_organica_id', 'colaborador_id', 'periodo_de', 'prazo', 'motivo', 'url_documento', 'estado', 'decisao_nota', 'decidido_por', 'decidido_por_colaborador_id', 'decidido_em', 'criado_por', 'atualizado_por',
+        'empresa_id', 'entregavel_id', 'tarefa_unidade_id', 'unidade_organica_id', 'colaborador_id', 'periodo_de', 'prazo', 'motivo', 'url_documento', 'estado', 'decisao_nota', 'decidido_por', 'decidido_por_colaborador_id', 'decidido_em', 'por_delegado_de', 'criado_por', 'atualizado_por',
     ];
 
     protected function casts(): array
@@ -39,6 +39,7 @@ abstract class ImpedimentoEntregavelBase extends ModeloBase
             'prazo' => 'date:Y-m-d',
             'decidido_por_colaborador_id' => 'integer',
             'decidido_em' => 'datetime',
+            'por_delegado_de' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

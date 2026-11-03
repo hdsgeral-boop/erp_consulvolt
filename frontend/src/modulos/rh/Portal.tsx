@@ -23,6 +23,7 @@ import { PortalContrato, PortalEmprestimos, PortalEscala } from './portal/Portal
 import { Aprovacoes } from './portal/Aprovacoes';
 import { FeriasPortal } from './portal/FeriasPortal';
 import { PortalEntregaveis } from './portal/PortalEntregaveis';
+import { PortalDelegacoes } from './portal/Delegacoes';
 import { PortalProjectos } from './portal/PortalProjectos';
 
 /** Aprovações por secções (portal/Aprovacoes.tsx) — também usadas pelo portal autónomo de quem aprova sem colaborador ligado. */
@@ -34,7 +35,7 @@ import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 /** Portal do Colaborador (ecrã rh_portal): os próprios dados, recibos, pedidos e aprovações da equipa. */
 export default function Portal() {
   const resumo = useQuery({ queryKey: ['rh', 'portal', 'resumo'], queryFn: () => obter<ResumoPortal>('/rh/portal/resumo'), retry: false });
-  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'ferias', 'recibos', 'faltas', 'escala', 'contrato', 'emprestimos', 'avaliacao', 'equipa', 'projectos', 'entregaveis', 'aprovacoes', 'dados']);
+  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'ferias', 'recibos', 'faltas', 'escala', 'contrato', 'emprestimos', 'avaliacao', 'equipa', 'projectos', 'entregaveis', 'aprovacoes', 'delegacoes', 'dados']);
   const [pedirFerias, setPedirFerias] = useState(false);
   if (resumo.isLoading) return <Card loading />;
   if (resumo.error || !resumo.data) {
@@ -62,6 +63,8 @@ export default function Portal() {
         ...(r.tem_projetos ? [{ key: 'projectos', label: 'Projectos', children: <PortalProjectos /> }] : []),
         ...(r.tem_entregaveis ? [{ key: 'entregaveis', label: r.entregaveis_pendentes ? `Entregáveis (${r.entregaveis_pendentes})` : 'Entregáveis', children: <PortalEntregaveis /> }] : []),
         { key: 'aprovacoes', label: `Aprovações (${r.aprovacoes_para_mim})`, children: <Aprovacoes /> },
+        // Fase K (K5): delegação da chefia (sem permissão especial: cada um só mexe nas suas)
+        { key: 'delegacoes', label: r.delegacoes_recebidas_ativas ? `Delegações (${r.delegacoes_recebidas_ativas})` : 'Delegações', children: <PortalDelegacoes /> },
         {
           key: 'dados',
           label: 'Os meus dados',

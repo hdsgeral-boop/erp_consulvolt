@@ -45,6 +45,21 @@ sudo sh /opt/erp/ferramentas/operacao/actualizar-teste.sh "$V" "$URL_C" "$URL_I"
 `docker load` aceita o `.tar.gz` directamente. O `docker-compose.teste.yml` (só no servidor) reduz os limites de memória
 dos serviços; `prod.sh`, `deploy.sh` e `migrar-postgres18.sh` aplicam-no através de `ERP_COMPOSE_EXTRA="-f docker-compose.teste.yml"`.
 
+### Depois do deploy: permissões novas nos perfis existentes
+
+Quando uma fase acrescenta permissões ao catálogo (ex.: Fase K, ADR-079: `est_multas_gerir`, `est_delegar`), os perfis já criados não as
+recebem sozinhos. Corre-se à mão, uma vez, depois do deploy e das migrações (nunca retira nada; é idempotente; não está no scheduler):
+
+```sh
+docker compose exec app php artisan erp:perfis:actualizar-modelos --simular   # mostra o que acrescentaria, por perfil
+docker compose exec app php artisan erp:perfis:actualizar-modelos             # acrescenta
+```
+
+Só os perfis com o nome de um perfil-modelo, no formato v2 e sem acesso total, são tocados. O alerta diário de prazos
+(`erp:rh:alertas-prazos`, 07:30, entregáveis em atraso, férias a começar, pendências e delegações a terminar) já corre no scheduler;
+para o ver à mão: `php artisan erp:rh:alertas-prazos`. O e-mail das notificações é opcional e vem desligado
+(`ERP_NOTIFICACOES_EMAIL=false` em `.env.prod`).
+
 ## Migração PostgreSQL 16 → 18 (feita uma vez)
 
 ```sh

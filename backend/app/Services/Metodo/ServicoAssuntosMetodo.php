@@ -14,6 +14,7 @@ use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
 use App\Models\UnidadeOrganica;
 use App\Models\Venda;
+use App\Services\RH\ServicoDelegacoesChefia;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Carbon;
@@ -41,6 +42,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *     o método de resolução e o pedido de compra ficam fixos (já deram origem ao projecto / pedido);
  *   - reabrir um cancelado limpa a deliberação (tem de voltar a ser aprovado; fica tudo no histórico);
  *   - nada se apaga: cancela-se com motivo.
+ * Fase K (ADR-079): o delegado do aprovador designado (ServicoDelegacoesChefia, âmbito METODO) decide, no período, o que cabia ao
+ *   designado — nunca os assuntos que criou; vê os assuntos «à minha espera» dos seus delegantes e a decisão fica com «em nome de X».
  */
 final class ServicoAssuntosMetodo
 {
@@ -65,6 +68,7 @@ final class ServicoAssuntosMetodo
     public function __construct(
         private readonly ContextoEmpresa $contexto,
         private readonly ServicoNumeracao $numeracao,
+        private readonly ServicoDelegacoesChefia $delegacoes,
     ) {}
 
     // ───────────── Quem é o utilizador ─────────────
@@ -120,6 +124,39 @@ final class ServicoAssuntosMetodo
      * (continua a ver o assunto que aprovou, devolveu ou recusou).
      */
     public function souAprovador(AssuntoMetodoTrabalho $a, bool $soPendente = true): bool
+    {
+        if ($this->souAprovadorDesignado($a, $soPendente)) {
+            return true;
+        }
+        // quem decidiu em nome de alguém continua a ver o assunto; enquanto pende, o delegado do designado também o vê e decide
+        $d = (array) $a->deliberacao;
+        $u = mb_strtolower($this->nomeUtilizador());
+        if (! $soPendente && $u !== '' && ! empty($d['por_delegado_de']) && mb_strtolower(trim((string) ($d['decidido_por'] ?? ''))) === $u) {
+            return true;
+        }
+
+        return $this->emNomeDeDelegacao($a) !== null;
+    }
+
+    /**
+     * Se o utilizador decide este assunto por delegação (e não por ser o designado nem gestor): o delegante em nome de quem decide.
+     *
+     * @return array{colaborador_id: int, nome: string}|null
+     */
+    public function emNomeDeDelegacao(AssuntoMetodoTrabalho $a): ?array
+    {
+        $d = (array) $a->deliberacao;
+        $designado = (int) ($d['aprovador_colaborador_id'] ?? 0);
+        if (($d['estado'] ?? null) !== 'PENDENTE' || ! $designado || $this->souAprovadorDesignado($a) || $this->eGestor()) {
+            return null;
+        }
+        $eu = $this->colaboradorDoUtilizador();
+
+        return $eu ? $this->delegacoes->emNomeDe($eu, 'METODO', [$designado]) : null;
+    }
+
+    /** O utilizador é o aprovador designado (colaborador, utilizador ou nome), sem contar delegações nem o gestor. */
+    private function souAprovadorDesignado(AssuntoMetodoTrabalho $a, bool $soPendente = true): bool
     {
         $d = (array) $a->deliberacao;
         if (! $d || ($soPendente && ($d['estado'] ?? null) !== 'PENDENTE')) {

@@ -35,7 +35,7 @@ final class ConfiguracaoRHController extends Controller
     public function gravarConfig(Request $r, ServicoConfiguracaoRH $cfg): JsonResponse
     {
         // OWASP A01: sem nenhuma das permissões, recusa logo (um corpo vazio passava e devolvia a configuração de RH)
-        $this->exigir('config_empresas_gerir', 'rh_ferias_edit', 'contratos_new');
+        $this->exigir('config_empresas_gerir', 'rh_ferias_edit', 'contratos_new', 'est_multas_gerir');
         $subsidios = ['subsidio_ferias_pct', 'subsidio_natal_pct'];
         // as permissões de cada grupo de chaves verificam-se antes da validação (OWASP A01)
         if ($r->has('segregar_encerrar_validar')) {
@@ -47,10 +47,15 @@ final class ConfiguracaoRHController extends Controller
         if ($r->hasAny($subsidios)) {
             $this->exigir('config_empresas_gerir', 'contratos_new');
         }
+        // Fase K: a rubrica e o tecto das multas de entregáveis (valores sensíveis) — quem gere as multas ou os contratos
+        if ($r->hasAny(['multas_entregavel_max_pct', 'infotipo_multa_entregavel_id'])) {
+            $this->exigir('est_multas_gerir', 'contratos_new');
+        }
         $pct = ['sometimes', 'integer', 'between:'.ServicoConfiguracaoRH::SUBSIDIO_MINIMO_PCT.','.ServicoConfiguracaoRH::SUBSIDIO_MAXIMO_PCT];
         $d = $r->validate(['segregar_encerrar_validar' => ['sometimes', 'boolean'], 'ferias_dias_mes_admissao' => ['sometimes', 'integer', 'between:0,5'],
             'ferias_meses_minimos_gozo' => ['sometimes', 'integer', 'between:0,12'], 'ferias_transporte_saldo' => ['sometimes', 'boolean'],
-            'ferias_transporte_max_dias' => ['sometimes', 'integer', 'between:0,66'], 'subsidio_ferias_pct' => $pct, 'subsidio_natal_pct' => $pct],
+            'ferias_transporte_max_dias' => ['sometimes', 'integer', 'between:0,66'], 'subsidio_ferias_pct' => $pct, 'subsidio_natal_pct' => $pct,
+            'multas_entregavel_max_pct' => ['sometimes', 'integer', 'between:0,100'], 'infotipo_multa_entregavel_id' => ['sometimes', 'nullable', 'integer']],
             ['subsidio_ferias_pct.between' => 'O subsídio de férias tem de estar entre :min % (mínimo legal, art. 238.º da Lei 12/23) e :max %.',
                 'subsidio_natal_pct.between' => 'O subsídio de Natal tem de estar entre :min % (mínimo legal, art. 238.º da Lei 12/23) e :max %.']);
 

@@ -15,11 +15,15 @@ use App\Models\UnidadeOrganica;
 use App\Services\Estrutura\ServicoEntregaveis;
 use App\Services\Estrutura\ServicoEntregaveisCRM;
 use App\Services\Estrutura\ServicoEntregaveisProdutividade;
+use App\Services\Estrutura\ServicoImportacaoEntregas;
 use App\Services\RH\ServicoProdutividade;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * /api/rh/estrutura — tarefas das unidades, entregáveis, execuções (entregas), validação, impedimentos, atrasos e ponte CRM;
@@ -34,6 +38,7 @@ final class EntregaveisController extends Controller
         private readonly ServicoEntregaveisCRM $crm,
         private readonly ServicoEntregaveisProdutividade $conversao,
         private readonly ServicoProdutividade $produtividade,
+        private readonly ServicoImportacaoEntregas $importacao,
     ) {}
 
     // ───────────── Tarefas ─────────────
@@ -155,6 +160,38 @@ final class EntregaveisController extends Controller
         $res = $this->entregaveis->gravarExecucao($e, $d, $x);
 
         return $x ? RespostaApi::sucesso($res, 'Entrega actualizada (volta a ficar por validar).') : RespostaApi::criado($res, 'Entrega registada.');
+    }
+
+    /** GET /estrutura/entregaveis/{e}/execucoes/modelo — modelo Excel para importar entregas (Fase K). */
+    public function modeloExecucoes(int $entregavel): BinaryFileResponse
+    {
+        $this->exigir(...[...EstruturaController::VER, 'rh_portal_usar']);
+        $e = EntregavelTarefaUnidade::query()->findOrFail($entregavel);
+        $this->importacao->exigirPode($e);
+        $pasta = storage_path('app/tmp');
+        File::ensureDirectoryExists($pasta);
+        $caminho = $pasta.'/modelo_entregas_'.Str::random(12).'.xlsx';
+        $this->importacao->modelo($e, $caminho);
+
+        return response()->download($caminho, 'Modelo_Entregas_'.Str::slug($e->nome, '_').'.xlsx')->deleteFileAfterSend();
+    }
+
+    /** POST /estrutura/entregaveis/{e}/execucoes/importar — multipart `ficheiro`; `simular` (omissão true): tudo ou nada, origem EXCEL (Fase K). */
+    public function importarExecucoes(Request $r, int $entregavel): JsonResponse
+    {
+        $this->exigir(...[...EstruturaController::VER, 'rh_portal_usar']);   // antes da validação (OWASP A01); a regra fina está no serviço
+        $e = EntregavelTarefaUnidade::query()->findOrFail($entregavel);
+        $this->importacao->exigirPode($e);
+        if ($r->has('simular')) {   // multipart: «true»/«false» também valem
+            $r->merge(['simular' => filter_var($r->input('simular'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)]);
+        }
+        $d = $r->validate(['ficheiro' => ['required', 'file', 'max:5120', 'extensions:xlsx,xls,csv'], 'simular' => ['nullable', 'boolean']],
+            ['ficheiro.extensions' => 'O ficheiro tem de ser XLSX, XLS ou CSV (use o modelo Excel).', 'ficheiro.max' => 'O ficheiro tem mais de 5 MB.']);
+        $simular = array_key_exists('simular', $d) && $d['simular'] !== null ? (bool) $d['simular'] : true;
+        $res = $this->importacao->importar($e, $r->file('ficheiro'), $simular);
+
+        return RespostaApi::sucesso($res, $simular ? "Simulação: {$res['resumo']['validas']} válida(s), {$res['resumo']['erros']} com erro, {$res['resumo']['duplicadas']} duplicada(s)."
+            : "{$res['importadas']} entrega(s) importada(s); {$res['resumo']['duplicadas']} duplicada(s) ignorada(s).");
     }
 
     public function eliminarExecucao(int $execucao): JsonResponse

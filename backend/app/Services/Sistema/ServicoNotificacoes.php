@@ -21,6 +21,8 @@ final class ServicoNotificacoes
         'teso' => 'Tesouraria e Caixa',
         'contab' => 'Contabilidade Geral',
         'rh' => 'Recursos Humanos e Pessoal',
+        'metodo' => 'Método de Trabalho',
+        'estrutura' => 'Estrutura Orgânica',
         'activos' => 'Activos Fixos',
         'crm' => 'CRM Comercial',
         'orcamento' => 'Gestão Orçamental',
@@ -34,6 +36,8 @@ final class ServicoNotificacoes
         'teso' => ['teso_contab_integracao', 'teso_gestao_conciliacao', 'teso_gestao_pagamentos', 'teso_gestao_recebimentos'],
         'contab' => ['contabilidade', 'lancamentos', 'ad_propostas', 'relatorios_contabeis'],
         'rh' => ['colaboradores', 'calcular', 'processamento', 'rh_portal', 'est_mapa'],
+        'metodo' => ['mt_assuntos'],
+        'estrutura' => ['est_estrutura', 'est_organigrama', 'est_mapa'],
         'activos' => ['activos', 'activos_amortizacoes', 'activos_manutencao'],
         'crm' => ['crm_agenda', 'crm_pipeline', 'crm_contas'],
         'orcamento' => ['orc_orcamentos', 'orc_alertas', 'orc_controlo'],
@@ -153,7 +157,7 @@ final class ServicoNotificacoes
         }
 
         // 2. Notificações Persistentes da Empresa (notificacoes_sistema)
-        $qNotif = NotificacaoSistema::query()->where('empresa_id', $empresaId);
+        $qNotif = NotificacaoSistema::query()->where('empresa_id', $empresaId)->tap(fn ($q) => $this->soVisiveisPara($q, $utilizador));
         if ($apenasNaoLidas) {
             $qNotif->where('lida', false);
         }
@@ -162,13 +166,15 @@ final class ServicoNotificacoes
         foreach ($notificacoesBD as $n) {
             $mod = strtolower((string) $n->categoria) ?: 'geral';
 
-            // RBAC: só exibe se o utilizador puder ver este módulo
-            if (! isset($modulosPermitidos[$mod]) && ! $this->podeVerModulo($utilizador, $mod)) {
+            // Se for destinada a utilizador específico
+            if ($n->utilizador_id !== null && $utilizador && (int) $n->utilizador_id !== (int) $utilizador->getKey() && ! $utilizador->eSuperAdministrador()) {
                 continue;
             }
+            $dirigida = $n->utilizador_id !== null && $utilizador && (int) $n->utilizador_id === (int) $utilizador->getKey();
 
-            // Se for destinada a utilizador específico
-            if ($n->utilizador_id !== null && $utilizador && $n->utilizador_id !== $utilizador->getKey() && ! $utilizador->eSuperAdministrador()) {
+            // RBAC: só exibe se o utilizador puder ver este módulo; uma notificação dirigida chega sempre ao destinatário
+            // (é quem tem de agir, mesmo sem permissão para ver o módulo)
+            if (! $dirigida && ! isset($modulosPermitidos[$mod]) && ! $this->podeVerModulo($utilizador, $mod)) {
                 continue;
             }
 
@@ -263,7 +269,7 @@ final class ServicoNotificacoes
             return strcmp((string) ($b['criado_em'] ?? ''), (string) ($a['criado_em'] ?? ''));
         });
 
-        $naoLidasBD = (int) NotificacaoSistema::query()->where('empresa_id', $empresaId)->where('lida', false)->count();
+        $naoLidasBD = (int) NotificacaoSistema::query()->where('empresa_id', $empresaId)->where('lida', false)->tap(fn ($q) => $this->soVisiveisPara($q, $utilizador))->count();
         $alertasNaoLidos = count(array_filter($itens, fn ($i) => ($i['origem'] ?? '') === 'ALERTA_OPERACIONAL' && empty($i['lida'])));
         $totalNaoLidas = $naoLidasBD + $alertasNaoLidos;
         $urgentes = count(array_filter($itens, fn ($i) => ($i['tipo'] ?? '') === 'URGENTE' && empty($i['lida'])));
@@ -405,12 +411,24 @@ final class ServicoNotificacoes
         return 'sistema';
     }
 
-    /** Marca uma notificação persistente como lida. */
-    public function marcarLida(int $notificacaoId, int $empresaId): bool
+    /**
+     * As notificações que o utilizador pode ver: as de toda a empresa (sem destinatário) e as dirigidas a ele. As dirigidas a
+     * outros nunca contam nem se podem ler/marcar. Sem utilizador (chamada interna) não se filtra.
+     */
+    private function soVisiveisPara($query, ?Utilizador $utilizador): void
+    {
+        if ($utilizador && ! $utilizador->eSuperAdministrador()) {
+            $query->where(fn ($w) => $w->whereNull('utilizador_id')->orWhere('utilizador_id', $utilizador->getKey()));
+        }
+    }
+
+    /** Marca uma notificação persistente como lida (as dirigidas a outro utilizador não). */
+    public function marcarLida(int $notificacaoId, int $empresaId, ?Utilizador $utilizador = null): bool
     {
         return (bool) NotificacaoSistema::query()
             ->where('empresa_id', $empresaId)
             ->where('id', $notificacaoId)
+            ->tap(fn ($q) => $this->soVisiveisPara($q, $utilizador))
             ->update([
                 'lida' => true,
                 'lida_em' => now(),
@@ -418,11 +436,12 @@ final class ServicoNotificacoes
     }
 
     /** Marca todas as notificações persistentes da empresa como lidas. */
-    public function marcarTodasLidas(int $empresaId): int
+    public function marcarTodasLidas(int $empresaId, ?Utilizador $utilizador = null): int
     {
         return NotificacaoSistema::query()
             ->where('empresa_id', $empresaId)
             ->where('lida', false)
+            ->tap(fn ($q) => $this->soVisiveisPara($q, $utilizador))
             ->update([
                 'lida' => true,
                 'lida_em' => now(),

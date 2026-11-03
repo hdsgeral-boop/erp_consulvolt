@@ -8,6 +8,7 @@ import { IconeFa } from '@/componentes/fluxos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { atrasosDasMinhasUnidades, CHAVE_PORTAL_APROVACOES, decidirImpedimentoPortal, entregasParaValidar, impedimentosParaDecidir, validarEntregaPortal } from '@/modulos/estrutura/tarefas/api';
+import { EtiquetaMulta } from '@/modulos/estrutura/faseK/EtiquetaMulta';
 import { LigacaoAnexo, ModalMotivoCurto, TagImpedimento, useMutacao } from '@/modulos/estrutura/tarefas/comum';
 import { colunasImpedimentos } from '@/modulos/estrutura/tarefas/Impedimentos';
 import { fq, totalMultas } from '@/modulos/estrutura/tarefas/regras';
@@ -240,7 +241,7 @@ function AtrasosDasMinhasUnidades() {
     { title: 'Quem executa', key: 'd', render: (_, a) => a.dono?.nome ?? '— da unidade —' },
     { title: 'Prazo', key: 'p', render: (_, a) => <span style={{ whiteSpace: 'nowrap', color: '#b91c1c' }}><b>{formatarData(a.limite)}</b><div style={{ fontSize: '0.74rem' }}>há {a.dias_atraso} dia(s)</div></span> },
     { title: 'Falta', key: 'f', render: (_, a) => <span style={{ whiteSpace: 'nowrap' }}>{a.falta != null ? `${fq(a.falta)} ${a.entregavel.unidade}` : 'por fazer'}<div style={{ fontSize: '0.74rem', color: '#64748b' }}>feito {fq(a.realizado)}{a.meta != null ? ` de ${fq(a.meta)}` : ''}</div></span> },
-    { title: 'Risco', key: 'r', render: (_, a) => <span style={{ fontSize: '0.8rem' }}>{a.multa_valor ? <b style={{ color: '#b91c1c' }}>{formatarKz(a.multa_valor, true)}</b> : null}{a.multa_descricao && <div style={{ color: '#64748b', fontSize: '0.74rem' }}>{a.multa_descricao}</div>}{!a.multa_valor && !a.multa_descricao ? '—' : null}</span> },
+    { title: 'Risco', key: 'r', render: (_, a) => <span style={{ fontSize: '0.8rem' }}>{a.multa_valor ? <b style={{ color: '#b91c1c' }}>{formatarKz(a.multa_valor, true)}</b> : null}{a.multa_descricao && <div style={{ color: '#64748b', fontSize: '0.74rem' }}>{a.multa_descricao}</div>}{a.multa && <div><EtiquetaMulta multa={a.multa} /></div>}{!a.multa_valor && !a.multa_descricao ? '—' : null}</span> },
     { title: 'Justificação', key: 'j', render: (_, a) => (a.impedimento ? <><TagImpedimento estado={a.impedimento.estado} /><div style={{ color: '#64748b', fontSize: '0.74rem' }}>{a.impedimento.motivo}</div></> : <span style={{ color: '#94a3b8' }}>sem justificação</span>) },
   ];
   return (

@@ -1135,14 +1135,19 @@
     "Use os botões «arrumar» (trás, frente, subir, descer, apoio) para ordenar a unidade seleccionada no organigrama.",
     "Na secção «Tarefas e entregáveis», acrescente a tarefa (o que a unidade faz) e os seus entregáveis (o que se mede), com meta, prazo «dia D do mês M do período», alerta e multa.",
     "Em «Entregas» registe o que foi entregue (ou deixe que quem executa o faça no portal); o responsável valida, devolve para correcção ou recusa.",
-    "Ligue o entregável a um item de produtividade (existente ou criado agora) para as entregas validadas serem pagas em RH › Produtividade › Entregáveis das unidades."
+    "Ligue o entregável a um item de produtividade (existente ou criado agora) para as entregas validadas serem pagas em RH › Produtividade › Entregáveis das unidades.",
+    "Em «Entregas» pode também «Importar Excel»: descarregue o modelo, preencha-o, valide (nada se grava) e importe; basta uma linha com erro para nada entrar, e as entregas importadas ficam por validar.",
+    "Em «Multas de entregáveis» (permissão própria) proponha as multas dos atrasos, aplique ou dispense (com motivo) cada uma; só as aplicadas são descontadas na folha, em RH › Cálculo › «Importar Multas».",
+    "Em «Delegações» a chefia (ou quem tem a permissão de delegar) passa, por um período de até 90 dias e por áreas, a decisão a outro colaborador; a decisão fica registada «em nome de»."
    ],
    "dicas": [
     "Só entregas validadas contam para a produtividade; quem entregou ou registou nunca valida a própria entrega.",
     "Um impedimento aceite justifica o período e retira o entregável dos atrasos.",
     "Entregáveis alimentados pelo CRM: cada actividade concluída vale uma entrega de 1 unidade; «Actualizar» põe o entregável a par do CRM sem duplicar.",
     "Não se elimina uma tarefa ou entregável com entregas registadas: desactive-o.",
-    "O «utilizador responsável» e os «utilizadores» da unidade são nomes de utilizador com acesso à empresa."
+    "O «utilizador responsável» e os «utilizadores» da unidade são nomes de utilizador com acesso à empresa.",
+    "Ninguém decide a sua própria multa; a rubrica de desconto e o tecto (% do salário base) configuram-se no fim do separador das multas. Valide juridicamente os descontos por penalização antes de os activar.",
+    "Um delegado não pode delegar de novo o que recebeu nem decidir o que lhe diz respeito; as delegações não se sobrepõem."
    ]
   },
   "rh_produtividade": {
@@ -1169,12 +1174,14 @@
     "Em «Férias» veja o direito, os dias marcados e o saldo do ano e peça férias dentro do período definido pela empresa.",
     "Em «Projectos» lance as horas e actualize a folha de medição das tarefas pelas quais responde.",
     "Em «Entregáveis» registe o que entregou (com evidência), reenvie o que foi devolvido depois de corrigir e reporte quando não há condições de executar.",
-    "Em «Aprovações», como chefia, analise e decida os pedidos da equipa, os pedidos de compra, as entregas a validar, os impedimentos e acompanhe os entregáveis em atraso."
+    "Em «Aprovações», como chefia, analise e decida os pedidos da equipa, os pedidos de compra, as entregas a validar, os impedimentos e acompanhe os entregáveis em atraso.",
+    "Em «Delegações» dê a outro colaborador a decisão da sua chefia enquanto estiver fora (período e áreas à escolha) e veja as que recebeu."
    ],
    "dicas": [
     "O contador de «Aprovações» soma pedidos, compras, entregas, impedimentos e atrasos à sua espera.",
     "«Analisar» um pedido mostra o saldo de férias, quem mais da equipa está fora no mesmo período e os últimos pedidos do mesmo tipo.",
-    "A validação de uma entrega é sempre de outra pessoa: quem lança não valida o que lançou."
+    "A validação de uma entrega é sempre de outra pessoa: quem lança não valida o que lançou.",
+    "As decisões tomadas por delegação mostram «em nome de»; um delegado nunca decide pedidos seus."
    ]
   },
   "mt_assuntos": {

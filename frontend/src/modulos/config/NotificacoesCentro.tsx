@@ -81,6 +81,8 @@ const CORES_MODULOS: Record<string, string> = {
   teso: 'blue',
   contab: 'purple',
   rh: 'magenta',
+  estrutura: 'lime',
+  metodo: 'processing',
   activos: 'cyan',
   crm: 'gold',
   orcamento: 'volcano',

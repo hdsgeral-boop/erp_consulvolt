@@ -7,7 +7,9 @@ use App\Models\AssuntoMetodoTrabalho;
 use App\Models\Colaborador;
 use App\Models\UnidadeOrganica;
 use App\Models\Utilizador;
+use App\Services\RH\ServicoDelegacoesChefia;
 use App\Services\RH\ServicoEstruturaOrg;
+use App\Services\Sistema\NotificadorRH;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -28,6 +30,9 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *   - a ligação utilizador ↔ colaborador é só a da ficha (utilizador_empresa); o legado também procurava pelo nome;
  *   - sem colaborador ligado, a aprovação só é automática para quem tem `mt_aprovar`; os outros ficam a aguardar quem tem
  *     essa tarefa (ADR-071: fecha a auto-aprovação de quem não está no organigrama).
+ * Fase K (ADR-079): o aprovador continua a ser o designado; o seu delegado (âmbito METODO) também decide no período e a decisão
+ *   fica com `por_delegado_de` na deliberação e «em nome de X» no histórico. Notificações (NotificadorRH, isoladas): submetido →
+ *   aprovador (e o seu delegado) ou os que têm `mt_aprovar`; decidido/devolvido/recusado → criador e responsável principal.
  */
 final class ServicoDeliberacaoMetodo
 {
@@ -38,6 +43,8 @@ final class ServicoDeliberacaoMetodo
         private readonly ServicoAssuntosMetodo $assuntos,
         private readonly ServicoEstruturaOrg $estrutura,
         private readonly ServicoIntegracoesMetodo $integracoes,
+        private readonly ServicoDelegacoesChefia $delegacoes,
+        private readonly NotificadorRH $notificador,
     ) {}
 
     /**
@@ -96,6 +103,8 @@ final class ServicoDeliberacaoMetodo
                 $ap['proprio'] ? $ap['motivo'] : "Aguarda {$ap['nome']}".($ap['utilizador'] ? " ({$ap['utilizador']})" : '').". {$ap['motivo']}");
             if ($ap['proprio']) {
                 $this->integracoes->porEmCurso($a, 'Aprovação automática.');
+            } else {
+                $this->avisarAprovador($a, $ap);
             }
 
             return ['aprovado' => $ap['proprio'], 'aprovador' => $ap, 'assunto' => $a->refresh()];
@@ -117,18 +126,21 @@ final class ServicoDeliberacaoMetodo
                 throw new ErroNegocio('Este assunto não está à espera de aprovação.', 'SEM_APROVACAO_PENDENTE', 422);
             }
             $this->exigirPodeDecidir($a);
+            $emNomeDe = $this->assuntos->emNomeDeDelegacao($a);   // só por delegação: o designado e o gestor decidem por si
             if ($accao !== 'APROVAR' && mb_strlen($nota) < 5) {
                 throw new ErroNegocio($accao === 'DEVOLVER' ? 'Indique o que tem de ser corrigido.' : 'Indique o motivo da recusa.', 'NOTA_OBRIGATORIA', 422);
             }
             $u = $this->assuntos->nomeUtilizador();
             $estado = ['APROVAR' => 'APROVADO', 'DEVOLVER' => 'DEVOLVIDO', 'RECUSAR' => 'RECUSADO'][$accao];
-            $del = ['estado' => $estado, 'decidida_em' => now()->toIso8601String(), 'decidido_por' => $u, 'nota' => $nota ?: null] + $d;
+            $del = ['estado' => $estado, 'decidida_em' => now()->toIso8601String(), 'decidido_por' => $u, 'nota' => $nota ?: null] + ($emNomeDe ? ['por_delegado_de' => $emNomeDe] : []) + $d;
             $campos = ['deliberacao' => $del, 'atualizado_por' => $u];
             if ($accao === 'RECUSAR') {
                 $campos += ['estado' => 'CANCELADO', 'cancelado_em' => now(), 'cancelado_por' => $u, 'motivo_cancelamento' => 'Recusado: '.$nota];
             }
             $a->forceFill($campos)->save();
-            $this->assuntos->registar($a, ['APROVAR' => 'Aprovado', 'DEVOLVER' => 'Devolvido para correcção', 'RECUSAR' => 'Recusado'][$accao], $nota ?: null);
+            $this->assuntos->registar($a, ['APROVAR' => 'Aprovado', 'DEVOLVER' => 'Devolvido para correcção', 'RECUSAR' => 'Recusado'][$accao],
+                trim(($nota ?: '').($emNomeDe ? " (em nome de {$emNomeDe['nome']})" : '')) ?: null);
+            $this->avisarDecisao($a, $accao, $nota, $emNomeDe);
             if ($accao === 'APROVAR') {
                 $this->integracoes->porEmCurso($a, "Aprovado por {$u}.");
             } elseif ($accao === 'RECUSAR') {
@@ -137,6 +149,28 @@ final class ServicoDeliberacaoMetodo
 
             return $a->refresh();
         });
+    }
+
+    /** Assunto submetido → o aprovador designado (e o seu delegado) ou, sem aprovador no organigrama, quem tem `mt_aprovar`. */
+    private function avisarAprovador(AssuntoMetodoTrabalho $a, array $ap): void
+    {
+        $titulo = "Assunto por aprovar: {$a->numero}";
+        $mensagem = "O assunto «{$a->titulo}» ({$a->numero}), submetido por ".$this->assuntos->nomeUtilizador().', aguarda a sua aprovação.';
+        if ($ap['colaborador_id']) {
+            $this->notificador->paraColaboradores(array_merge([(int) $ap['colaborador_id']], $this->delegacoes->substitutoDe((int) $ap['colaborador_id'], 'METODO')), $titulo, $mensagem, '/m/metodo/mt_assuntos', 'metodo', 'AVISO');
+        } else {
+            $this->notificador->paraPermissao('mt_aprovar', $titulo, $mensagem, '/m/metodo/mt_assuntos', 'metodo', 'AVISO');
+        }
+    }
+
+    /** Assunto decidido, devolvido ou recusado → o criador e o responsável principal (nunca quem decidiu). */
+    private function avisarDecisao(AssuntoMetodoTrabalho $a, string $accao, string $nota, ?array $emNomeDe): void
+    {
+        $verbo = ['APROVAR' => 'aprovado', 'DEVOLVER' => 'devolvido para correcção', 'RECUSAR' => 'recusado'][$accao];
+        $principal = str_starts_with((string) $a->responsavel_principal, 'COLABORADOR:') ? (int) substr((string) $a->responsavel_principal, 12) : 0;
+        $this->notificador->paraNomesEColaboradores([(string) $a->criado_por], [$principal], "Assunto {$verbo}: {$a->numero}",
+            "O assunto «{$a->titulo}» ({$a->numero}) foi {$verbo} por ".$this->assuntos->nomeUtilizador().($emNomeDe ? " (em nome de {$emNomeDe['nome']})" : '').($nota !== '' ? ": {$nota}" : '.'),
+            '/m/metodo/mt_assuntos', 'metodo', $accao === 'APROVAR' ? 'SUCESSO' : 'AVISO', [$this->assuntos->nomeUtilizador()]);
     }
 
     /** 422 se não há aprovação pendente; 403 para o criador e para quem não é o aprovador designado nem gestor. */

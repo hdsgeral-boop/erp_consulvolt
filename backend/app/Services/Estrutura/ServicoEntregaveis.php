@@ -8,10 +8,13 @@ use App\Models\EntregavelTarefaUnidade;
 use App\Models\ExecucaoEntregavel;
 use App\Models\ImpedimentoEntregavel;
 use App\Models\ItemProdutividadeRH;
+use App\Models\MultaEntregavel;
 use App\Models\PostoTrabalho;
 use App\Models\TarefaUnidadeOrganica;
 use App\Models\UnidadeOrganica;
+use App\Services\RH\ServicoDelegacoesChefia;
 use App\Services\RH\ServicoProdutividade;
+use App\Services\Sistema\NotificadorRH;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
@@ -35,6 +38,9 @@ use Throwable;
  * Correcção do legado (estrutura_tarefas.js usava `parent_id`, campo inexistente em org_units): aqui a cadeia de responsáveis
  * SOBE mesmo a árvore por `unidade_organica_pai_id` (ignorando unidades inactivas, ciclos cortados a 200) e o âmbito «unidades
  * por que respondo» DESCE a árvore (unidade + descendentes).
+ * Fase K (ADR-079): a cadeia de decisão inclui os delegados dos responsáveis no período e âmbito ENTREGAVEIS
+ * (ServicoDelegacoesChefia — ponto único), nunca para o que é do próprio delegante nem do próprio delegado; a decisão por delegação
+ * fica em `por_delegado_de`. Os eventos (entrega registada/validada, impedimentos) avisam os envolvidos (NotificadorRH, isolado).
  */
 final class ServicoEntregaveis
 {
@@ -57,6 +63,8 @@ final class ServicoEntregaveis
         private readonly ContextoEmpresa $contexto,
         private readonly ServicoProdutividade $produtividade,
         private readonly ServicoAuditoria $auditoria,
+        private readonly ServicoDelegacoesChefia $delegacoes,
+        private readonly NotificadorRH $notificador,
     ) {}
 
     // ───────────── Apoio: utilizador, unidades de medida, URLs ─────────────
@@ -271,12 +279,33 @@ final class ServicoEntregaveis
     }
 
     /**
-     * Pode o utilizador actual validar esta entrega? Nunca quem executou nem quem registou; sim um responsável da cadeia
-     * (RESPONSAVEL); senão quem tem `est_validar_entregas` (PERMISSAO; superadministrador/acesso total contam) — podeValidar, :836.
+     * A cadeia de responsáveis com os delegados vigentes de cada um (âmbito ENTREGAVEIS): quem pode decidir nesta unidade hoje.
+     * As entradas de delegados trazem `por_delegado_de` ({colaborador_id, nome} do responsável que delegou).
      *
-     * @return array{pode: bool, como?: string, motivo?: string}
+     * @return list<array{unidade_id: int, unidade_nome: string, colaborador_id: int, por_delegado_de: ?array{colaborador_id: int, nome: string}}>
      */
-    public function podeValidar(ExecucaoEntregavel $x, ?Collection $unidades = null): array
+    public function cadeiaComDelegados(int $unidadeId, ?Collection $unidades = null): array
+    {
+        $saida = [];
+        foreach ($this->responsaveisQuePodemValidar($unidadeId, $unidades) as $c) {
+            $saida[] = $c + ['por_delegado_de' => null];
+            foreach ($this->delegacoes->substitutoDe($c['colaborador_id'], 'ENTREGAVEIS') as $delegado) {
+                $saida[] = ['unidade_id' => $c['unidade_id'], 'unidade_nome' => $c['unidade_nome'], 'colaborador_id' => $delegado, 'por_delegado_de' => $this->delegacoes->rotulo($c['colaborador_id'])];
+            }
+        }
+
+        return $saida;
+    }
+
+    /**
+     * Pode o utilizador actual validar esta entrega? Nunca quem executou nem quem registou; sim um responsável da cadeia
+     * (RESPONSAVEL); senão quem tem `est_validar_entregas` (PERMISSAO; superadministrador/acesso total contam); senão o delegado de
+     * um responsável da cadeia (RESPONSAVEL, com `por_delegado_de`) — nunca a entrega do próprio delegante — podeValidar, :836.
+     *
+     * @param  list<int>|null  $delegantes  quem delegou ao utilizador actual (ENTREGAVEIS), já calculado por quem percorre listas
+     * @return array{pode: bool, como?: string, motivo?: string, por_delegado_de?: array{colaborador_id: int, nome: string}}
+     */
+    public function podeValidar(ExecucaoEntregavel $x, ?Collection $unidades = null, ?array $delegantes = null): array
     {
         $eu = $this->colaboradorDe();
         $utilizador = (string) (Auth::user()?->nome_utilizador ?? '');
@@ -295,6 +324,10 @@ final class ServicoEntregaveis
         }
         if (Gate::allows('est_validar_entregas')) {
             return ['pode' => true, 'como' => 'PERMISSAO'];
+        }
+        if ($eu !== null && ($delegante = $this->delegacoes->emNomeDe($eu, 'ENTREGAVEIS', array_column($cadeia, 'colaborador_id'), null,
+            [(int) $x->colaborador_id, (int) $x->registado_por_colaborador_id], $delegantes))) {
+            return ['pode' => true, 'como' => 'RESPONSAVEL', 'por_delegado_de' => $delegante];
         }
         $nomes = implode(', ', array_column($cadeia, 'unidade_nome'));
 
@@ -541,7 +574,7 @@ final class ServicoEntregaveis
     /**
      * @param  array<string, mixed>  $d  colaborador_id, quantidade, data, observacoes?, url_evidencia?, origem_chave?, registado_por_colaborador_id?
      */
-    public function gravarExecucao(EntregavelTarefaUnidade $e, array $d, ?ExecucaoEntregavel $x = null, string $origem = 'MANUAL'): ExecucaoEntregavel
+    public function gravarExecucao(EntregavelTarefaUnidade $e, array $d, ?ExecucaoEntregavel $x = null, string $origem = 'MANUAL', bool $notificar = true): ExecucaoEntregavel
     {
         if (! $e->ativo) {
             throw new ErroNegocio('Este entregável está inactivo.', 'ENTREGAVEL_INACTIVO', 422);
@@ -570,14 +603,40 @@ final class ServicoEntregaveis
             $anterior = in_array($x->validacao, ['DEVOLVIDA', 'RECUSADA'], true)
                 ? ['validacao' => $x->validacao, 'motivo' => $x->validacao_motivo, 'por' => $x->validada_por, 'em' => $x->validada_em?->toIso8601String()] : $x->devolucao_anterior;
             $x->update($reg + ['validacao' => 'PENDENTE', 'validacao_motivo' => null, 'validada_por' => null, 'validada_por_colaborador_id' => null, 'validada_em' => null, 'validada_como' => null,
-                'devolucao_anterior' => $anterior]);
+                'por_delegado_de' => null, 'devolucao_anterior' => $anterior]);
+            $x->refresh();
+            $notificar && $this->avisarEntregaPorValidar($x, $e);
 
-            return $x->refresh();
+            return $x;
         }
 
-        return ExecucaoEntregavel::create($reg + ['registado_por' => $user, 'registado_por_colaborador_id' => array_key_exists('registado_por_colaborador_id', $d) ? $d['registado_por_colaborador_id'] : $this->colaboradorDe(),
+        $nova = ExecucaoEntregavel::create($reg + ['registado_por' => $user, 'registado_por_colaborador_id' => array_key_exists('registado_por_colaborador_id', $d) ? $d['registado_por_colaborador_id'] : $this->colaboradorDe(),
             'origem' => in_array($origem, ExecucaoEntregavel::ORIGENS, true) ? $origem : 'MANUAL', 'origem_chave' => trim((string) ($d['origem_chave'] ?? '')) ?: null,
             'validacao' => 'PENDENTE', 'criado_por' => $user]);
+        // as entregas que vêm do CRM (em lote) não avisam uma a uma; a importação Excel avisa por entregável
+        $notificar && $origem !== 'CRM' && $this->avisarEntregaPorValidar($nova, $e);
+
+        return $nova;
+    }
+
+    // ───────────── Avisos (Fase K) ─────────────
+
+    /** Responsáveis da cadeia (e os seus delegados) que podem validar, menos o executor e quem registou. @return list<int> */
+    public function validadoresDe(int $unidadeId, array $excluir = []): array
+    {
+        $excluir = array_map('intval', array_filter($excluir));
+
+        return array_values(array_diff(array_unique(array_column($this->cadeiaComDelegados($unidadeId), 'colaborador_id')), $excluir));
+    }
+
+    /** Entrega por validar (nova, corrigida ou reenviada) → responsáveis da cadeia que podem validar (nunca o executor). */
+    private function avisarEntregaPorValidar(ExecucaoEntregavel $x, EntregavelTarefaUnidade $e): void
+    {
+        $quem = $this->validadoresDe((int) $x->unidade_organica_id, [$x->colaborador_id, $x->registado_por_colaborador_id]);
+        if ($quem) {
+            $nome = Colaborador::query()->withTrashed()->whereKey($x->colaborador_id)->value('nome_completo');
+            $this->notificador->paraColaboradores($quem, 'Entrega por validar', "{$nome} entregou {$x->quantidade} de «{$e->nome}» em {$x->data->toDateString()}. Aguarda a sua validação.", '/m/rh/rh_portal', 'estrutura', 'AVISO');
+        }
     }
 
     public function eliminarExecucao(ExecucaoEntregavel $x): void
@@ -608,10 +667,15 @@ final class ServicoEntregaveis
         }
 
         return DB::transaction(function () use ($x, $decisao, $motivo, $v) {
+            $emNomeDe = $v['por_delegado_de'] ?? null;
             $x->update(['validacao' => $decisao, 'validacao_motivo' => $motivo ?: null, 'validada_por' => Auth::user()?->nome_utilizador, 'validada_por_colaborador_id' => $this->colaboradorDe(),
-                'validada_em' => now(), 'validada_como' => $v['como'], 'atualizado_por' => Auth::user()?->nome_utilizador]);
+                'validada_em' => now(), 'validada_como' => $v['como'], 'por_delegado_de' => $emNomeDe, 'atualizado_por' => Auth::user()?->nome_utilizador]);
             $rotulo = ['VALIDADA' => 'Validar entrega', 'DEVOLVIDA' => 'Devolver entrega para correcção', 'RECUSADA' => 'Recusar entrega'][$decisao];
-            $this->auditoria->registar(self::MODULO_AUDITORIA, $rotulo, "{$x->quantidade} em {$x->data->toDateString()}".($motivo ? " — {$motivo}" : ''), 'execucoes_entregavel', $x->id);
+            $this->auditoria->registar(self::MODULO_AUDITORIA, $rotulo, "{$x->quantidade} em {$x->data->toDateString()}".($motivo ? " — {$motivo}" : '').($emNomeDe ? " — decidiu em nome de {$emNomeDe['nome']}" : ''), 'execucoes_entregavel', $x->id);
+            $verbo = ['VALIDADA' => 'validada', 'DEVOLVIDA' => 'devolvida para correcção', 'RECUSADA' => 'recusada'][$decisao];
+            $entregavel = EntregavelTarefaUnidade::query()->find($x->entregavel_id);
+            $this->notificador->paraColaborador((int) $x->colaborador_id, "Entrega {$verbo}", "A sua entrega de {$x->quantidade} de «".($entregavel?->nome ?? 'entregável')."» em {$x->data->toDateString()} foi {$verbo}"
+                .($emNomeDe ? " (em nome de {$emNomeDe['nome']})" : '').($motivo ? ": {$motivo}" : '.'), '/m/rh/rh_portal', 'estrutura', $decisao === 'VALIDADA' ? 'SUCESSO' : 'AVISO');
             // executado E aprovado é o momento em que a elegibilidade se ganha: quem fez e teve o visto passa a elegível para o item
             if ($decisao === 'VALIDADA') {
                 $e = EntregavelTarefaUnidade::query()->find($x->entregavel_id);
@@ -640,10 +704,14 @@ final class ServicoEntregaveis
         }
         $x->update(['validacao' => 'PENDENTE', 'validada_por' => null, 'validada_por_colaborador_id' => null, 'validada_em' => null, 'validada_como' => null,
             'devolucao_anterior' => ['validacao' => 'DEVOLVIDA', 'motivo' => $x->validacao_motivo, 'por' => $x->validada_por, 'em' => $x->validada_em?->toIso8601String()],
-            'validacao_motivo' => null, 'atualizado_por' => Auth::user()?->nome_utilizador]);
+            'validacao_motivo' => null, 'por_delegado_de' => null, 'atualizado_por' => Auth::user()?->nome_utilizador]);
         $this->auditoria->registar(self::MODULO_AUDITORIA, 'Reenviar entrega corrigida', (string) ($x->devolucao_anterior['motivo'] ?? ''), 'execucoes_entregavel', $x->id);
+        $x->refresh();
+        if ($e = EntregavelTarefaUnidade::query()->find($x->entregavel_id)) {
+            $this->avisarEntregaPorValidar($x, $e);
+        }
 
-        return $x->refresh();
+        return $x;
     }
 
     /** Repor em «por validar» (a validação foi engano): quem pode validar (reporValidacao, :916). */
@@ -657,7 +725,7 @@ final class ServicoEntregaveis
             throw new ErroNegocio($v['motivo'], 'SEM_PERMISSAO', 403);
         }
         $x->update(['validacao' => 'PENDENTE', 'validacao_motivo' => null, 'validada_por' => null, 'validada_por_colaborador_id' => null, 'validada_em' => null, 'validada_como' => null,
-            'atualizado_por' => Auth::user()?->nome_utilizador]);
+            'por_delegado_de' => null, 'atualizado_por' => Auth::user()?->nome_utilizador]);
         $this->auditoria->registar(self::MODULO_AUDITORIA, 'Repor entrega por validar', null, 'execucoes_entregavel', $x->id);
 
         return $x->refresh();
@@ -683,9 +751,10 @@ final class ServicoEntregaveis
         $unidades = $this->unidades();
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $lista->pluck('colaborador_id')->unique()->all() ?: [0])->pluck('nome_completo', 'id');
         $eu = $this->colaboradorDe();
+        $delegantes = $eu !== null ? $this->delegacoes->delegantesDe($eu, 'ENTREGAVEIS') : [];
 
-        return $lista->map(function ($x) use ($unidades, $nomes, $eu) {
-            $v = $this->podeValidar($x, $unidades);
+        return $lista->map(function ($x) use ($unidades, $nomes, $eu, $delegantes) {
+            $v = $this->podeValidar($x, $unidades, $delegantes);
 
             return $x->toArray() + ['colaborador_nome' => $nomes[$x->colaborador_id] ?? null, 'rotulo_validacao' => ExecucaoEntregavel::ROTULOS_VALIDACAO[$x->validacao] ?? $x->validacao,
                 'convertida' => $x->convertida(), 'pode_validar' => ! $x->convertida() && $v['pode'], 'motivo_nao_valida' => $v['motivo'] ?? null,
@@ -717,6 +786,10 @@ final class ServicoEntregaveis
             'periodo_de' => $periodoDe, 'prazo' => ! empty($d['prazo']) ? substr((string) $d['prazo'], 0, 10) : self::limiteDoPeriodo($e, $periodoDe), 'motivo' => $motivo,
             'url_documento' => self::normalizarUrl($d['url_documento'] ?? null, 'Documento do impedimento'), 'estado' => 'ABERTO', 'criado_por' => $user, 'atualizado_por' => $user]);
         $this->auditoria->registar(self::MODULO_AUDITORIA, 'Registar impedimento de entregável', "{$e->nome} · {$periodoDe} — {$motivo}", 'impedimentos_entregavel', $i->id);
+        if ($quem = $this->validadoresDe((int) $p['unidade_id'], [$colaborador])) {
+            $nome = Colaborador::query()->withTrashed()->whereKey($colaborador)->value('nome_completo');
+            $this->notificador->paraColaboradores($quem, 'Impedimento por decidir', "{$nome} declarou que não há condições para executar «{$e->nome}» ({$periodoDe}): {$motivo}", '/m/rh/rh_portal', 'estrutura', 'AVISO');
+        }
 
         return $i;
     }
@@ -733,8 +806,13 @@ final class ServicoEntregaveis
         $eu = $this->colaboradorDe();
         $cadeia = $this->responsaveisQuePodemValidar((int) $i->unidade_organica_id);
         $responsavel = $eu !== null && collect($cadeia)->contains(fn ($c) => $c['colaborador_id'] === $eu);
+        $emNomeDe = null;
         if (! $responsavel && ! Gate::allows('est_validar_entregas')) {
-            throw new ErroNegocio('Só o responsável da unidade decide impedimentos.', 'SEM_PERMISSAO', 403);
+            // delegado de um responsável da cadeia (nunca em nome de quem registou o impedimento)
+            $emNomeDe = $eu !== null ? $this->delegacoes->emNomeDe($eu, 'ENTREGAVEIS', array_column($cadeia, 'colaborador_id'), null, [(int) $i->colaborador_id]) : null;
+            if (! $emNomeDe) {
+                throw new ErroNegocio('Só o responsável da unidade decide impedimentos.', 'SEM_PERMISSAO', 403);
+            }
         }
         if ($eu !== null && (int) $i->colaborador_id === $eu) {
             throw new ErroNegocio('Não pode decidir o impedimento que foi o próprio a registar: cabe ao responsável acima.', 'AUTO_DECISAO', 403);
@@ -744,8 +822,13 @@ final class ServicoEntregaveis
             throw new ErroNegocio('Diga porque é que o impedimento não é aceite.', 'NOTA_EM_FALTA', 422);
         }
         $i->update(['estado' => $estado, 'decisao_nota' => $nota ?: null, 'decidido_por' => Auth::user()?->nome_utilizador, 'decidido_por_colaborador_id' => $eu, 'decidido_em' => now(),
-            'atualizado_por' => Auth::user()?->nome_utilizador]);
-        $this->auditoria->registar(self::MODULO_AUDITORIA, $estado === 'ACEITE' ? 'Aceitar impedimento' : 'Recusar impedimento', $nota ?: null, 'impedimentos_entregavel', $i->id);
+            'por_delegado_de' => $emNomeDe, 'atualizado_por' => Auth::user()?->nome_utilizador]);
+        $this->auditoria->registar(self::MODULO_AUDITORIA, $estado === 'ACEITE' ? 'Aceitar impedimento' : 'Recusar impedimento', ($nota ?: '').($emNomeDe ? ($nota ? ' — ' : '')."decidiu em nome de {$emNomeDe['nome']}" : '') ?: null,
+            'impedimentos_entregavel', $i->id);
+        $ent = EntregavelTarefaUnidade::query()->find($i->entregavel_id);
+        $this->notificador->paraColaborador((int) $i->colaborador_id, $estado === 'ACEITE' ? 'Impedimento aceite' : 'Impedimento recusado',
+            'O impedimento de «'.($ent?->nome ?? 'entregável')."» ({$i->periodo_de->toDateString()}) foi ".($estado === 'ACEITE' ? 'aceite: o período fica justificado' : 'recusado').($emNomeDe ? " (em nome de {$emNomeDe['nome']})" : '').($nota ? ": {$nota}" : '.'),
+            '/m/rh/rh_portal', 'estrutura', $estado === 'ACEITE' ? 'SUCESSO' : 'AVISO');
 
         return $i->refresh();
     }
@@ -792,6 +875,7 @@ final class ServicoEntregaveis
         $execs = ExecucaoEntregavel::query()->whereIn('entregavel_id', $ents->pluck('id')->all())->whereIn('validacao', ['PENDENTE', 'VALIDADA'])->get(['entregavel_id', 'data', 'quantidade'])->groupBy('entregavel_id');
         $imps = ImpedimentoEntregavel::query()->whereIn('entregavel_id', $ents->pluck('id')->all())->get()->groupBy('entregavel_id');
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $ents->pluck('colaborador_id')->filter()->unique()->all() ?: [0])->pluck('nome_completo', 'id');
+        $multas = $this->multasDos($ents->pluck('id')->all());
         $saida = [];
         foreach ($ents as $e) {
             $t = $tarefas[$e->tarefa_unidade_id];
@@ -822,9 +906,26 @@ final class ServicoEntregaveis
                 'realizado' => round($feito, 4), 'meta' => $meta > 0 ? $meta : null, 'falta' => $meta > 0 ? round(max(0, $meta - $feito), 4) : null,
                 'multa_valor' => $e->multa_valor !== null ? (float) $e->multa_valor : null, 'multa_descricao' => $e->multa_descricao,
                 'impedimento' => $aberto ? ['id' => (int) $aberto->id, 'estado' => $aberto->estado, 'motivo' => $aberto->motivo, 'periodo_de' => $aberto->periodo_de->toDateString()] : null,
-                'dono' => $e->colaborador_id ? ['id' => (int) $e->colaborador_id, 'nome' => $nomes[$e->colaborador_id] ?? "#{$e->colaborador_id}"] : null];
+                'dono' => $e->colaborador_id ? ['id' => (int) $e->colaborador_id, 'nome' => $nomes[$e->colaborador_id] ?? "#{$e->colaborador_id}"] : null,
+                'multa' => $multas["{$e->id}|{$p['inicio']}"] ?? null];
         }
         usort($saida, fn ($a, $b) => $b['dias_atraso'] <=> $a['dias_atraso'] ?: strcmp(mb_strtolower($a['entregavel']['nome']), mb_strtolower($b['entregavel']['nome'])));
+
+        return $saida;
+    }
+
+    /**
+     * Multas (qualquer estado) dos entregáveis, por «entregável|início do período»: {id, estado} da mais recente (Fase K). Sem multas, [].
+     *
+     * @param  list<int>  $entregaveis
+     * @return array<string, array{id: int, estado: string}>
+     */
+    private function multasDos(array $entregaveis): array
+    {
+        $saida = [];
+        foreach (MultaEntregavel::query()->whereIn('entregavel_id', $entregaveis ?: [0])->orderBy('id')->get(['id', 'entregavel_id', 'periodo_de', 'estado']) as $m) {
+            $saida["{$m->entregavel_id}|{$m->periodo_de->toDateString()}"] = ['id' => (int) $m->id, 'estado' => (string) $m->estado];
+        }
 
         return $saida;
     }
@@ -929,7 +1030,8 @@ final class ServicoEntregaveis
         $imps = ImpedimentoEntregavel::query()->whereIn('entregavel_id', $ents->pluck('id')->all())->orderByDesc('periodo_de')->get()->groupBy('entregavel_id');
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $ents->pluck('colaborador_id')->filter()->merge($execs->flatten(1)->pluck('colaborador_id'))->unique()->all() ?: [0])->pluck('nome_completo', 'id');
         $hoje = now()->toDateString();
-        $saida = $ents->map(function ($e) use ($tarefas, $unidades, $execs, $imps, $nomes, $colaborador, $alcance, $hoje) {
+        $multas = $this->multasDos($ents->pluck('id')->all());
+        $saida = $ents->map(function ($e) use ($tarefas, $unidades, $execs, $imps, $nomes, $colaborador, $alcance, $hoje, $multas) {
             $t = $tarefas[$e->tarefa_unidade_id];
             $per = (string) ($t->periodicidade ?: 'MENSAL');
             $dono = (int) $e->colaborador_id === $colaborador;
@@ -943,7 +1045,8 @@ final class ServicoEntregaveis
                 'tarefa' => ['id' => (int) $t->id, 'codigo' => $t->codigo, 'nome' => $t->nome, 'periodicidade' => $per, 'url_instrucoes' => $t->url_instrucoes],
                 // «unidade» é a unidade de MEDIDA do entregável; a unidade orgânica vai em «unidade_organica»
                 'unidade_organica' => ['id' => (int) $t->unidade_organica_id, 'nome' => (string) ($unidades->get((int) $t->unidade_organica_id)?->nome ?? '')],
-                'resumo' => $this->resumoPeriodo($e, $hoje, $per, $minhas, $meusImps), 'periodico' => $per !== 'PONTUAL',
+                'resumo' => $resumo = $this->resumoPeriodo($e, $hoje, $per, $minhas, $meusImps), 'periodico' => $per !== 'PONTUAL',
+                'multa' => $multas["{$e->id}|{$resumo['periodo_de']}"] ?? null,
                 'impedimentos' => $meusImps->take(6)->map(fn ($i) => $i->only(['id', 'periodo_de', 'prazo', 'motivo', 'estado', 'decisao_nota', 'colaborador_id']) + ['rotulo_estado' => ImpedimentoEntregavel::ROTULOS[$i->estado] ?? $i->estado])->values()->all(),
                 'contadores' => ['por_validar' => $minhas->where('validacao', 'PENDENTE')->count(), 'devolvidas' => $minhas->where('validacao', 'DEVOLVIDA')->count(), 'recusadas' => $minhas->where('validacao', 'RECUSADA')->count()],
                 'execucoes' => $minhas->take($dono && ! $responsavel ? 10 : 200)->map(fn ($x) => $x->toArray() + ['colaborador_nome' => $nomes[$x->colaborador_id] ?? null, 'convertida' => $x->convertida(),
@@ -1009,32 +1112,37 @@ final class ServicoEntregaveis
     public function entregasParaValidar(int $colaborador): array
     {
         $unidades = $this->unidades();
-        $alcance = $this->unidadesPorQueRespondo($colaborador, $unidades);
+        $proprio = $this->unidadesPorQueRespondo($colaborador, $unidades);
+        $delegantes = $this->delegacoes->delegantesDe($colaborador, 'ENTREGAVEIS');   // Fase K: também as unidades de quem me delegou
+        $alcance = array_values(array_unique(array_merge($proprio, ...array_map(fn ($d) => $this->unidadesPorQueRespondo($d, $unidades), $delegantes))));
         if (! $alcance) {
             return [];
         }
         $lista = ExecucaoEntregavel::query()->whereIn('unidade_organica_id', $alcance)->where('validacao', 'PENDENTE')->whereNull('periodo_produtividade_id')
             ->where('colaborador_id', '<>', $colaborador)->where(fn ($q) => $q->whereNull('registado_por_colaborador_id')->orWhere('registado_por_colaborador_id', '<>', $colaborador))
             ->orderBy('data')->orderBy('id')->limit(500)->get();
+        // nas unidades só alcançadas por delegação vale a regra completa (nunca a entrega do próprio delegante)
+        $lista = $lista->filter(fn ($x) => in_array((int) $x->unidade_organica_id, $proprio, true) || $this->podeValidar($x, $unidades, $delegantes)['pode'])->values();
 
-        return $this->contextualizar($lista, $unidades);
+        return $this->contextualizar($lista, $unidades, $delegantes);
     }
 
     /** @return list<array<string, mixed>> */
-    private function contextualizar(Collection $lista, Collection $unidades): array
+    private function contextualizar(Collection $lista, Collection $unidades, ?array $delegantes = null): array
     {
         $ents = EntregavelTarefaUnidade::query()->whereIn('id', $lista->pluck('entregavel_id')->unique()->all() ?: [0])->get()->keyBy('id');
         $tarefas = TarefaUnidadeOrganica::query()->whereIn('id', $lista->pluck('tarefa_unidade_id')->unique()->all() ?: [0])->get()->keyBy('id');
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $lista->pluck('colaborador_id')->unique()->all() ?: [0])->pluck('nome_completo', 'id');
 
-        return $lista->map(function ($x) use ($ents, $tarefas, $unidades, $nomes) {
+        return $lista->map(function ($x) use ($ents, $tarefas, $unidades, $nomes, $delegantes) {
             $e = $ents[$x->entregavel_id] ?? null;
             $t = $tarefas[$x->tarefa_unidade_id] ?? null;
-            $v = $this->podeValidar($x, $unidades);
+            $v = $this->podeValidar($x, $unidades, $delegantes);
 
             return $x->toArray() + ['entregavel' => $e?->nome ?? '—', 'unidade_medida' => $e?->unidade ?? '', 'tarefa' => $t?->nome ?? '', 'unidade_nome' => (string) ($unidades->get((int) $x->unidade_organica_id)?->nome ?? ''),
                 'colaborador_nome' => $nomes[$x->colaborador_id] ?? "#{$x->colaborador_id}", 'rotulo_validacao' => ExecucaoEntregavel::ROTULOS_VALIDACAO[$x->validacao] ?? $x->validacao,
-                'convertida' => $x->convertida(), 'pode_validar' => $v['pode'], 'motivo_nao_valida' => $v['motivo'] ?? null, 'item_produtividade_id' => $e?->item_produtividade_id];
+                'convertida' => $x->convertida(), 'pode_validar' => $v['pode'], 'motivo_nao_valida' => $v['motivo'] ?? null, 'item_produtividade_id' => $e?->item_produtividade_id,
+                'em_nome_de' => $v['por_delegado_de'] ?? null];
         })->values()->all();
     }
 
@@ -1042,11 +1150,15 @@ final class ServicoEntregaveis
     public function impedimentosParaDecidir(int $colaborador): array
     {
         $unidades = $this->unidades();
-        $alcance = $this->unidadesPorQueRespondo($colaborador, $unidades);
+        $proprio = $this->unidadesPorQueRespondo($colaborador, $unidades);
+        $delegantes = $this->delegacoes->delegantesDe($colaborador, 'ENTREGAVEIS');   // Fase K: também as unidades de quem me delegou
+        $alcance = array_values(array_unique(array_merge($proprio, ...array_map(fn ($d) => $this->unidadesPorQueRespondo($d, $unidades), $delegantes))));
         if (! $alcance) {
             return [];
         }
-        $lista = ImpedimentoEntregavel::query()->whereIn('unidade_organica_id', $alcance)->where('estado', 'ABERTO')->where('colaborador_id', '<>', $colaborador)->orderBy('periodo_de')->orderBy('id')->get();
+        $lista = ImpedimentoEntregavel::query()->whereIn('unidade_organica_id', $alcance)->where('estado', 'ABERTO')->where('colaborador_id', '<>', $colaborador)->orderBy('periodo_de')->orderBy('id')->get()
+            // nas unidades só alcançadas por delegação, nunca o impedimento registado pelo próprio delegante
+            ->filter(fn ($i) => in_array((int) $i->unidade_organica_id, $proprio, true) || ! in_array((int) $i->colaborador_id, $delegantes, true))->values();
         $ents = EntregavelTarefaUnidade::query()->whereIn('id', $lista->pluck('entregavel_id')->unique()->all() ?: [0])->get()->keyBy('id');
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $lista->pluck('colaborador_id')->unique()->all() ?: [0])->pluck('nome_completo', 'id');
 
@@ -1057,7 +1169,11 @@ final class ServicoEntregaveis
     /** Atrasos (com ou sem alerta) das unidades por que respondo. @return list<array<string, mixed>> */
     public function atrasosDasMinhasUnidades(int $colaborador): array
     {
-        return $this->entregaveisEmAtraso(['soComAlerta' => false, 'responsavelColaboradorId' => $colaborador]);
+        $unidades = $this->unidades();
+        $alcance = array_values(array_unique(array_merge($this->unidadesPorQueRespondo($colaborador, $unidades),
+            ...array_map(fn ($d) => $this->unidadesPorQueRespondo($d, $unidades), $this->delegacoes->delegantesDe($colaborador, 'ENTREGAVEIS')))));   // Fase K: e as de quem me delegou
+
+        return $alcance ? $this->entregaveisEmAtraso(['soComAlerta' => false, 'unidadeIds' => $alcance]) : [];
     }
 
     // ───────────── Ponte para a avaliação de desempenho ─────────────
