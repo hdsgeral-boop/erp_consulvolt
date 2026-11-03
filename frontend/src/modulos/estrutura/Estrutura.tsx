@@ -1,7 +1,7 @@
 import { Alert, Button, Checkbox, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Tabs, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -514,7 +514,7 @@ function FormPosto({ posto, unidade, arvore, aoFechar }: { posto: Posto | 'novo'
               const f = cargos.lista.find((c) => c.id === getFieldValue('cargo_funcao_id'));
               const resp = String(f?.responsabilidades || f?.descricao || '').trim();
               return f && (f.objetivo_geral || resp) ? (
-                <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Descritivo herdado da função «${f.nome}»`}
+                <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Descritivo herdado da função «${f.nome}»`}
                   description={<div style={{ whiteSpace: 'pre-line' }}>
                     {f.objetivo_geral && <div><b>Objectivo geral:</b> {f.objetivo_geral}</div>}
                     {resp && <div style={{ marginTop: 4 }}><b>Principais responsabilidades:</b>{'\n'}{resp}</div>}
@@ -598,7 +598,7 @@ function ModalAfectarEmMassa({ arvore, unidadeInicial, soSemUnidade, aoFechar }:
   const visiveis = colaboradores.lista.filter((c) => c.estado === 'ACTIVO' && (filtro === 'todos' || !c.unidade_organica_id || !ids.has(c.unidade_organica_id)) && (!q || c.nome_completo.toLocaleLowerCase('pt').includes(q)));
 
   if (!nos.length) {
-    return <Modal open title="Afectar colaboradores" onCancel={() => aoFechar()} footer={null}><Alert type="warning" showIcon message="Crie primeiro as unidades." /></Modal>;
+    return <Modal open title="Afectar colaboradores" onCancel={() => aoFechar()} footer={null}><Alert type="warning" showIcon title="Crie primeiro as unidades." /></Modal>;
   }
   const gravar = async () => {
     setErro(null);
@@ -672,7 +672,7 @@ function ModalAfectarEmMassa({ arvore, unidadeInicial, soSemUnidade, aoFechar }:
           </tbody>
         </table>
       </div>
-      {erro && <Alert style={{ marginTop: 8 }} type="warning" showIcon message={erro} />}
+      {erro && <Alert style={{ marginTop: 8 }} type="warning" showIcon title={erro} />}
     </Modal>
   );
 }

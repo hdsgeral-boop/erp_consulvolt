@@ -5,9 +5,9 @@
 #
 #   Alvo   | Imagem                         | Serviços (docker-compose.prod.yml)
 #   -------+--------------------------------+-----------------------------------
-#   app    | PHP 8.3-FPM + código + vendor  | app, worker, scheduler   (alvo por omissão)
+#   app    | PHP 8.5-FPM + código + vendor  | app, worker, scheduler   (alvo por omissão)
 #   web    | nginx sem root + frontend/dist | web
-#   copias | PostgreSQL 16 client + openssl | copias (backup agendado)
+#   copias | PostgreSQL 18 client + openssl | copias (backup agendado)
 #
 # Construção (contexto = raiz do repositório; o .dockerignore exclui segredos, dados e dependências):
 #   docker build -f docker/php/Dockerfile.prod --target app    --build-arg ERP_VERSAO=$(git describe --always) -t erp_consulvolt/app:<versao> .
@@ -17,10 +17,10 @@
 #
 # Nenhum segredo entra nas imagens: APP_KEY, palavras-passe e chaves AGT chegam só em tempo de execução.
 
-ARG PHP_IMAGEM=php:8.3-fpm-alpine
-ARG NODE_IMAGEM=node:22-alpine
-ARG NGINX_IMAGEM=nginxinc/nginx-unprivileged:1.27-alpine
-ARG POSTGRES_IMAGEM=postgres:16-alpine
+ARG PHP_IMAGEM=php:8.5-fpm-alpine
+ARG NODE_IMAGEM=node:26-alpine
+ARG NGINX_IMAGEM=nginxinc/nginx-unprivileged:1.31-alpine
+ARG POSTGRES_IMAGEM=postgres:18-alpine
 
 # ---------------------------------------------------------------------------------------------
 # 1. Frontend: npm ci + build (tsc -b && vite build) -> /src/frontend/dist
@@ -36,16 +36,22 @@ COPY frontend/ ./
 RUN npm run build && test -f dist/index.html
 
 # ---------------------------------------------------------------------------------------------
-# 2. Base PHP: extensões iguais às do Dockerfile de desenvolvimento, sem ferramentas de build
+# 2. Base PHP: extensões iguais às do Dockerfile de desenvolvimento (install-php-extensions), sem ferramentas de build
 # ---------------------------------------------------------------------------------------------
 FROM ${PHP_IMAGEM} AS php-base
-RUN apk add --no-cache icu-libs libzip libpq libpng tzdata fcgi \
- && apk add --no-cache --virtual .deps-build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev postgresql-dev linux-headers \
- && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl zip bcmath opcache pcntl gd \
- && pecl install redis \
+# Extensões pelo instalador oficial da comunidade (mlocati): resolve dependências, compila e limpa num só passo.
+# O phpredis compila-se a partir do código-fonte no GitHub (o PECL deixou de publicar versões em 2026).
+ARG PHPREDIS_VERSAO=6.3.0
+ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN apk add --no-cache tzdata fcgi \
+ && install-php-extensions pdo_pgsql pgsql intl zip bcmath opcache pcntl gd \
+ && rm -f /usr/local/bin/install-php-extensions
+RUN apk add --no-cache --virtual .deps-build $PHPIZE_DEPS \
+ && wget -qO- "https://github.com/phpredis/phpredis/archive/refs/tags/${PHPREDIS_VERSAO}.tar.gz" | tar xz -C /tmp \
+ && cd "/tmp/phpredis-${PHPREDIS_VERSAO}" && phpize && ./configure && make -j"$(nproc)" && make install \
  && docker-php-ext-enable redis \
  && apk del .deps-build \
- && rm -rf /tmp/pear /usr/src/php.tar.* /var/cache/apk/*
+ && rm -rf /tmp/phpredis-* /tmp/pear /usr/src/php.tar.* /var/cache/apk/*
 ENV TZ=Africa/Luanda
 
 # ---------------------------------------------------------------------------------------------

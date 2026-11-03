@@ -73,7 +73,7 @@ export function RecalculoValorizacoes({ aberto, aoFechar }: { aberto: boolean; a
             type={resultado.aplicado ? 'success' : 'info'}
             showIcon
             style={{ marginBottom: 12 }}
-            message={resultado.aplicado ? 'Recálculo aplicado.' : 'Simulação: nada foi gravado.'}
+            title={resultado.aplicado ? 'Recálculo aplicado.' : 'Simulação: nada foi gravado.'}
             description={
               <Descriptions size="small" column={{ xs: 1, md: 3 }}>
                 <Descriptions.Item label="Produtos analisados">{resultado.resumo.produtos_analisados}</Descriptions.Item>
@@ -85,7 +85,7 @@ export function RecalculoValorizacoes({ aberto, aoFechar }: { aberto: boolean; a
             }
           />
           {resultado.avisos.map((a) => (
-            <Alert key={a} type="warning" showIcon style={{ marginBottom: 8 }} message={a} />
+            <Alert key={a} type="warning" showIcon style={{ marginBottom: 8 }} title={a} />
           ))}
           <Table<ProdutoRecalculado>
             rowKey="produto_id"

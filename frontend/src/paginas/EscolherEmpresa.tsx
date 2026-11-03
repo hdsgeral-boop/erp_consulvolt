@@ -123,7 +123,7 @@ export function EscolherEmpresa() {
                           {e.nome}
                           {/* legado: marca «Consolidação» das holdings na escolha de empresa (js/app_v2.js:455) */}
                           {e.e_consolidacao && (
-                            <Tag color="purple" bordered style={{ marginInlineStart: 8 }}>
+                            <Tag color="purple" variant="outlined" style={{ marginInlineStart: 8 }}>
                               Holding · Consolidação
                             </Tag>
                           )}

@@ -1,6 +1,6 @@
 import { Alert, Button, Drawer, Flex, Skeleton, Space, Statistic, Table, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { BotoesExportar, pares } from '@/componentes/impressao';
@@ -82,9 +82,9 @@ export function DetalheConta({ pedido, aoFechar }: { pedido: PedidoDetalheConta 
   ];
 
   return (
-    <Drawer open={!!pedido} onClose={aoFechar} width={larguraModal(1100)} title={titulo} destroyOnClose>
+    <Drawer open={!!pedido} onClose={aoFechar} size={larguraModal(1100)} title={titulo} destroyOnHidden>
       {consulta.error ? (
-        <Alert type="error" showIcon message="Não foi possível obter os movimentos da conta." description="Verifique se tem acesso ao Extrato de Conta Corrente." />
+        <Alert type="error" showIcon title="Não foi possível obter os movimentos da conta." description="Verifique se tem acesso ao Extrato de Conta Corrente." />
       ) : !d ? (
         <Skeleton active />
       ) : (

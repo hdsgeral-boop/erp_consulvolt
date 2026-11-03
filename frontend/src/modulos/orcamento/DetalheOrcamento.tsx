@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Form, Input, I
 import { ArrowLeftOutlined, BranchesOutlined, CheckOutlined, DeleteOutlined, MergeCellsOutlined, PlusOutlined, RollbackOutlined, SaveOutlined, SendOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -101,10 +101,10 @@ export function DetalheOrcamento() {
           </>
         }
       />
-      {alterado && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Há alterações por gravar." />}
+      {alterado && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Há alterações por gravar." />}
       {(o.rejeicoes?.length ?? 0) > 0 && o.estado === 'RASCUNHO' && (
-        <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Devolvido para revisão"
-          description={<Timeline style={{ marginTop: 8, marginBottom: -16 }} items={o.rejeicoes!.map((r) => ({ children: `${formatarDataHora(r.em)} · ${r.por ?? ''}: ${r.motivo}` }))} />} />
+        <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Devolvido para revisão"
+          description={<Timeline style={{ marginTop: 8, marginBottom: -16 }} items={o.rejeicoes!.map((r) => ({ content: `${formatarDataHora(r.em)} · ${r.por ?? ''}: ${r.motivo}` }))} />} />
       )}
       <Card size="small" style={{ marginBottom: 16 }}>
         <Descriptions size="small" column={{ xs: 1, md: 4 }}>
@@ -159,7 +159,7 @@ function ModalRepartir({ orcamento, aoFechar }: { orcamento: FichaOrcamento | nu
   return (
     <Modal title="Repartir o orçamento pelos filhos" open={!!orcamento} onCancel={aoFechar} okText="Repartir" cancelText="Cancelar" okButtonProps={{ disabled: !filhos.length || !valido }} confirmLoading={accao.isPending}
       onOk={() => accao.mutate({ url: `/orcamento/orcamentos/${orcamento?.id}/repartir`, dados: { criterio, percentagens: criterio === 'MANUAL' ? pcts : undefined } })}>
-      {!filhos.length ? <Alert type="info" showIcon message="Não há orçamentos filhos em rascunho. Peça primeiro os contributos para criar os filhos." /> : (
+      {!filhos.length ? <Alert type="info" showIcon title="Não há orçamentos filhos em rascunho. Peça primeiro os contributos para criar os filhos." /> : (
         <>
           <Radio.Group value={criterio} onChange={(e) => setCriterio(e.target.value)} style={{ marginBottom: 12 }}
             options={[{ value: 'IGUAL', label: 'Partes iguais' }, { value: 'REALIZADO', label: 'Pelo realizado anterior' }, { value: 'MANUAL', label: 'Percentagens' }]} />

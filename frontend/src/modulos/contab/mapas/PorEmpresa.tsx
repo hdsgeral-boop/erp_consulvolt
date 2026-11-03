@@ -144,7 +144,7 @@ export function BalancetePorEmpresa({ dados, periodo, carregando }: { dados?: Da
   ];
   return (
     <>
-      {dados.colunas.length <= 1 && <Alert type="info" showIcon message="O grupo não tem empresas com valores neste período." style={{ marginBottom: 8 }} />}
+      {dados.colunas.length <= 1 && <Alert type="info" showIcon title="O grupo não tem empresas com valores neste período." style={{ marginBottom: 8 }} />}
       <div style={{ marginBottom: 8 }}>
         <BotoesExportar obterPedido={() => ref.current && { titulo: 'Balancete — por empresa', periodo, filtros: ['Saldo final (D − C): credor negativo'], orientacao: 'paisagem', conteudo: ref.current }} />
       </div>

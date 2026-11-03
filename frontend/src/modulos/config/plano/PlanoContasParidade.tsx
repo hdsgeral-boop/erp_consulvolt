@@ -113,7 +113,7 @@ export function CopiarOutraEmpresa({ aberto, aoFechar }: { aberto: boolean; aoFe
         Os registos serão copiados para <strong>{empresa?.nome ?? 'a empresa activa'}</strong>. Registos com o mesmo Código já existentes serão ignorados.
       </Typography.Paragraph>
       {outras.length === 0 ? (
-        <Alert type="info" showIcon message="Não existem outras empresas a que tenha acesso para copiar." />
+        <Alert type="info" showIcon title="Não existem outras empresas a que tenha acesso para copiar." />
       ) : (
         <>
           <Typography.Text strong>Empresa de Origem</Typography.Text>
@@ -129,7 +129,7 @@ export function CopiarOutraEmpresa({ aberto, aoFechar }: { aberto: boolean; aoFe
           />
         </>
       )}
-      {previa.error && <Alert style={{ marginTop: 12 }} type="error" showIcon message={(previa.error as Error).message} />}
+      {previa.error && <Alert style={{ marginTop: 12 }} type="error" showIcon title={(previa.error as Error).message} />}
       {p && (
         <div style={{ marginTop: 12 }}>
           <div style={{ background: token.colorFillAlter, borderRadius: 4, padding: '0.6rem 1rem' }}>
@@ -224,7 +224,7 @@ export function ImportarPlano({ aberto, aoFechar }: { aberto: boolean; aoFechar:
         </Space>
       }
     >
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
           Colunas: <Typography.Text code>Conta</Typography.Text> (código), <Typography.Text code>Descrição</Typography.Text> e <Typography.Text code>Tipo</Typography.Text> (M = movimento, por
           omissão; T = totalizadora). Valide primeiro: nada é gravado enquanto houver linhas com erro. As contas que já existem <strong>não são alteradas nem apagadas</strong>. Máximo 5 MB (XLSX, XLS ou CSV).
@@ -258,7 +258,7 @@ export function ImportarPlano({ aberto, aoFechar }: { aberto: boolean; aoFechar:
           <Alert
             type={rel.erros.length ? 'warning' : rel.simulacao ? 'info' : 'success'}
             showIcon
-            message={
+            title={
               rel.simulacao
                 ? `Simulação (nada foi gravado): ${rel.novas} conta(s) nova(s), ${rel.existentes} já existente(s) mantida(s), ${rel.repetidas} repetida(s), ${rel.erros.length} linha(s) com erro.`
                 : `Importação concluída: ${rel.criadas} conta(s) criada(s); ${rel.existentes} já existente(s) mantida(s).`

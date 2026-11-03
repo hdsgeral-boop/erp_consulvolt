@@ -188,18 +188,18 @@ export function ModalSaldosHistoricos({ aberto, aoFechar }: { aberto: boolean; a
           <InputNumber aria-label="Ano do histórico" min={1990} max={2100} precision={0} value={ano} onChange={(v) => v && (alterado ? Modal.confirm({ title: 'Mudar de ano sem gravar?', okText: 'Mudar', cancelText: 'Cancelar', onOk: () => setAno(v) }) : setAno(v))} style={{ width: '100%' }} />
         </Col>
         <Col xs={12} sm={8} md={6}>
-          <Statistic title="Resultado líquido (calculado)" value={formatarKz(resLiq)} valueStyle={{ fontSize: 20, color: Number(resLiq) < 0 ? '#cf1322' : undefined }} />
+          <Statistic title="Resultado líquido (calculado)" value={formatarKz(resLiq)} styles={{ content: { fontSize: 20, color: Number(resLiq) < 0 ? '#cf1322' : undefined } }} />
         </Col>
         <Col xs={24} sm={8} md={6}>
           <Input.Search placeholder="Filtrar notas" allowClear onChange={(e) => setFiltro(e.target.value)} />
         </Col>
       </Row>
-      {consulta.data?.encerrado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`O exercício de ${ano} está encerrado: o histórico é só de leitura.`} />}
-      {!pode('lancamentos_saldos') && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Consulta: não tem permissão para alterar os saldos históricos." />}
+      {consulta.data?.encerrado && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`O exercício de ${ano} está encerrado: o histórico é só de leitura.`} />}
+      {!pode('lancamentos_saldos') && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Consulta: não tem permissão para alterar os saldos históricos." />}
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.isError ? (
-        <Alert type="error" showIcon message="Não foi possível obter o histórico." description={consulta.error instanceof Error ? consulta.error.message : undefined} />
+        <Alert type="error" showIcon title="Não foi possível obter o histórico." description={consulta.error instanceof Error ? consulta.error.message : undefined} />
       ) : (
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={12}>

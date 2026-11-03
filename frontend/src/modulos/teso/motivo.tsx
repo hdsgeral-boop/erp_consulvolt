@@ -18,7 +18,7 @@ export function pedirMotivo({ titulo, texto, textoOk = 'Confirmar', aoConfirmar 
   Modal.confirm({
     title: titulo,
     content: (
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         {texto && <Typography.Text>{texto}</Typography.Text>}
         <Input.TextArea rows={2} maxLength={500} placeholder="Motivo (obrigatório)" aria-label="Motivo" onChange={(e) => { motivo = e.target.value; }} />
       </Space>

@@ -112,7 +112,7 @@ export function ProdutividadeMassa({ contratos = [], aoConcluir }: { contratos?:
   };
 
   if (!itens.isLoading && !activos.length) {
-    return <Alert type="warning" showIcon message="Ainda não há itens de produtividade activos." description="Configure-os em RH › Produtividade › Itens." />;
+    return <Alert type="warning" showIcon title="Ainda não há itens de produtividade activos." description="Configure-os em RH › Produtividade › Itens." />;
   }
   return (
     <>
@@ -166,7 +166,7 @@ export function ProdutividadeMassa({ contratos = [], aoConcluir }: { contratos?:
           onClick={() => form.setFieldsValue({ colaboradores: colaboradores.lista.filter((c) => c.estado === 'ACTIVO').map((c) => c.id) as never })}>Todos os activos</Button>
       </Form>
       {plano && (
-        <Alert type={plano.simulacao ? 'info' : 'success'} showIcon style={{ marginBottom: 12 }} message={plano.simulacao ? 'Simulação (nada foi gravado)' : 'Aplicado'}
+        <Alert type={plano.simulacao ? 'info' : 'success'} showIcon style={{ marginBottom: 12 }} title={plano.simulacao ? 'Simulação (nada foi gravado)' : 'Aplicado'}
           description={<>
             {resumoProdutividadeMassa(plano)}
             {plano.actualizados.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>A alterar: {plano.actualizados.slice(0, 15).join(', ')}{plano.actualizados.length > 15 ? '…' : ''}</div>}

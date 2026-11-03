@@ -281,7 +281,7 @@ function ModalRegistar({ alvo, folhas, aoFechar }: { alvo: { sessao: SessaoPrest
             type="info"
             showIcon
             style={{ marginBottom: 12 }}
-            message={
+            title={
               item.natureza === 'NUMERARIO'
                 ? `${item.movimento === 'PAG' ? 'Pagamento' : 'Recebimento'} na folha de caixa aberta (D caixa / C transitória ${item.conta_transitoria}).`
                 : item.natureza === 'TPA'
@@ -423,7 +423,7 @@ function DetalheLiquidacao({ id, aoFechar }: { id: number | null; aoFechar: () =
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.isError ? (
-        <Alert type="error" showIcon message="Não foi possível obter a liquidação." />
+        <Alert type="error" showIcon title="Não foi possível obter a liquidação." />
       ) : consulta.data ? (
         <Descriptions size="small" column={1} bordered items={linhasDetalheLiquidacao(consulta.data).map(([rotulo, valor]) => ({ key: rotulo, label: rotulo, children: valor }))} />
       ) : null}

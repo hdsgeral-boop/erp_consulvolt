@@ -3,7 +3,7 @@ import { ArrowLeftOutlined, DeleteOutlined, TagsOutlined, UnlockOutlined } from 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml, useImpressao } from '@/componentes/impressao';
@@ -438,7 +438,7 @@ function DetalheSessao() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const s = consulta.data;
-  if (!s) return <Alert type="error" message="Sessão não encontrada." />;
+  if (!s) return <Alert type="error" title="Sessão não encontrada." />;
   const a = accoesSessao(s, pode);
   const totais = totaisMovimentos(s.movimentos ?? []);
   const registar = (tipo: 'REC' | 'PAG') => { formMov.setFieldsValue({ tipo, data_documento: dayjs(s.data_abertura) }); setModoContrapartida('manual'); setMovimento(true); };
@@ -607,7 +607,7 @@ function DetalheSessao() {
               </Form.Item>
               {produtoSelecionado && !produtoSelecionado.conta_custo && (
                 <Alert type="error" showIcon style={{ marginBottom: 12 }}
-                  message={`"${produtoSelecionado.nome}" não tem conta de custo configurada. Escolha outro bem/serviço ou mude para "Conta manual".`} />
+                  title={`"${produtoSelecionado.nome}" não tem conta de custo configurada. Escolha outro bem/serviço ou mude para "Conta manual".`} />
               )}
               {produtoSelecionado?.conta_custo && (
                 <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
@@ -652,7 +652,7 @@ function DetalheSessao() {
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>
           {diferencaFecho && paraCentimos(diferencaFecho) !== 0 && (
-            <Alert type="warning" showIcon message={`Diferença de ${formatarKz(diferencaFecho, true)} (${paraCentimos(diferencaFecho) > 0 ? 'sobra' : 'quebra'} de caixa).`} />
+            <Alert type="warning" showIcon title={`Diferença de ${formatarKz(diferencaFecho, true)} (${paraCentimos(diferencaFecho) > 0 ? 'sobra' : 'quebra'} de caixa).`} />
           )}
         </Form>
       </Modal>

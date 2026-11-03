@@ -3,7 +3,7 @@ import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { dataDe } from '@/modulos/vendas/comum/valoresFormulario';
@@ -58,7 +58,7 @@ export function DetalheContrato() {
   const accao = useAccao({ invalidar: [['compras']], aoSucesso: () => { setModal(null); setMarco(null); } });
 
   if (consulta.isLoading) return <Skeleton active />;
-  if (!c) return <Alert type="error" message="Contrato não encontrado." />;
+  if (!c) return <Alert type="error" title="Contrato não encontrado." />;
   const a = accoesContrato(c, pode);
   const associadas = new Set((c.encomendas ?? []).map((e) => e.id));
   const faturas = (faturasFornecedor.data?.itens ?? []).filter((f) => f.estado !== 'ANULADA');
@@ -83,8 +83,8 @@ export function DetalheContrato() {
           </>
         }
       />
-      {c.estado === 'CANCELADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Contrato cancelado${c.motivo_cancelamento ? `: ${c.motivo_cancelamento}` : '.'}`} />}
-      {c.consumo?.excedido && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="O valor encomendado excede o valor contratado." />}
+      {c.estado === 'CANCELADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Contrato cancelado${c.motivo_cancelamento ? `: ${c.motivo_cancelamento}` : '.'}`} />}
+      {c.consumo?.excedido && <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="O valor encomendado excede o valor contratado." />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Estado"><EstadoContratoTag estado={c.estado} /></Descriptions.Item>

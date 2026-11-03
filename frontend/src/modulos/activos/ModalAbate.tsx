@@ -215,7 +215,7 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
           <div style={{ marginTop: 12 }}><IndicadorEquilibrio linhas={simulacao.linhas} /></div>
         </>
       )}
-      {!activo && <Alert style={{ marginTop: 12 }} type="info" showIcon message="Só aparecem activos no estado «Activo». Integre ou anule as amortizações em rascunho antes do abate." />}
+      {!activo && <Alert style={{ marginTop: 12 }} type="info" showIcon title="Só aparecem activos no estado «Activo». Integre ou anule as amortizações em rascunho antes do abate." />}
     </Modal>
   );
 }

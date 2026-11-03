@@ -4,6 +4,7 @@ namespace Tests\Feature\Tenancy;
 
 use App\Models\Empresa;
 use App\Models\Utilizador;
+use App\Services\Plataforma\MaquinaEstadosLicenca;
 use App\Services\Plataforma\ServicoClientes;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\DB;
@@ -163,7 +164,7 @@ class LicencaEmpresaTest extends TestCase
         $empresa = $empresa->fresh();
         // o update acima é SQL directo (não passa por Eloquent): sincroniza o estado explícito a seguir, tal como
         // qualquer escrita real em licenca_fim/licenca_origem tem de fazer (ver ResolverEmpresaAtiva::licencaBloqueada).
-        app(\App\Services\Plataforma\MaquinaEstadosLicenca::class)->sincronizar($empresa);
+        app(MaquinaEstadosLicenca::class)->sincronizar($empresa);
 
         return $empresa->fresh();
     }

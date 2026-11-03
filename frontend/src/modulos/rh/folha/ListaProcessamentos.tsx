@@ -1,6 +1,6 @@
 import { Card, Space, Switch, Typography } from 'antd';
 import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';
 import { scrollTabela } from '@/componentes/responsivo';

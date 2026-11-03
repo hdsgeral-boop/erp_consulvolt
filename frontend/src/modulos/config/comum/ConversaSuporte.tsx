@@ -75,7 +75,7 @@ export function ConversaSuporte({
                   <>
                     <span style={{ whiteSpace: 'pre-wrap' }}>{m.mensagem}</span>
                     {(m.anexos?.length ?? 0) > 0 && (
-                      <Space direction="vertical" size={2} style={{ marginTop: 6, display: 'flex' }}>
+                      <Space orientation="vertical" size={2} style={{ marginTop: 6, display: 'flex' }}>
                         {m.anexos?.map((a) => (
                           <Button
                             key={a.id}
@@ -132,7 +132,7 @@ export function ConversaSuporte({
   );
 
   return (
-    <Drawer open={ticketId !== null} onClose={aoFechar} width={560} title={titulo ?? 'Conversa'}>
+    <Drawer open={ticketId !== null} onClose={aoFechar} size={560} title={titulo ?? 'Conversa'}>
       {agente ? (
         <Tabs items={[{ key: 'conversa', label: 'Conversa', children: conversa }, { key: 'notas', label: 'Notas internas', children: notasInternas }]} />
       ) : conversa}

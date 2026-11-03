@@ -67,15 +67,15 @@ export function ModalCancelarRecebimentos({ vendaId, aoFechar, aoConcluir }: {
             <List size="small" bordered style={{ marginBottom: 12 }} dataSource={linhasACancelar(p, (v) => `${formatarKz(v)} Kz`)} renderItem={(x) => <List.Item>{x}</List.Item>} />
           )}
           {outras.length > 0 && (
-            <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Outras facturas afectadas"
+            <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Outras facturas afectadas"
               description={`O recibo/documento é anulado por inteiro: ${outras.join(', ')} também volta(m) a ter o valor por receber.`} />
           )}
           {p.bloqueios.length > 0 && (
-            <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Não é possível cancelar daqui"
+            <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Não é possível cancelar daqui"
               description={<ul style={{ margin: 0, paddingLeft: 18 }}>{p.bloqueios.map((b) => <li key={b}>{b}</li>)}</ul>} />
           )}
           {p.permissoes_em_falta.length > 0 && (
-            <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Sem permissão" description={`Falta-lhe permissão para: ${p.permissoes_em_falta.join(', ')}.`} />
+            <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Sem permissão" description={`Falta-lhe permissão para: ${p.permissoes_em_falta.join(', ')}.`} />
           )}
           <Form form={form} layout="vertical" disabled={!podeAvancar} onFinish={(v) => cancelar.mutate(v.motivo.trim())}>
             <Form.Item

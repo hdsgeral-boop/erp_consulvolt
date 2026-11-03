@@ -1,5 +1,5 @@
 import { Result } from 'antd';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { ECRAS } from '@/modulos/registo';
 import { EmConstrucao } from '@/componentes/EmConstrucao';
 import { useSessao } from '@/sessao/SessaoContexto';

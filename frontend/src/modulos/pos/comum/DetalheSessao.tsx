@@ -35,7 +35,7 @@ export function DetalheSessao({ id, aoFechar, accoes }: { id: number | null; aoF
     <Drawer
       open={!!id}
       onClose={aoFechar}
-      width={larguraGaveta(820)}
+      size={larguraGaveta(820)}
       title={s ? `Sessão ${s.codigo_sessao}${s.numero_z ? ` · ${s.numero_z}` : ''}` : 'Sessão'}
       extra={
         s && (

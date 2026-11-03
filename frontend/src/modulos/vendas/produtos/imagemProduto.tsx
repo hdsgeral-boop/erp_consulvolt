@@ -22,21 +22,28 @@ export function erroImagem(f: { type: string; size: number }): string | null {
   return null;
 }
 
+/** URL público (https) da imagem no Cloudflare R2: o navegador lê-a directamente, sem passar pela API. */
+export function eUrlPublico(url: string | null | undefined): boolean {
+  return !!url && /^https:\/\//i.test(url);
+}
+
 /**
- * URL de objecto da imagem autenticada (`imagem_url` do ProdutoResource, relativo à API). Liberta o URL ao desmontar.
+ * `src` da imagem (`imagem_url` do ProdutoResource): URL público do Cloudflare R2 tal e qual, ou, no URL relativo à
+ * API (autenticado), URL de objecto (blob:) lido com o cliente HTTP — libertado ao desmontar.
  * Exportado para o POS: `const src = useImagemProduto(produto.imagem_url)`.
  */
 export function useImagemProduto(url: string | null | undefined): string | null {
+  const publico = eUrlPublico(url) ? (url as string) : null;
   const consulta = useQuery({
     queryKey: ['vendas', 'imagem-produto', url],
     queryFn: async () => (await http.get<Blob>(url as string, { responseType: 'blob' })).data,
-    enabled: !!url,
+    enabled: !!url && !publico,
     staleTime: 600_000,
     retry: false,
   });
   const src = useMemo(() => (consulta.data ? URL.createObjectURL(consulta.data) : null), [consulta.data]);
   useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
-  return src;
+  return publico ?? src;
 }
 
 /** Miniatura 30 × 30 da coluna CÓDIGO (como no legado: ícone de caixa quando não há imagem). */
@@ -94,7 +101,7 @@ export function CampoImagemProduto({ produtoId, url, podeGerir }: { produtoId?: 
   return (
     <Space align="start" size="middle">
       <MiniaturaProduto url={actual} tamanho={72} />
-      <Space direction="vertical" size={4}>
+      <Space orientation="vertical" size={4}>
         {!produtoId ? (
           <Typography.Text type="secondary">Grave o produto para lhe juntar uma imagem.</Typography.Text>
         ) : (

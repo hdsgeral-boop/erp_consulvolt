@@ -52,14 +52,14 @@ export function DemonstracoesRC({ ano, concluido = false, fixadas }: { ano: numb
   return (
     <>
       {origem === 'fixadas' && (verBal || verDR || verFluxo) && (
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Demonstrações com os números fixados na conclusão do relatório." />
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Demonstrações com os números fixados na conclusão do relatório." />
       )}
       {origem === 'actuais_concluido' && (verBal || verDR || verFluxo) && (
         <Alert
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message="Este relatório foi concluído antes de as demonstrações ficarem fixadas: são calculadas com os lançamentos actuais (as grandezas abaixo e o documento impresso usam os números fixados na conclusão). Reabra e conclua de novo para as fixar."
+          title="Este relatório foi concluído antes de as demonstrações ficarem fixadas: são calculadas com os lançamentos actuais (as grandezas abaixo e o documento impresso usam os números fixados na conclusão). Reabra e conclua de novo para as fixar."
         />
       )}
       {verBal && (

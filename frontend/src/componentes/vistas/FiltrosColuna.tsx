@@ -152,7 +152,7 @@ export function ModalFiltroPersonalizado({ aberto, colunas, valor, aoAplicar, ao
         </Button>,
       ]}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={10}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={10}>
         <Space wrap>
           <Typography.Text>Mostrar os registos que cumprem</Typography.Text>
           <Radio.Group size="small" value={rascunho.juncao} onChange={(e) => setRascunho((r) => ({ ...r, juncao: e.target.value }))} optionType="button">

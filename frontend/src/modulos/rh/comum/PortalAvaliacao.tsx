@@ -37,7 +37,7 @@ export function PortalAvaliacao() {
   if (!q.data) return <Card><Empty description="Não foi possível obter a sua avaliação." /></Card>;
   const d = q.data;
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       {d.ciclo_aberto && <CicloAberto dados={d} />}
       <MinhasAvaliacoes avaliacoes={d.avaliacoes} />
       {d.feedbacks.length > 0 && <Acompanhamento feedbacks={d.feedbacks} />}
@@ -54,7 +54,7 @@ function CicloAberto({ dados }: { dados: MinhaAvaliacao }) {
     <Card title={`Ciclo de avaliação em curso — ${c.nome ?? rotuloPeriodo(c.ano, c.periodo)}`} size="small"
       extra={c.prazos?.respostas_ate ? <Typography.Text type="secondary">Respostas até {formatarData(c.prazos.respostas_ate)}</Typography.Text> : null}>
       {c.comunicado?.texto && (
-        <Alert type={c.comunicado_confirmado ? 'success' : 'info'} showIcon style={{ marginBottom: 16 }} message={c.comunicado.titulo ?? 'Comunicado do ciclo'}
+        <Alert type={c.comunicado_confirmado ? 'success' : 'info'} showIcon style={{ marginBottom: 16 }} title={c.comunicado.titulo ?? 'Comunicado do ciclo'}
           description={<><Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{c.comunicado.texto}</Typography.Paragraph>
             {c.comunicado_confirmado ? <Tag color="green">Leitura confirmada</Tag>
               : <Button size="small" type="primary" loading={accao.isPending} onClick={() => accao.mutate({ metodo: 'post', url: `/rh/avaliacao/ciclos/${c.id}/confirmar-comunicado` })}>Confirmar a leitura</Button>}</>} />
@@ -118,7 +118,7 @@ function FormAutoavaliacao({ ano, periodo }: { ano: number; periodo: string }) {
   };
   return (
     <Form form={form} layout="vertical" disabled={submetida}>
-      {submetida && <Alert type="success" showIcon style={{ marginBottom: 12 }} message={`Autoavaliação submetida em ${formatarData(a?.submetida_em)}.`} />}
+      {submetida && <Alert type="success" showIcon style={{ marginBottom: 12 }} title={`Autoavaliação submetida em ${formatarData(a?.submetida_em)}.`} />}
       {q.data.criterios.length === 0 && <Typography.Text type="secondary">Sem critérios definidos para si.</Typography.Text>}
       <Form.List name="criterios">
         {(campos) => campos.map(({ key, name }) => {
@@ -205,7 +205,7 @@ function ResultadoEquipa({ colaborador, ano, periodo }: { colaborador: number; a
   if (q.isLoading) return <Card loading size="small" style={{ marginTop: 8 }} />;
   const r = q.data;
   if (!r) return null;
-  if (!r.liberado) return <Alert style={{ marginTop: 8 }} type="info" showIcon message={`${r.respostas} resposta(s) recebida(s). Os resultados só são mostrados com pelo menos ${r.minimo} respostas e depois do prazo do ciclo.`} />;
+  if (!r.liberado) return <Alert style={{ marginTop: 8 }} type="info" showIcon title={`${r.respostas} resposta(s) recebida(s). Os resultados só são mostrados com pelo menos ${r.minimo} respostas e depois do prazo do ciclo.`} />;
   return (
     <Card size="small" style={{ marginTop: 8 }} title={`Média ${r.media !== null && r.media !== undefined ? formatarNumero(r.media) : '—'} (${r.respostas} respostas)`}>
       <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="chave" dataSource={Object.entries(r.questoes ?? {}).map(([chave, x]) => ({ chave, ...x }))} columns={[
@@ -255,7 +255,7 @@ function MinhasAvaliacoes({ avaliacoes }: { avaliacoes: AvaliacaoPortal[] }) {
       <Modal title="Contestar a avaliação" open={contestar !== null} onCancel={() => setContestar(null)} okText="Enviar contestação" cancelText="Cancelar" okButtonProps={{ danger: true, disabled: texto.trim().length < 30 }}
         confirmLoading={accao.isPending} destroyOnHidden
         onOk={() => contestar && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${contestar.id}/contestar`, dados: { fundamentacao: texto.trim() } })}>
-        {contestar?.prazo_contestacao && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Prazo de contestação até ${formatarData(contestar.prazo_contestacao)}.`} />}
+        {contestar?.prazo_contestacao && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Prazo de contestação até ${formatarData(contestar.prazo_contestacao)}.`} />}
         <Input.TextArea rows={6} maxLength={10000} showCount placeholder="Fundamente a contestação (mínimo 30 caracteres)" value={texto} onChange={(e) => setTexto(e.target.value)} />
       </Modal>
 
@@ -266,7 +266,7 @@ function MinhasAvaliacoes({ avaliacoes }: { avaliacoes: AvaliacaoPortal[] }) {
 
 function DetalheAvaliacao({ a }: { a: AvaliacaoPortal }) {
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       {(a.criterios ?? []).length > 0 && (
         <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="chave" dataSource={a.criterios ?? []} columns={[
           { title: 'Critério', dataIndex: 'nome' },
@@ -300,7 +300,7 @@ function ModalResultado360({ avaliacao, aoFechar }: { avaliacao: AvaliacaoPortal
   const r = q.data;
   return (
     <Modal title="Resultado 360º" open={avaliacao !== null} width={larguraModal(680)} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>}>
-      {q.isLoading || !r ? <Card loading variant="borderless" /> : !r.liberado ? <Alert type="info" showIcon message={r.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
+      {q.isLoading || !r ? <Card loading variant="borderless" /> : !r.liberado ? <Alert type="info" showIcon title={r.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
         <>
           <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="grupo" dataSource={Object.entries(r.componentes ?? {}).map(([grupo, c]) => ({ grupo, ...c }))} columns={[
             { title: 'Grupo', dataIndex: 'grupo', render: (g: string) => ROTULO_GRUPO[g] ?? g },

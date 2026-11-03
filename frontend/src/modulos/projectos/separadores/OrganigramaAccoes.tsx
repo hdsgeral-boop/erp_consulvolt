@@ -80,7 +80,7 @@ export function ModalMapearOrcamento({ aberto, projectoId, organigrama, aoFechar
   return (
     <Modal open={aberto} title="Mapear o orçamento ao organigrama" width={larguraModal(980)} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !alteracoes.length }}
       confirmLoading={accao.isPending} onCancel={() => { setAlt({}); aoFechar(); }} onOk={() => accao.mutate({ url: `/projetos/${projectoId}/organigrama/orcamento`, dados: { alteracoes } })}>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Ao escolher a posição, o membro responsável fica o da posição, salvo se escolher outro." />
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Ao escolher a posição, o membro responsável fica o da posição, salvo se escolher outro." />
       <Table<LinhaOrcamento>
         rowKey="id" size="small" loading={orc.isLoading} dataSource={orc.data?.linhas} pagination={{ pageSize: 20 }} scroll={scrollTabela()}
         columns={[

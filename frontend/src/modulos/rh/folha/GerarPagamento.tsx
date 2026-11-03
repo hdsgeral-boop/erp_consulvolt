@@ -1,6 +1,6 @@
 import { Alert, Button, Modal, Space, Typography } from 'antd';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { IconeFa } from '@/componentes/fluxos';
 import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -50,7 +50,7 @@ export function BotaoGerarPagamento({ periodo, texto = 'Gerar Pagamento de Salá
             <Button onClick={() => setAberto(false)}>Fechar</Button>
           </Space>
         }>
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Salários a pagar pendentes"
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Salários a pagar pendentes"
           description="1) Emita a carta de pagamento (conta bancária 43) com os salários líquidos ainda sem carta; 2) em «Gerar pagamento» o documento de pagamento é criado na Tesouraria (fica PENDENTE; a integração no diário faz-se na Tesouraria)." />
         <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>Cartas de pagamento do período:</Typography.Paragraph>
         <CartasPeriodo periodo={periodo} />

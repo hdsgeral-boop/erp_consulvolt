@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { descarregar, enviar, obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos';
 import { TabelaComModos } from '@/componentes/vistas';
@@ -224,7 +224,7 @@ function PeriodoCalculo() {
 
   if (periodo.isLoading) return <Skeleton active />;
   const p = periodo.data;
-  if (!p) return <Alert type="error" message="Período não encontrado." />;
+  if (!p) return <Alert type="error" title="Período não encontrado." />;
   const ac = accoesPeriodo(p, pode);
   const tipoHoras = (idRubrica?: number) => {
     const i = idRubrica ? infotipos.mapa.get(idRubrica) : undefined;
@@ -360,7 +360,7 @@ function PeriodoCalculo() {
           </Popconfirm>
         )}
       </div>
-      {p.estado !== 'ABERTO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message="Este período já foi encerrado. Vá ao ecrã Processamentos para ver os relatórios e os recibos (para corrigir, reabra-o lá)." />}
+      {p.estado !== 'ABERTO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Este período já foi encerrado. Vá ao ecrã Processamentos para ver os relatórios e os recibos (para corrigir, reabra-o lá)." />}
 
       {ac.importar && (
         <Card size="small" style={{ marginBottom: 16, background: token.colorPrimaryBg, borderStyle: 'dashed', borderColor: token.colorPrimary }}>
@@ -569,7 +569,7 @@ function PeriodoCalculo() {
 
       <Modal title="O cálculo tem avisos" open={avisos !== null} width={larguraModal(720)} onCancel={() => setAvisos(null)} destroyOnHidden
         footer={<Space wrap><Button onClick={() => setAvisos(null)}>Rever os lançamentos</Button><Button type="primary" danger loading={accao.isPending} onClick={() => void encerrar(true)}>Encerrar mesmo assim</Button></Space>}>
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Confirme antes de encerrar"
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Confirme antes de encerrar"
           description="Há horas extra automáticas, faltas ou horas extra que não puderam ser valorizadas (por exemplo, sem contrato válido no mês). Depois de encerrado, o cálculo fica fotografado." />
         <List size="small" bordered dataSource={avisos ?? []} renderItem={(a) => (
           <List.Item><div><Typography.Text strong>{a.nome ?? colaboradores.nome(a.colaborador_id)}</Typography.Text><ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>{a.avisos.map((x, i) => <li key={i}>{x}</li>)}</ul></div></List.Item>

@@ -83,7 +83,7 @@ export function ModalMapaQuantidades({ projectoId, projectoNome, aberto, aoFecha
           filtros: [`Escala: ${ESCALAS.find((e) => e.value === escala)?.label}`, m ? `${m.de ?? '—'} a ${m.ate ?? '—'}` : '', acumulado ? 'Acumulado' : ''].filter(Boolean) } : null)} />
       </Flex>
       {m && <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>Repartição linear pelos dias de trabalho do calendário do projecto ({descricaoCalendario(m.calendario)}); não conhece feriados nem turnos.</Typography.Paragraph>}
-      {q.isLoading ? <Spin style={{ display: 'block', margin: 32 }} /> : q.error ? <Alert type="error" showIcon message={(q.error as Error).message} /> : (
+      {q.isLoading ? <Spin style={{ display: 'block', margin: 32 }} /> : q.error ? <Alert type="error" showIcon title={(q.error as Error).message} /> : (
         <div ref={ref}>
           {!tabelas.length || !m?.colunas.length ? <Empty description={vista === 'valor' ? 'Nenhuma rubrica do orçamento está mapeada pelas quantidades.' : 'Sem tarefas com meta e prazo nesta janela.'} /> : tabelas.map((t) => (
             <div key={t.titulo} className="erp-deslocar-x" style={{ marginBottom: 16 }}>

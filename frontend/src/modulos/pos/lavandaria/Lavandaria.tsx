@@ -79,7 +79,7 @@ export default function Lavandaria() {
           <Ordens terminal={trabalho.terminal} aoNovaOrdem={() => setRecepcao(true)} />
         )
       ) : separador === 'relatorios' ? (
-        pode('pos_lavandaria_view', 'pos_relatorios_view', 'lav_ordens') ? <Relatorio /> : <Alert type="info" showIcon message="Sem permissão para os relatórios da lavandaria." />
+        pode('pos_lavandaria_view', 'pos_relatorios_view', 'lav_ordens') ? <Relatorio /> : <Alert type="info" showIcon title="Sem permissão para os relatórios da lavandaria." />
       ) : separador === 'danos' ? (
         <Reclamacoes />
       ) : (

@@ -2,7 +2,7 @@ import { Alert, Button, Card, Descriptions, Form, Input, Modal, Skeleton, Table,
 import { ArrowLeftOutlined, CopyOutlined, EditOutlined, RollbackOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml } from '@/componentes/impressao';
@@ -47,7 +47,7 @@ export function DetalheLancamento() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const d = consulta.data;
-  if (!d) return <Alert type="error" message="Lançamento não encontrado." />;
+  if (!d) return <Alert type="error" title="Lançamento não encontrado." />;
 
   const { situacao, podeEstornar } = accoesLancamento(d.linhas, pode);
   const diario = diarios.data?.find((x) => x.id === d.diario_id);
@@ -144,7 +144,7 @@ export function DetalheLancamento() {
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Este lançamento foi estornado."
+          title="Este lançamento foi estornado."
           action={estornadoPor ? <Button size="small" onClick={() => navegar(`../${estornadoPor}`)}>Ver o estorno</Button> : undefined}
         />
       )}
@@ -153,11 +153,11 @@ export function DetalheLancamento() {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Este lançamento é o estorno de outro."
+          title="Este lançamento é o estorno de outro."
           action={original ? <Button size="small" onClick={() => navegar(`../${original}`)}>Ver o original</Button> : undefined}
         />
       )}
-      {!d.equilibrado && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Lançamento desequilibrado (débito diferente do crédito)." />}
+      {!d.equilibrado && <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="Lançamento desequilibrado (débito diferente do crédito)." />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={{ xs: 1, md: 3 }} size="small">
           <Descriptions.Item label="Data do documento">{formatarData(d.data_documento)}</Descriptions.Item>

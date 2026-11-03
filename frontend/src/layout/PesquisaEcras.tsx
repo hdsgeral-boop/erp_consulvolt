@@ -1,7 +1,7 @@
 import { CloseOutlined, HolderOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
 import { AutoComplete, Button, Input, Tooltip, type InputRef } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import type { ModuloMenu } from '@/api/tipos';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
 import { iconeModulo } from '@/componentes/icones/iconesModulos';

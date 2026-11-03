@@ -1,7 +1,7 @@
 import { Button, Input, Modal, Select, Skeleton, message } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar } from '@/api/cliente';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';

@@ -1,7 +1,7 @@
 # ERP Consulvolt — Nova Arquitectura
 
 Migração do ERP legado `payroll_system_web` (Vanilla JS + Dexie/IndexedDB) para
-**Laravel 12 · PHP 8.3 · PostgreSQL 16 · Redis 7 · React (Fase 5) · Docker**, com base de dados, models e API 100% em português.
+**Laravel 13 · PHP 8.5 · PostgreSQL 18 · Redis 8 · React 19 (Fase 5) · Docker**, com base de dados, models e API 100% em português.
 
 | Documento | Conteúdo |
 | :--- | :--- |
@@ -26,10 +26,15 @@ docker compose exec app php artisan migrate
 | Serviço | Contentor | Endereço (só localhost) |
 | :--- | :--- | :--- |
 | Nginx (SPA + proxy `/api`) | `erp_web` | http://127.0.0.1:8080 |
-| Laravel PHP 8.3-FPM | `erp_app` | interno `app:9000` |
+| Laravel PHP 8.5-FPM | `erp_app` | interno `app:9000` |
 | Worker de filas | `erp_worker` | — |
-| PostgreSQL 16 | `erp_postgres` | 127.0.0.1:5433 |
-| Redis 7 | `erp_redis` | 127.0.0.1:6380 |
+| PostgreSQL 18 (volume `erp_pgdados18`; ver nota) | `erp_postgres` | 127.0.0.1:5433 |
+| Redis 8 | `erp_redis` | 127.0.0.1:6380 |
+
+Nota (2026-11-02, PostgreSQL 16 → 18): a imagem `postgres:18` guarda os dados em `/var/lib/postgresql/18/docker` e o
+compose passou a usar o volume novo `erp_pgdados18`. Uma instalação local com dados no volume antigo `erp_pgdados`
+migra-os com `ferramentas/operacao/migrar-postgres18.sh` (produção/teste) ou, em desenvolvimento, com um `pg_dump`
+do contentor antigo e `pg_restore` no novo; o volume antigo não é apagado automaticamente.
 
 Verificação: `curl http://127.0.0.1:8080/api/saude`.
 
@@ -135,7 +140,7 @@ sh ferramentas/operacao/prod.sh run --rm --no-deps copias /operacao/restaurar.sh
 | PostgreSQL/Redis sem portas publicadas; web só em 127.0.0.1 atrás do reverse proxy HTTPS | portas em 127.0.0.1 |
 | Logs JSON (stderr) com rotação; serviço `copias` agendado | logs diários em ficheiro |
 
-CI (GitHub Actions, `.github/workflows/ci.yml`) em cada push/PR para `main`: backend (PHP 8.3, PostgreSQL 16, Redis 7, `composer audit`, Pint, PHPUnit), frontend (Node 22, `npm audit --omit=dev --audit-level=high`, tsc, Vitest, build) e build das imagens de produção (sem publicação); *actions* fixadas por SHA de commit (ADR-069). Usa só dados fictícios.
+CI (GitHub Actions, `.github/workflows/ci.yml`) em cada push/PR para `main`: backend (PHP 8.5, PostgreSQL 18, Redis 8, `composer audit`, Pint, PHPUnit), frontend (Node 26, `npm audit --omit=dev --audit-level=high`, tsc, Vitest, build) e build das imagens de produção (sem publicação); *actions* fixadas por SHA de commit (ADR-069). Usa só dados fictícios.
 
 ## API
 
@@ -316,7 +321,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 
 ```
 erp_laravel/
-├── backend/                 Laravel 12 (API)
+├── backend/                 Laravel 13 (API)
 │   ├── app/Http/{Controllers/Api,Requests,Resources,Middleware}
 │   ├── app/Services/{Modulo}/          regras de negócio (controllers finos)
 │   ├── app/Models/ (+ Concerns/, Scopes/)   Eloquent em português, multi-empresa

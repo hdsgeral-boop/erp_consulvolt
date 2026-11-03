@@ -368,7 +368,7 @@ function Limpeza() {
     <Card loading={consulta.isLoading}>
       {d && (
         <>
-          <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`${d.total} linha(s) de tesouraria com falsas reconciliações.`} description={d.execucao} />
+          <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`${d.total} linha(s) de tesouraria com falsas reconciliações.`} description={d.execucao} />
           {d.linhas.length > 0 && (
             <Table
               rowKey={(_, i) => String(i)}

@@ -23,7 +23,7 @@ export function SubsidiosMinuta({ aberto, aoFechar }: { aberto: boolean; aoFecha
   return (
     <Modal title="Subsídios na minuta do contrato" open={aberto} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending}
       onOk={() => form.submit()} destroyOnHidden>
-      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Art. 238.º, n.º 1, da Lei n.º 12/23"
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Art. 238.º, n.º 1, da Lei n.º 12/23"
         description="A gratificação de férias e o subsídio de Natal são, no mínimo, 50 % do salário base. Se a empresa pagar mais, indique aqui: é o que sai na Cláusula 6.ª dos contratos emitidos a partir de agora." />
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/configuracao', dados: v })}>
         <Row gutter={16}>

@@ -124,8 +124,8 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
         <Button key="g" type="primary" loading={accao.isPending} onClick={() => form.submit()}>Gravar</Button>,
       ]}
     >
-      {bloq && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="O registo já tem lançamentos: só as notas e a data limite podem ser alteradas." />}
-      {item?.origem?.doc && <Alert type="success" showIcon style={{ marginBottom: 12 }} message={`Documento de origem: ${item.origem.fonte ?? ''} ${item.origem.doc}${item.origem.data ? ` de ${dayjs(item.origem.data).format('DD/MM/YYYY')}` : ''}`} />}
+      {bloq && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="O registo já tem lançamentos: só as notas e a data limite podem ser alteradas." />}
+      {item?.origem?.doc && <Alert type="success" showIcon style={{ marginBottom: 12 }} title={`Documento de origem: ${item.origem.fonte ?? ''} ${item.origem.doc}${item.origem.data ? ` de ${dayjs(item.origem.data).format('DD/MM/YYYY')}` : ''}`} />}
       <Form form={form} layout="vertical" onFinish={gravar} onValuesChange={() => setQuotas(null)}>
         {!editar && (
           <Form.Item name="modelo" label="Modelo (opcional)">
@@ -222,7 +222,7 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
                 <Table.Summary.Cell index={2} align="right"><ValorKz valor={somaQuotas(quotas)} forte /></Table.Summary.Cell>
               </Table.Summary.Row>
             )} />
-          {Number(diferencaPlano(form.getFieldValue('valor'), quotas)) !== 0 && <Alert type="warning" showIcon message="A soma das quotas difere do valor." />}
+          {Number(diferencaPlano(form.getFieldValue('valor'), quotas)) !== 0 && <Alert type="warning" showIcon title="A soma das quotas difere do valor." />}
         </>
       )}
     </ModalFormulario>

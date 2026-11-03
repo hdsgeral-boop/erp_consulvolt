@@ -265,7 +265,7 @@ export default function MapeamentoSalarios() {
         }
       />
       {!d ? (
-        <Card loading={consulta.isLoading}>{consulta.isError && <Alert type="error" message="Não foi possível obter os mapeamentos." />}</Card>
+        <Card loading={consulta.isLoading}>{consulta.isError && <Alert type="error" title="Não foi possível obter os mapeamentos." />}</Card>
       ) : (
         <>
           {vazio && (
@@ -273,7 +273,7 @@ export default function MapeamentoSalarios() {
               type="warning"
               showIcon
               style={{ marginBottom: 24 }}
-              message="Diagnóstico: Mapeamento Vazio"
+              title="Diagnóstico: Mapeamento Vazio"
               description={`Nenhum mapeamento encontrado nesta empresa. Os dados ainda não foram configurados${editar && outras.length ? ' — use «Copiar de outra empresa» ou «Editar Mapeamento»' : ''}.`}
             />
           )}
@@ -346,7 +346,7 @@ export default function MapeamentoSalarios() {
         {previa && (
           <Alert
             type={previa.rubricas + previa.sistema > 0 ? 'info' : 'warning'}
-            message={
+            title={
               <>
                 <strong>{previa.rubricas}</strong> mapeamentos de Infotipos a copiar · <strong>{previa.sistema}</strong> mapeamentos de Impostos a copiar
               </>

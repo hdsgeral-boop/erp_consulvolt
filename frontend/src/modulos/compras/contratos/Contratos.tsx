@@ -1,7 +1,7 @@
 import { Card, Input, Select, Tag, Typography } from 'antd';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useEffect, useState } from 'react';
-import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useSearchParams } from 'react-router';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import type { AccaoLinha } from '@/componentes/vistas';

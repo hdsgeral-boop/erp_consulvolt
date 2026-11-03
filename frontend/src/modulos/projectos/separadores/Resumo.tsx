@@ -80,7 +80,7 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
 
   return (
     <div ref={ref}>
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div className="imp-nao-imprimir" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <BotoesExportar
           textoImprimir="Imprimir ficha"
@@ -219,7 +219,7 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
         <Col xs={24} lg={13}>
           <Card size="small" title="Alertas e pontos de atenção" style={{ height: '100%' }}>
             {r.alertas.length ? (
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 {r.alertas.map((a) => (
                   <div key={a.codigo + a.titulo} style={{ borderLeft: `4px solid ${corAlerta(a.nivel)}`, background: token.colorFillAlter, borderRadius: 4, padding: '6px 10px', display: 'flex', gap: 8, alignItems: 'center' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>

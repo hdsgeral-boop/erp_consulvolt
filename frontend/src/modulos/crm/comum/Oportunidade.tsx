@@ -3,7 +3,7 @@ import { DeleteOutlined, EditOutlined, FileAddOutlined, LinkOutlined, MailOutlin
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { camposOportunidade, dadosOportunidade } from './formularios';
@@ -73,7 +73,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
     <Drawer
       open={id !== null}
       onClose={aoFechar}
-      width={larguraGaveta(880)}
+      size={larguraGaveta(880)}
       destroyOnHidden
       rootClassName="crm-ficha-oportunidade"
       title={o ? <Space wrap>{o.titulo}<TagSaude saude={d?.saude} /></Space> : 'Oportunidade'}
@@ -113,7 +113,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
         <Skeleton active />
       ) : (
         <>
-          {d.saude.motivos.length > 0 && <Alert type={d.saude.nivel === 'RISCO' ? 'error' : 'warning'} showIcon style={{ marginBottom: 12 }} message={d.saude.motivos.join(' · ')} />}
+          {d.saude.motivos.length > 0 && <Alert type={d.saude.nivel === 'RISCO' ? 'error' : 'warning'} showIcon style={{ marginBottom: 12 }} title={d.saude.motivos.join(' · ')} />}
           <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="Conta">{d.conta?.nome ?? '—'} {d.conta?.tipo === 'PROSPECT' && <Tag>prospect</Tag>}</Descriptions.Item>
             <Descriptions.Item label="Contacto">{d.contactos.find((c) => c.id === o.contacto_crm_id)?.nome ?? '—'}</Descriptions.Item>
@@ -172,7 +172,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
                 label: 'Histórico',
                 children: (
                   <Timeline
-                    items={[...(o.historico ?? [])].reverse().map((h) => ({ children: <><strong>{nomeEtapa(h.etapa_codigo)}</strong> <Typography.Text type="secondary">{formatarDataHora(h.entrou_em)} · {h.por}</Typography.Text>{h.motivo && <div>{h.motivo}</div>}</> }))}
+                    items={[...(o.historico ?? [])].reverse().map((h) => ({ content: <><strong>{nomeEtapa(h.etapa_codigo)}</strong> <Typography.Text type="secondary">{formatarDataHora(h.entrou_em)} · {h.por}</Typography.Text>{h.motivo && <div>{h.motivo}</div>}</> }))}
                   />
                 ),
               },
@@ -221,9 +221,9 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
         }
       >
         {conversao && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             {conversao.aviso_atraso && (
-              <Alert type="warning" showIcon message={`O cliente tem ${formatarKz(conversao.aviso_atraso.em_atraso)} Kz em atraso (${conversao.aviso_atraso.n_atrasadas} factura(s), até ${conversao.aviso_atraso.max_dias_atraso} dias).`} />
+              <Alert type="warning" showIcon title={`O cliente tem ${formatarKz(conversao.aviso_atraso.em_atraso)} Kz em atraso (${conversao.aviso_atraso.n_atrasadas} factura(s), até ${conversao.aviso_atraso.max_dias_atraso} dias).`} />
             )}
             <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
               <Descriptions.Item label="Tipo">{conversao.tipo_documento}</Descriptions.Item>

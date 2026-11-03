@@ -4,7 +4,7 @@ import type { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { BotoesExportar, pares } from '@/componentes/impressao';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { CartaoKpi, CORES_KPI, GrelhaKpi } from '@/componentes/vistas';
@@ -529,7 +529,7 @@ function SeparadorIva() {
   const apurado = d ? Number(d.totais.iva_credito) - Number(d.totais.iva_debito) : 0;
   const aPagar = apurado >= 0;
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={16}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={16}>
       <Card>
         <FiltrosMapa modo="periodo" periodoObrigatorio={false} aCalcular={mapa.isFetching} aoCalcular={(p) => (p.data_fim ? mapa.calcular(p) : message.warning('Indique pelo menos a data final.'))} />
         {d && (

@@ -50,7 +50,7 @@ final class ServicoConsultaNifAgt
         }
 
         $opcoes = [
-            'cookies' => new CookieJar(),   // partilhado entre o GET e o POST — o ViewState é por sessão
+            'cookies' => new CookieJar,   // partilhado entre o GET e o POST — o ViewState é por sessão
             'verify' => resource_path('certs/agt-portal-ca.pem'),
             'timeout' => 15,
             'connect_timeout' => 8,
@@ -130,7 +130,7 @@ final class ServicoConsultaNifAgt
      */
     private function camposDoPainel(string $html): array
     {
-        $doc = new DOMDocument();
+        $doc = new DOMDocument;
         libxml_use_internal_errors(true);
         $doc->loadHTML('<?xml encoding="UTF-8">'.$html);
         libxml_clear_errors();

@@ -97,7 +97,7 @@ export default function RelatoriosRecibos() {
           </div>
           {grupo === 'avencados' && (
             <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 12 }}
-              message="Folha de avençados: sem INSS. Mapas aplicáveis — Remunerações, Lista de retenção IRT Grupo B (6,5%), Valores a pagar, Ordem bancária e Recibos." />
+              title="Folha de avençados: sem INSS. Mapas aplicáveis — Remunerações, Lista de retenção IRT Grupo B (6,5%), Valores a pagar, Ordem bancária e Recibos." />
           )}
           <div className="rh-nao-imprimir" style={{ marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {mapas.map((m) => (
@@ -107,7 +107,7 @@ export default function RelatoriosRecibos() {
               </Button>
             ))}
           </div>
-          {!mapas.length && <Alert type="info" showIcon message="Sem acesso a nenhum mapa nesta empresa." />}
+          {!mapas.length && <Alert type="info" showIcon title="Sem acesso a nenhum mapa nesta empresa." />}
 
           {vistaActiva === 'detalhado' && (
             <Card>

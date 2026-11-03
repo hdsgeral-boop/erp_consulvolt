@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import type { ReactNode } from 'react';
 import { reporPreferenciasColunasLocal, reporPreferenciasVistaLocal } from '@/componentes/vistas';
 
@@ -138,7 +138,7 @@ describe('Efectividade', () => {
   it('o mês escolhe-se dentro do separador (não no cabeçalho)', async () => {
     montar(<Assiduidade />);
     const painel = await waitFor(() => {
-      const p = document.querySelector('.ant-tabs-tabpane-active');
+      const p = document.querySelector('.ant-tabs-content-active');
       if (!p) throw new Error('sem separador');
       return p as HTMLElement;
     });

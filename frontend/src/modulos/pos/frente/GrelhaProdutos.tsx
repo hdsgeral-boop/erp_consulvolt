@@ -128,7 +128,7 @@ export function GrelhaProdutos({ produtos, categorias, stock, imagens, pesquisa,
         </div>
       )}
 
-      {erro && <Alert type="error" showIcon message="Não foi possível carregar o catálogo de produtos." />}
+      {erro && <Alert type="error" showIcon title="Não foi possível carregar o catálogo de produtos." />}
       {!carregando && visiveis.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', padding: '5rem 0' }}>
           <IconeFa nome="box-open" style={{ fontSize: '3rem', marginBottom: '1rem', color: '#cbd5e1' }} />

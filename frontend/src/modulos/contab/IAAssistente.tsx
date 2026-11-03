@@ -14,7 +14,7 @@ import { Alert, Button, Card, Collapse, DatePicker, Descriptions, Drawer, Empty,
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, http, obter } from '@/api/cliente';
 import { ErroApi, type Envelope } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -248,8 +248,8 @@ function VerRegra({ id, aoFechar }: { id: number | null; aoFechar: () => void })
   const detalhe = useQuery({ queryKey: [...CHAVE_REGRAS, id], queryFn: () => obter<DetalheRegra>(`${URL_REGRAS}/${id}`), enabled: id !== null });
   const d = detalhe.data;
   return (
-    <Drawer title={d ? `${d.nome} (v${d.versao})` : 'Regra'} open={id !== null} onClose={aoFechar} width={larguraGaveta(760)} destroyOnHidden>
-      {detalhe.isError && <Alert type="error" showIcon message="Não foi possível ler a regra" description={(detalhe.error as Error).message} />}
+    <Drawer title={d ? `${d.nome} (v${d.versao})` : 'Regra'} open={id !== null} onClose={aoFechar} size={larguraGaveta(760)} destroyOnHidden>
+      {detalhe.isError && <Alert type="error" showIcon title="Não foi possível ler a regra" description={(detalhe.error as Error).message} />}
       {d && (
         <>
           <Typography.Paragraph type="secondary">{d.descricao}</Typography.Paragraph>
@@ -259,7 +259,7 @@ function VerRegra({ id, aoFechar }: { id: number | null; aoFechar: () => void })
             { key: 'd', label: 'Diário', children: d.diario ?? '—' },
             { key: 'i', label: 'Importado', children: [d.importado_em ? dayjs(d.importado_em).format('DD/MM/YYYY HH:mm') : null, d.importado_por].filter(Boolean).join(' · ') || '—' },
           ]} />
-          {!!d.avisos?.length && <Alert type="info" showIcon style={{ marginTop: 12 }} message={d.avisos.join(' ')} />}
+          {!!d.avisos?.length && <Alert type="info" showIcon style={{ marginTop: 12 }} title={d.avisos.join(' ')} />}
           <pre className="erp-ia-json" style={{ marginTop: 12, maxHeight: '55vh', overflow: 'auto', background: '#0f172a', color: '#e2e8f0', padding: 12, borderRadius: 4, fontSize: 12 }}>
             {JSON.stringify(d.conteudo, null, 2)}
           </pre>
@@ -301,7 +301,7 @@ function MotorInterno({ regraId, aoEscolher }: { regraId: number | null; aoEscol
   const mudar = (i: number, d: Partial<DiaFormulario>) => setDias((l) => l.map((x, k) => (k === i ? { ...x, ...d } : x)));
   const r = detalhe.data;
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       <SeletorRegra motor="INTERNA" regraId={regraId} aoEscolher={(id) => { aoEscolher(id); calcular.reset(); }} />
       {r && (
         <>
@@ -370,9 +370,9 @@ function IAExterna({ regraId, aoEscolher }: { regraId: number | null; aoEscolher
   });
   const disponivel = !!estado.data?.ia_disponivel;
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {estado.data && !disponivel && (
-        <Alert type="info" showIcon message={estado.data.configurado ? 'A IA está desligada nesta empresa' : 'A IA não está configurada no servidor'}
+        <Alert type="info" showIcon title={estado.data.configurado ? 'A IA está desligada nesta empresa' : 'A IA não está configurada no servidor'}
           description="O motor interno continua disponível. Um administrador activa a IA em «Assistente IA › Configuração» (menu do utilizador); a chave do fornecedor fica sempre no servidor." />
       )}
       <Typography.Text type="secondary">
@@ -472,10 +472,10 @@ function ResultadosDias({ resultado, colunas }: { resultado: ResultadoCalculo; c
               ))}
             </ul>
           )}
-          {d.pontos.length > 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon message="Pontos a confirmar" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{d.pontos.map((p) => <li key={p}>{p}</li>)}</ul>} />}
-          {d.erros.length > 0 && <Alert style={{ marginTop: 8 }} type="error" showIcon message="Corrija antes de propor" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{d.erros.map((p) => <li key={p}>{p}</li>)}</ul>} />}
+          {d.pontos.length > 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon title="Pontos a confirmar" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{d.pontos.map((p) => <li key={p}>{p}</li>)}</ul>} />}
+          {d.erros.length > 0 && <Alert style={{ marginTop: 8 }} type="error" showIcon title="Corrija antes de propor" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{d.erros.map((p) => <li key={p}>{p}</li>)}</ul>} />}
           {d.proposta && d.proposta.avisos.length > 0 && (
-            <Alert style={{ marginTop: 8 }} type="info" showIcon message="Avisos do plano de contas" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{d.proposta.avisos.map((p) => <li key={p}>{p}</li>)}</ul>} />
+            <Alert style={{ marginTop: 8 }} type="info" showIcon title="Avisos do plano de contas" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{d.proposta.avisos.map((p) => <li key={p}>{p}</li>)}</ul>} />
           )}
           <Flex justify="end" style={{ marginTop: 8 }}>
             <Button type="primary" disabled={!d.proposta || !podeAbrir} title={podeAbrir ? undefined : 'Sem permissão para gravar lançamentos'} onClick={() => abrir(d)}>

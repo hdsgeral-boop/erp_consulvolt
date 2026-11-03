@@ -66,7 +66,7 @@ export function MolduraMapa({ titulo, subtitulo, mapa, apenas, accoes, filtros, 
 
 export function AvisoNaoValidado({ periodo }: { periodo?: PeriodoSalarial }) {
   if (!periodo || periodo.estado === 'VALIDADO') return null;
-  return <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} message={`Período ${periodo.estado === 'ABERTO' ? 'em cálculo (valores provisórios, ao vivo)' : 'fechado mas ainda não validado'}.`} />;
+  return <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} title={`Período ${periodo.estado === 'ABERTO' ? 'em cálculo (valores provisórios, ao vivo)' : 'fechado mas ainda não validado'}.`} />;
 }
 
 /** Dados do colaborador para os mapas (nome, NIF, INSS, morada): nome, NIF e INSS do próprio resultado (fotografados, ADR-064) e, na falta, da ficha. */

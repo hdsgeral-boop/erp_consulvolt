@@ -158,7 +158,7 @@ export default function PlataformaDefinicoes() {
               children: (
                 <div style={{ maxWidth: 900 }}>
                   <Alert
-                    message="Pronto para Integração com API Real (Multicaixa & Express)"
+                    title="Pronto para Integração com API Real (Multicaixa & Express)"
                     description="O ERP já possui toda a lógica de checkout, geração de referências, chamadas push Express e webhooks de confirmação automática. Basta preencher as credenciais fornecidas pela EMIS ou pelo seu banco abaixo para ativar o processamento em tempo real."
                     type="info"
                     showIcon

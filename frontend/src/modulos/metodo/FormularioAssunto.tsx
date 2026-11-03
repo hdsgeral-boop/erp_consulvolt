@@ -3,7 +3,7 @@ import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalMotivo } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -212,7 +212,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
   const nTarefas = tarefasDosRecursos(recursos, titulo).length;
 
   return (
-    <Modal open={aberto} onCancel={aoFechar} width={920} destroyOnHidden maskClosable={false}
+    <Modal open={aberto} onCancel={aoFechar} width={920} destroyOnHidden mask={{ closable: false }}
       title={<Space><IconeFa nome="clipboard-list" />{a ? `Assunto ${a.numero}` : 'Novo assunto'}{a && <Tag color={CORES_ESTADO[a.estado]}>{ESTADOS[a.estado]}</Tag>}</Space>}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -230,9 +230,9 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
       }>
       <Spin spinning={(existente !== null && det.isLoading) || opcoes.isLoading}>
         <>
-          {a && so && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={d?.estado === 'PENDENTE'
+          {a && so && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={d?.estado === 'PENDENTE'
             ? 'Só de leitura: o assunto aguarda aprovação.' : 'Só de leitura: neste estado, a edição cabe ao criador (em rascunho) ou ao responsável (em curso).'} />}
-          {a?.motivo_cancelamento && a.estado === 'CANCELADO' && <Alert type="error" style={{ marginBottom: 12 }} message={`Cancelado: ${a.motivo_cancelamento}`} />}
+          {a?.motivo_cancelamento && a.estado === 'CANCELADO' && <Alert type="error" style={{ marginBottom: 12 }} title={`Cancelado: ${a.motivo_cancelamento}`} />}
           <Form form={form} layout="vertical" disabled={so}>
             <Bloco n="WHAT" titulo="O quê?" sub="projecto ou tarefa a realizar">
               <Form.Item name="titulo" label="Título (máx. 120)" rules={[{ required: true, message: 'Indique o título do assunto.' }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
@@ -342,7 +342,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
                 </Row>
               )}
               {a?.projeto && (
-                <Alert type="info" style={{ marginBottom: 8 }} message={<span><IconeFa nome="hard-hat" /> Projecto de resolução <strong>{a.projeto.codigo}</strong> — {a.projeto.nome} ({a.projeto.estado}){' '}
+                <Alert type="info" style={{ marginBottom: 8 }} title={<span><IconeFa nome="hard-hat" /> Projecto de resolução <strong>{a.projeto.codigo}</strong> — {a.projeto.nome} ({a.projeto.estado}){' '}
                   <Button type="link" size="small" onClick={() => navegar(`/m/projectos/projectos_carteira/${a.projeto?.id}`)}>abrir o projecto</Button></span>} />
               )}
               <Form.Item name="gerar_pedido_compra" valuePropName="checked" style={{ marginBottom: 4 }}><Checkbox disabled={so || !rascunho}>Gerar pedido de compra</Checkbox></Form.Item>
@@ -405,7 +405,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
             aoAprovar={() => accaoDecidir('APROVAR')} aoDevolver={() => setMotivo({ tipo: 'DEVOLVER' })} aoRecusar={() => setMotivo({ tipo: 'RECUSAR' })} />
 
           {!so && rascunho && problemas.erros.length > 0 && (
-            <Alert type="info" showIcon message="Para submeter a aprovação ainda falta:" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{problemas.erros.map((e) => <li key={e}>{e}</li>)}</ul>} />
+            <Alert type="info" showIcon title="Para submeter a aprovação ainda falta:" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{problemas.erros.map((e) => <li key={e}>{e}</li>)}</ul>} />
           )}
         </>
       </Spin>

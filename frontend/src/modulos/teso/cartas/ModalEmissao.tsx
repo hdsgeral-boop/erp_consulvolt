@@ -135,7 +135,7 @@ export function ModalEmissaoCarta({ documentoId, aoFechar, aoEmitida }: { docume
           {ROTULO_TIPO_CARTA[e.tipo]} · pagamento <strong>{e.documento.numero_documento ?? e.documento.referencia ?? `#${e.documento.id}`}</strong> de {dataCurta(e.documento.data_documento)}
           {' '}· valor {valorMoeda(e.valor_documento, moeda)}{e.valor_em_cartas && Number(e.valor_em_cartas) > 0 ? ` (já em cartas: ${valorMoeda(e.valor_em_cartas, moeda)})` : ''}
         </Typography.Paragraph>
-        {!e.pode && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={e.motivo} description={e.sugestao} />}
+        {!e.pode && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={e.motivo} description={e.sugestao} />}
         {e.conta && (
           <Row gutter={[12, 6]} style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '8px 10px', background: '#f8fafc', marginBottom: 12, fontSize: 13 }}>
             <Col xs={24} md={12}><span style={{ color: '#64748b' }}>Conta a debitar</span><br /><strong>{e.conta.codigo} — {e.conta.descricao}</strong></Col>
@@ -145,7 +145,7 @@ export function ModalEmissaoCarta({ documentoId, aoFechar, aoEmitida }: { docume
         )}
         {semConta.length > 0 && (
           <Alert type="warning" showIcon style={{ marginBottom: 10 }}
-            message={`${semConta.length} beneficiário(s) fica(m) de fora por não ter(em) conta bancária configurada`}
+            title={`${semConta.length} beneficiário(s) fica(m) de fora por não ter(em) conta bancária configurada`}
             description={<>{semConta.slice(0, 6).map((b) => b.nome).join(', ')}{semConta.length > 6 ? `, e mais ${semConta.length - 6}` : ''}. {e.tipo === 'SALARIOS' ? 'Configure os IBAN em RH › Dados Bancários.' : 'Registe a conta na ficha do terceiro (Contas bancárias).'}</>} />
         )}
         {/* legado (abrirEmissaoCarta): «Beneficiários» à esquerda, «Marcar todos» / «Desmarcar» à direita */}

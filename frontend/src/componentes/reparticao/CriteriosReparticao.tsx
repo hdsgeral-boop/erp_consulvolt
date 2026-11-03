@@ -142,7 +142,7 @@ export function CriteriosReparticao() {
           <Form.Item name="criterio" label="Forma de repartir" rules={[{ required: true }]}>
             <Select options={Object.entries(FORMAS).map(([k, f]) => ({ value: k, label: f.nome }))} />
           </Form.Item>
-          <Alert type="info" style={{ marginBottom: 12 }} message={FORMAS[forma]?.ajuda} description={`Exemplo: ${FORMAS[forma]?.exemplo ?? ''}`} />
+          <Alert type="info" style={{ marginBottom: 12 }} title={FORMAS[forma]?.ajuda} description={`Exemplo: ${FORMAS[forma]?.exemplo ?? ''}`} />
           {forma === 'PERSONALIZADO' && (
             <Form.Item name="indicador" label="Nome do indicador" rules={[{ max: 100 }]}>
               <Input placeholder="Ex.: horas-máquina" />

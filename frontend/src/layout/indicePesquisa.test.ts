@@ -42,7 +42,7 @@ export default function Config() {
   return <Tabs activeKey={sep} onChange={setSep} items={[{ key: 'series', label: 'Séries' }, ...(pode('vendas_cfg') ? [{ key: 'modelos', label: 'Modelos de impressão' }] : [])]} />;
 }`);
       escrever(raiz, 'src/modulos/vendas/Faturacao.tsx', `import { Button, Tabs } from 'antd';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { Detalhe } from './comum/Detalhe';
 import { Partilhado } from '@/componentes/Partilhado';
 export default function Faturacao() {

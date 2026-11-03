@@ -25,13 +25,13 @@ export function ExtractoArtigo({ produtoId, armazemInicial, aoFechar }: { produt
   const nomeArmazem = (id: number | null) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '');
 
   return (
-    <Drawer title={e ? `Extracto — ${e.produto.codigo ? `${e.produto.codigo} — ` : ''}${e.produto.nome}` : 'Extracto do artigo'} open={produtoId !== null} onClose={aoFechar} width={larguraGaveta(980)} loading={consulta.isLoading}>
+    <Drawer title={e ? `Extracto — ${e.produto.codigo ? `${e.produto.codigo} — ` : ''}${e.produto.nome}` : 'Extracto do artigo'} open={produtoId !== null} onClose={aoFechar} size={larguraGaveta(980)} loading={consulta.isLoading}>
       <Flex gap={8} wrap style={{ marginBottom: 16 }}>
         <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v?.[1] && setPeriodo([v[0], v[1]])} />
         <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 240, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />
         <BotoesExportar desactivado={!e} obterPedido={() => (e ? pedidoExtractoArtigo(e, nomeArmazem) : null)} />
       </Flex>
-      {consulta.error && <Alert type="error" showIcon message="Não foi possível obter o extracto." />}
+      {consulta.error && <Alert type="error" showIcon title="Não foi possível obter o extracto." />}
       {e && (
         <>
           <Descriptions size="small" bordered column={{ xs: 1, md: 2 }} style={{ marginBottom: 16 }}>

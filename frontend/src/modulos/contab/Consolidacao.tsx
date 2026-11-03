@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Fo
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
@@ -466,7 +466,7 @@ function EliminacoesExecucao({ id }: { id: number }) {
 
 function PainelEliminacoes({ el, nome }: { el: { ativa?: boolean; linhas?: number; diferenca?: string; excluidas?: string[]; sem_nif?: string[]; divergencias?: Divergencia[] } | null; nome: string }) {
   if (!el) return <Typography.Text italic>Esta consolidação foi executada antes das eliminações intragrupo. Consolide novamente.</Typography.Text>;
-  if (el.ativa === false) return <Alert type="info" showIcon message="Eliminações intragrupo desactivadas nesta holding." />;
+  if (el.ativa === false) return <Alert type="info" showIcon title="Eliminações intragrupo desactivadas nesta holding." />;
   const divs = el.divergencias ?? [];
   const divergentes = divs.filter(parDivergente).length;
   const ok = !temDiferenca(el.diferenca) && divergentes === 0;
@@ -475,7 +475,7 @@ function PainelEliminacoes({ el, nome }: { el: { ativa?: boolean; linhas?: numbe
   return (
     <Alert
       type={ok ? 'success' : 'error'}
-      message={
+      title={
         <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
           <strong><IconeFa nome="exchange-alt" style={{ color: ROXO }} /> Eliminações intragrupo · {Number(el.linhas ?? 0).toLocaleString('pt-PT')} linhas</strong>
           <Space>
@@ -618,7 +618,7 @@ function PainelMapa({ grupo }: { grupo: Grupo }) {
       </Form>
       {d && (
         <>
-          {d.aviso && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={d.aviso} />}
+          {d.aviso && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={d.aviso} />}
           <Space wrap style={{ marginBottom: 12 }}>
             <Typography.Text type="secondary">Moeda {d.moeda} · até {formatarData(d.data_fim)} · {d.lancamentos} lançamento(s)</Typography.Text>
             <BotoesExportar

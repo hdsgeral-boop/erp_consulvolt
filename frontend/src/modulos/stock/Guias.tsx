@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosGuiaSaida } from './comum/impressao';
 import { useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -180,7 +180,7 @@ function DetalheGuia() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const g = consulta.data;
-  if (!g) return <Alert type="error" message="Guia não encontrada." />;
+  if (!g) return <Alert type="error" title="Guia não encontrada." />;
   const a = accoesGuia(g, pode);
 
   return (
@@ -202,8 +202,8 @@ function DetalheGuia() {
           </>
         }
       />
-      {g.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Guia anulada${g.motivo_anulacao ? `: ${g.motivo_anulacao}` : '.'}`} />}
-      {!guiaGerida(g) && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Guia de venda: contabiliza-se e anula-se pela guia de remessa nas Vendas." />}
+      {g.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Guia anulada${g.motivo_anulacao ? `: ${g.motivo_anulacao}` : '.'}`} />}
+      {!guiaGerida(g) && <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Guia de venda: contabiliza-se e anula-se pela guia de remessa nas Vendas." />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(g.data)}</Descriptions.Item>

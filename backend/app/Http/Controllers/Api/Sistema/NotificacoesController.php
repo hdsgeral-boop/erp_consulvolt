@@ -8,6 +8,7 @@ use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Gestão de notificações do sistema da empresa ativa (alertas de operações de utilizadores, eventos e avisos).
@@ -58,7 +59,7 @@ final class NotificacoesController extends Controller
     {
         $user = $request->user();
         if (! $user?->eSuperAdministrador() && ! in_array($user?->papel, ['SUPER_ADMINISTRADOR', 'ADMINISTRADOR'], true)) {
-            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Apenas administradores podem criar notificações de teste.');
+            throw new AccessDeniedHttpException('Apenas administradores podem criar notificações de teste.');
         }
 
         $empresaId = $this->contexto->obrigatorio();

@@ -7,6 +7,7 @@ use App\Http\Middleware\ExigirAreaPortal;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -36,10 +37,10 @@ final class ExigirAreaPortalTest extends TestCase
     private function passou(Request $pedido): bool
     {
         $chegou = false;
-        (new ExigirAreaPortal())->handle($pedido, function () use (&$chegou) {
+        (new ExigirAreaPortal)->handle($pedido, function () use (&$chegou) {
             $chegou = true;
 
-            return new \Symfony\Component\HttpFoundation\Response();
+            return new Response;
         });
 
         return $chegou;

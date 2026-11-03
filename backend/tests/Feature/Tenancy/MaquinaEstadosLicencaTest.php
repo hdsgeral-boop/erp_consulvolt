@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
+use App\Models\LogAuditoria;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Utilizador;
 use App\Services\Plataforma\MaquinaEstadosLicenca;
+use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Tests\TestCase;
 
 /**
@@ -36,7 +40,7 @@ class MaquinaEstadosLicencaTest extends TestCase
         try {
             $maquina->transicionar($empresa, Empresa::LICENCA_SUSPENSA);
             $this->fail('Devia exigir um motivo válido.');
-        } catch (\App\Exceptions\ErroNegocio $e) {
+        } catch (ErroNegocio $e) {
             $this->assertSame('MOTIVO_OBRIGATORIO', $e->codigo);
         }
 
@@ -45,7 +49,7 @@ class MaquinaEstadosLicencaTest extends TestCase
         $this->assertSame(Empresa::LICENCA_SUSPENSA, $empresa->estado_licenca);
         $this->assertSame(Empresa::MOTIVO_ADMINISTRATIVA, $empresa->motivo_suspensao);
 
-        $log = \App\Models\LogAuditoria::withoutGlobalScopes()->where('tabela', 'empresas')->where('registo_id', (string) $empresa->id)
+        $log = LogAuditoria::withoutGlobalScopes()->where('tabela', 'empresas')->where('registo_id', (string) $empresa->id)
             ->where('acao', 'Transição de estado da licença')->latest('id')->first();
         $this->assertNotNull($log);
         $this->assertStringContainsString('ACTIVA', $log->detalhes);
@@ -55,7 +59,7 @@ class MaquinaEstadosLicencaTest extends TestCase
         $maquina->transicionar($empresa, Empresa::LICENCA_CANCELADA, notas: 'Teste');
         $maquina->transicionar($empresa, Empresa::LICENCA_EM_ENCERRAMENTO);
         $maquina->transicionar($empresa, Empresa::LICENCA_ENCERRADA);
-        $this->expectException(\App\Exceptions\ErroNegocio::class);
+        $this->expectException(ErroNegocio::class);
         $maquina->transicionar($empresa, Empresa::LICENCA_ACTIVA);
     }
 
@@ -98,7 +102,7 @@ class MaquinaEstadosLicencaTest extends TestCase
             'nome' => 'Plano Estado', 'preco_mensal' => 5000, 'moeda' => 'AOA', 'ativo' => true,
         ]);
 
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa([
             'nif' => '5000000206', 'licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_fim' => now()->subDays(20)->toDateString(),
             'estado_licenca' => Empresa::LICENCA_SUSPENSA, 'motivo_suspensao' => Empresa::MOTIVO_INCUMPRIMENTO,
@@ -113,7 +117,7 @@ class MaquinaEstadosLicencaTest extends TestCase
         $super = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true])) + ['X-Empresa-Id' => $empresa->id];
         $this->postJson("/api/licenca/subscricoes/{$subId}/simular-confirmacao", [], $super)->assertOk();
 
-        $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->findOrFail($subId));
+        $sub = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->findOrFail($subId));
         $this->assertSame(SubscricaoEmpresa::PAGO, $sub->estado);
         $empresa->refresh();
         $this->assertSame(Empresa::LICENCA_ACTIVA, $empresa->estado_licenca, 'O pagamento confirmado deve reactivar a licença automaticamente.');

@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Col, DatePicker, Input, InputNumber, Modal, Row, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import type { AccaoLinha } from '@/componentes/vistas';
@@ -181,7 +181,7 @@ function Integrados() {
         </Row>
       </Card>
 
-      {!podeAnular && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Não tem permissão para anular integrações: só consulta." />}
+      {!podeAnular && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Não tem permissão para anular integrações: só consulta." />}
       <Card title="Documentos Integrados na Contabilidade" extra={<Tag color="#4f46e5" data-testid="total-historico">Total: {totalIntegrados ?? '…'}</Tag>}>
         <TabelaDocumentos
           filtros={parametrosHistorico(filtros)}

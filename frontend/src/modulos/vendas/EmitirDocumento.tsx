@@ -5,7 +5,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState, type ClipboardEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
@@ -505,7 +505,7 @@ export function EmitirDocumento() {
                 <Alert
                   type={tolerancia.data?.pode_exceder ? 'warning' : 'error'}
                   showIcon
-                  message={`Câmbio manual ${desvio > 0 ? '+' : ''}${desvio} % face ao câmbio do dia (tolerância ${tolerancia.data?.tolerancia_pct} %).`}
+                  title={`Câmbio manual ${desvio > 0 ? '+' : ''}${desvio} % face ao câmbio do dia (tolerância ${tolerancia.data?.tolerancia_pct} %).`}
                   description={tolerancia.data?.pode_exceder ? 'Fica registado na auditoria.' : 'Só quem tem a permissão «Câmbio manual fora da tolerância» o pode usar.'}
                 />
               </Col>
@@ -565,7 +565,7 @@ export function EmitirDocumento() {
                   type="warning"
                   showIcon
                   style={{ marginBottom: 16 }}
-                  message={`A ${origemEscolhida?.tipo_documento === 'FR' ? 'factura-recibo' : 'factura'} ${origemEscolhida?.numero_documento} está paga: não admite nota de crédito.`}
+                  title={`A ${origemEscolhida?.tipo_documento === 'FR' ? 'factura-recibo' : 'factura'} ${origemEscolhida?.numero_documento} está paga: não admite nota de crédito.`}
                   description={origemEscolhida?.tipo_documento === 'FR'
                     ? 'Numa factura-recibo o recebimento faz parte do próprio documento e do mesmo lançamento: não se cancela à parte. Fale com o responsável da contabilidade.'
                     : 'O recebimento tem de ser cancelado antes da nota de crédito: os recibos e os recebimentos de tesouraria desta factura ficam anulados (com estorno se estiverem contabilizados).'}
@@ -590,7 +590,7 @@ export function EmitirDocumento() {
           )}
         >
           {guia && (
-            <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`A facturar a guia de saída ${guia.numero_documento ?? `#${guia.id}`} (o stock já saiu com a guia).`}
+            <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`A facturar a guia de saída ${guia.numero_documento ?? `#${guia.id}`} (o stock já saiu com a guia).`}
               action={<Button size="small" type="link" onClick={largarGuia}>Não facturar a guia</Button>} />
           )}
           {!telemovel && (
@@ -810,7 +810,7 @@ export function EmitirDocumento() {
             <Flex justify="end" gap={pequenoGap(telemovel)} wrap>
               <Statistic title="Líquido (estimativa)" value={formatarKz(estimativa.liquido)} suffix={estrangeira ? moeda : undefined} />
               <Statistic title="IVA (estimativa)" value={formatarKz(estimativa.imposto)} suffix={estrangeira ? moeda : undefined} />
-              <Statistic title="Total (estimativa)" value={formatarKz(estimativa.total)} suffix={estrangeira ? moeda : undefined} valueStyle={{ color: '#2563eb', fontWeight: 700 }} />
+              <Statistic title="Total (estimativa)" value={formatarKz(estimativa.total)} suffix={estrangeira ? moeda : undefined} styles={{ content: { color: '#2563eb', fontWeight: 700 } }} />
             </Flex>
             {estrangeira && (
               <Typography.Paragraph type="secondary" style={{ margin: '8px 0 0', textAlign: 'right' }}>

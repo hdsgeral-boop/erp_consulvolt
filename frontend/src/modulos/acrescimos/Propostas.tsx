@@ -3,7 +3,7 @@ import { RollbackOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
@@ -111,7 +111,7 @@ function PropostaMes() {
           showIcon
           icon={<IconeFa nome="file-invoice" />}
           style={{ marginBottom: 12 }}
-          message={
+          title={
             <>
               <strong>{q.data?.alertas.length} acréscimo(s) sem documento real</strong> depois da data limite:{' '}
               {q.data?.alertas.map((a, i) => (
@@ -326,7 +326,7 @@ function Reconciliacao() {
           })}
         />
       </Flex>
-      {q.data && <Alert style={{ marginBottom: 12 }} type={divergentes ? 'warning' : 'success'} showIcon message={divergentes ? `${divergentes} conta(s) com diferença` : 'Módulo e Diário conferem'} />}
+      {q.data && <Alert style={{ marginBottom: 12 }} type={divergentes ? 'warning' : 'success'} showIcon title={divergentes ? `${divergentes} conta(s) com diferença` : 'Módulo e Diário conferem'} />}
       <Table<LinhaReconciliacao>
         rowKey="conta"
         size="small"

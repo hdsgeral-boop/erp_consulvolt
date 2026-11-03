@@ -187,7 +187,7 @@ export function RestauroLegado() {
         type="error"
         showIcon
         style={{ marginBottom: 16 }}
-        message="Restauro da plataforma a partir do backup do sistema antigo"
+        title="Restauro da plataforma a partir do backup do sistema antigo"
         description={
           <>
             Substitui <strong>todos</strong> os dados (todas as empresas, utilizadores, perfis e auditoria) pelos do ficheiro JSON exportado pelo sistema antigo.
@@ -197,13 +197,13 @@ export function RestauroLegado() {
           </>
         }
       />
-      {(semAcesso || (dados && !dados.pode)) && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Só um super-administrador pode carregar, aprovar ou executar um restauro." />}
+      {(semAcesso || (dados && !dados.pode)) && <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Só um super-administrador pode carregar, aprovar ou executar um restauro." />}
       {dados?.pode && (
         <Card size="small" title={<span><IconeFa nome="upload" /> Carregar backup do sistema antigo</span>} style={{ marginBottom: 16 }}>
           {activo ? (
             <Typography.Text type="secondary">Já existe um restauro em curso ou por decidir: conclua-o ou cancele-o antes de carregar outro.</Typography.Text>
           ) : (
-            <Space direction="vertical" style={{ width: '100%', maxWidth: 560 }}>
+            <Space orientation="vertical" style={{ width: '100%', maxWidth: 560 }}>
               <Upload.Dragger accept=".json,application/json" maxCount={1} fileList={ficheiros} beforeUpload={() => false} onChange={({ fileList }) => setFicheiros(fileList.slice(-1))}>
                 <p style={{ margin: 0 }}><IconeFa nome="file-code" style={{ fontSize: 28, color: '#2563eb' }} /></p>
                 <p style={{ margin: '8px 0 0' }}>Arraste aqui o ficheiro <strong>.json</strong> do backup do sistema antigo, ou clique para o escolher (máx. 100 MB).</p>
@@ -242,7 +242,7 @@ function ResumoSimulacao({ s }: { s: Simulacao }) {
         type={s.sem_problemas ? 'success' : 'error'}
         showIcon
         style={{ marginBottom: 12 }}
-        message={s.sem_problemas ? 'Sem divergências de contagem nem órfãos: o backup pode ser restaurado.' : `Com problemas: ${s.divergentes.length} tabela(s) com contagem diferente${Array.isArray(s.orfaos) ? '' : `, ${Object.keys(s.orfaos).length} ligação(ões) com órfãos`}.`}
+        title={s.sem_problemas ? 'Sem divergências de contagem nem órfãos: o backup pode ser restaurado.' : `Com problemas: ${s.divergentes.length} tabela(s) com contagem diferente${Array.isArray(s.orfaos) ? '' : `, ${Object.keys(s.orfaos).length} ligação(ões) com órfãos`}.`}
       />
       <Descriptions size="small" bordered column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }}>
         <Descriptions.Item label="Tabelas">{s.tabelas}</Descriptions.Item>
@@ -276,9 +276,9 @@ function DetalheRestauro({ p }: { p: PedidoRestauro }) {
   return (
     <div style={{ padding: '4px 8px' }}>
       <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>SHA-256 do ficheiro: <code>{p.sha256}</code></Typography.Paragraph>
-      {p.erro && <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Erro" description={<pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>{p.erro}</pre>} />}
-      {p.estado === 'SIMULANDO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A simulação está a correr em segundo plano (1 a 3 minutos). Esta página actualiza-se sozinha." />}
-      {p.estado === 'EM_EXECUCAO' && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Restauro em execução${p.relatorio?.fase ? ` (fase: ${p.relatorio.fase === 'COPIA_SEGURANCA' ? 'cópia de segurança' : 'migração'})` : ''}. No fim terá de entrar de novo.`} />}
+      {p.erro && <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Erro" description={<pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>{p.erro}</pre>} />}
+      {p.estado === 'SIMULANDO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="A simulação está a correr em segundo plano (1 a 3 minutos). Esta página actualiza-se sozinha." />}
+      {p.estado === 'EM_EXECUCAO' && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Restauro em execução${p.relatorio?.fase ? ` (fase: ${p.relatorio.fase === 'COPIA_SEGURANCA' ? 'cópia de segurança' : 'migração'})` : ''}. No fim terá de entrar de novo.`} />}
       {execucao ? (
         <>
           <Typography.Title level={5}>Resultado do restauro</Typography.Title>
@@ -308,7 +308,7 @@ function ModalAprovar({ p, aoFechar, aoConcluir }: { p: PedidoRestauro; aoFechar
   const [aEnviar, setAEnviar] = useState(false);
   return (
     <Modal open title={`Aprovar o restauro #${p.id}`} okText="Aprovar" cancelText="Cancelar" confirmLoading={aEnviar} onCancel={aoFechar} onOk={() => form.submit()} destroyOnHidden>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Ao aprovar, confirma que o ficheiro e o resultado da simulação estão correctos. A aprovação vale 24 horas." />
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Ao aprovar, confirma que o ficheiro e o resultado da simulação estão correctos. A aprovação vale 24 horas." />
       <Form form={form} layout="vertical" onFinish={async (v) => {
         setAEnviar(true);
         try {
@@ -339,7 +339,7 @@ function ModalExecutar({ p, aoFechar, aoConcluir }: { p: PedidoRestauro; aoFecha
   const frase = `RESTAURAR #${p.id}`;
   return (
     <Modal open title={`Executar o restauro #${p.id}`} okText="Executar restauro" okButtonProps={{ danger: true }} cancelText="Cancelar" confirmLoading={aEnviar} onCancel={aoFechar} onOk={() => form.submit()} destroyOnHidden>
-      <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Todos os dados actuais vão ser substituídos pelos do backup" description="É feita antes uma cópia completa da base. No fim, todos os utilizadores (incluindo você) têm de entrar de novo com as contas do backup." />
+      <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Todos os dados actuais vão ser substituídos pelos do backup" description="É feita antes uma cópia completa da base. No fim, todos os utilizadores (incluindo você) têm de entrar de novo com as contas do backup." />
       <Form form={form} layout="vertical" onFinish={async ({ palavra_passe, confirmacao }) => {
         setAEnviar(true);
         try {

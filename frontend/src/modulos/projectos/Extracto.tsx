@@ -2,7 +2,7 @@ import { Button, Card, DatePicker, Flex, Input, Select, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query';
 import type dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';

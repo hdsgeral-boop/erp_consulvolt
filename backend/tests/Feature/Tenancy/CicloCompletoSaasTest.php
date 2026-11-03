@@ -4,6 +4,7 @@ namespace Tests\Feature\Tenancy;
 
 use App\Mail\TicketSlaVioladoMail;
 use App\Models\Empresa;
+use App\Models\PerfilUtilizador;
 use App\Models\PlanoLicenca;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
@@ -11,6 +12,7 @@ use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -68,7 +70,7 @@ final class CicloCompletoSaasTest extends TestCase
         $this->assertSame(Empresa::LICENCA_ACTIVA, $empresa->fresh()->estado_licenca);
 
         // 6. O tempo passa sem nenhuma acção manual: o comando diário (Fase 3) avança o estado por si, sem bloqueio total (Fase 2).
-        \Illuminate\Support\Facades\DB::table('empresas')->where('id', $empresaId)->update(['licenca_fim' => now()->subDays(2)->toDateString()]);
+        DB::table('empresas')->where('id', $empresaId)->update(['licenca_fim' => now()->subDays(2)->toDateString()]);
         $this->artisan('erp:licencas:sincronizar')->assertSuccessful();
         $this->assertSame(Empresa::LICENCA_SUSPENSA, $empresa->fresh()->estado_licenca);
         $this->assertSame(Empresa::MOTIVO_INCUMPRIMENTO, $empresa->fresh()->motivo_suspensao);
@@ -93,7 +95,7 @@ final class CicloCompletoSaasTest extends TestCase
         config(['erp.saas.ativo' => true]);
         app(ContextoTenant::class)->definir(1);
         [, $plataforma] = $this->superAdminPlataforma();
-        $perfilAgenteB = \App\Models\PerfilUtilizador::create(['nome' => 'Agente B', 'permissoes' => ['_v2' => true, 'suporte_tickets_geral_gerir' => true], 'restrito_plataforma' => true]);
+        $perfilAgenteB = PerfilUtilizador::create(['nome' => 'Agente B', 'permissoes' => ['_v2' => true, 'suporte_tickets_geral_gerir' => true], 'restrito_plataforma' => true]);
         $agenteB = $this->criarUtilizador(['papel' => Utilizador::PAPEL_AGENTE_SUPORTE, 'perfil_utilizador_id' => $perfilAgenteB->id]);
 
         [, $sessaoA] = $this->clientePlataforma('ciclo-cliente-a');

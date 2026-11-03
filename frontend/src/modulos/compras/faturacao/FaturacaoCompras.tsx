@@ -14,7 +14,7 @@ import { useEcraPequeno } from '@/componentes/responsivo';
 import { somar } from '@/utilitarios/decimal';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useSearchParams } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';

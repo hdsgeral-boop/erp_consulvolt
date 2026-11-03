@@ -4,7 +4,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
@@ -181,7 +181,7 @@ export function FormularioDocumento() {
         subtitulo={copiarId && existente.data ? `Cópia de ${existente.data.numero_documento ?? `#${existente.data.id}`}` : id ? existente.data?.numero_documento ?? undefined : undefined}
         accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar(id ? `../${id}` : '..')}>Voltar</Button>}
       />
-      {id && existente.data && existente.data.estado !== 'PENDENTE' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Um documento ${existente.data.estado} não pode ser alterado.`} />}
+      {id && existente.data && existente.data.estado !== 'PENDENTE' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Um documento ${existente.data.estado} não pode ser alterado.`} />}
       <Form<ValoresForm>
         form={form}
         layout="vertical"
@@ -302,7 +302,7 @@ export function FormularioDocumento() {
           </Typography.Paragraph>
           {/* colunas «Nota Demo» e «Nota Fluxo» das linhas do legado (ui_tesouraria.js:713-714) */}
           <EditorLinhasDC campos={{ terceiro: true, numeroDocumento: true, centroCusto: true, unidade: true, notas: true }} />
-          {!total.valido && linhas.length > 0 && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="O valor do documento tem de ser positivo (veja o sentido D/C das linhas)." />}
+          {!total.valido && linhas.length > 0 && <Alert style={{ marginTop: 12 }} type="warning" showIcon title="O valor do documento tem de ser positivo (veja o sentido D/C das linhas)." />}
         </Card>
         {/* legado: «Gravar Documento» à esquerda e o TOTAL à direita */}
         <Flex wrap gap={16} justify="space-between" align="center">
@@ -312,7 +312,7 @@ export function FormularioDocumento() {
             </Button>
             <Button onClick={() => navegar(id ? `../${id}` : '..')}>Cancelar</Button>
           </Space>
-          <Statistic style={{ textAlign: 'right' }} title="TOTAL" value={formatarKz(total.total)} suffix="Kz" valueStyle={{ color: total.valido ? undefined : '#cf1322' }} />
+          <Statistic style={{ textAlign: 'right' }} title="TOTAL" value={formatarKz(total.total)} suffix="Kz" styles={{ content: { color: total.valido ? undefined : '#cf1322' } }} />
         </Flex>
       </Form>
       {pendentes && <ModalPendentes tipo={tipo} aoFechar={() => setPendentes(false)} aoEscolher={acrescentarPendentes} />}

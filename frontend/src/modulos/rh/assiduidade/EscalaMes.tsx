@@ -69,7 +69,7 @@ export function EscalaMes({ mes, seletor }: { mes: string; seletor?: ReactNode }
 
   const colunas: ColumnsType<LinhaGrelhaEscala> = [
     { title: 'Colaborador', dataIndex: 'nome', fixed: 'left', width: 200, render: (v: string, l) => (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <Typography.Text strong>{v}</Typography.Text>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>{horarioCurto(l) || 'Sem horário no contrato'}</Typography.Text>
       </Space>
@@ -112,7 +112,7 @@ export function EscalaMes({ mes, seletor }: { mes: string; seletor?: ReactNode }
           <Button danger onClick={() => setOperacao('limpar')}>Limpar</Button>
         </Space>
       )}
-      {g?.fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A efectividade deste mês está fechada: a escala só pode ser consultada." />}
+      {g?.fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="A efectividade deste mês está fechada: a escala só pode ser consultada." />}
       <Typography.Paragraph type="secondary">
         Prevalência em cada dia: escala prioritária › escala prevista › horário do contrato › configuração da empresa. As horas da escala passam a ser as horas previstas
         para as faltas e as horas extra desse dia.
@@ -302,7 +302,7 @@ function OperacaoEscala({ operacao, mes, aoFechar }: { operacao: Operacao; mes: 
         )}
       </Form>
       {resultado?.erros?.length ? (
-        <Alert type="error" showIcon message={`${resultado.erros.length} erro(s): nada foi gravado.`} description={<ul style={{ maxHeight: 200, overflow: 'auto', paddingLeft: 18, margin: 0 }}>{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>} />
+        <Alert type="error" showIcon title={`${resultado.erros.length} erro(s): nada foi gravado.`} description={<ul style={{ maxHeight: 200, overflow: 'auto', paddingLeft: 18, margin: 0 }}>{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>} />
       ) : null}
     </Modal>
   );

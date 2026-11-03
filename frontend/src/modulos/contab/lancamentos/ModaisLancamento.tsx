@@ -109,7 +109,7 @@ export function ModalClassificacao({ linha, aoFechar, titulo = 'Editar classific
             <SeletorAux tabela="centros-custo" placeholder="— Sem centro de custo —" style={{ width: '100%' }} />
           </Form.Item>
           {(linha.estorno_de_id || linha.estornado_por_id) && (
-            <Alert type="info" showIcon message="A classificação também é aplicada à linha correspondente do estorno/original, para os mapas ficarem coerentes." />
+            <Alert type="info" showIcon title="A classificação também é aplicada à linha correspondente do estorno/original, para os mapas ficarem coerentes." />
           )}
         </Form>
       )}
@@ -167,7 +167,7 @@ export function ModalTransferir({ aberto, linhaId, numeroLan, aoFechar, aoConclu
       {consulta.isLoading ? (
         <Skeleton active paragraph={{ rows: 2 }} />
       ) : !destinos.length ? (
-        <Alert type="warning" showIcon message="Não tem acesso (com permissão de lançar) a outras empresas para realizar a transferência." />
+        <Alert type="warning" showIcon title="Não tem acesso (com permissão de lançar) a outras empresas para realizar a transferência." />
       ) : (
         <Form form={form} layout="vertical" onFinish={(v) => transferir.mutate(v)}>
           <Form.Item name="empresa_destino_id" label="Empresa destino" rules={[{ required: true, message: 'Escolha a empresa destino.' }]}>

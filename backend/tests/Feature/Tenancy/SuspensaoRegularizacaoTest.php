@@ -4,6 +4,8 @@ namespace Tests\Feature\Tenancy;
 
 use App\Models\Empresa;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoTenant;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Tests\TestCase;
 
 /**
@@ -24,7 +26,7 @@ class SuspensaoRegularizacaoTest extends TestCase
     public function test_so_a_plataforma_transiciona_o_estado_da_licenca(): void
     {
         config(['erp.saas.ativo' => true]);
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa(['nif' => '5000000301']);
         $comum = $this->entrar($this->criarUtilizador());
 
@@ -42,7 +44,7 @@ class SuspensaoRegularizacaoTest extends TestCase
     public function test_suspender_sem_motivo_ou_com_transicao_invalida_e_rejeitado(): void
     {
         config(['erp.saas.ativo' => true]);
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         [, $super] = $this->admin();
         $empresa = $this->criarEmpresa(['nif' => '5000000302']);
 
@@ -56,8 +58,8 @@ class SuspensaoRegularizacaoTest extends TestCase
     public function test_empresa_suspensa_fica_so_de_leitura_mas_suporte_e_regularizacao_continuam_acessiveis(): void
     {
         config(['erp.licencas.ativo' => true, 'erp.saas.ativo' => true]);
-        \App\Support\Tenancy\DefinicoesPlataforma::invalidar();
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        DefinicoesPlataforma::invalidar();
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa(['nif' => '5000000303']);
         [, $super] = $this->admin();
         $this->postJson("/api/plataforma/saas/empresas/{$empresa->id}/estado-licenca", ['estado' => Empresa::LICENCA_SUSPENSA, 'motivo' => Empresa::MOTIVO_INCUMPRIMENTO], $super)
@@ -83,8 +85,8 @@ class SuspensaoRegularizacaoTest extends TestCase
         // a mudança de estado (Fase 1) é o que manda, não só a data: uma empresa cancelada antecipadamente (a meio
         // de um período já pago) fica bloqueada mesmo que `licenca_fim` ainda esteja no futuro.
         config(['erp.licencas.ativo' => true, 'erp.saas.ativo' => true]);
-        \App\Support\Tenancy\DefinicoesPlataforma::invalidar();
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        DefinicoesPlataforma::invalidar();
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa(['nif' => '5000000304', 'licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_fim' => now()->addDays(20)->toDateString()]);
         [, $super] = $this->admin();
         $this->postJson("/api/plataforma/saas/empresas/{$empresa->id}/estado-licenca", ['estado' => Empresa::LICENCA_SUSPENSA, 'motivo' => Empresa::MOTIVO_SEGURANCA], $super)
@@ -102,7 +104,7 @@ class SuspensaoRegularizacaoTest extends TestCase
     public function test_atualizar_licenca_pela_plataforma_sincroniza_o_estado_automaticamente(): void
     {
         config(['erp.licencas.ativo' => true]);
-        \App\Support\Tenancy\DefinicoesPlataforma::invalidar();
+        DefinicoesPlataforma::invalidar();
         [, $super] = $this->admin();
         $empresa = $this->criarEmpresa(['nif' => '5000000305', 'licenca_origem' => Empresa::LICENCA_PLANO, 'licenca_fim' => now()->subDays(3)->toDateString()]);
         $this->assertSame(Empresa::LICENCA_SUSPENSA, $empresa->fresh()->estado_licenca);

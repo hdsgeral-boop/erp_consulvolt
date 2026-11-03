@@ -8,7 +8,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { somar } from '@/utilitarios/decimal';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../../contab/comum/Componentes';
@@ -173,7 +173,7 @@ export function ListaDocumentos() {
                 <Button icon={<IconeFa nome="upload" />} style={{ color: '#0891b2', borderColor: '#0891b2' }} onClick={() => setImportar(true)}>Carregar Dados</Button>
               </>
             )}
-            {podeEmitir && podeEliminar && <Divider type="vertical" style={{ height: 24 }} />}
+            {podeEmitir && podeEliminar && <Divider orientation="vertical" style={{ height: 24 }} />}
             {podeEliminar && (
               <Tooltip title="Apagar apenas os selecionados (se não integrados)">
                 <Button danger icon={<IconeFa nome="trash-alt" />} disabled={!pendentes.length} onClick={() => comMotivo('Eliminar os documentos seleccionados (por integrar)', '/tesouraria/documentos/anular', pendentes)}>

@@ -50,42 +50,42 @@ describe('App — isolamento do backoffice de suporte (ADR-076)', () => {
     sessao = { estado: 'autenticado', empresa: null, utilizador: { papel: 'AGENTE_SUPORTE' } };
   });
 
-  it('/suporte: é o único destino alcançável — mostra o backoffice', () => {
+  it('/suporte: é o único destino alcançável — mostra o backoffice', async () => {
     irPara('/suporte');
     render(<App />);
-    expect(screen.getByText('Layout Backoffice de Suporte')).toBeInTheDocument();
+    expect(await screen.findByText('Layout Backoffice de Suporte')).toBeInTheDocument();
   });
 
   it.each(['/app', '/inicio', '/dados-pessoais', '/m/vendas/faturacao', '/portal', '/'])(
     '%s: reencaminha sempre para /suporte, nunca mostra o resto do ERP',
-    (caminho) => {
+    async (caminho) => {
       irPara(caminho);
       render(<App />);
-      expect(screen.getByText('Layout Backoffice de Suporte')).toBeInTheDocument();
+      expect(await screen.findByText('Layout Backoffice de Suporte')).toBeInTheDocument();
       expect(screen.queryByText('Layout ERP')).toBeNull();
       expect(screen.queryByText('Escolher empresa')).toBeNull();
       expect(screen.queryByText('Portal do colaborador')).toBeNull();
     },
   );
 
-  it('/admin: também reencaminha para /suporte (já coberto pela guarda da Plataforma)', () => {
+  it('/admin: também reencaminha para /suporte (já coberto pela guarda da Plataforma)', async () => {
     irPara('/admin');
     render(<App />);
-    expect(screen.getByText('Layout Backoffice de Suporte')).toBeInTheDocument();
+    expect(await screen.findByText('Layout Backoffice de Suporte')).toBeInTheDocument();
     expect(screen.queryByText('Layout Plataforma')).toBeNull();
   });
 
-  it('um super-administrador continua a poder usar /suporte e /admin', () => {
+  it('um super-administrador continua a poder usar /suporte e /admin', async () => {
     sessao = { estado: 'autenticado', empresa: null, utilizador: { papel: 'SUPER_ADMINISTRADOR' } };
     irPara('/admin');
     render(<App />);
-    expect(screen.getByText('Layout Plataforma')).toBeInTheDocument();
+    expect(await screen.findByText('Layout Plataforma')).toBeInTheDocument();
   });
 
-  it('um utilizador comum de empresa não é afectado pela guarda do backoffice', () => {
+  it('um utilizador comum de empresa não é afectado pela guarda do backoffice', async () => {
     sessao = { estado: 'autenticado', empresa: { id: 1, nome: 'Empresa Teste' }, utilizador: { papel: 'UTILIZADOR' } };
     irPara('/inicio');
     render(<App />);
-    expect(screen.getByText('Layout ERP')).toBeInTheDocument();
+    expect(await screen.findByText('Layout ERP')).toBeInTheDocument();
   });
 });

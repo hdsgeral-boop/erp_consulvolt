@@ -112,7 +112,7 @@ export function ModalEditarMassaProdutos({ linhas, categorias, aoFechar }: { lin
       destroyOnHidden
     >
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>{nomes}</Typography.Paragraph>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Só os campos escolhidos são alterados; «— Manter como está —» deixa o valor de cada registo." />
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Só os campos escolhidos são alterados; «— Manter como está —» deixa o valor de cada registo." />
       <Form<Valores> form={form} layout="horizontal" labelCol={{ flex: '230px' }} labelWrap onFinish={(v) => gravar.mutate({ url: '/vendas/produtos/editar-em-massa', dados: corpoEdicaoMassa(lista.map((p) => p.id), v) })}>
         <SeccaoFormulario titulo="Dados" extra={<ColarExcelBotao colunas={camposColaveis.map((c) => c.rotulo)} aoColar={colarBloco} tamanho="small" />}>
         <div data-colar-linha={0} onPaste={aoColarCampo}>
@@ -148,7 +148,7 @@ export function ModalEditarMassaProdutos({ linhas, categorias, aoFechar }: { lin
         </div>
         </SeccaoFormulario>
         {/* ronda 3: as contas definem-se na categoria — mudar a categoria aqui muda as contas dos produtos escolhidos */}
-        <Alert type="info" showIcon message="Contas contabilísticas" description="As contas vêm da categoria do produto: para as mudar, escolha outra categoria acima ou edite a categoria em Vendas › Categorias." />
+        <Alert type="info" showIcon title="Contas contabilísticas" description="As contas vêm da categoria do produto: para as mudar, escolha outra categoria acima ou edite a categoria em Vendas › Categorias." />
       </Form>
     </Modal>
   );

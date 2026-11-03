@@ -31,7 +31,7 @@ import {
   ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/pt';
@@ -269,52 +269,52 @@ export default function NotificacoesCentro() {
       {/* Cartões de Indicadores */}
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         <Col xs={12} sm={6} lg={6}>
-          <Card size="small" bordered style={{ borderRadius: 8, background: '#fff' }}>
+          <Card size="small" variant="outlined" style={{ borderRadius: 8, background: '#fff' }}>
             <Statistic
               title={<span style={{ fontSize: 12, color: '#64748b' }}>Total de Notificações</span>}
               value={dados?.total ?? listaBruta.length}
               prefix={<BellOutlined style={{ color: '#2563eb', marginRight: 6 }} />}
-              valueStyle={{ fontSize: 24, fontWeight: 700, color: '#1e293b' }}
+              styles={{ content: { fontSize: 24, fontWeight: 700, color: '#1e293b' } }}
             />
           </Card>
         </Col>
 
         <Col xs={12} sm={6} lg={6}>
-          <Card size="small" bordered style={{ borderRadius: 8, background: '#fff' }}>
+          <Card size="small" variant="outlined" style={{ borderRadius: 8, background: '#fff' }}>
             <Statistic
               title={<span style={{ fontSize: 12, color: '#64748b' }}>Pendentes / Não Lidas</span>}
               value={totalNaoLidas}
               prefix={<ClockCircleOutlined style={{ color: '#d97706', marginRight: 6 }} />}
-              valueStyle={{ fontSize: 24, fontWeight: 700, color: totalNaoLidas > 0 ? '#d97706' : '#059669' }}
+              styles={{ content: { fontSize: 24, fontWeight: 700, color: totalNaoLidas > 0 ? '#d97706' : '#059669' } }}
             />
           </Card>
         </Col>
 
         <Col xs={12} sm={6} lg={6}>
-          <Card size="small" bordered style={{ borderRadius: 8, background: '#fff' }}>
+          <Card size="small" variant="outlined" style={{ borderRadius: 8, background: '#fff' }}>
             <Statistic
               title={<span style={{ fontSize: 12, color: '#64748b' }}>Alertas Urgentes</span>}
               value={totalUrgentes}
               prefix={<ExclamationCircleOutlined style={{ color: '#dc2626', marginRight: 6 }} />}
-              valueStyle={{ fontSize: 24, fontWeight: 700, color: totalUrgentes > 0 ? '#dc2626' : '#64748b' }}
+              styles={{ content: { fontSize: 24, fontWeight: 700, color: totalUrgentes > 0 ? '#dc2626' : '#64748b' } }}
             />
           </Card>
         </Col>
 
         <Col xs={12} sm={6} lg={6}>
-          <Card size="small" bordered style={{ borderRadius: 8, background: '#fff' }}>
+          <Card size="small" variant="outlined" style={{ borderRadius: 8, background: '#fff' }}>
             <Statistic
               title={<span style={{ fontSize: 12, color: '#64748b' }}>Avisos Operacionais</span>}
               value={totalAvisos}
               prefix={<WarningOutlined style={{ color: '#f59e0b', marginRight: 6 }} />}
-              valueStyle={{ fontSize: 24, fontWeight: 700, color: '#f59e0b' }}
+              styles={{ content: { fontSize: 24, fontWeight: 700, color: '#f59e0b' } }}
             />
           </Card>
         </Col>
       </Row>
 
       {/* Card Principal de Listagem e Filtros */}
-      <Card bordered style={{ borderRadius: 8 }}>
+      <Card variant="outlined" style={{ borderRadius: 8 }}>
         {/* Barra Superior de Filtros */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <Space wrap size={10}>

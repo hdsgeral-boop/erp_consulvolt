@@ -291,7 +291,7 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
         </Row>
         {novo && (
           <Alert type="info" showIcon style={{ marginBottom: 16 }}
-            message="A password é gerada automaticamente pelo sistema e enviada por email. O utilizador é obrigado a trocá-la no primeiro acesso." />
+            title="A password é gerada automaticamente pelo sistema e enviada por email. O utilizador é obrigado a trocá-la no primeiro acesso." />
         )}
         </SeccaoFormulario>
         <SeccaoFormulario titulo="Perfil e estado">
@@ -318,7 +318,7 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
         </SeccaoFormulario>
         <SeccaoFormulario titulo="Empresas e colaborador">
         {todas ? (
-          <Alert type="info" showIcon message="Tem acesso a todas as empresas (actuais e futuras)." style={{ marginBottom: 12 }} />
+          <Alert type="info" showIcon title="Tem acesso a todas as empresas (actuais e futuras)." style={{ marginBottom: 12 }} />
         ) : (
           <Form.Item name="empresas" label="Empresas" rules={[{ required: true, type: 'array', min: 1, message: 'Escolha pelo menos uma empresa.' }]}>
             <Select mode="multiple" optionFilterProp="label" options={opcoesEmpresas} />
@@ -377,7 +377,7 @@ function ModalPalavraPasse({ utilizador, aoFechar }: { utilizador: UtilizadorLin
       destroyOnHidden
     >
       <Alert type="warning" showIcon style={{ marginBottom: 12 }}
-        message="É gerada uma nova password aleatória e enviada por email ao utilizador. As sessões abertas são terminadas e a troca passa a ser obrigatória no próximo acesso." />
+        title="É gerada uma nova password aleatória e enviada por email ao utilizador. As sessões abertas são terminadas e a troca passa a ser obrigatória no próximo acesso." />
       <Typography.Text type="secondary">Confirma a reposição da password de <strong>{utilizador?.nome_utilizador}</strong>?</Typography.Text>
     </Modal>
   );

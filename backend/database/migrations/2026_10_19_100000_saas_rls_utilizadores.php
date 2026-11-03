@@ -30,7 +30,7 @@ return new class extends Migration
             $$
         SQL);
 
-        DB::statement("REVOKE EXECUTE ON FUNCTION plataforma_utilizadores_por_tenant() FROM PUBLIC");
+        DB::statement('REVOKE EXECUTE ON FUNCTION plataforma_utilizadores_por_tenant() FROM PUBLIC');
         DB::statement("DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_app') THEN GRANT EXECUTE ON FUNCTION plataforma_utilizadores_por_tenant() TO erp_app; END IF; END \$\$");
 
         // O login procura o utilizador só pelo nome_utilizador (ou, na recuperação de password, por nome_utilizador OU

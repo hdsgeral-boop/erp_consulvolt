@@ -54,7 +54,7 @@ export default function SeriesNumeracao() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const dados = consulta.data;
-  if (!dados) return <Alert type="error" showIcon message="Não foi possível obter as séries." />;
+  if (!dados) return <Alert type="error" showIcon title="Não foi possível obter as séries." />;
   const rotuloOrigem = (o: string) => dados.origens.find((x) => x.valor === o)?.rotulo ?? o;
 
   const mudarEstado = (s: SerieNumeracao) => {
@@ -96,7 +96,7 @@ export default function SeriesNumeracao() {
             style={{ marginTop: 12 }}
             type={dados.regime.ativo ? 'info' : undefined}
             showIcon
-            message={dados.regime.ativo
+            title={dados.regime.ativo
               ? `O regime de facturação electrónica está activo desde ${formatarData(dados.regime.data_inicio)}: as facturas com data a partir daí são seladas e usam estas séries.`
               : 'O regime de facturação electrónica não está activo. As séries que criar aqui já numeram os documentos e continuam a valer quando o regime arrancar — sem saltos na numeração.'}
           />
@@ -345,8 +345,8 @@ function FormularioSerie({ edicao, dados, aGravar, aoFechar, aoGravar }: {
           </Col>
         </Row>
       </Form>
-      {conflito && <Alert type="error" showIcon message={`Já existe outra série activa para este tipo, ano e origem (${conflito.codigo}). Feche-a antes ou grave esta como fechada.`} />}
-      <Alert style={{ marginTop: 8 }} type="info" message={previsao ? <>O próximo documento será <code style={{ fontWeight: 700 }}>{previsao}</code>.</> : 'Indique o código da série para ver o número.'} />
+      {conflito && <Alert type="error" showIcon title={`Já existe outra série activa para este tipo, ano e origem (${conflito.codigo}). Feche-a antes ou grave esta como fechada.`} />}
+      <Alert style={{ marginTop: 8 }} type="info" title={previsao ? <>O próximo documento será <code style={{ fontWeight: 700 }}>{previsao}</code>.</> : 'Indique o código da série para ver o número.'} />
     </ModalFormulario>
   );
 }

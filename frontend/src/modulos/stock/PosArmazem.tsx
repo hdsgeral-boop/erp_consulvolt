@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Empty, Flex, I
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoModulo, type SeparadorModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -296,7 +296,7 @@ function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem:
           <SeletorArmazem id="picking-armazem" style={{ width: '100%' }} value={armazem} allowClear={false} onChange={(v) => v && aoMudarArmazem(v)} />
         </div>
         {!podeVerLista ? (
-          <Alert type="info" showIcon message="Sem permissão para iniciar o picking." />
+          <Alert type="info" showIcon title="Sem permissão para iniciar o picking." />
         ) : lista.isLoading ? (
           <Skeleton active />
         ) : !lista.data ? (
@@ -348,7 +348,7 @@ function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem:
                 },
               ]}
             />
-            {!lista.data.pode_expedir && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Há artigos sem stock suficiente neste armazém: não é possível expedir." />}
+            {!lista.data.pode_expedir && <Alert style={{ marginTop: 12 }} type="warning" showIcon title="Há artigos sem stock suficiente neste armazém: não é possível expedir." />}
             {pode('pos_armazem_expedir') && (
               <Input.TextArea rows={2} maxLength={2000} style={{ marginTop: 12 }} placeholder="Observações da expedição" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
             )}

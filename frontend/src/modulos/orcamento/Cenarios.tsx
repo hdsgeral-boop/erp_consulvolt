@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconf
 import { BranchesOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos';
@@ -70,10 +70,10 @@ export default function Cenarios() {
       </Card>
       {base && base.estado !== 'APROVADO' && (
         <Alert style={{ marginBottom: 16 }} type="warning" showIcon
-          message={`O orçamento base está «${base.estado === 'RASCUNHO' ? 'Rascunho' : base.estado === 'SUBMETIDO' ? 'Submetido' : base.estado}». Pode simular, mas só um orçamento aprovado gera uma nova versão a partir de um cenário.`} />
+          title={`O orçamento base está «${base.estado === 'RASCUNHO' ? 'Rascunho' : base.estado === 'SUBMETIDO' ? 'Submetido' : base.estado}». Pode simular, mas só um orçamento aprovado gera uma nova versão a partir de um cenário.`} />
       )}
       {orcamento && lista.data && !lista.data.length && (
-        <Alert style={{ marginBottom: 16 }} type="info" showIcon message="Comece por «Criar otimista / realista / pessimista» e ajuste as percentagens de cada cenário." />
+        <Alert style={{ marginBottom: 16 }} type="info" showIcon title="Comece por «Criar otimista / realista / pessimista» e ajuste as percentagens de cada cenário." />
       )}
       {/* grelha de cartões, um por cenário (.orc-cen-grid, auto-fill minmax(290px)) */}
       {lista.isLoading && <Card loading style={{ marginBottom: 16 }} />}

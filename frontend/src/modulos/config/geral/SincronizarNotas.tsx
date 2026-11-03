@@ -69,7 +69,7 @@ export function SincronizarNotas() {
         Associa automaticamente as «Notas às Demonstrações» aos Lançamentos antigos com base nos prefixos das contas (Regras PGC). Só são preenchidas linhas sem nota e fora
         de exercícios encerrados; simule primeiro (nada é gravado).
       </Typography.Paragraph>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <DatePicker.RangePicker
           format="DD/MM/YYYY"
           value={periodo}
@@ -106,13 +106,13 @@ export function SincronizarNotas() {
         {r && (
           <>
             {r.aplicado ? (
-              <Alert type="success" showIcon message={`Sucesso! ${formatarNumero(r.linhas_a_atribuir)} linhas de Lançamento foram atualizadas com as notas correspondentes.`} />
+              <Alert type="success" showIcon title={`Sucesso! ${formatarNumero(r.linhas_a_atribuir)} linhas de Lançamento foram atualizadas com as notas correspondentes.`} />
             ) : semNotas ? (
-              <Alert type="error" showIcon message="Nenhuma «Nota às Demonstrações» encontrada. Por favor, crie as notas primeiro nas Tabelas Auxiliares." />
+              <Alert type="error" showIcon title="Nenhuma «Nota às Demonstrações» encontrada. Por favor, crie as notas primeiro nas Tabelas Auxiliares." />
             ) : r.linhas_a_atribuir === 0 ? (
-              <Alert type="info" showIcon message="Nenhum Lançamento pendente de atualização foi encontrado com os critérios de prefixo." />
+              <Alert type="info" showIcon title="Nenhum Lançamento pendente de atualização foi encontrado com os critérios de prefixo." />
             ) : (
-              <Alert type="info" showIcon message={`Simulação: ${formatarNumero(r.linhas_a_atribuir)} linha(s) sem nota receberiam nota pela conta. Nada foi gravado.`} />
+              <Alert type="info" showIcon title={`Simulação: ${formatarNumero(r.linhas_a_atribuir)} linha(s) sem nota receberiam nota pela conta. Nada foi gravado.`} />
             )}
             {r.por_nota.length > 0 && (
               <Table

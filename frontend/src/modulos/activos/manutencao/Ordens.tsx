@@ -167,9 +167,9 @@ export function DetalheOrdemModal({ id, aoFechar }: { id: number | null; aoFecha
               <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>Material {formatarKz(o.custo_materiais)} · Serviços {formatarKz(o.custo_servicos)} · Mão-de-obra {formatarKz(o.custo_mao_obra)}</Typography.Text>
             </Col>
           </Row>
-          {o.descricao && <Alert style={{ margin: '12px 0' }} type="info" message={o.descricao} />}
-          {o.motivo_cancelamento && <Alert style={{ margin: '12px 0' }} type="error" message={<><strong>Cancelada:</strong> {o.motivo_cancelamento}</>} />}
-          {o.resolucao && <Alert style={{ margin: '12px 0' }} type="success" message={<><strong>Trabalho efectuado:</strong> {o.resolucao}{Number(o.horas) ? ` · ${Number(o.horas)} h` : ''}{o.data_fim ? ` · concluída em ${formatarData(o.data_fim)}` : ''}</>} />}
+          {o.descricao && <Alert style={{ margin: '12px 0' }} type="info" title={o.descricao} />}
+          {o.motivo_cancelamento && <Alert style={{ margin: '12px 0' }} type="error" title={<><strong>Cancelada:</strong> {o.motivo_cancelamento}</>} />}
+          {o.resolucao && <Alert style={{ margin: '12px 0' }} type="success" title={<><strong>Trabalho efectuado:</strong> {o.resolucao}{Number(o.horas) ? ` · ${Number(o.horas)} h` : ''}{o.data_fim ? ` · concluída em ${formatarData(o.data_fim)}` : ''}</>} />}
           {/* r3_activos: checklist com progresso, quem/quando, obrigatórias/opcionais e reabertura */}
           {(!!o.tarefas?.length || (aberta && gerir)) && <ChecklistTarefas ordem={o} aberta={aberta} gerir={gerir} />}
           <Card size="small" title="Necessidades" extra={aberta && (
@@ -284,7 +284,7 @@ function AssistenteRequisicao({ ordem, aberto, aoFechar }: { ordem: DetalheOrdem
       <Typography.Paragraph type="secondary">O material que o armazém tem vira <strong>requisição</strong>; os serviços e o material em falta viram <strong>pedido de compra</strong>. Confirme antes de emitir.</Typography.Paragraph>
       {armazens.data?.length
         ? <Space style={{ marginBottom: 8 }}><span>Armazém</span><Select<number> style={{ width: 280 }} value={armazem} onChange={setArmazem} options={armazens.data.map((w) => ({ value: w.id, label: w.nome }))} /></Space>
-        : <Alert type="warning" showIcon style={{ marginBottom: 8 }} message="Não há armazéns registados: tudo segue para pedido de compra." />}
+        : <Alert type="warning" showIcon style={{ marginBottom: 8 }} title="Não há armazéns registados: tudo segue para pedido de compra." />}
       <Table<LinhaPlanoRequisicao> rowKey="item_id" size="small" pagination={false} loading={q.isFetching} dataSource={linhas}
         columns={[
           { title: 'Artigo / serviço', dataIndex: 'nome' },
@@ -347,7 +347,7 @@ function ModalConclusao({ ordem, aberto, aoFechar }: { ordem: DetalheOrdem; aber
           <Col span={24}><Form.Item name="leitura_contador" label="Leitura do contador (horas/km), se o plano for por contador"
             extra={porContador ? 'Sem leitura, o plano por contador não avança.' : undefined}><InputNumber min={0} style={{ width: '100%' }} placeholder="Deixe vazio se não se aplica" /></Form.Item></Col>
         </Row>
-        <Alert type="info" message={<>Material já entregue pelo armazém: <strong>{formatarKz(ordem.custo_materiais)}</strong></>} />
+        <Alert type="info" title={<>Material já entregue pelo armazém: <strong>{formatarKz(ordem.custo_materiais)}</strong></>} />
       </Form>
     </Modal>
   );

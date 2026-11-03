@@ -262,7 +262,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
           )}
           <div hidden={emLinhas}>
           {avisoOutroPapel(papel, edicao === 'novo' ? null : edicao) && (
-            <Alert type="info" showIcon style={{ marginBottom: 12 }} message={avisoOutroPapel(papel, edicao === 'novo' ? null : edicao)} />
+            <Alert type="info" showIcon style={{ marginBottom: 12 }} title={avisoOutroPapel(papel, edicao === 'novo' ? null : edicao)} />
           )}
           <Form<FichaTerceiro>
             form={form}
@@ -384,7 +384,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
         title={f?.nome?.trim() ?? 'Ficha'}
         open={vista !== null}
         onClose={() => setVista(null)}
-        width={larguraGaveta(560)}
+        size={larguraGaveta(560)}
         loading={ficha.isLoading}
         extra={
           f && (

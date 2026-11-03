@@ -118,14 +118,14 @@ export function ModalReparacao({ modo, aberto, aoFechar }: { modo: 'inconsistenc
         </Space.Compact>
       )}
       {resultado ? (
-        <Space direction="vertical" style={{ width: '100%' }}>
-          {resultado.repostos.length > 0 && <Alert type="success" showIcon message={`Repostos por integrar: ${resultado.repostos.map((r) => r.numero_documento).join(', ')}`} />}
-          {resultado.erros.length > 0 && <Alert type="warning" showIcon message="Recusados" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{resultado.erros.map((e) => <li key={e.id}>#{e.id}: {e.mensagem}</li>)}</ul>} />}
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          {resultado.repostos.length > 0 && <Alert type="success" showIcon title={`Repostos por integrar: ${resultado.repostos.map((r) => r.numero_documento).join(', ')}`} />}
+          {resultado.erros.length > 0 && <Alert type="warning" showIcon title="Recusados" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{resultado.erros.map((e) => <li key={e.id}>#{e.id}: {e.mensagem}</li>)}</ul>} />}
         </Space>
       ) : procura !== null && (
         <>
-          {previa.isError && <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Não foi possível obter a pré-visualização." />}
-          {previa.data?.truncado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Mostram-se os primeiros ${docs.length} de ${previa.data.total}.`} />}
+          {previa.isError && <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Não foi possível obter a pré-visualização." />}
+          {previa.data?.truncado && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Mostram-se os primeiros ${docs.length} de ${previa.data.total}.`} />}
           <Table<IntegracaoOrfa>
             rowKey="id"
             size="small"
@@ -147,7 +147,7 @@ export function ModalReparacao({ modo, aberto, aoFechar }: { modo: 'inconsistenc
           <Input.TextArea style={{ marginTop: 12 }} rows={2} maxLength={500} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder={`Motivo (obrigatório, mínimo ${MINIMO_MOTIVO} caracteres)`} aria-label="Motivo" />
           {temLegado && (
             <Alert type="warning" showIcon style={{ marginTop: 12 }}
-              message="Documentos do sistema anterior sem ligação ao Diário"
+              title="Documentos do sistema anterior sem ligação ao Diário"
               description={<Checkbox checked={confirmouLegado} onChange={(e) => setConfirmouLegado(e.target.checked)}>Confirmo que verifiquei no Razão da conta que estes documentos não estão lançados (ex.: numa folha de caixa agregada).</Checkbox>} />
           )}
         </>

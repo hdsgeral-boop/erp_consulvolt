@@ -216,7 +216,7 @@ export function DetalheEtapa({
       {accoes.length > 0 && (
         <div className="fluxo-accoes imp-nao-imprimir">
           {accoes.map((a, i) => (
-            <Button key={i} type={a.primaria ? 'primary' : 'default'} disabled={a.desactivada} title={a.titulo} onClick={a.aoClicar} iconPosition="end" icon={<IconeFa nome="arrow-right" />}>
+            <Button key={i} type={a.primaria ? 'primary' : 'default'} disabled={a.desactivada} title={a.titulo} onClick={a.aoClicar} iconPlacement="end" icon={<IconeFa nome="arrow-right" />}>
               {a.rotulo}
             </Button>
           ))}

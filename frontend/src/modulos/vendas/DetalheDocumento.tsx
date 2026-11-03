@@ -5,7 +5,7 @@ import { textoContravalor, textoPlano } from './impressao/documentoVenda';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { descarregar, enviar, http, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -86,7 +86,7 @@ export function DetalheDocumento() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const d = consulta.data;
-  if (!d) return <Alert type="error" message="Documento não encontrado." />;
+  if (!d) return <Alert type="error" title="Documento não encontrado." />;
 
   const anulado = d.estado === 'ANULADO';
   const destinos = CONVERSOES[d.tipo_documento] ?? [];
@@ -243,7 +243,7 @@ export function DetalheDocumento() {
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Documento anulado."
+          title="Documento anulado."
           description={d.anulacao && (d.anulacao.motivo || d.anulacao.por) ? (
             <span>
               {d.anulacao.motivo && <>Motivo: {d.anulacao.motivo}. </>}
@@ -312,7 +312,7 @@ export function DetalheDocumento() {
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message="Nota de crédito sobre factura-recibo"
+              title="Nota de crédito sobre factura-recibo"
               description="A factura-recibo já foi paga: a nota de crédito deixa o cliente com saldo a favor. Para devolver o dinheiro, registe depois um pagamento ao cliente na Tesouraria."
             />
           )}
@@ -321,7 +321,7 @@ export function DetalheDocumento() {
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
-              message="Factura liquidada: não admite nota de crédito."
+              title="Factura liquidada: não admite nota de crédito."
               description="O recebimento tem de ser cancelado antes da nota de crédito. Pode fazê-lo já: os recibos e os recebimentos de tesouraria desta factura ficam anulados (com estorno se estiverem contabilizados) e depois converte."
               action={pode('vendas_fat_del') ? <Button size="small" danger onClick={() => setCancelarReceb(d.id)}>Cancelar recebimento…</Button> : undefined}
             />

@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
 use App\Services\Sistema\ServicoEmpresas;
+use App\Support\Tenancy\ContextoTenant;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Autenticavel;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -86,8 +88,8 @@ class Utilizador extends Autenticavel
     {
         // SaaS (ADR-073): um utilizador novo pertence ao tenant do pedido/trabalho que o cria.
         static::creating(function (Utilizador $u) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('utilizadores', 'tenant_id')) {
-                $u->tenant_id ??= app(\App\Support\Tenancy\ContextoTenant::class)->paraNovo();
+            if (Schema::hasColumn('utilizadores', 'tenant_id')) {
+                $u->tenant_id ??= app(ContextoTenant::class)->paraNovo();
             }
         });
 

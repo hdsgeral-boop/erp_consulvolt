@@ -126,7 +126,7 @@ export default function Moedas() {
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message={`Câmbios do BAI por validar (${porValidar})`}
+          title={`Câmbios do BAI por validar (${porValidar})`}
           description="A obtenção automática trouxe câmbios que ainda não foram gravados. Reveja-os e valide ou rejeite."
           action={<Button size="small" onClick={() => setSeparador('bai')}>Rever</Button>}
         />
@@ -140,7 +140,7 @@ export default function Moedas() {
             key: 'moedas',
             label: 'Moedas',
             children: (
-              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                 <ListaMoedas gerir={gerir} />
                 <ToleranciaCambio gerir={gerir} />
               </Space>
@@ -153,7 +153,7 @@ export default function Moedas() {
                   key: 'bai',
                   label: porValidar ? <span>Câmbios do BAI <Tag color="orange" style={{ marginInlineStart: 4 }}>{porValidar}</Tag></span> : 'Câmbios do BAI',
                   children: (
-                    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                       <BaiAutomatico />
                       <Bai />
                     </Space>
@@ -460,7 +460,7 @@ function Importar() {
         Carregue o ficheiro Excel (.xlsx) ou CSV, ou cole as linhas copiadas do Excel (com cabeçalho). Colunas: <Typography.Text code>Data</Typography.Text> <Typography.Text code>Moeda</Typography.Text>{' '}
         <Typography.Text code>Taxa</Typography.Text> e, opcionalmente, <Typography.Text code>Origem</Typography.Text> <Typography.Text code>Âmbito</Typography.Text> (Todas | Empresa).
       </Typography.Paragraph>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Space wrap>
           <Upload
             accept=".xlsx,.xls,.csv,.txt"
@@ -497,7 +497,7 @@ function Importar() {
           <Alert
             type={simulacao.rejeitadas.length || simulacao.bloqueados.length ? 'warning' : 'success'}
             showIcon
-            message={`${simulacao.novos} novo(s), ${simulacao.existentes} já existente(s), ${simulacao.bloqueados.length} bloqueado(s) (em uso), ${simulacao.rejeitadas.length} rejeitado(s).`}
+            title={`${simulacao.novos} novo(s), ${simulacao.existentes} já existente(s), ${simulacao.bloqueados.length} bloqueado(s) (em uso), ${simulacao.rejeitadas.length} rejeitado(s).`}
             description={
               (simulacao.rejeitadas.length > 0 || simulacao.bloqueados.length > 0) && (
                 <ul style={{ paddingLeft: 18, margin: 0, maxHeight: 200, overflow: 'auto' }}>
@@ -562,7 +562,7 @@ function Bai() {
               { title: '', dataIndex: 'disponivel', render: (d: boolean) => (d ? null : <Tag>Indisponível</Tag>) },
             ]}
           />
-          {previsao.data.itens.some((i) => i.alerta) && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Variações grandes face ao último câmbio não ficam marcadas por omissão: confirme antes de gravar." />}
+          {previsao.data.itens.some((i) => i.alerta) && <Alert style={{ marginTop: 12 }} type="warning" showIcon title="Variações grandes face ao último câmbio não ficam marcadas por omissão: confirme antes de gravar." />}
           <Flex justify="end" style={{ marginTop: 12 }}>
             <Button type="primary" disabled={!escolhidas.length} loading={gravar.isPending} onClick={() => gravar.mutate()}>Gravar {escolhidas.length} câmbio(s)</Button>
           </Flex>
@@ -677,7 +677,7 @@ function BaiAutomatico() {
           type="error"
           showIcon
           style={{ marginBottom: 12 }}
-          message={`A obtenção de ${dataHora(d.ultima_falha.iniciado_em)} falhou (${d.ultima_falha.codigo_erro ?? 'erro'})`}
+          title={`A obtenção de ${dataHora(d.ultima_falha.iniciado_em)} falhou (${d.ultima_falha.codigo_erro ?? 'erro'})`}
           description={d.ultima_falha.mensagem}
         />
       )}
@@ -687,7 +687,7 @@ function BaiAutomatico() {
             type="warning"
             showIcon
             style={{ marginBottom: 12 }}
-            message={`Câmbios do BAI por validar (${d.pendentes.length})`}
+            title={`Câmbios do BAI por validar (${d.pendentes.length})`}
             description={`Variações acima de ${formatarNumero(d.limiar_variacao)} % face ao último câmbio não ficam marcadas por omissão.`}
           />
           <Table<PendenteBai>

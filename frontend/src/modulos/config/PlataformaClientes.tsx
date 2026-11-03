@@ -139,7 +139,7 @@ export default function PlataformaClientes() {
           ]}
         />
       </Card>
-      <Drawer open={ver !== null} onClose={() => setVer(null)} width={580} title={detalhe.data?.nome ?? 'Cliente'} destroyOnClose>
+      <Drawer open={ver !== null} onClose={() => setVer(null)} size={580} title={detalhe.data?.nome ?? 'Cliente'} destroyOnHidden>
         <Descriptions column={1} size="small" bordered style={{ marginBottom: 20 }}>
           <Descriptions.Item label={<Space size={6}><TeamOutlined />Utilizadores</Space>}>{detalhe.data?.utilizadores ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="Plano comercial">
@@ -178,7 +178,7 @@ export default function PlataformaClientes() {
           ]}
         />
       </Drawer>
-      <Modal open={criar} title="Novo cliente" okText="Criar" confirmLoading={novo.isPending} onCancel={() => setCriar(false)} destroyOnClose
+      <Modal open={criar} title="Novo cliente" okText="Criar" confirmLoading={novo.isPending} onCancel={() => setCriar(false)} destroyOnHidden
         onOk={() => form.validateFields().then((v) => novo.mutate(v.empresa?.nome ? v : { ...v, empresa: undefined }))}>
         <Form form={form} layout="vertical">
           <Form.Item name="nome" label="Nome do cliente" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item>

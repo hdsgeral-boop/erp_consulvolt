@@ -3,7 +3,7 @@ import { CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined, Settin
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState, type HTMLAttributes, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { textoOuNull } from '../comum/valoresFormulario';
@@ -161,7 +161,7 @@ function EstadoEnvio() {
             type="info"
             closable
             onClose={() => setResultado(null)}
-            message="Resultado"
+            title="Resultado"
             description={
               <Descriptions size="small" column={COLUNAS_DESCRICOES}>
                 {Object.entries(resultado).filter(([, v]) => typeof v !== 'object').map(([k, v]) => (
@@ -177,7 +177,7 @@ function EstadoEnvio() {
           {ligacao.isLoading ? (
             <Skeleton active />
           ) : ligacao.error ? (
-            <Alert type="error" showIcon message="Não foi possível obter o estado da ligação." />
+            <Alert type="error" showIcon title="Não foi possível obter o estado da ligação." />
           ) : (
             <Descriptions size="small" column={{ xs: 1, md: 2 }} bordered>
               {Object.entries(ligacao.data ?? {}).map(([k, v]) => (
@@ -555,8 +555,8 @@ function DadosARever() {
   return (
     <Card title={<><IconeFa nome="list-check" style={{ marginRight: 6 }} />Dados a rever antes de activar</>} loading={diag.isLoading}>
       <Typography.Paragraph type="secondary">Estes dados entram em cada documento enviado à AGT. Corrija-os nas fichas de produtos, clientes e empresa.</Typography.Paragraph>
-      {diag.error && <Alert type="error" showIcon message="Não foi possível verificar os dados." />}
-      {d?.empresa_nif && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={d.empresa_nif} />}
+      {diag.error && <Alert type="error" showIcon title="Não foi possível verificar os dados." />}
+      {d?.empresa_nif && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={d.empresa_nif} />}
       {d && (
         <div style={GRELHA_DIAG}>
           {itens.map(([titulo, b, dica]) => (
@@ -593,7 +593,7 @@ function DocumentosComErros() {
     <Card title={<><IconeFa nome="exclamation-triangle" style={{ marginRight: 6 }} />Documentos com erros AGT</>} loading={erros.isLoading}>
       <Typography.Paragraph type="secondary">Os documentos abaixo seriam rejeitados pela AGT: corrija os dados de origem e revalide no detalhe do documento.</Typography.Paragraph>
       {erros.error ? (
-        <Alert type="error" showIcon message="Não foi possível ler os documentos." />
+        <Alert type="error" showIcon title="Não foi possível ler os documentos." />
       ) : lista.length === 0 ? (
         <Typography.Text strong type="success">Nenhum documento com erros locais.</Typography.Text>
       ) : (

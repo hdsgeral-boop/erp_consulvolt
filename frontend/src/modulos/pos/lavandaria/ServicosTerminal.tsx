@@ -29,7 +29,7 @@ export function ModalServicosTerminal({ terminal, obrigatorio, aoFechar }: { ter
       open={!!terminal}
       title={<span>Configurar serviços — {terminal?.codigo} · {terminal?.nome}</span>}
       width={larguraModal(620)}
-      maskClosable={false}
+      mask={{ closable: false }}
       destroyOnHidden
       onCancel={aoFechar}
       footer={
@@ -46,14 +46,14 @@ export function ModalServicosTerminal({ terminal, obrigatorio, aoFechar }: { ter
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message="Este POS ainda não tem serviços configurados"
+          title="Este POS ainda não tem serviços configurados"
           description="Escolha pelo menos um serviço para a Recepção poder registar ordens neste terminal. Pode alterar esta escolha mais tarde, a qualquer momento, em «Configurar»."
         />
       )}
       {aCarregar ? (
         <Skeleton active />
       ) : !catalogo.data?.length ? (
-        <Alert type="info" showIcon message="Ainda não há serviços na tabela da lavandaria. Crie-os primeiro em POS › Lavandaria › Tabelas." />
+        <Alert type="info" showIcon title="Ainda não há serviços na tabela da lavandaria. Crie-os primeiro em POS › Lavandaria › Tabelas." />
       ) : (
         <>
           <Flex justify="space-between" align="center" style={{ marginBottom: 4 }}>
@@ -70,7 +70,7 @@ export function ModalServicosTerminal({ terminal, obrigatorio, aoFechar }: { ter
             if (!lista.length) return null;
             return (
               <div key={grupo} style={{ marginTop: 8 }}>
-                <Divider orientation="left" plain style={{ margin: '8px 0 6px', fontSize: 12 }}>{nomeGrupo}</Divider>
+                <Divider titlePlacement="start" plain style={{ margin: '8px 0 6px', fontSize: 12 }}>{nomeGrupo}</Divider>
                 <Flex vertical gap={4}>
                   {lista.map((s) => (
                     <Checkbox key={s.id} checked={escolhidos.includes(s.id)} onChange={(e) => alternar(s.id, e.target.checked)}>

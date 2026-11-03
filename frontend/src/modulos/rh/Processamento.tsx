@@ -2,7 +2,7 @@ import { Alert, Button, Card, Form, Input, Modal, Skeleton, Space, Switch, Table
 import { ArrowLeftOutlined, AuditOutlined, SettingOutlined, CheckOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -78,7 +78,7 @@ function DetalheProcessamento() {
 
   if (periodo.isLoading) return <Skeleton active />;
   const p = periodo.data;
-  if (!p) return <Alert type="error" message="Processamento não encontrado." />;
+  if (!p) return <Alert type="error" title="Processamento não encontrado." />;
   const ac = accoesPeriodo(p, pode);
   const post = (caminho: string) => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/${caminho}` });
   /** A-10: quando faltam mapeamentos, abre o assistente em vez de só mostrar a mensagem. */
@@ -134,11 +134,11 @@ function DetalheProcessamento() {
           </>
         }
       />
-      {p.estado === 'ABERTO' && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Período em cálculo: os resultados são ao vivo. Encerre o cálculo no ecrã Calcular para o validar aqui." />}
+      {p.estado === 'ABERTO' && <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Período em cálculo: os resultados são ao vivo. Encerre o cálculo no ecrã Calcular para o validar aqui." />}
       {p.estado === 'FECHADO' && config.data?.segregar_encerrar_validar && (
-        <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`Segregação de funções activa: o processamento foi encerrado por ${p.fechado_por ?? '—'} e tem de ser validado por outro utilizador.`} />
+        <Alert type="info" showIcon style={{ marginBottom: 16 }} title={`Segregação de funções activa: o processamento foi encerrado por ${p.fechado_por ?? '—'} e tem de ser validado por outro utilizador.`} />
       )}
-      {(p.estado === 'FECHADO' || p.estado === 'VALIDADO') && p.contabilizado && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Contabilizado: para reabrir, descontabilize primeiro (estorno)." />}
+      {(p.estado === 'FECHADO' || p.estado === 'VALIDADO') && p.contabilizado && <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="Contabilizado: para reabrir, descontabilize primeiro (estorno)." />}
       <ResumoTotais periodo={p} />
       <Card>
         <Tabs
@@ -173,7 +173,7 @@ function DetalheProcessamento() {
               key: 'historico',
               label: 'Histórico',
               children: (
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   <span>Encerrado: {p.fechado_em ? `${formatarDataHora(p.fechado_em)} por ${p.fechado_por ?? '—'}` : '—'}</span>
                   <span>Validado: {p.validado_em ? `${formatarDataHora(p.validado_em)} por ${p.validado_por ?? '—'}` : '—'}</span>
                   <span>Modo de cálculo: {p.modo_calculo === 'LEGADO' ? 'Legado (período migrado e fotografado)' : 'Actual'}</span>

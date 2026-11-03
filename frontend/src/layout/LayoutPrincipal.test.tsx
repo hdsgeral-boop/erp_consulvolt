@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import type { ModuloMenu } from '@/api/tipos';
 import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 import { achatarGrupoNaBarra, LayoutPrincipal } from './LayoutPrincipal';

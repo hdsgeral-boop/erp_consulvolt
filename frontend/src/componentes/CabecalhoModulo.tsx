@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { IconeFa } from './fluxos/IconeFa';
 import './CabecalhoModulo.css';

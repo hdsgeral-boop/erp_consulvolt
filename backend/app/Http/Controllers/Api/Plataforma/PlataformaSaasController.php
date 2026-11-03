@@ -4,11 +4,9 @@ namespace App\Http\Controllers\Api\Plataforma;
 
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
-use App\Models\LogAuditoria;
 use App\Models\Tenant;
 use App\Services\Plataforma\MaquinaEstadosLicenca;
 use App\Support\Api\RespostaApi;
-use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use App\Support\Tenancy\IsolamentoRls;
 use Carbon\Carbon;
@@ -16,7 +14,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Gestão de activação/desligamento do SaaS e Licenciamento (Geral e por Empresa).

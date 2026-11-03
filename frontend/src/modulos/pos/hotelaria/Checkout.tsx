@@ -126,7 +126,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
       title={`Check-out · ${estadias.map((e) => e.nome_quarto).join(', ')}`}
       okText={concluido ? 'Fechar' : 'Concluir check-out'}
       cancelText="Cancelar"
-      maskClosable={false}
+      mask={{ closable: false }}
       destroyOnHidden
       okButtonProps={{ disabled: !concluido && (!simulacao || aSimular || !resumo.valido || porDecidir.length > 0) }}
       confirmLoading={checkout.isPending}
@@ -144,7 +144,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
           }
         />
       ) : !sessaoId ? (
-        <Alert type="warning" showIcon message="O terminal não tem sessão aberta: abra-a na frente de caixa." />
+        <Alert type="warning" showIcon title="O terminal não tem sessão aberta: abra-a na frente de caixa." />
       ) : (
         <>
           <Flex gap={16} wrap align="center" style={{ marginBottom: 12 }}>
@@ -161,7 +161,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
           {aSimular && !simulacao ? (
             <Skeleton active />
           ) : !simulacao ? (
-            <Alert type="info" showIcon message={modo === 'UNICA' && !cliente ? 'Escolha o cliente da factura única.' : 'A preparar a simulação…'} />
+            <Alert type="info" showIcon title={modo === 'UNICA' && !cliente ? 'Escolha o cliente da factura única.' : 'A preparar a simulação…'} />
           ) : (
             <>
               {simulacao.facturas.map((f, i) => (
@@ -174,7 +174,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
                         type="warning"
                         showIcon
                         style={{ marginBottom: 8 }}
-                        message={`${e.nome_quarto}: saída tardia (+${e.proposta!.extra}). Cobrar o recálculo ou manter o contratado?`}
+                        title={`${e.nome_quarto}: saída tardia (+${e.proposta!.extra}). Cobrar o recálculo ou manter o contratado?`}
                         action={
                           <Radio.Group size="small" value={opcoes[e.id]} onChange={(ev) => setOpcoes((o) => ({ ...o, [e.id]: ev.target.value }))}>
                             <Radio.Button value="RECALCULAR">Recalcular</Radio.Button>
@@ -208,10 +208,10 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
                   )}
                 </Card>
               ))}
-              {porDecidir.length > 0 && <Alert type="error" showIcon style={{ marginBottom: 8 }} message={`Decida a saída tardia de: ${porDecidir.join(', ')}.`} />}
+              {porDecidir.length > 0 && <Alert type="error" showIcon style={{ marginBottom: 8 }} title={`Decida a saída tardia de: ${porDecidir.join(', ')}.`} />}
               <Divider style={{ margin: '8px 0' }} />
               <PainelPagamentos meios={meios} total={total} pagamentos={pagamentos} onChange={setPagamentos} />
-              <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
+              <Space orientation="vertical" style={{ width: '100%', marginTop: 8 }}>
                 <Input.TextArea rows={2} maxLength={2000} placeholder="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   O total segue a regra AGT do documento fiscal e pode diferir um cêntimo do valor contratado. Os pagamentos repartem-se pelas facturas na proporção do total; o troco sai do numerário.

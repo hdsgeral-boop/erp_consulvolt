@@ -70,7 +70,7 @@ export default function PlataformaCupoes() {
       </Card>
 
       <Modal open={edit !== null} title={edit === 'novo' ? 'Novo cupão' : `Cupão ${edit?.codigo ?? ''}`}
-        okText="Guardar" confirmLoading={gravar.isPending} onCancel={() => setEdit(null)} destroyOnClose width={640}
+        okText="Guardar" confirmLoading={gravar.isPending} onCancel={() => setEdit(null)} destroyOnHidden width={640}
         onOk={() => form.validateFields().then((v) => gravar.mutate({
           ...v, data_inicio: dataApi(v.periodo?.[0]), data_fim: dataApi(v.periodo?.[1]), periodo: undefined,
         }))}>

@@ -241,7 +241,7 @@ export function ModalFaturaEncomenda({ encomenda, aberto, aoFechar, aoRegistar }
             </Col>
           )}
         </Row>
-        {estrangeira && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Encomenda em ${encomenda.codigo_moeda}: o servidor calcula as diferenças de câmbio face à recepção.`} />}
+        {estrangeira && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Encomenda em ${encomenda.codigo_moeda}: o servidor calcula as diferenças de câmbio face à recepção.`} />}
         <Form.List name="linhas">
           {(campos) => (
             <Table scroll={scrollTabela()}

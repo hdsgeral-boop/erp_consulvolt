@@ -52,7 +52,7 @@ class ServicoTotpTest extends TestCase
         $codigoActual = $gerarCodigo->invoke($totp, $segredo, intdiv(time(), 30));
 
         $this->assertTrue($totp->verificar($segredo, $codigoActual));
-        $this->assertFalse($totp->verificar($segredo, '000000' === $codigoActual ? '111111' : '000000'));
+        $this->assertFalse($totp->verificar($segredo, $codigoActual === '000000' ? '111111' : '000000'));
         $this->assertFalse($totp->verificar($segredo, '12345'));   // menos de 6 dígitos
         $this->assertFalse($totp->verificar($segredo, 'abcdef'));   // não numérico
     }

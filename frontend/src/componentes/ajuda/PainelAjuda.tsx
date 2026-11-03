@@ -1,7 +1,7 @@
 import { QuestionCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { Button, Drawer, Input, Tag, Typography } from 'antd';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { larguraGaveta } from '@/componentes/responsivo/utilitarios';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ajudaDoEcra, localizarAjuda, pesquisarAjuda } from './ajuda';
@@ -84,7 +84,7 @@ function PainelAjuda({ aberta, ecraFixo, aoFechar, aoMudarEcra }: { aberta: bool
       open={aberta}
       onClose={aoFechar}
       placement="right"
-      width={larguraGaveta(460)}
+      size={larguraGaveta(460)}
       title={
         <div>
           <Tag color="blue" style={{ textTransform: 'uppercase', fontSize: 11 }}>{info.modulo.nome}</Tag>

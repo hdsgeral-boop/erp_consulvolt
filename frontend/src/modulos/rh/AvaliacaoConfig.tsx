@@ -3,7 +3,7 @@ import { LockOutlined, PlayCircleOutlined, PlusOutlined, SaveOutlined } from '@a
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';
@@ -162,8 +162,8 @@ export default function AvaliacaoConfig() {
             {ciclo && pode('rh_aval_abrir') && ciclo.estado === 'ABERTO' && <Button danger icon={<LockOutlined />} onClick={() => fecharCiclo(ciclo)}>Fechar ciclo</Button>}
             {podeGravar && <Button type="primary" icon={<SaveOutlined />} loading={accao.isPending} onClick={() => form.submit()}>Gravar configuração</Button>}
           </Space>}>
-          {ciclo?.estado === 'ABERTO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Ciclo aberto: só se alteram o nome, os prazos, o comunicado, o acompanhamento e (sem bónus aprovados) a bonificação." />}
-          {fechado && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Ciclo fechado: a configuração já não se altera." />}
+          {ciclo?.estado === 'ABERTO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Ciclo aberto: só se alteram o nome, os prazos, o comunicado, o acompanhamento e (sem bónus aprovados) a bonificação." />}
+          {fechado && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Ciclo fechado: a configuração já não se altera." />}
           <Form form={form} layout="vertical" onFinish={gravar} disabled={!podeGravar}>
             <Tabs type="card" activeKey={sep} onChange={setSep} items={[
               {
@@ -173,12 +173,12 @@ export default function AvaliacaoConfig() {
                     <Col xs={24} md={12}><Form.Item name="nome" label="Nome do ciclo"><Input maxLength={255} placeholder="Por omissão: Avaliação <período> <ano>" /></Form.Item></Col>
                     <Col xs={24} sm={12} md={6}><Form.Item name="ano" label="Ano" rules={[{ required: escolhido === 'novo' }]}><InputNumber min={2000} max={2100} disabled={!rascunho} style={{ width: '100%' }} /></Form.Item></Col>
                     <Col xs={24} sm={12} md={6}><Form.Item name="periodo" label="Período avaliado" rules={[{ required: escolhido === 'novo' }]}><Select options={PERIODOS_AVALIACAO} disabled={!rascunho} /></Form.Item></Col>
-                    <Col xs={24}><Divider plain orientation="left">Prazos</Divider></Col>
+                    <Col xs={24}><Divider plain titlePlacement="start">Prazos</Divider></Col>
                     <Col xs={24} sm={12} md={6}><Form.Item name={['prazos', 'respostas_ate']} label="Autoavaliação e 360º até"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
                     <Col xs={24} sm={12} md={6}><Form.Item name={['prazos', 'chefia_ate']} label="Avaliação da chefia até"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
                     <Col xs={24} sm={12} md={6}><Form.Item name={['prazos', 'dias_conhecimento']} label="Tomada de conhecimento (dias)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
                     <Col xs={24} sm={12} md={6}><Form.Item name={['prazos', 'dias_contestacao']} label="Prazo de contestação (dias)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
-                    <Col xs={24}><Alert type="info" showIcon message="A contestação conta a partir da tomada de conhecimento e é decidida pelo superior da chefia (na Estrutura Orgânica), com parecer do RH. Sem superior definido, decide o RH. Prazos vazios: respostas até 20 dias e chefia até 30 dias depois do fim do período." /></Col>
+                    <Col xs={24}><Alert type="info" showIcon title="A contestação conta a partir da tomada de conhecimento e é decidida pelo superior da chefia (na Estrutura Orgânica), com parecer do RH. Sem superior definido, decide o RH. Prazos vazios: respostas até 20 dias e chefia até 30 dias depois do fim do período." /></Col>
                   </Row>
                 ),
               },
@@ -209,10 +209,10 @@ export default function AvaliacaoConfig() {
                   <Row gutter={12}>
                     <Col xs={24}><Typography.Text strong>Pesos dos grupos na nota final (somam 100)</Typography.Text></Col>
                     {GRUPOS.map((g) => <Col xs={24} sm={12} md={6} key={g.chave}><Form.Item name={['pesos', g.chave]} label={`${g.rotulo} (%)`}><InputNumber min={0} max={100} disabled={!rascunho} style={{ width: '100%' }} /></Form.Item></Col>)}
-                    {avisoPesos && <Col xs={24}><Alert type="warning" showIcon message={avisoPesos} style={{ marginBottom: 12 }} /></Col>}
+                    {avisoPesos && <Col xs={24}><Alert type="warning" showIcon title={avisoPesos} style={{ marginBottom: 12 }} /></Col>}
                     <Col xs={24} sm={12} md={8}><Form.Item name="minimo_anonimato" label="Mínimo de respostas (anonimato)"><InputNumber min={2} disabled={!rascunho} style={{ width: '100%' }} /></Form.Item></Col>
                     <Col xs={24} sm={12} md={8}><Form.Item name="max_pares" label="Máximo de pares por colaborador"><InputNumber min={0} max={50} disabled={!rascunho} style={{ width: '100%' }} /></Form.Item></Col>
-                    <Col xs={24}><Alert type="info" showIcon message="Pares = colegas da mesma unidade (sem a chefia nem os próprios subordinados). Subordinados = equipa directa. As avaliações de pares e subordinados são anónimas: se um grupo não chegar ao mínimo, junta-se ao outro grupo anónimo; se mesmo assim não chegar, não conta e o peso é redistribuído." /></Col>
+                    <Col xs={24}><Alert type="info" showIcon title="Pares = colegas da mesma unidade (sem a chefia nem os próprios subordinados). Subordinados = equipa directa. As avaliações de pares e subordinados são anónimas: se um grupo não chegar ao mínimo, junta-se ao outro grupo anónimo; se mesmo assim não chegar, não conta e o peso é redistribuído." /></Col>
                   </Row>
                 ),
               },

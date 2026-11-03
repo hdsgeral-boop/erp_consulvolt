@@ -215,4 +215,20 @@ return [
 
     'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Session Serialization
+    |--------------------------------------------------------------------------
+    |
+    | Estratégia de serialização dos dados da sessão. O esqueleto do Laravel 13
+    | usa "json" por omissão; mantém-se "php" explicitamente para não invalidar
+    | sessões activas na actualização (ver guia de upgrade 13.x). A API é por
+    | token Bearer; a sessão só serve o fluxo OAuth e não guarda objectos PHP.
+    |
+    | Suportado: "json", "php"
+    |
+    */
+
+    'serialization' => 'php',
+
 ];

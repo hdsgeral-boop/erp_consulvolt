@@ -137,7 +137,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
   const podeAnalisar = (medidas.length > 0 || linhas.length > 0) && (!usarDatas || !!datas);
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Card size="small">
         <Form layout="vertical">
           <Row gutter={[16, 0]}>
@@ -167,7 +167,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
             </Col>
             <Col xs={24} md={12}>
               <Form.Item label={`Medidas (até ${LIMITES_CUBO.medidas})`}>
-                <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                <Space orientation="vertical" style={{ width: '100%' }} size={4}>
                   {medidas.map((m, i) => (
                     <Flex key={i} gap={8}>
                       <Select
@@ -198,7 +198,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
             </Col>
           </Row>
           <Typography.Text strong>Filtros</Typography.Text>
-          <Space direction="vertical" style={{ width: '100%', marginTop: 8 }} size={6}>
+          <Space orientation="vertical" style={{ width: '100%', marginTop: 8 }} size={6}>
             {filtros.map((f, i) => (
               <LinhaFiltro
                 key={i}
@@ -279,7 +279,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
             </Space>
           }
         >
-          {r.medidas.length === 0 && <Alert type="info" message="Escolha pelo menos uma medida." />}
+          {r.medidas.length === 0 && <Alert type="info" title="Escolha pelo menos uma medida." />}
           <div ref={refResultado}>
           {vista === 'tabela' ? (
             <Table

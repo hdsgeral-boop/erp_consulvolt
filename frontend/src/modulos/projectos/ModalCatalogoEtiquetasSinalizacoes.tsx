@@ -86,7 +86,7 @@ function ColunaCatalogo({ titulo, recurso, activo, corOmissao, placeholder }: { 
         <Input placeholder={placeholder} value={nome} onChange={(e) => setNome(e.target.value)} onPressEnter={adicionar} maxLength={60} />
         <Button icon={<PlusOutlined />} onClick={adicionar} loading={c.criar.isPending} disabled={!nome.trim()} />
       </Space.Compact>
-      <Space direction="vertical" style={{ width: '100%' }} size={6}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={6}>
         {c.lista.map((item) => (
           <ItemCatalogoEditavel key={item.id} item={item} aoActualizar={(d) => c.actualizar.mutate({ id: item.id, ...d })} aoEliminar={() => c.eliminar.mutate(item.id)} />
         ))}

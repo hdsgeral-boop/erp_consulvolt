@@ -137,7 +137,7 @@ export function ModalFluxoDocumental({ documento, aoFechar }: { documento: { tip
       footer={<Button onClick={aoFechar}>Fechar</Button>}
       destroyOnHidden
     >
-      {consulta.isLoading ? <Skeleton active /> : consulta.error ? <Alert type="error" showIcon message="Não foi possível obter o fluxo do documento." /> : consulta.data && <ConteudoFluxoDocumental fluxo={consulta.data} />}
+      {consulta.isLoading ? <Skeleton active /> : consulta.error ? <Alert type="error" showIcon title="Não foi possível obter o fluxo do documento." /> : consulta.data && <ConteudoFluxoDocumental fluxo={consulta.data} />}
     </Modal>
   );
 }

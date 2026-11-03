@@ -33,7 +33,7 @@ final class ModuloTesouraria extends ModuloGestao
     {
         $e = $this->empresa();
         // Disponibilidades inclui as contas-cartão (classe 3 marcada): EXISTS directo a plano_contas.
-        $cartaoExiste = "EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = TRIM(l.codigo_conta) AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)";
+        $cartaoExiste = 'EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = TRIM(l.codigo_conta) AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)';
         $fin = "(TRIM(l.codigo_conta) LIKE '43%' OR TRIM(l.codigo_conta) LIKE '45%' OR {$cartaoExiste})";
         $mov = fn () => ModuloFinancas::diario($e)->whereRaw($fin)->whereBetween('l.data_documento', [$p['inicio'], $p['fim']])->whereRaw(ModuloFinancas::semApuramento());
         $t = $mov()->selectRaw("COALESCE(SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE 0 END), 0) AS ent, COALESCE(SUM(CASE WHEN l.tipo_dc = 'C' THEN l.valor ELSE 0 END), 0) AS sai")->first();

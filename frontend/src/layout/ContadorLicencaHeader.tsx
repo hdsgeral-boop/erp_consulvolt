@@ -7,8 +7,8 @@ import {
   ThunderboltOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import { useEstadoLicenca } from '@/modulos/config/Licenca';
+import { useNavigate } from 'react-router';
+import { useEstadoLicenca } from '@/modulos/config/estadoLicenca';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
 
@@ -107,7 +107,7 @@ export function ContadorLicencaHeader() {
         open={modalAberto}
         onCancel={() => setModalAberto(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         width={480}
       >
         <div style={{ marginTop: 16 }}>

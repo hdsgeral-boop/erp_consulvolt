@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Mail\OperadorPlataformaCriadoMail;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -18,7 +19,7 @@ class RbacPlataformaTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
     }
 
     /** @return array{0: Utilizador, 1: array<string, string>} */

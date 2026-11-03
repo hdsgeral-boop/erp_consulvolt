@@ -372,8 +372,8 @@ final class ServicoPermissoes
 
     /**
      * @return ?list<string> módulos do plano em vigor do tenant; null = sem restrição. Memória por pedido: a cache
-     * Redis de ModulosPlano::doTenantId() já evita qualquer consulta a `tenants`/`planos_licenca*` (regra 1 do
-     * CACHE.md — ParidadeLancamentosTest, que conta consultas por pedido, apanhou a 1.ª versão sem isto).
+     *                       Redis de ModulosPlano::doTenantId() já evita qualquer consulta a `tenants`/`planos_licenca*` (regra 1 do
+     *                       CACHE.md — ParidadeLancamentosTest, que conta consultas por pedido, apanhou a 1.ª versão sem isto).
      */
     private function modulosDoTenant(?int $tenantId): ?array
     {

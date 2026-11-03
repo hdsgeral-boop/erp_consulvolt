@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { ListaLancamentos } from './lancamentos/ListaLancamentos';
 import { NovoLancamento } from './lancamentos/NovoLancamento';
 import { DetalheLancamento } from './lancamentos/DetalheLancamento';

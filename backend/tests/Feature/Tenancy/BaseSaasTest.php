@@ -28,7 +28,7 @@ class BaseSaasTest extends TestCase
         $tenant = app(ContextoTenant::class);
         $tenant->definir(7);
 
-        $this->assertNull(DB::selectOne("SELECT app_tenant_id() AS t")->t);
+        $this->assertNull(DB::selectOne('SELECT app_tenant_id() AS t')->t);
         $this->assertSame(7, $tenant->id());
         $tenant->limpar();
         $this->assertSame(1, $tenant->paraNovo());

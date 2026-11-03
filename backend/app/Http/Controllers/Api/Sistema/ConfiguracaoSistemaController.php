@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoGestaoEmpresas;
+use App\Services\Sistema\ServicoImagensPublicas;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,18 +34,29 @@ final class ConfiguracaoSistemaController extends Controller
         ], 'Logótipo do sistema.');
     }
 
-    /** PUT /api/sistema/configuracoes/logotipo-login — {logotipo: data URI | null}. */
-    public function gravarLogotipoLogin(Request $r, ServicoAuditoria $auditoria): JsonResponse
+    /**
+     * PUT /api/sistema/configuracoes/logotipo-login — {logotipo: data URI | null}.
+     * Com o Cloudflare R2 configurado (ServicoImagensPublicas), a imagem vai para o disco público e a base guarda só o URL.
+     */
+    public function gravarLogotipoLogin(Request $r, ServicoAuditoria $auditoria, ServicoImagensPublicas $imagens): JsonResponse
     {
         if (! $r->user()->eSuperAdministrador()) {
             throw new ErroNegocio('Só o Super Administrador altera o logótipo do sistema.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
         }
         $d = $r->validate(['logotipo' => ['present', 'nullable', 'string', 'max:1500000']]);
+        $anterior = DB::table('configuracoes_sistema')->where('chave', self::CHAVE_LOGOTIPO)->value('valor');
         if ($d['logotipo']) {
             ServicoGestaoEmpresas::validarLogotipo($d['logotipo']);
-            DB::table('configuracoes_sistema')->updateOrInsert(['chave' => self::CHAVE_LOGOTIPO], ['valor' => $d['logotipo'], 'atualizado_em' => now()]);
+            $valor = ServicoImagensPublicas::activo()
+                ? $imagens->guardarDataUri($d['logotipo'], 'sistema', 'logotipo-login', ServicoGestaoEmpresas::TAMANHO_MAXIMO_LOGOTIPO)
+                : $d['logotipo'];
+            DB::table('configuracoes_sistema')->updateOrInsert(['chave' => self::CHAVE_LOGOTIPO], ['valor' => $valor, 'atualizado_em' => now()]);
         } else {
+            $valor = null;
             DB::table('configuracoes_sistema')->where('chave', self::CHAVE_LOGOTIPO)->delete();
+        }
+        if (ServicoImagensPublicas::activo() && $anterior && $anterior !== $valor) {
+            $imagens->apagarPorUrl($anterior);
         }
         $auditoria->registar('Sistema/Configurações', 'Logótipo do sistema', $d['logotipo'] ? 'Logótipo do ecrã de entrada actualizado.' : 'Logótipo do ecrã de entrada removido.');
 

@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Progress, Skeleton, Table, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, TrophyTwoTone } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { tabelaHtml } from '@/componentes/impressao';
@@ -52,7 +52,7 @@ export function QuadroComparativo() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const d = consulta.data;
-  if (!d) return <Alert type="error" message="Não foi possível obter a comparação." />;
+  if (!d) return <Alert type="error" title="Não foi possível obter a comparação." />;
   const melhor = d.propostas[0]?.id;
   /** Mapa impresso: classificação + matriz de preços (uma coluna por proposta; paisagem/A3 automáticos se não couber). */
   const pedidoImpressao = () => ({
@@ -101,7 +101,7 @@ export function QuadroComparativo() {
         subtitulo="Pontuação: preço (até 70) + prazo de entrega (até 30)"
         impressao={d.propostas.length ? pedidoImpressao : undefined} accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
       {d.propostas.length === 0 ? (
-        <Alert type="info" showIcon message="Ainda não há propostas para este pedido." />
+        <Alert type="info" showIcon title="Ainda não há propostas para este pedido." />
       ) : (
         <>
           <Card title="Classificação" style={{ marginBottom: 16 }}>

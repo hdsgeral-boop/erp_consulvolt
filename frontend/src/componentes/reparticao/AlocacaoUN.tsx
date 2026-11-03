@@ -117,8 +117,8 @@ export function AlocacaoUN({ value, onChange, valor, titulo = 'Unidades de negó
           <Space style={{ marginTop: 4 }}>
             <Button size="small" icon={<PlusOutlined />} disabled={disabled} onClick={() => mudar({ ...estado, unidades: [...estado.unidades, {}] })}>Alocar unidade</Button>
           </Space>
-          {erro && <Alert style={{ marginTop: 8 }} type="warning" showIcon message={erro} />}
-          {previa.error && <Alert style={{ marginTop: 8 }} type="warning" showIcon message={(previa.error as Error).message} />}
+          {erro && <Alert style={{ marginTop: 8 }} type="warning" showIcon title={erro} />}
+          {previa.error && <Alert style={{ marginTop: 8 }} type="warning" showIcon title={(previa.error as Error).message} />}
           {previa.data && !erro && (
             <Table<LinhaReparticao>
               style={{ marginTop: 8 }}

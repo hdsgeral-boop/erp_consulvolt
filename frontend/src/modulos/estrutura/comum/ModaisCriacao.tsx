@@ -121,7 +121,7 @@ export function ModalVariasUnidades({ aberto, unidades, paiInicial, aoFechar }: 
         </Button>
         <Typography.Text type="secondary">Pode colar uma lista do Excel (uma unidade por linha; «código» e «nome» em colunas).</Typography.Text>
       </Space>
-      {erros.length > 0 && <Alert style={{ marginTop: 12 }} type="error" showIcon message="Corrija antes de gravar (nada foi criado):" description={erros.join(' ')} />}
+      {erros.length > 0 && <Alert style={{ marginTop: 12 }} type="error" showIcon title="Corrija antes de gravar (nada foi criado):" description={erros.join(' ')} />}
     </Modal>
   );
 }

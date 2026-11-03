@@ -3,7 +3,7 @@ import { CheckCircleTwoTone } from '@ant-design/icons';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router';
 import { obter, obterPagina } from '@/api/cliente';
 import { DiagramaFluxo, IconeFa, RaizFluxo } from '@/componentes/fluxos';
 import { larguraGaveta, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -50,7 +50,7 @@ function ListaEntradas() {
       title: 'Armazém Destino',
       key: 'armazem',
       valorImpressao: (r) => (r.situacao === 'VALIDADO' ? r.armazem ?? 'N/D' : 'Pendente'),
-      render: (_, r) => (r.situacao === 'VALIDADO' ? <Tag bordered>{r.armazem ?? 'N/D'}</Tag> : <Typography.Text type="secondary">Pendente</Typography.Text>),
+      render: (_, r) => (r.situacao === 'VALIDADO' ? <Tag variant="outlined">{r.armazem ?? 'N/D'}</Tag> : <Typography.Text type="secondary">Pendente</Typography.Text>),
     },
     {
       title: 'Status',
@@ -196,10 +196,10 @@ function EncomendasPorReceber() {
 function FluxoRececao({ rececao, aoFechar }: { rececao: RececaoArmazem | null; aoFechar: () => void }) {
   const f = rececao ? estadosFluxoRececao(rececao) : null;
   return (
-    <Drawer open={!!rececao} onClose={aoFechar} width={larguraGaveta(820)} title={rececao ? `Fluxo do Processo — ${rececao.numero_entrega ?? `#${rececao.id}`}` : 'Fluxo do Processo'} destroyOnHidden>
+    <Drawer open={!!rececao} onClose={aoFechar} size={larguraGaveta(820)} title={rececao ? `Fluxo do Processo — ${rececao.numero_entrega ?? `#${rececao.id}`}` : 'Fluxo do Processo'} destroyOnHidden>
       {rececao && f && (
         <RaizFluxo>
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
             <Typography.Text type="secondary">
               Encomenda {referenciaEncomenda(rececao)} · {rececao.fornecedor?.trim() || 'N/D'} · {formatarData(rececao.data)}
             </Typography.Text>

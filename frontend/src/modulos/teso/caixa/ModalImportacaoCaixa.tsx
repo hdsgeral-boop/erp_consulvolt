@@ -101,7 +101,7 @@ export function ModalImportacaoCaixa({ sessao, aoFechar }: { sessao: { id: numbe
             style={{ marginTop: 12 }}
             showIcon
             type={resultado.importado ? 'success' : resultado.erros.length ? 'warning' : 'info'}
-            message={resultado.importado
+            title={resultado.importado
               ? `${resultado.validas.length} movimento(s) importado(s): entradas ${formatarKz(resultado.total_entradas)} Kz, saídas ${formatarKz(resultado.total_saidas)} Kz.`
               : `${resultado.simulacao ? 'Pré-visualização' : 'Nada foi importado'}: ${resultado.linhas_lidas} linha(s) lida(s); ${resultado.validas.length} válida(s), ${resultado.erros.length} com erro.`}
           />

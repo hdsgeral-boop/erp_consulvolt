@@ -125,7 +125,7 @@ export function SeletorClienteVenda({ value, onChange, inicial, onEscolher, ...p
             </Typography.Paragraph>
             {!podePromover && (
               <Alert type="warning" showIcon style={{ marginBottom: 12 }}
-                message="Não tem a permissão «Gerir clientes»: peça a quem a tenha para acrescentar o papel de cliente em Vendas › Clientes." />
+                title="Não tem a permissão «Gerir clientes»: peça a quem a tenha para acrescentar o papel de cliente em Vendas › Clientes." />
             )}
             <Form form={form} layout="vertical" disabled={!podePromover}
               onFinish={(v) => promover.mutate({ id: aPromover.id, conta: String(v.conta_cliente ?? '').trim() })}>

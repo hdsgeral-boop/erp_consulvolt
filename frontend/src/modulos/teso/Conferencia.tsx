@@ -238,7 +238,7 @@ export default function Conferencia() {
         </Col>
         <Col xs={24} lg={10}>
           <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="balance-scale" /> 3. Comparação</>}>
-            <Space direction="vertical" style={{ width: '100%' }} size={10}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={10}>
               <CartaoKpi rotulo="Total Físico Conferido" valor={formatarKz(total)} unidade="Kz" icone="hand-holding-usd" cor="#7c3aed" corValor="#7c3aed" />
               <CartaoKpi rotulo="Saldo em Sistema (Cont.)" valor={sistema === null ? '—' : formatarKz(sistema)} unidade="Kz" icone="database" cor="#0891b2" corValor="#0891b2"
                 secundaria={!conta ? 'Escolha a conta de caixa' : saldo.isFetching ? 'A calcular…' : 'Saldo no Diário à data (o servidor recalcula ao gravar)'} />
@@ -345,7 +345,7 @@ export default function Conferencia() {
             <Checkbox checked={regularizar} onChange={(e) => setRegularizar(e.target.checked)}>
               Lançar a regularização da diferença (sobras/quebras de caixa)
             </Checkbox>
-            <Alert style={{ marginTop: 12 }} type="info" showIcon message="As contas de sobras e quebras definem-se em Integração no razão › Contas de tesouraria." />
+            <Alert style={{ marginTop: 12 }} type="info" showIcon title="As contas de sobras e quebras definem-se em Integração no razão › Contas de tesouraria." />
           </>
         )}
       </Modal>

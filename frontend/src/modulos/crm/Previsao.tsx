@@ -102,7 +102,7 @@ export default function Previsao() {
       {carregando ? (
         <Skeleton active />
       ) : !p || !k || !tot ? (
-        <Alert type="error" showIcon message="Não foi possível calcular a previsão." />
+        <Alert type="error" showIcon title="Não foi possível calcular a previsão." />
       ) : (
         <div ref={ref}>
           {/* seis indicadores .crm-kpi do antigo (crm_ui_gestao.js:260-267): caixas simples, sem ícone nem barra */}

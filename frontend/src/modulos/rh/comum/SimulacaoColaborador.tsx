@@ -76,7 +76,7 @@ export function DetalheSimulacao({ r, mesAno, simulacao }: { r: ResultadoSalaria
       <TabelaRubricas titulo="Faltas / absentismo" linhas={faltas} cor="#b45309" />
       <TabelaRubricas titulo="Outros descontos" linhas={descontos} cor="#dc2626" />
       <Descriptions size="small" bordered column={1} title={<span style={{ fontSize: 12, textTransform: 'uppercase' }}>Retenções / impostos</span>} style={{ marginBottom: 12 }}
-        contentStyle={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+        styles={{ content: { textAlign: 'right', whiteSpace: 'nowrap' } }}>
         {!r.avencado && <Descriptions.Item label={`INSS trabalhador${pctTrab ? ` (${pctTrab})` : ''}`}><span style={{ color: '#dc2626', fontWeight: 600 }}>{formatarKz(r.inss_trabalhador)}</span></Descriptions.Item>}
         {!r.avencado && Number(r.isencoes) > 0 && <Descriptions.Item label="Isenções (não sujeitas a IRT)">{formatarKz(r.isencoes)}</Descriptions.Item>}
         {!r.avencado && <Descriptions.Item label="Base IRT (matéria colectável)">{formatarKz(r.base_irt)}</Descriptions.Item>}
@@ -89,7 +89,7 @@ export function DetalheSimulacao({ r, mesAno, simulacao }: { r: ResultadoSalaria
           <Descriptions.Item label={<strong>Custo total para a empresa</strong>}><strong>{formatarKz(Number(r.bruto) + Number(r.inss_patronal))}</strong></Descriptions.Item>
         </Descriptions>
       )}
-      {r.avisos?.length > 0 && <Alert type="warning" showIcon style={{ marginTop: 12 }} message="Avisos do cálculo" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{r.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} />}
+      {r.avisos?.length > 0 && <Alert type="warning" showIcon style={{ marginTop: 12 }} title="Avisos do cálculo" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{r.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} />}
       <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 12, marginBottom: 0, fontSize: 12 }}>
         {simulacao ? 'Simulação — calculada no servidor com os lançamentos gravados; nada foi gravado. Os valores podem mudar até ao encerramento.' : 'Valores da fotografia do período (imutáveis).'}
       </Typography.Paragraph>

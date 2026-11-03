@@ -154,7 +154,7 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
                   onDragLeave={arrasto ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSobreLivres(false); } : undefined}
                   onDrop={arrasto ? (e) => { if (!arrastado || !eArrastoMembro(e)) return; e.preventDefault(); arrasto.largar(null); } : undefined}>
                   {sobreLivres && arrastado && <Tag color={arrastado.de === null ? 'default' : 'processing'} style={{ marginBottom: 8, whiteSpace: 'normal' }}>{previsaoDestino(o, arrastado.membroId, null)?.texto}</Tag>}
-                  <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={6} style={{ width: '100%' }}>
                     {o.sem_posicao.map((m) => (
                       <Flex key={m.id} align="center" gap={8} data-org-membro={m.id} draggable={!!arrasto}
                         style={{ cursor: arrasto ? 'grab' : undefined, opacity: arrastado?.membroId === m.id ? 0.4 : 1 }} title={arrasto ? `Arraste «${m.nome}» para uma posição` : undefined}
@@ -174,7 +174,7 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
               </Col>
             )}
           </Row>
-          <Drawer open={!!detalhe} onClose={() => setDetalheId(null)} width={larguraModal(460)} title={detalhe?.titulo}
+          <Drawer open={!!detalhe} onClose={() => setDetalheId(null)} size={larguraModal(460)} title={detalhe?.titulo}
             extra={detalhe && acc.gerir && (
               <Dropdown trigger={['click']} menu={{ items: menuPosicao(detalhe), onClick: ({ key }) => executar(detalhe, String(key)) }}>
                 <Button icon={<MoreOutlined />}>Acções</Button>
@@ -277,7 +277,7 @@ function DetalhePosicao({ p, superior, idSuperior, subordinadas, idsSubordinadas
   const v = textoVagas(os.length, p.vagas);
   const c = consumo(p.valores.executado, p.valores.orcamento);
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
       <Descriptions size="small" column={1} bordered items={[
         { key: 'a', label: 'Área', children: p.area || '—' },
         { key: 'v', label: 'Vagas', children: <Typography.Text type={v.excesso ? 'danger' : v.falta ? 'warning' : undefined}>{v.texto}{v.excesso ? ' — excedido' : ''}</Typography.Text> },

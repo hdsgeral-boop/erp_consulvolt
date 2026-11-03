@@ -2,7 +2,7 @@ import { Button, Card, Checkbox, Flex, Input, Modal, Popconfirm, Select, Space, 
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router';
 import { descarregar, obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';

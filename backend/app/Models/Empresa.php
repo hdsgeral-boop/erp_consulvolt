@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
+use App\Services\Plataforma\MaquinaEstadosLicenca;
 use App\Services\Sistema\ServicoEmpresas;
+use App\Support\Tenancy\ContextoTenant;
+use App\Support\Tenancy\DefinicoesPlataforma;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Empresa (tenant). Legado: companies.
@@ -91,17 +95,17 @@ class Empresa extends ModeloBase
     {
         // SaaS (ADR-073): uma empresa nova pertence ao tenant do pedido/trabalho que a cria.
         static::creating(function (Empresa $e) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('empresas', 'tenant_id')) {
-                $e->tenant_id ??= app(\App\Support\Tenancy\ContextoTenant::class)->paraNovo();
+            if (Schema::hasColumn('empresas', 'tenant_id')) {
+                $e->tenant_id ??= app(ContextoTenant::class)->paraNovo();
             }
 
             // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de demonstração.
-            if (\App\Support\Tenancy\DefinicoesPlataforma::licencasAtivas() && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE) {
+            if (DefinicoesPlataforma::licencasAtivas() && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE) {
                 $e->licenca_origem = self::LICENCA_TESTE;
                 $e->licenca_inicio = now()->toDateString();
                 // Fase 8 da extensão SaaS: o plano do tenant pode ter um período experimental próprio; sem um
                 // valor definido (plano sem override, ou tenant sem plano), usa-se o global.
-                $diasTeste = ($e->tenant_id ? PlanoLicenca::diasTestePara($e->tenant_id) : null) ?? \App\Support\Tenancy\DefinicoesPlataforma::diasTestePadrao();
+                $diasTeste = ($e->tenant_id ? PlanoLicenca::diasTestePara($e->tenant_id) : null) ?? DefinicoesPlataforma::diasTestePadrao();
                 $e->licenca_fim = now()->addDays($diasTeste)->toDateString();
             }
 
@@ -110,7 +114,7 @@ class Empresa extends ModeloBase
             // sincronizar (MaquinaEstadosLicenca::calcular()), para que uma empresa criada já com `licenca_fim` no
             // passado (ex.: fixtures de teste) nasça correctamente em TOLERANCIA/SUSPENSA, nunca em ACTIVA.
             if ($e->estado_licenca === null) {
-                $e->estado_licenca = app(\App\Services\Plataforma\MaquinaEstadosLicenca::class)->calcular($e);
+                $e->estado_licenca = app(MaquinaEstadosLicenca::class)->calcular($e);
                 // Sem isto, uma suspensão "de nascença" ficaria sem motivo e calcular() passaria a tratá-la como
                 // manual (nunca recalculável) — ver MaquinaEstadosLicenca::calcular().
                 $e->motivo_suspensao ??= $e->estado_licenca === self::LICENCA_SUSPENSA ? self::MOTIVO_INCUMPRIMENTO : null;

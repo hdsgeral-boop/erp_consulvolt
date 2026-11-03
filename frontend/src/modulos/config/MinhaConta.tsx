@@ -31,7 +31,7 @@ export default function MinhaConta() {
       <Tabs items={[
         {
           key: 'resumo', label: 'Resumo', children: (
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <Card loading={resumo.isLoading} title={r?.cliente.nome}>
                 {r && (
                   <>
@@ -40,7 +40,7 @@ export default function MinhaConta() {
                       <Descriptions.Item label="Estado"><Tag color={r.cliente.estado === 'ATIVO' ? 'green' : 'orange'}>{r.cliente.estado}</Tag></Descriptions.Item>
                       <Descriptions.Item label="Plano">{r.uso.plano?.nome ?? 'Sem plano atribuído'}</Descriptions.Item>
                     </Descriptions>
-                    <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
+                    <Space orientation="vertical" style={{ width: '100%', marginTop: 8 }}>
                       <div>Empresas: {r.uso.empresas.usadas}{r.uso.empresas.limite ? ` / ${r.uso.empresas.limite}` : ' (sem limite)'}<Progress percent={pct(r.uso.empresas.usadas, r.uso.empresas.limite)} showInfo={false} /></div>
                       <div>Utilizadores: {r.uso.utilizadores.usados}{r.uso.utilizadores.limite ? ` / ${r.uso.utilizadores.limite}` : ' (sem limite)'}<Progress percent={pct(r.uso.utilizadores.usados, r.uso.utilizadores.limite)} showInfo={false} /></div>
                     </Space>

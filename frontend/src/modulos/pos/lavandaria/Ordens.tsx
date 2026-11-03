@@ -565,7 +565,7 @@ function ModalOrcamentosMassa({ ids, aoFechar, aoConcluir }: { ids: number[]; ao
       {carregando ? (
         <Skeleton active />
       ) : !linhas.length ? (
-        <Alert type="info" showIcon message="As ordens seleccionadas não têm orçamentos por aprovar." />
+        <Alert type="info" showIcon title="As ordens seleccionadas não têm orçamentos por aprovar." />
       ) : (
         <>
           <div style={{ fontSize: '0.84rem', marginBottom: '0.6rem' }}>
@@ -671,7 +671,7 @@ function ModalOrcamentosMassa({ ids, aoFechar, aoConcluir }: { ids: number[]; ao
               },
             ]}
           />
-          {semValor > 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon message={`Indique o valor aprovado em todas as linhas seleccionadas (${semValor} sem valor).`} />}
+          {semValor > 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon title={`Indique o valor aprovado em todas as linhas seleccionadas (${semValor} sem valor).`} />}
         </>
       )}
     </Modal>

@@ -1,7 +1,7 @@
 import { Button, Card, Col, DatePicker, Divider, Flex, Form, Input, Row, Space, Statistic, Typography } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';

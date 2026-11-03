@@ -15,7 +15,7 @@ import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/
 import { pedidoTabela } from './comum/impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { IconeFa } from '@/componentes/fluxos';
 import { Comunicado, IndicadoresCiclo, Participacao, Reunioes, RotuloSeparador, type Acompanhamento360 } from './avaliacao360/Acompanhamento';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
@@ -146,7 +146,7 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
       </Modal>
 
       <Modal title="Decidir a contestação" open={decidir !== null} onCancel={() => setDecidir(null)} okText="Decidir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Decide a chefia da chefia avaliadora; o RH só decide quando ela não existe (o servidor verifica)." />
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Decide a chefia da chefia avaliadora; o RH só decide quando ela não existe (o servidor verifica)." />
         <Form form={formD} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${decidir.id}/decidir-contestacao`, dados: v })}>
           <Form.Item name="resultado" label="Resultado" rules={[{ required: true }]}><Select options={[{ value: 'MANTIDA', label: 'Mantida' }, { value: 'ALTERADA', label: 'Alterada' }]} /></Form.Item>
           {resDecisao === 'ALTERADA' && <Form.Item name="nota" label="Nova nota (1 a 5)" rules={[{ required: true }]}><InputNumber min={1} max={5} step={0.01} style={{ width: '100%' }} /></Form.Item>}
@@ -160,7 +160,7 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
             <Descriptions size="small" column={COLUNAS_DESCRICOES} bordered style={{ marginBottom: 12 }}>
               {Object.entries(res.respostas ?? {}).map(([g, n]) => <Descriptions.Item key={g} label={`Respostas — ${ROTULO_GRUPO[g] ?? g}`}>{n} / {res.esperadas?.[g] ?? 0}</Descriptions.Item>)}
             </Descriptions>
-            {!res.liberado ? <Alert type="info" showIcon message={res.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
+            {!res.liberado ? <Alert type="info" showIcon title={res.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
               <>
                 <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="grupo" dataSource={Object.entries(res.componentes ?? {}).map(([grupo, c]) => ({ grupo, ...c }))} columns={[
                   { title: 'Grupo', dataIndex: 'grupo', render: (g: string) => ROTULO_GRUPO[g] ?? g },
@@ -169,7 +169,7 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
                   { title: 'Média', dataIndex: 'media', align: 'right', render: (v: number | null) => (v !== null ? formatarNumero(v) : '—') },
                 ]} />
                 <Typography.Title level={5} style={{ marginTop: 12 }}>Nota 360º: {res.nota !== null && res.nota !== undefined ? formatarNumero(res.nota) : '—'} {res.classificacao ? `(${res.classificacao})` : ''}</Typography.Title>
-                {(res.avisos ?? []).length > 0 && <Alert type="warning" showIcon message={res.avisos?.join(' ')} />}
+                {(res.avisos ?? []).length > 0 && <Alert type="warning" showIcon title={res.avisos?.join(' ')} />}
                 {(res.comentarios ?? []).length > 0 && <ul>{res.comentarios?.map((c, i) => <li key={i}>{c}</li>)}</ul>}
               </>
             )}
@@ -225,7 +225,7 @@ function Bonificacoes({ ciclo }: { ciclo: Ciclo360 }) {
 
   return (
     <Card>
-      {metodo === 'NENHUM' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Este ciclo não tem bonificação configurada." />}
+      {metodo === 'NENHUM' && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Este ciclo não tem bonificação configurada." />}
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
         <Typography.Text>Total: <strong>{formatarKz(somar(lista.map((b) => b.valor)), true)}</strong> · {lista.length} proposta(s)</Typography.Text>
         <Space wrap>

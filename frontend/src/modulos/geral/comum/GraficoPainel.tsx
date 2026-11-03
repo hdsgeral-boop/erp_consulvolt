@@ -30,7 +30,7 @@ export function inclinarRotulos(rotulos: string[], banda: number): boolean {
   return rotulos.length > 1 && maior + 6 > banda;
 }
 
-function useLargura(): [React.RefObject<HTMLDivElement>, number] {
+function useLargura(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [largura, setLargura] = useState(640);
   useLayoutEffect(() => {

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoModulo, type IndicadorModulo, type SeparadorModulo } from '@/componentes/CabecalhoModulo';
 import type { ResumoTesouraria } from './api';

@@ -194,7 +194,7 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message="Ficha bloqueada para valores"
+          title="Ficha bloqueada para valores"
           description="O activo tem lançamento de compra ou amortizações integradas: o servidor não aceita alterações aos valores, à data nem à vida útil."
         />
       )}

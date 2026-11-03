@@ -2,7 +2,7 @@ import { Button, Card, Input, InputNumber, Select, Space, Table, Tag, Tooltip, T
 import { ClockCircleOutlined, CommentOutlined, DashboardOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
@@ -71,7 +71,7 @@ export default function SuportePainel() {
         <Table<Ticket> rowKey="id" size="middle" loading={lista.isLoading} dataSource={linhas} scroll={{ x: 'max-content' }}
           expandable={{
             expandedRowRender: (t) => (
-              <Space direction="vertical" size={8}>
+              <Space orientation="vertical" size={8}>
                 <span>{t.descricao ?? '—'}</span>
                 <Space>
                   <span>Tempo de atendimento (min):</span>

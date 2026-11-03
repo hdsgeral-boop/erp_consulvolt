@@ -106,9 +106,14 @@ export function corStock(s: number): 'error' | 'warning' | 'success' {
   return s < 5 ? 'warning' : 'success';
 }
 
-/** Só o URL relativo da API para a imagem do produto (nada de endereços externos, data: ou javascript:). */
+/**
+ * Só o URL relativo da API para a imagem do produto, ou o URL público https da imagem no Cloudflare R2
+ * (ServicoImagensPublicas: …/empresas/{id}/produtos/{uuid}.{png|jpg|webp}) — nada de data: ou javascript:.
+ */
 export function urlImagemSegura(url: string | undefined | null): string | null {
-  return url && /^\/vendas\/produtos\/\d+\/imagem(\?v=\d+)?$/.test(url) ? url : null;
+  if (!url) return null;
+  if (/^\/vendas\/produtos\/\d+\/imagem(\?v=\d+)?$/.test(url)) return url;
+  return /^https:\/\/[a-z0-9.-]+\/empresas\/\d+\/produtos\/[0-9a-f-]{36}\.(?:png|jpg|webp)(?:\?v=\d+)?$/i.test(url) ? url : null;
 }
 
 // ───────────── Preferências do posto (por utilizador) ─────────────

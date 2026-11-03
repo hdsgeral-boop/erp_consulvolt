@@ -363,7 +363,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
           </Flex>
           {comQuantidades && (
             <Alert className="imp-nao-imprimir" type={mapaQtd.error ? 'error' : 'info'} showIcon style={{ marginBottom: 8 }}
-              message={mapaQtd.error ? (mapaQtd.error as Error).message
+              title={mapaQtd.error ? (mapaQtd.error as Error).message
                 : <>Em baixo de cada linha, a cinzento o previsto do período; <Typography.Text style={{ color: '#15803d' }} strong>verde</Typography.Text> quando o executado chega ao previsto, <Typography.Text style={{ color: '#b45309' }} strong>âmbar</Typography.Text> quando o período já começou e ficou aquém (executado/previsto).</>} />
           )}
           {acc.gerir && (
@@ -577,7 +577,7 @@ function ModalTarefa({ projectoId, tarefa, aoFechar }: { projectoId: number; tar
         </Row>
         {metaQ > 0 && (
           <Alert type="info" showIcon style={{ marginBottom: 12 }} data-testid="ritmo-exigido"
-            message={ritmo ? <>Ritmo exigido: <strong>{textoRitmo(ritmo)}</strong></> : 'Indique a data de início para ver o ritmo exigido pela meta.'} />
+            title={ritmo ? <>Ritmo exigido: <strong>{textoRitmo(ritmo)}</strong></> : 'Indique a data de início para ver o ritmo exigido pela meta.'} />
         )}
         </SeccaoFormulario>
         <SeccaoFormulario titulo="Dependência" recolhida={!editar && !tarefa?.tarefa_predecessora_id}>
@@ -591,7 +591,7 @@ function ModalTarefa({ projectoId, tarefa, aoFechar }: { projectoId: number; tar
           <Col xs={24} md={7}><Form.Item name="tipo_dependencia" label="Tipo de ligação"><Select disabled={!pred} options={Object.entries(TIPOS_DEP).map(([k, t]) => ({ value: k, label: t.nome, title: t.ajuda }))} /></Form.Item></Col>
           <Col xs={24} md={5}><Form.Item name="desfasamento_dias" label="Desfasamento (dias)"><InputNumber disabled={!pred} min={-3650} max={3650} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
-        {pred && <Alert type="info" showIcon message={`${rotuloDependencia(tipoDep, Number(form.getFieldValue('desfasamento_dias') ?? 0))}: ${TIPOS_DEP[tipoDep]?.ajuda ?? ''}.`} />}
+        {pred && <Alert type="info" showIcon title={`${rotuloDependencia(tipoDep, Number(form.getFieldValue('desfasamento_dias') ?? 0))}: ${TIPOS_DEP[tipoDep]?.ajuda ?? ''}.`} />}
         </SeccaoFormulario>
       </Form>
     </ModalFormulario>
@@ -728,9 +728,9 @@ function ModalLigacao({ projectoId, inicial, porChave, ligacoes, aoRemover, aoFe
           <Col xs={24} md={10}><Form.Item name="desf" label="Desfasamento (dias)"><InputNumber min={-3650} max={3650} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
       </Form>
-      {pred && tarefa && <Alert type="info" showIcon style={{ marginBottom: 8 }} message={`${rotuloDependencia(tipo, desf)}: «${nome(`t-${tarefa}`)}» ${TIPOS_DEP[tipo]?.ajuda ?? ''} («${nome(`t-${pred}`)}»).`} />}
-      {actual && actual.id !== pred && <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={`Cada tarefa tem uma só predecessora: a ligação actual a «${actual.nome}» é substituída.`} />}
-      <Divider orientation="left" plain style={{ margin: '8px 0' }}>Ligações existentes ({ligacoes.length})</Divider>
+      {pred && tarefa && <Alert type="info" showIcon style={{ marginBottom: 8 }} title={`${rotuloDependencia(tipo, desf)}: «${nome(`t-${tarefa}`)}» ${TIPOS_DEP[tipo]?.ajuda ?? ''} («${nome(`t-${pred}`)}»).`} />}
+      {actual && actual.id !== pred && <Alert type="warning" showIcon style={{ marginBottom: 8 }} title={`Cada tarefa tem uma só predecessora: a ligação actual a «${actual.nome}» é substituída.`} />}
+      <Divider titlePlacement="start" plain style={{ margin: '8px 0' }}>Ligações existentes ({ligacoes.length})</Divider>
       <List size="small" locale={{ emptyText: 'Sem precedências.' }} dataSource={ligacoes} style={{ maxHeight: 220, overflowY: 'auto' }}
         renderItem={(g) => (
           <List.Item actions={[<Button key="r" size="small" danger icon={<DeleteOutlined />} aria-label={`Remover a ligação de «${nome(g.de)}» para «${nome(g.para)}»`} onClick={() => aoRemover(g)}>Remover</Button>]}>

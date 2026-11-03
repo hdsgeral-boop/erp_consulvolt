@@ -55,7 +55,7 @@ export default function InventarioAgt() {
     }
   };
 
-  if (!permitido) return <Alert type="info" showIcon message="Sem permissão para exportar o Inventário (AGT)." />;
+  if (!permitido) return <Alert type="info" showIcon title="Sem permissão para exportar o Inventário (AGT)." />;
 
   return (
     <>
@@ -72,7 +72,7 @@ export default function InventarioAgt() {
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message="A AGT não publicou uma estrutura técnica oficial para este ficheiro (ao contrário do SAF-T de Facturação e Contabilidade)."
+        title="A AGT não publicou uma estrutura técnica oficial para este ficheiro (ao contrário do SAF-T de Facturação e Contabilidade)."
         description="Aceita XML, JSON ou Excel/CSV pelo Portal do Contribuinte; este ecrã gera CSV com os campos descritos pela Circular. Confirme o leiaute com o seu contabilista antes de submeter."
       />
 
@@ -95,7 +95,7 @@ export default function InventarioAgt() {
             style={{ marginTop: 16 }}
             type={previa.avisos.length ? 'warning' : 'success'}
             showIcon
-            message={`${previa.produtos} produto(s) de stock no exercício de ${ano}.`}
+            title={`${previa.produtos} produto(s) de stock no exercício de ${ano}.`}
             description={previa.avisos.length ? <ul style={{ margin: 0, paddingLeft: 18 }}>{previa.avisos.map((a) => <li key={a}>{a}</li>)}</ul> : undefined}
           />
         )}

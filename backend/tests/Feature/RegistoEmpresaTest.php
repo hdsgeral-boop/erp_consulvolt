@@ -5,8 +5,12 @@ namespace Tests\Feature;
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
 use App\Models\PlanoConta;
+use App\Models\PlanoLicenca;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ModulosPlano;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Tests\TestCase;
 
 final class RegistoEmpresaTest extends TestCase
@@ -14,7 +18,7 @@ final class RegistoEmpresaTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        $this->withoutMiddleware(ThrottleRequests::class);
     }
 
     public function test_registo_de_nova_empresa_cria_tenant_empresa_administrador_e_devolve_token(): void
@@ -85,8 +89,8 @@ final class RegistoEmpresaTest extends TestCase
 
         // null = sem restrição de módulos (ModulosPlano::doTenant/doTenantId): é esta ausência de plano, não um
         // plano específico, que dá acesso a todos os módulos durante a demonstração.
-        $this->assertNull(\App\Support\Tenancy\ModulosPlano::doTenant($tenant->plano));
-        $this->assertNull(\App\Support\Tenancy\ModulosPlano::doTenantId($tenant->id));
+        $this->assertNull(ModulosPlano::doTenant($tenant->plano));
+        $this->assertNull(ModulosPlano::doTenantId($tenant->id));
     }
 
     public function test_dois_registos_reutilizam_o_mesmo_perfil_de_acesso_total(): void
@@ -107,7 +111,7 @@ final class RegistoEmpresaTest extends TestCase
 
     public function test_empresa_em_demonstracao_fica_limitada_a_um_utilizador(): void
     {
-        \App\Models\PlanoLicenca::query()->create(['codigo' => 'basico', 'nome' => 'Básico', 'preco_mensal' => 9500, 'moeda' => 'AOA', 'ativo' => true, 'max_utilizadores' => 5, 'max_empresas' => 2]);
+        PlanoLicenca::query()->create(['codigo' => 'basico', 'nome' => 'Básico', 'preco_mensal' => 9500, 'moeda' => 'AOA', 'ativo' => true, 'max_utilizadores' => 5, 'max_empresas' => 2]);
 
         $payload = [
             'nome_comercial' => 'Loja Em Demonstração, Lda', 'nif' => '5418299001', 'telefone' => '923000333',
@@ -116,7 +120,7 @@ final class RegistoEmpresaTest extends TestCase
         ];
         $r = $this->postJson('/api/autenticacao/registar-empresa', $payload)->assertCreated();
         $auth = ['Authorization' => 'Bearer '.$this->tokenDoCookie($r), 'X-Empresa-Id' => $r->json('dados.empresa_id')];
-        $perfilTotal = \App\Models\PerfilUtilizador::query()->get()->first(fn ($p) => ($p->permissoes['all'] ?? null) === true);
+        $perfilTotal = PerfilUtilizador::query()->get()->first(fn ($p) => ($p->permissoes['all'] ?? null) === true);
 
         // Ainda em demonstração (nenhuma empresa com licença paga): não pode criar um 2.º utilizador, mesmo o plano
         // "basico" permitindo 5 — o limite do período de demonstração é sempre 1, independentemente do plano.
@@ -130,7 +134,7 @@ final class RegistoEmpresaTest extends TestCase
         // Em testes (SaaS/RLS desligado), uma empresa criada sem contexto fica no tenant 1 — o mesmo que
         // ServicoPlanoContasModelo usa como modelo (empresa mais antiga do tenant da plataforma).
         $modelo = $this->criarEmpresa();
-        app(\App\Support\Tenancy\ContextoEmpresa::class)->executarComo($modelo->id, function () {
+        app(ContextoEmpresa::class)->executarComo($modelo->id, function () {
             PlanoConta::create(['codigo' => '61', 'descricao' => 'Custo das mercadorias vendidas', 'tipo' => PlanoConta::TIPO_TOTALIZADORA]);
             PlanoConta::create(['codigo' => '611', 'descricao' => 'Mercadorias', 'tipo' => PlanoConta::TIPO_MOVIMENTO]);
         });
@@ -143,7 +147,7 @@ final class RegistoEmpresaTest extends TestCase
         $r = $this->postJson('/api/autenticacao/registar-empresa', $payload)->assertCreated();
         $empresaId = (int) $r->json('dados.empresa_id');
 
-        $contexto = app(\App\Support\Tenancy\ContextoEmpresa::class);
+        $contexto = app(ContextoEmpresa::class);
         $contas = $contexto->executarComo($empresaId, fn () => PlanoConta::query()->get()->keyBy('codigo'));
         $this->assertCount(2, $contas);
         $this->assertSame('Custo das mercadorias vendidas', $contas['61']->descricao);

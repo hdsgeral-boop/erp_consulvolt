@@ -39,7 +39,7 @@ export function juntarColunas<T>(dados: MapaPorUnidade<T>, linhas: (m: T) => Lin
 /** Balanço/DR com uma coluna por unidade de negócio, «Sem unidade» e o Total (botão «Por unidade de negócio»). */
 export function TabelaPorUnidade<T>({ dados, linhas, titulo, periodo }: { dados: MapaPorUnidade<T>; linhas: (m: T) => LinhaDemonstracaoUN[]; titulo: string; periodo?: string }) {
   if (!dados.colunas.length) {
-    return <Alert type="info" showIcon message="Não há lançamentos com unidade de negócio no período: o mapa por unidade não tem colunas." />;
+    return <Alert type="info" showIcon title="Não há lançamentos com unidade de negócio no período: o mapa por unidade não tem colunas." />;
   }
   const filas = juntarColunas(dados, linhas);
   const negrito = (l: Linha) => l.tipo !== 'linha';

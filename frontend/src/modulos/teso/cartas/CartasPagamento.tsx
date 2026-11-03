@@ -2,7 +2,7 @@ import { Alert, Button, Card, DatePicker, Descriptions, Input, InputNumber, Moda
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
@@ -149,7 +149,7 @@ function PagamentosElegiveis({ aoEmitir }: { aoEmitir: (id: number) => void }) {
   ];
   return (
     <Card>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A carta nasce de um pagamento já gravado"
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} title="A carta nasce de um pagamento já gravado"
         description="Escolha um pagamento numa conta bancária (42 ou 43) com IBAN no plano de contas. A carta não cria dívida nem lançamento: só manda o banco executar o pagamento registado." />
       <BarraFiltros accoes={<Space wrap><Button type="primary" icon={<IconeFa nome="search" />} onClick={() => setQ(texto)}>Buscar</Button>
         <Button icon={<IconeFa nome="undo" />} onClick={() => { setTexto(''); setQ(''); setPeriodo(null); }}>Limpar</Button></Space>}>
@@ -186,8 +186,8 @@ function DetalheCarta({ id, aoFechar, imprimir, podeEmitir }: { id: number | nul
       }>
       {carta.isLoading || !c ? <Skeleton active /> : (
         <>
-          {c.estado_efectivo === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={`Anulada em ${formatarData(c.anulada_em)}${c.anulada_por ? ` por ${c.anulada_por}` : ''}`} description={c.motivo_anulacao} />}
-          {c.dados_banco_actuais && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Carta antiga sem fotografia da conta bancária: mostram-se os dados actuais do plano de contas." />}
+          {c.estado_efectivo === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={`Anulada em ${formatarData(c.anulada_em)}${c.anulada_por ? ` por ${c.anulada_por}` : ''}`} description={c.motivo_anulacao} />}
+          {c.dados_banco_actuais && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Carta antiga sem fotografia da conta bancária: mostram-se os dados actuais do plano de contas." />}
           <Descriptions size="small" bordered column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }} items={[
             { key: 'tipo', label: 'Tipo', children: ROTULO_TIPO_CARTA[c.tipo_efectivo] + (c.tipo_efectivo === 'SALARIOS' && c.mes_ano ? ` — ${mesPorExtenso(c.mes_ano)}` : '') },
             { key: 'data', label: 'Data', children: formatarData(c.data) },

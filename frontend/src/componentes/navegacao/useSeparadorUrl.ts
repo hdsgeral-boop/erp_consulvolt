@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useInRouterContext, useSearchParams } from 'react-router-dom';
+import { useInRouterContext, useSearchParams } from 'react-router';
 
 /**
  * Separador activo de um ecrã guardado no endereço (`?sep=<chave>`), para que a pesquisa do cabeçalho

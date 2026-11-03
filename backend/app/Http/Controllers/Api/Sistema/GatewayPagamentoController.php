@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Sistema;
 
 use App\Http\Controllers\Controller;
 use App\Models\SubscricaoEmpresa;
-use App\Models\Utilizador;
 use App\Services\Pagamentos\ProcessadorPagamentos;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;

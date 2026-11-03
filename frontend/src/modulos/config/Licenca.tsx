@@ -42,22 +42,10 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
 import { PainelSuporteCliente } from './comum/PainelSuporteCliente';
+import { CHAVE_LICENCA, useEstadoLicenca, type EstadoLicenca } from './estadoLicenca';
+export { CHAVE_LICENCA, useEstadoLicenca, type EstadoLicenca };
 
 const { Text, Paragraph } = Typography;
-
-export interface EstadoLicenca {
-  licencas_ativas: boolean;
-  origem: 'SEM_LIMITE' | 'TESTE' | 'PLANO';
-  inicio: string | null;
-  fim: string | null;
-  dias_restantes: number | null;
-  expirada: boolean;
-  somente_leitura: boolean;
-  aviso: 'A_EXPIRAR' | 'EXPIRADA' | null;
-  plano: { id: number; codigo: string; nome: string } | null;
-  pendentes: number;
-  dias_teste: number;
-}
 
 interface CicloPreco {
   ciclo_codigo: string;
@@ -131,18 +119,9 @@ interface DadosPagamentoIniciado {
   };
 }
 
-export const CHAVE_LICENCA = ['licenca'];
 const ORIGENS = { SEM_LIMITE: 'Sem limite', TESTE: 'Período de Demonstração', PLANO: 'Plano pago' } as const;
 const COR_ESTADO = { PENDENTE: 'gold', PAGO: 'green', CANCELADO: 'default' } as const;
 
-export function useEstadoLicenca(activo = true) {
-  return useQuery({
-    queryKey: [...CHAVE_LICENCA, 'estado'],
-    queryFn: () => obter<EstadoLicenca>('/licenca/estado'),
-    enabled: activo,
-    staleTime: 60_000,
-  });
-}
 
 /** Configurações — Licença e plano (config_licenca): estado, renovação por plano e tempo, pedidos e pagamentos via gateway. */
 export default function Licenca() {
@@ -297,7 +276,7 @@ export default function Licenca() {
           style={{ marginBottom: 16 }}
           showIcon
           type={e.aviso === 'EXPIRADA' ? 'error' : 'warning'}
-          message={e.aviso === 'EXPIRADA' ? 'Licença expirada: a empresa está em modo somente leitura.' : `A licença expira em ${e.dias_restantes} dia(s).`}
+          title={e.aviso === 'EXPIRADA' ? 'Licença expirada: a empresa está em modo somente leitura.' : `A licença expira em ${e.dias_restantes} dia(s).`}
           description={
             e.aviso === 'EXPIRADA'
               ? 'Para desbloquear a emissão de documentos e gravação de dados, selecione um plano abaixo e efetue o pagamento.'
@@ -312,10 +291,10 @@ export default function Licenca() {
             key: 'estado',
             label: 'Estado e Renovação',
             children: (
-              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                 <Card loading={estado.isLoading} title="Licença da Empresa Ativa">
                   {e && (
-                    <Descriptions column={{ xs: 1, md: 3 }} size="middle">
+                    <Descriptions column={{ xs: 1, md: 3 }} size="medium">
                       <Descriptions.Item label="Origem">
                         <Tag color={e.origem === 'SEM_LIMITE' ? 'gold' : e.origem === 'TESTE' ? 'blue' : 'purple'}>
                           {ORIGENS[e.origem]}
@@ -350,7 +329,7 @@ export default function Licenca() {
 
                 {gerir && (
                   <Card title="Pedir Renovação / Nova Subscrição">
-                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                       <Space wrap align="end">
                         <div>
                           <div style={{ fontSize: 12, marginBottom: 4, fontWeight: 500 }}>Escolha o Plano:</div>
@@ -588,7 +567,7 @@ export default function Licenca() {
         onCancel={() => setSubscricaoPagamento(null)}
         footer={null}
         width={680}
-        destroyOnClose
+        destroyOnHidden
       >
         {subscricaoPagamento && (
           <div>
@@ -798,7 +777,7 @@ export default function Licenca() {
                   </div>
                 ) : (
                   <Alert
-                    message="Notificação Express Enviada com Sucesso!"
+                    title="Notificação Express Enviada com Sucesso!"
                     description={
                       <div>
                         <Paragraph style={{ margin: '8px 0' }}>
@@ -811,7 +790,7 @@ export default function Licenca() {
                         <Paragraph type="secondary" style={{ fontSize: 12 }}>
                           Abra agora a aplicação <strong>Multicaixa Express</strong> no seu telemóvel e introduza o seu PIN para concluir. A sua licença será prolongada no mesmo instante.
                         </Paragraph>
-                        <Spin tip="A aguardar confirmação da rede..." style={{ marginTop: 8 }} />
+                        <Spin description="A aguardar confirmação da rede..." style={{ marginTop: 8 }} />
                       </div>
                     }
                     type="info"
@@ -896,7 +875,7 @@ export default function Licenca() {
         confirmLoading={gravarPlano.isPending}
         onCancel={() => setEdicao(null)}
         onOk={() => form.validateFields().then((v) => gravarPlano.mutate(v))}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="codigo" label="Código" rules={[{ required: true }]}>

@@ -61,7 +61,7 @@ export function ConteudoPreContabilizacao({ fatura, dados: p, carregando, erro }
         <strong>{fatura.fornecedor?.nome ?? 'N/D'}</strong>
         <Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>NIF: {fatura.fornecedor?.nif || '---'}</Typography.Text>
       </div>
-      {carregando && <Spin size="small" tip="A calcular no servidor…"><div style={{ height: 32 }} /></Spin>}
+      {carregando && <Spin size="small" description="A calcular no servidor…"><div style={{ height: 32 }} /></Spin>}
       {erro && <Typography.Text type="warning">{erro.message}</Typography.Text>}
       {p && (
         <>

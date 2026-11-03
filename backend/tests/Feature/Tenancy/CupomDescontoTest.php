@@ -6,6 +6,7 @@ use App\Models\CupomDesconto;
 use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\Utilizador;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -35,7 +36,7 @@ class CupomDescontoTest extends TestCase
 
         $this->postJson('/api/plataforma/cupoes', $corpo, $this->sessaoSuperAdmin($empresa))->assertStatus(422);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         DB::table('cupons_desconto')->insert([
             'codigo' => 'DIRETO_BD', 'tipo_desconto' => CupomDesconto::PERCENTAGEM, 'valor_desconto' => 20, 'moeda' => 'AOA',
             'data_inicio' => now()->toDateString(), 'data_fim' => now()->addMonth()->toDateString(), 'limite_por_cliente' => 1,

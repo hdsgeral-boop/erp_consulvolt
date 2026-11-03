@@ -2,7 +2,7 @@ import { AutoavaliacoesRH, AvaliacaoChefiasRH } from './comum/AvaliacoesPortalRH
 import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import { IconeFa } from '@/componentes/fluxos';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
@@ -159,7 +159,7 @@ function Pedidos() {
 
       <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
         {decidir && <Typography.Paragraph>{colaboradores.nome(decidir.colaborador_id)} — {TIPOS_PEDIDO[decidir.tipo]}: {resumoPedido(decidir)}</Typography.Paragraph>}
-        {decidir?.tipo === 'AGREGADO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A aprovação é recusada se o agregado mudou desde o pedido." />}
+        {decidir?.tipo === 'AGREGADO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="A aprovação é recusada se o agregado mudou desde o pedido." />}
         <Form form={formD} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${decidir.id}/decidir`, dados: v })}>
           <Form.Item name="decisao" label="Decisão"><Select disabled={decidir?.tipo === 'DOCUMENTO'} options={[{ value: 'APROVADO', label: 'Aprovar' }, { value: 'RECUSADO', label: 'Recusar' }]} /></Form.Item>
           {decisao === 'APROVADO' && decidir?.tipo === 'AUSENCIA' && (
@@ -174,7 +174,7 @@ function Pedidos() {
       <Modal title={`Emitir documento — pedido #${emitir?.id ?? ''}`} open={emitir !== null} width={larguraModal(860)} onCancel={() => setEmitir(null)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formE.submit()} destroyOnHidden>
         {proposta.isLoading ? <Card loading variant="borderless" /> : (
           <>
-            {(proposta.data?.faltas ?? []).length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Variáveis sem valor (aparecem como [Rótulo]): ${proposta.data?.faltas.join(', ')}. Complete o texto antes de emitir.`} />}
+            {(proposta.data?.faltas ?? []).length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Variáveis sem valor (aparecem como [Rótulo]): ${proposta.data?.faltas.join(', ')}. Complete o texto antes de emitir.`} />}
             <Form form={formE} layout="vertical" onFinish={(v) => emitir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${emitir.id}/emitir`, dados: v })}>
               <Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item>
               <Form.Item name="texto" label="Texto" rules={[{ required: true, min: 20 }]}><Input.TextArea rows={10} maxLength={20000} /></Form.Item>
@@ -199,7 +199,7 @@ function DetalhePedido({ pedido }: { pedido: PedidoPortal }) {
   const d = (pedido.dados ?? {}) as Record<string, unknown>;
   const lista = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       <EtapasPedido pedido={pedido} />
       {pedido.tipo === 'AGREGADO' && (
         <Row gutter={16}>
@@ -216,7 +216,7 @@ function DetalhePedido({ pedido }: { pedido: PedidoPortal }) {
         </Row>
       )}
       {Boolean(d.observacoes || d.motivo) && <Descriptions size="small" column={1}><Descriptions.Item label="Observações / motivo">{String(d.observacoes || d.motivo)}</Descriptions.Item></Descriptions>}
-      {Array.isArray(d.avisos) && d.avisos.length > 0 && <Alert type="warning" showIcon message={(d.avisos as string[]).join(' ')} />}
+      {Array.isArray(d.avisos) && d.avisos.length > 0 && <Alert type="warning" showIcon title={(d.avisos as string[]).join(' ')} />}
     </Space>
   );
 }

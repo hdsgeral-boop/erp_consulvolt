@@ -142,8 +142,8 @@ export function DialogoExcesso({ dados, contexto, repetir, aoFechar }: PropsDial
   );
 
   return (
-    <Modal open title="Excesso orçamental — aprovação necessária" width={larguraModal(860)} onCancel={aoFechar} footer={rodape} destroyOnHidden maskClosable={false}>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={dados.mensagem} description={dados.documento ? `Documento: ${dados.documento}${dados.origem ? ` (${dados.origem.toLowerCase().replace(/_/g, ' ')})` : ''}` : undefined} />
+    <Modal open title="Excesso orçamental — aprovação necessária" width={larguraModal(860)} onCancel={aoFechar} footer={rodape} destroyOnHidden mask={{ closable: false }}>
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={dados.mensagem} description={dados.documento ? `Documento: ${dados.documento}${dados.origem ? ` (${dados.origem.toLowerCase().replace(/_/g, ' ')})` : ''}` : undefined} />
       <Table<AlertaOrcamental>
         rowKey={(a) => `${a.orcamento_anual_id}-${a.rubrica_orcamental_id}`}
         size={pequeno ? 'small' : 'middle'}
@@ -166,7 +166,7 @@ export function DialogoExcesso({ dados, contexto, repetir, aoFechar }: PropsDial
           <Alert
             type={aprovados ? 'success' : 'info'}
             showIcon
-            message={aprovados ? 'Excesso aprovado: já pode gravar o documento.' : 'Pedido de aprovação enviado.'}
+            title={aprovados ? 'Excesso aprovado: já pode gravar o documento.' : 'Pedido de aprovação enviado.'}
             description={
               aprovados
                 ? 'Carregue em «Gravar de novo»: a gravação usa a aprovação (o formulário mantém os dados).'
@@ -211,11 +211,11 @@ export function DialogoExcesso({ dados, contexto, repetir, aoFechar }: PropsDial
             <Alert
               type="info"
               showIcon
-              message="O pedido não pode ser preparado a partir deste ecrã."
+              title="O pedido não pode ser preparado a partir deste ecrã."
               description="Peça a um utilizador com a permissão «Aprovar excesso orçamental» que grave o documento (aprovação no acto), ou registe o pedido em Orçamento › Alertas e aprovações."
             />
           )}
-          {!podePedir && temDadosPedido && !podeAprovar && <Alert type="info" showIcon message="Não tem permissão para pedir a aprovação do excesso." />}
+          {!podePedir && temDadosPedido && !podeAprovar && <Alert type="info" showIcon title="Não tem permissão para pedir a aprovação do excesso." />}
           {podeAprovar && (
             <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
               Tem a permissão «Aprovar excesso»: pode aprovar já e gravar (fica registado como aprovado no acto, com esta justificação).

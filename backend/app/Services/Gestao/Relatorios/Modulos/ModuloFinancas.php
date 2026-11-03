@@ -86,7 +86,7 @@ final class ModuloFinancas extends ModuloGestao
         $resultado = bcsub($proveitos, $custos, 2);
         // Disponibilidades inclui as contas-cartão (classe 3 marcada): EXISTS directo a plano_contas, correlacionado por
         // empresa e código — correcto independentemente de qual empresa está a ser processada neste momento.
-        $cartaoExiste = "EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = TRIM(l.codigo_conta) AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)";
+        $cartaoExiste = 'EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = TRIM(l.codigo_conta) AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)';
         $saldos = self::diario($e)->where('l.data_documento', '<=', $p['fim'])
             ->selectRaw("COALESCE(SUM(CASE WHEN TRIM(l.codigo_conta) LIKE '43%' OR TRIM(l.codigo_conta) LIKE '45%' OR {$cartaoExiste} THEN (CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) ELSE 0 END), 0) AS disp,
                 COALESCE(SUM(CASE WHEN TRIM(l.codigo_conta) LIKE '31%' THEN (CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) ELSE 0 END), 0) AS cli,

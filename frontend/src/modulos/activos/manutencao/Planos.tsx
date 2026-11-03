@@ -45,7 +45,7 @@ export function Planos({ aoAbrirOrdens }: { aoAbrirOrdens: () => void }) {
         </Typography.Paragraph>
         {!!porVencer.length && (
           <Alert style={{ marginTop: 12 }} type="warning" showIcon
-            message={`${porVencer.length} plano(s) vencido(s) ou a vencer: ${porVencer.slice(0, 4).map((p) => p.nome).join('; ')}${porVencer.length > 4 ? '…' : ''}`} />
+            title={`${porVencer.length} plano(s) vencido(s) ou a vencer: ${porVencer.slice(0, 4).map((p) => p.nome).join('; ')}${porVencer.length > 4 ? '…' : ''}`} />
         )}
       </Card>
       <Card>

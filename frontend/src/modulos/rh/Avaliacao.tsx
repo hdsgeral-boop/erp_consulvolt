@@ -286,7 +286,7 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
   });
 
   return (
-    <Drawer title={`Avaliação — ${linha.colaborador.nome_completo} (${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label})`} open width={larguraGaveta(820)} onClose={aoFechar} destroyOnHidden
+    <Drawer title={`Avaliação — ${linha.colaborador.nome_completo} (${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label})`} open size={larguraGaveta(820)} onClose={aoFechar} destroyOnHidden
       extra={<Space wrap>
         {a && <BotoesExportar tamanho="small" obterPedido={imprimirFicha} />}
         {a?.fase === 'AGUARDA_CONHECIMENTO' && pode('rh_avaliacao_edit') && <Button onClick={() => setConhecimento(true)}>Registar conhecimento (RH)</Button>}
@@ -309,7 +309,7 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
       {itens.isLoading ? <Card loading variant="borderless" /> : (
         <Form form={form} layout="vertical" disabled={!editavel} initialValues={iniciais}>
           <Typography.Title level={5}>Critérios</Typography.Title>
-          {criterios.length === 0 && <Alert type="info" message="Sem critérios: na primeira utilização o servidor cria os 8 critérios padrão." />}
+          {criterios.length === 0 && <Alert type="info" title="Sem critérios: na primeira utilização o servidor cria os 8 critérios padrão." />}
           <Form.List name="criterios">
             {(campos) => campos.map(({ key, name }) => {
               const i = criterios[name];

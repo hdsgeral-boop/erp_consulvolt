@@ -99,12 +99,12 @@ export function ModalImportarActivos({ aberto, aoFechar }: { aberto: boolean; ao
         CSV com cabeçalhos (separador «;» ou «,»): <code>codigo; descricao; valor_aquisicao; categoria; vida_util; anos_amortizados; amortizacao_acumulada;
         ano_amortizacao_acumulada; data_aquisicao</code>. As categorias que não existirem são criadas com taxa de 25%.
       </Typography.Paragraph>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Button icon={<DownloadOutlined />} style={{ marginRight: 8 }} onClick={() => void descarregar('/ativos/bens/importar/modelo', undefined, 'Template_Activos.xlsx').catch(notificarErro)}>Template</Button>
         <Upload accept=".xlsx,.xls,.csv,.txt" maxCount={1} beforeUpload={ler} showUploadList={false}>
           <Button icon={<UploadOutlined />}>Escolher ficheiro (Excel ou CSV)</Button>
         </Upload>
-        {ignoradas.length > 0 && <Alert type="warning" showIcon message={`Colunas ignoradas: ${ignoradas.join(', ')}`} />}
+        {ignoradas.length > 0 && <Alert type="warning" showIcon title={`Colunas ignoradas: ${ignoradas.join(', ')}`} />}
         <Radio.Group value={decisao} onChange={(e) => { setDecisao(e.target.value); setSimulacao(null); }}>
           <Radio value="IGNORAR">Ignorar os códigos que já existem</Radio>
           <Radio value="ACTUALIZAR">Actualizar a descrição e a categoria dos existentes</Radio>

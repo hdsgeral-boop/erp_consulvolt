@@ -53,7 +53,7 @@ export function MapeamentosEmFalta({ lista, aoFechar, repetir }: { lista: Mapeam
   return (
     <Modal title="Mapeamentos contabilísticos em falta" open={lista !== null} width={larguraModal(860)} onCancel={aoFechar} destroyOnHidden
       footer={<Space wrap><Button onClick={aoFechar}>Cancelar</Button><Button type="primary" disabled={!todas} loading={aGravar} onClick={() => void gravar()}>Gravar e contabilizar</Button></Space>}>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O lançamento dos salários não pode ser criado"
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="O lançamento dos salários não pode ser criado"
         description="Indique a conta de movimento de cada rubrica ou conta do sistema em falta. Os mapeamentos ficam gravados (Contabilidade › Mapeamento de salários) e a contabilização é repetida." />
       <Table<MapeamentoEmFalta> rowKey={chaveMapeamento} size="small" pagination={false} dataSource={lista ?? []} scroll={{ x: 'max-content' }} columns={[
         { title: 'Tipo', dataIndex: 'tipo', render: (t: string) => <Tag color={t === 'RUBRICA' ? 'blue' : 'purple'}>{t === 'RUBRICA' ? 'Rubrica' : 'Sistema'}</Tag> },

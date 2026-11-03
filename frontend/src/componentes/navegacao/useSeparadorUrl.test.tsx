@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Tabs } from 'antd';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { consultaComSeparador, separadorDaConsulta, useSeparadorUrl } from './useSeparadorUrl';
 

@@ -3,10 +3,13 @@
 namespace Tests\Feature\Tenancy;
 
 use App\Models\Empresa;
+use App\Models\PerfilUtilizador;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\TicketSuporte;
 use App\Models\Utilizador;
+use App\Services\Plataforma\MaquinaEstadosLicenca;
+use App\Support\Tenancy\ContextoTenant;
 use Tests\TestCase;
 
 /**
@@ -26,7 +29,7 @@ class DashboardExecutivoTest extends TestCase
     public function test_dashboard_calcula_mrr_a_partir_da_ultima_subscricao_paga_de_cada_empresa_activa(): void
     {
         config(['erp.saas.ativo' => true]);
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         [, $super] = $this->superAdmin();
 
         $plano = PlanoLicenca::query()->firstOrCreate(['codigo' => 'teste_dash'], ['nome' => 'Plano Dash', 'preco_mensal' => 15000, 'moeda' => 'AOA', 'ativo' => true]);
@@ -51,7 +54,7 @@ class DashboardExecutivoTest extends TestCase
             'empresa_id' => $empresaC->id, 'plano_id' => $plano->id, 'meses' => 1, 'valor' => 99999, 'moeda' => 'AOA',
             'estado' => SubscricaoEmpresa::PAGO, 'referencia' => 'REF-C', 'pago_em' => now(),
         ]);
-        app(\App\Services\Plataforma\MaquinaEstadosLicenca::class)->transicionar($empresaC, Empresa::LICENCA_CANCELADA);
+        app(MaquinaEstadosLicenca::class)->transicionar($empresaC, Empresa::LICENCA_CANCELADA);
 
         $dados = $this->getJson('/api/plataforma/painel', $super)->assertOk()->json('dados');
 
@@ -66,7 +69,7 @@ class DashboardExecutivoTest extends TestCase
     public function test_dashboard_conta_tickets_abertos_criticos_e_vencidos(): void
     {
         config(['erp.saas.ativo' => true]);
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         [, $super] = $this->superAdmin();
 
         TicketSuporte::query()->create(['tenant_id' => 1, 'assunto' => 'Normal', 'descricao' => 'x', 'prioridade' => 'NORMAL', 'categoria' => 'GERAL', 'estado' => TicketSuporte::ABERTO]);
@@ -82,8 +85,8 @@ class DashboardExecutivoTest extends TestCase
     public function test_pedido_sem_a_chave_plataforma_painel_ver_e_rejeitado(): void
     {
         config(['erp.saas.ativo' => true]);
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
-        $perfil = \App\Models\PerfilUtilizador::create(['nome' => 'Sem painel', 'permissoes' => ['_v2' => true], 'restrito_plataforma' => true]);
+        app(ContextoTenant::class)->definir(1);
+        $perfil = PerfilUtilizador::create(['nome' => 'Sem painel', 'permissoes' => ['_v2' => true], 'restrito_plataforma' => true]);
         $operador = $this->criarUtilizador(['papel' => Utilizador::PAPEL_OPERADOR_PLATAFORMA, 'perfil_utilizador_id' => $perfil->id]);
 
         $this->getJson('/api/plataforma/painel', $this->entrar($operador))->assertForbidden();

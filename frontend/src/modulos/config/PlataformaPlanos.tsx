@@ -37,7 +37,7 @@ export default function PlataformaPlanos() {
           </Empty>
         </Card>
       ) : (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           {(data?.planos ?? []).map((p) => (
             <Card key={p.id} loading={isLoading} title={<>{p.nome} <Tag color="geekblue">{p.codigo}</Tag> <Tag color="blue">{p.clientes} cliente(s)</Tag></>}
               extra={<Button type="dashed" icon={<FileAddOutlined />} onClick={() => criar.mutate(p.id)} loading={criar.isPending}>Novo rascunho</Button>}>
@@ -73,7 +73,7 @@ export default function PlataformaPlanos() {
           ))}
         </Space>
       )}
-      <Modal open={edit !== null} title={edit ? `Rascunho v${edit.numero}` : ''} okText="Guardar" confirmLoading={gravar.isPending} onCancel={() => setEdit(null)} destroyOnClose onOk={() => form.validateFields().then((v) => gravar.mutate(v))}>
+      <Modal open={edit !== null} title={edit ? `Rascunho v${edit.numero}` : ''} okText="Guardar" confirmLoading={gravar.isPending} onCancel={() => setEdit(null)} destroyOnHidden onOk={() => form.validateFields().then((v) => gravar.mutate(v))}>
         <Form form={form} layout="vertical">
           <Form.Item name="preco_mensal" label="Preço mensal" rules={[{ required: true }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="max_empresas" label="Máx. empresas (vazio = ilimitadas)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>

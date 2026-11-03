@@ -114,7 +114,7 @@ function Cessar({ contrato, titulo, fundamentos, aoFechar }: { contrato: Contrat
             </Form.Item>
           </Col>
         </Row>
-        {fundamento?.nota && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={fundamento.nota} />}
+        {fundamento?.nota && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={fundamento.nota} />}
         {proposta.isFetching && <Spin size="small" />}
         {proposta.data && (
           <Descriptions size="small" bordered column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }}>
@@ -125,7 +125,7 @@ function Cessar({ contrato, titulo, fundamentos, aoFechar }: { contrato: Contrat
           </Descriptions>
         )}
         {(proposta.data?.processamentos_posteriores ?? []).length > 0 && (
-          <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Há processamentos posteriores com lançamentos deste colaborador"
+          <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Há processamentos posteriores com lançamentos deste colaborador"
             description={(proposta.data?.processamentos_posteriores ?? []).map((p) => `${p.periodo} (${p.lancamentos} lançamento(s), ${p.estado ?? '—'})`).join('; ')} />
         )}
         <Row gutter={12}>
@@ -164,7 +164,7 @@ function VerEstado({ contrato, titulo, aoFechar }: { contrato: ContratoTrabalho;
     <Modal open title="Estado do contrato" width={larguraModal(820)} footer={null} onCancel={aoFechar}>
       <Typography.Paragraph type="secondary">{titulo}</Typography.Paragraph>
       {q.isLoading || !e ? <Spin /> : (
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           <Descriptions size="small" bordered column={{ xs: 1, md: 3 }}>
             <Descriptions.Item label="Estado"><Tag color={e.estado === 'CESSADO' ? 'red' : e.estado === 'SUSPENSO' ? 'orange' : 'green'}>{e.estado}</Tag></Descriptions.Item>
             <Descriptions.Item label="Salário base">{formatarKz(e.salario_base, true)}</Descriptions.Item>

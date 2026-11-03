@@ -3,7 +3,7 @@ import { CheckCircleTwoTone } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -132,7 +132,7 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
     Modal.confirm({
       title: titulo,
       content: (
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Typography.Text>{explicacao}</Typography.Text>
           <Input.TextArea rows={2} maxLength={500} placeholder="Motivo (obrigatório)" onChange={(e) => { motivo = e.target.value; }} aria-label="Motivo" />
         </Space>

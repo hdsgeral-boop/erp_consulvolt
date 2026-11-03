@@ -56,7 +56,7 @@ export default function MapaBalanco() {
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
-              message={`O Balanço não está equilibrado: diferença de ${formatarKz(controlo.diferenca, true)} entre o Activo e o Capital Próprio + Passivo.`}
+              title={`O Balanço não está equilibrado: diferença de ${formatarKz(controlo.diferenca, true)} entre o Activo e o Capital Próprio + Passivo.`}
               description={
                 controlo.sem_nota.linhas > 0
                   ? `Há ${controlo.sem_nota.linhas} linha(s) sem nota DEMO (débitos ${formatarKz(controlo.sem_nota.debito)} · créditos ${formatarKz(controlo.sem_nota.credito)}).`
@@ -66,7 +66,7 @@ export default function MapaBalanco() {
             />
           )}
           {comparativo && !d.historico_anterior && d.ano_anterior && (
-            <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`O comparativo de ${d.ano_anterior} é calculado a partir dos lançamentos (sem saldos históricos importados).`} />
+            <Alert type="info" showIcon style={{ marginBottom: 16 }} title={`O comparativo de ${d.ano_anterior} é calculado a partir dos lançamentos (sem saldos históricos importados).`} />
           )}
           <Card>
             <TabelaDemonstracao

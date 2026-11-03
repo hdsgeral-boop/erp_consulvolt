@@ -9,6 +9,7 @@ use App\Models\Moeda;
 use App\Models\TipoOrganizacaoRH;
 use App\Models\Utilizador;
 use App\Services\Contabilidade\ServicoPlanoContasModelo;
+use App\Services\Plataforma\ServicoLimitesPlano;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +64,7 @@ final class ServicoGestaoEmpresas
         private readonly ServicoEmpresas $empresas,
         private readonly ServicoAuditoria $auditoria,
         private readonly ServicoPlanoContasModelo $planoContasModelo,
+        private readonly ServicoImagensPublicas $imagens,
     ) {}
 
     /** Empresas geríveis: todas (acesso total ou a todas as empresas) ou as ligadas ao utilizador, em qualquer estado. */
@@ -109,7 +111,7 @@ final class ServicoGestaoEmpresas
     public function criar(array $d, Utilizador $actor): Empresa
     {
         if ($actor->tenant_id !== null) {
-            app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteEmpresas((int) $actor->tenant_id);
+            app(ServicoLimitesPlano::class)->exigirLimiteEmpresas((int) $actor->tenant_id);
         }
 
         return DB::transaction(function () use ($d, $actor) {
@@ -117,6 +119,10 @@ final class ServicoGestaoEmpresas
             $e = Empresa::create($this->dados($d) + ['estado' => Empresa::ESTADO_ATIVO,
                 'taxa_inss_patronal' => $d['taxa_inss_patronal'] ?? 8, 'taxa_inss_trabalhador' => $d['taxa_inss_trabalhador'] ?? 3,
                 'moeda_funcional' => $d['moeda_funcional'] ?? 'AOA']);
+            // Cloudflare R2 configurado: a imagem vai para o disco público (pasta da empresa, que só agora tem id) e fica só o URL.
+            if ($url = $this->logotipoParaDiscoPublico($e->id, $e->logotipo)) {
+                $e->forceFill(['logotipo' => $url])->saveQuietly();
+            }
             $this->contexto->executarComo($e->id, function () {
                 foreach (self::RUBRICAS_OMISSAO as [$tipo, $nome, $inss, $irt]) {
                     InfotipoSalarial::create(['tipo' => $tipo, 'nome' => $nome, 'sujeito_inss' => $inss, 'irt' => $irt, 'base_horaria' => false]);
@@ -147,11 +153,36 @@ final class ServicoGestaoEmpresas
             }
             $this->validar($d, $e);
             $antes = $this->apresentar($e);
-            $e->update($this->dados($d));
+            $dados = $this->dados($d);
+            $logotipoAnterior = $e->logotipo;
+            if (isset($dados['logotipo']) && ($url = $this->logotipoParaDiscoPublico($e->id, $dados['logotipo']))) {
+                $dados['logotipo'] = $url;
+            }
+            $e->update($dados);
+            if (array_key_exists('logotipo', $dados) && $logotipoAnterior && $logotipoAnterior !== $e->logotipo && ! $this->logotipoPartilhado($logotipoAnterior, $e->id)) {
+                $this->imagens->apagarPorUrl($logotipoAnterior);   // imagem substituída/removida: sai do R2 (URLs de outros sítios são ignorados)
+            }
             $this->auditoria->registar('Sistema/Empresas', 'Alterar empresa', "Empresa «{$e->nome}» alterada.", 'empresas', $e->id, $antes, $this->apresentar($e), empresaId: $e->id);
 
             return $e->refresh();
         });
+    }
+
+    /** Data URI → ficheiro no Cloudflare R2 (quando configurado); devolve o URL público, ou null se nada houver a fazer. */
+    private function logotipoParaDiscoPublico(int $empresaId, ?string $logotipo): ?string
+    {
+        if (! ServicoImagensPublicas::activo() || ! is_string($logotipo) || ! str_starts_with($logotipo, 'data:image/')) {
+            return null;
+        }
+
+        return $this->imagens->guardarDataUri($logotipo, "empresas/{$empresaId}", 'logotipo', self::TAMANHO_MAXIMO_LOGOTIPO);
+    }
+
+    /** O mesmo URL pode ser usado por outra empresa (ServicoCopiaEmpresa copia o campo) ou pelo logótipo do ecrã de entrada. */
+    private function logotipoPartilhado(string $url, int $empresaId): bool
+    {
+        return Empresa::query()->withoutGlobalScopes()->where('logotipo', $url)->whereKeyNot($empresaId)->exists()
+            || DB::table('configuracoes_sistema')->where('valor', $url)->exists();
     }
 
     public function definirEstado(Empresa $e, string $estado, Utilizador $actor): Empresa
@@ -210,7 +241,8 @@ final class ServicoGestaoEmpresas
         if (isset($d['nif']) && Empresa::query()->where('nif', $nif)->when($e, fn ($q) => $q->whereKeyNot($e->id))->exists()) {
             throw new ErroNegocio("Já existe uma empresa com o NIF {$nif}.", 'NIF_DUPLICADO', 422);
         }
-        if (array_key_exists('logotipo', $d) && $d['logotipo'] !== null && $d['logotipo'] !== '') {
+        if (array_key_exists('logotipo', $d) && $d['logotipo'] !== null && $d['logotipo'] !== ''
+            && ! ($e && ServicoImagensPublicas::eUrl((string) $d['logotipo']) && (string) $d['logotipo'] === $e->logotipo)) {   // o URL actual (R2) devolvido tal e qual: nada muda
             self::validarLogotipo((string) $d['logotipo']);
         }
         foreach (['moeda_funcional', 'moeda_consolidacao'] as $campo) {

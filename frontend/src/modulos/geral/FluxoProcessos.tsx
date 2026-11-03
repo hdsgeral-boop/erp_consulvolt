@@ -1,7 +1,7 @@
 import { Alert, Button, Empty, Skeleton, Space } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { BotaoImprimir } from '@/componentes/impressao';
 import {
@@ -229,7 +229,7 @@ export default function FluxoProcessos() {
         <RaizFluxo>
           <Empty
             image={<IconeFa nome="project-diagram" style={{ fontSize: 28, color: '#94a3b8' }} />}
-            imageStyle={{ height: 36 }}
+            styles={{ image: { height: 36 } }}
             description={
               <>
                 <strong>Ainda não há processos para acompanhar</strong>
@@ -296,7 +296,7 @@ function Fluxo({
   const chave = seleccionado ?? inicial;
 
   if (resumo.isLoading) return <Skeleton active />;
-  if (resumo.error || !resumo.data) return <Alert type="error" showIcon message={(resumo.error as Error | null)?.message ?? 'Não foi possível calcular o estado dos processos.'} />;
+  if (resumo.error || !resumo.data) return <Alert type="error" showIcon title={(resumo.error as Error | null)?.message ?? 'Não foi possível calcular o estado dos processos.'} />;
   const r = resumo.data;
   const buracos = r.extra?.periodos_em_falta;
   const rotaCalcular = rotaDaVista('calcular');
@@ -322,8 +322,8 @@ function Fluxo({
   );
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      {!r.tem_actividade && <Alert type="info" showIcon message="Ainda não há processos neste fluxo na empresa activa." />}
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      {!r.tem_actividade && <Alert type="info" showIcon title="Ainda não há processos neste fluxo na empresa activa." />}
       <KpisFluxo kpis={kpisTexto(r.kpis)} />
 
       {buracos && buracos.meses.length > 0 && (

@@ -56,7 +56,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
 
   return (
     <div ref={refSeparador}>
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div className="imp-nao-imprimir" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <ImpressaoSeparador alvo={refSeparador} titulo="Orçamento e aditamentos" projecto={projecto} />
       </div>

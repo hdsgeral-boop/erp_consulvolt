@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\Sistema;
 
 use App\Exceptions\ErroNegocio;
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
+use App\Http\Controllers\Controller;
 use App\Mail\TicketCriadoMail;
 use App\Mail\TicketRespostaMail;
 use App\Models\AnexoComprovativoPagamento;

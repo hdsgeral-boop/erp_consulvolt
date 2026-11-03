@@ -2,7 +2,7 @@ import { Alert, Button, Card, Descriptions, Flex, Form, Input, Modal, Skeleton, 
 import { ArrowLeftOutlined, CopyOutlined, EditOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -87,9 +87,9 @@ export function DetalheDocumento({ permitirEdicao = true, id: idProp, emModal = 
     const nota = (mapa: Record<string, string> | undefined, v: number | null) => (v ? mapa?.[String(v)] ?? `#${v}` : '-');
     return (
       <>
-        {doc.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Documento anulado${doc.anulado_em ? ` em ${formatarDataHora(doc.anulado_em)}` : ''}.`} description={doc.motivo_anulacao ?? undefined} />}
+        {doc.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Documento anulado${doc.anulado_em ? ` em ${formatarDataHora(doc.anulado_em)}` : ''}.`} description={doc.motivo_anulacao ?? undefined} />}
         {doc.recibo_venda_id ? (
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`Recebimento gerado pelo recibo de venda ${doc.numero_documento ?? ''}`.trim()}
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} title={`Recebimento gerado pelo recibo de venda ${doc.numero_documento ?? ''}`.trim()}
             description="Acompanha o recibo: integrar contabiliza o recibo (um só lançamento) e anular a integração descontabiliza-o; altere ou anule o recibo em Vendas › Recibos." />
         ) : null}
         <Card style={{ marginBottom: 16 }}>
@@ -191,14 +191,14 @@ export function DetalheDocumento({ permitirEdicao = true, id: idProp, emModal = 
           </Space>
         }
       >
-        {consulta.isLoading ? <Skeleton active /> : d ? corpo(d) : <Alert type="error" message="Documento não encontrado." />}
+        {consulta.isLoading ? <Skeleton active /> : d ? corpo(d) : <Alert type="error" title="Documento não encontrado." />}
         {modalMotivo}
       </Modal>
     );
   }
 
   if (consulta.isLoading) return <Skeleton active />;
-  if (!d) return <Alert type="error" message="Documento não encontrado." />;
+  if (!d) return <Alert type="error" title="Documento não encontrado." />;
 
   return (
     <>

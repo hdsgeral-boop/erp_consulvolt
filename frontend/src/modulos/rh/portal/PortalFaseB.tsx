@@ -25,7 +25,7 @@ export function PortalEscala() {
   const e = q.data;
   return (
     <Card title="A minha escala" loading={q.isLoading} extra={<DatePicker picker="month" format="MM/YYYY" allowClear={false} value={mes} onChange={(v) => v && setMes(v)} aria-label="Mês" />}>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Mostra o que está escalado para si. Se houver uma escala prioritária, é essa que vale nesse dia. Para alterações, fale com a sua chefia." />
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Mostra o que está escalado para si. Se houver uma escala prioritária, é essa que vale nesse dia. Para alterações, fale com a sua chefia." />
       {e && (
         <>
           {/* antigo (portal_ui.js:530): três caixas em grelha de 130 px */}
@@ -60,9 +60,9 @@ export function PortalContrato() {
   if (q.isLoading) return <Card loading />;
   if (!c) return <Card title="O meu contrato"><Empty description="Não há contrato registado em seu nome. Fale com o RH." /></Card>;
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+    <Space orientation="vertical" style={{ width: '100%' }} size="middle">
       <Card title="O meu contrato">
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Dados do seu contrato, só para consulta. Qualquer correcção faz-se pelo RH." />
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Dados do seu contrato, só para consulta. Qualquer correcção faz-se pelo RH." />
         <Descriptions size="small" bordered column={{ xs: 1, md: 2 }}>
           <Descriptions.Item label="Início do vínculo">{formatarData(c.data_inicio)}</Descriptions.Item>
           <Descriptions.Item label="Fim do vínculo">{c.data_fim ? formatarData(c.data_fim) : 'Sem termo previsto'}</Descriptions.Item>
@@ -118,9 +118,9 @@ export function PortalEmprestimos() {
   const sim = v?.capital && v.prestacoes && v.inicio ? planoEmprestimo(v.capital, v.prestacoes, taxa, v.inicio.format('YYYY-MM')) : null;
   const podePedir = limites.por_configurar.length === 0 && !limites.em_curso;
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size="middle">
-      {limites.por_configurar.length > 0 && <Alert type="warning" showIcon message={`Os empréstimos ainda não estão configurados pelo RH (falta ${limites.por_configurar.join(', ')}). Não é possível pedir de momento.`} />}
-      {limites.por_configurar.length === 0 && limites.em_curso && <Alert type="info" showIcon message={`Tem o empréstimo ${limites.em_curso} em curso. Só pode pedir outro depois de o liquidar.`} />}
+    <Space orientation="vertical" style={{ width: '100%' }} size="middle">
+      {limites.por_configurar.length > 0 && <Alert type="warning" showIcon title={`Os empréstimos ainda não estão configurados pelo RH (falta ${limites.por_configurar.join(', ')}). Não é possível pedir de momento.`} />}
+      {limites.por_configurar.length === 0 && limites.em_curso && <Alert type="info" showIcon title={`Tem o empréstimo ${limites.em_curso} em curso. Só pode pedir outro depois de o liquidar.`} />}
       {podePedir && (
         <Card title="Pedir empréstimo">
           <Typography.Paragraph type="secondary">

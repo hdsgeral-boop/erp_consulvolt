@@ -7,6 +7,8 @@ use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\TransacaoGateway;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -25,7 +27,7 @@ class PagamentosWebhookSegurancaTest extends TestCase
             'nome' => 'Plano Segurança', 'preco_mensal' => 10000, 'moeda' => 'AOA', 'ativo' => true,
         ]);
 
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa([
             'nif' => '5000000066',
             'licenca_origem' => Empresa::LICENCA_PLANO,
@@ -60,7 +62,7 @@ class PagamentosWebhookSegurancaTest extends TestCase
         $this->postJson('/api/pagamentos/webhook/referencia', $corpo)->assertStatus(401)->assertJsonPath('sucesso', false);
 
         Log::shouldHaveReceived('warning')->withArgs(fn ($m) => str_contains($m, 'sem segredo'))->once();
-        $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
+        $sub = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
         $this->assertSame(SubscricaoEmpresa::PENDENTE, $sub->estado);
     }
 
@@ -75,7 +77,7 @@ class PagamentosWebhookSegurancaTest extends TestCase
             ->assertStatus(401)->assertJsonPath('sucesso', false);
 
         Log::shouldHaveReceived('warning')->withArgs(fn ($m) => str_contains($m, 'assinatura inválida'))->once();
-        $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
+        $sub = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
         $this->assertSame(SubscricaoEmpresa::PENDENTE, $sub->estado);
     }
 
@@ -101,9 +103,9 @@ class PagamentosWebhookSegurancaTest extends TestCase
             ->assertStatus(400)->assertJsonPath('sucesso', false);
 
         Log::shouldHaveReceived('warning')->withArgs(fn ($m) => str_contains($m, 'montante divergente'))->once();
-        $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
+        $sub = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
         $this->assertSame(SubscricaoEmpresa::PENDENTE, $sub->estado, 'Um montante divergente nunca pode confirmar o pagamento.');
-        $transacao = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+        $transacao = app(ContextoEmpresa::class)->semIsolamento(
             fn () => TransacaoGateway::query()->where('subscricao_id', $t['subscricaoId'])->first()
         );
         $this->assertSame(TransacaoGateway::ESTADO_PENDENTE, $transacao->estado);
@@ -124,7 +126,7 @@ class PagamentosWebhookSegurancaTest extends TestCase
         $this->postJson('/api/pagamentos/webhook/referencia', $corpo, $assinatura)
             ->assertOk()->assertJsonPath('sucesso', true)->assertJsonPath('mensagem', 'Notificação recebida, mas o pedido já não se encontra pendente.');
 
-        $subFinal = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
+        $subFinal = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->find($t['subscricaoId']));
         $this->assertSame(SubscricaoEmpresa::PAGO, $subFinal->estado);
     }
 }

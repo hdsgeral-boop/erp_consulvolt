@@ -96,7 +96,7 @@ export function ModalImportar<T>({ aberto, titulo, url, ajuda, campos, extra, co
         <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
       </Upload>
       {extra && <div style={{ marginTop: 12 }}>{extra}</div>}
-      {resumo && <Alert style={{ marginTop: 12 }} type="success" showIcon message={resumo} />}
+      {resumo && <Alert style={{ marginTop: 12 }} type="success" showIcon title={resumo} />}
     </Modal>
   );
 }

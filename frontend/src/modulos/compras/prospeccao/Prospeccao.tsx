@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { ListaPropostas } from './ListaPropostas';
 import { NovaProposta } from './NovaProposta';
 import { DetalheProposta } from './DetalheProposta';

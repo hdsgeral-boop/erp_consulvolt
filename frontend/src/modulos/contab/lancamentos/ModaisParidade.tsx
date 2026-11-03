@@ -1,7 +1,7 @@
 import { Alert, Button, Descriptions, Flex, Form, Input, Modal, Skeleton, Space, Table, Tag, Typography, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useNavigate, type NavigateFunction } from 'react-router-dom';
+import { useNavigate, type NavigateFunction } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -114,7 +114,7 @@ export function ModalDescontabilizar({ alvo, aoFechar, aoConcluir }: { alvo: Alv
       destroyOnHidden
     >
       {analise.isLoading && <Skeleton active />}
-      {analise.error && <Alert type="error" showIcon message="Não foi possível analisar a selecção." description={(analise.error as Error).message} />}
+      {analise.error && <Alert type="error" showIcon title="Não foi possível analisar a selecção." description={(analise.error as Error).message} />}
       {a && (
         <>
           <Typography.Paragraph>
@@ -126,11 +126,11 @@ export function ModalDescontabilizar({ alvo, aoFechar, aoConcluir }: { alvo: Alv
               type="error"
               showIcon
               style={{ marginBottom: 12 }}
-              message={`${a.bloqueados} lançamento(s) não podem ser descontabilizados aqui: nada será feito.`}
+              title={`${a.bloqueados} lançamento(s) não podem ser descontabilizados aqui: nada será feito.`}
               description="Os lançamentos gerados por outros módulos descontabilizam-se no módulo de origem (que repõe o documento). Retire-os da selecção."
             />
           )}
-          {a.ignorados > 0 && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`${a.ignorados} lançamento(s) ignorado(s): já estornados ou estornos.`} />}
+          {a.ignorados > 0 && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`${a.ignorados} lançamento(s) ignorado(s): já estornados ou estornos.`} />}
           <Table
             size="small"
             rowKey="linha_id"
@@ -357,7 +357,7 @@ export function ModalFluxoLancamento({ linhaId, aoFechar, aoDescontabilizar }: {
               </Table.Summary.Row>
             )}
           />
-          {!d.equilibrado && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Lançamento desequilibrado (débito diferente do crédito)." />}
+          {!d.equilibrado && <Alert style={{ marginTop: 12 }} type="warning" showIcon title="Lançamento desequilibrado (débito diferente do crédito)." />}
           {estornado && (
             <Descriptions size="small" style={{ marginTop: 12 }} column={1}>
               <Descriptions.Item label="Situação">{d.linhas.some((l) => l.estorno_de_id) ? <Tag color="purple">Estorno</Tag> : <Tag color="red">Estornado</Tag>}</Descriptions.Item>

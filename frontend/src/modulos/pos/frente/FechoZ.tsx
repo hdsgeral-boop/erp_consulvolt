@@ -119,7 +119,7 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
       }
       className="pos-fecho-z"
       destroyOnHidden
-      maskClosable={false}
+      mask={{ closable: false }}
       footer={
         fechada ? (
           <Button type="primary" onClick={aoFechar}>

@@ -3,7 +3,7 @@ import { BranchesOutlined, CloudUploadOutlined, DeleteOutlined, PlusOutlined, Sa
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { Route, Routes, useParams } from 'react-router-dom';
+import { Route, Routes, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -240,7 +240,7 @@ function Detalhe({ id, aoAbrir }: { id: number; aoAbrir: (id: number | null) => 
             )}
         </Space>
       </Flex>
-      {!r.orcamento_id && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Não há orçamento aprovado de ${r.ano_fecho} para comparar o fecho estimado.`} />}
+      {!r.orcamento_id && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Não há orçamento aprovado de ${r.ano_fecho} para comparar o fecho estimado.`} />}
       <div style={{ marginBottom: 16 }}>
         <GrelhaKpi larguraMinima={200}>
           <CartaoKpi barra="nenhuma" rotulo={`${rotRes} estimado no fecho de ${r.ano_fecho}`} valor={formatarKz(fechoRes)} corValor={fechoRes < 0 ? token.colorError : undefined}

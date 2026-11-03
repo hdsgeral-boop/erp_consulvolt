@@ -5,7 +5,7 @@ import { ImportOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
@@ -126,7 +126,7 @@ function EcraProdutividade() {
       {sep === 'projectos' && <ExecucaoProjectos />}
       {sep === 'periodos' && <ListaPeriodos aoAbrir={(pid) => { irPara(pid); setSep('registos'); }} />}
       {sep !== 'itens' && sep !== 'periodos' && sep !== 'projectos' && (periodoId === undefined
-        ? <Card loading={periodos.isLoading}>{!periodos.isLoading && <Alert type="info" showIcon message="Crie primeiro o período de cálculo da produtividade (botão «Novo período»)." />}</Card>
+        ? <Card loading={periodos.isLoading}>{!periodos.isLoading && <Alert type="info" showIcon title="Crie primeiro o período de cálculo da produtividade (botão «Novo período»)." />}</Card>
         : <PainelPeriodo id={periodoId} separador={sep} />)}
       <NovoPeriodo aberto={novo} aoFechar={() => setNovo(false)} aoCriar={(p) => { setNovo(false); irPara(p.id); setSep('registos'); }} />
     </>
@@ -314,7 +314,7 @@ export function CamposCalculoItem({ metricas, valores }: { metricas?: MetricasPr
       <Col xs={24} sm={12} md={8}><Form.Item name="minimo" label={`${m?.rotulo_minimo ?? 'Mínimo'} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
       <Col xs={24} sm={12} md={8}><Form.Item name="maximo" label={`${m?.rotulo_maximo ?? 'Máximo'} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
       <Col xs={24}>
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} data-testid="explicacao-item" message={e?.formula ?? m?.formula ?? 'A carregar a fórmula…'}
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} data-testid="explicacao-item" title={e?.formula ?? m?.formula ?? 'A carregar a fórmula…'}
           description={<>
             {m && <div>{m.ajuda}</div>}
             {m && <div style={{ marginTop: 4 }}><b>Exemplo:</b> {m.exemplo}</div>}
@@ -365,7 +365,7 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
     enabled: separador === 'resumo',
   });
   const p = q.data;
-  if (!p) return <Card loading={q.isLoading}>{!q.isLoading && <Alert type="error" message="Período não encontrado." />}</Card>;
+  if (!p) return <Card loading={q.isLoading}>{!q.isLoading && <Alert type="error" title="Período não encontrado." />}</Card>;
 
   const aberto = p.estado !== 'FECHADO';
   const registar = aberto && pode('rh_prod_registar');
@@ -426,7 +426,7 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
               <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('novo'); }}>Registo</Button>
             </Space>
           )}>
-          {!p.elegiveis.length && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Nenhum colaborador tem itens de produtividade no contrato activo. Configure os itens (separador «Itens de produtividade») e acrescente-os aos contratos em RH › Contratos." />}
+          {!p.elegiveis.length && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Nenhum colaborador tem itens de produtividade no contrato activo. Configure os itens (separador «Itens de produtividade») e acrescente-os aos contratos em RH › Contratos." />}
           <Typography.Paragraph type="secondary">Medição de {formatarData(p.data_inicio)} a {formatarData(p.data_fim)}. O mínimo e o máximo do item aplicam-se ao total do colaborador no período; a quantidade considerada reparte-se pelos registos.</Typography.Paragraph>
           <TabelaComModos<RegistoProdutividade> idVista="registos" rowKey="id" size="small" columns={colunas} dataSource={p.registos} scroll={scrollTabela()} modos={false}
             impressao={{ titulo: 'Registos de produtividade', periodo: `${mesPorExtenso(p.mes)} (janela ${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)})`, filtros: [`Estado: ${p.estado}`, `Elegíveis: ${p.elegiveis.length}`] }}
@@ -467,7 +467,7 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
           </Typography.Paragraph>
           {registar
             ? <Button type="primary" icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar Excel</Button>
-            : <Alert type="info" showIcon message={aberto ? 'Sem permissão para registar produtividade.' : 'Período fechado: reabra-o para importar.'} />}
+            : <Alert type="info" showIcon title={aberto ? 'Sem permissão para registar produtividade.' : 'Período fechado: reabra-o para importar.'} />}
         </Card>
       )}
 
@@ -515,7 +515,7 @@ function Elegiveis({ periodo }: { periodo: DetalheProdutividade }) {
   ];
   return (
     <Card title={<Space><IconeFa nome="user-check" />Com itens de produtividade no contrato ({periodo.elegiveis.length})</Space>}>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Só estes colaboradores podem ter registos de produtividade. Para incluir outros, edite o contrato em RH › Contratos e marque os itens." />
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Só estes colaboradores podem ter registos de produtividade. Para incluir outros, edite o contrato em RH › Contratos e marque os itens." />
       <TabelaComModos<Linha> idVista="elegiveis" rowKey="colaborador_id" size="small" columns={colunas} dataSource={periodo.elegiveis} modos={false}
         impressao={{ titulo: 'Colaboradores elegíveis (produtividade)' }}
         vazio={{ icone: 'user-check', titulo: 'Nenhum colaborador tem itens de produtividade no contrato.' }} />

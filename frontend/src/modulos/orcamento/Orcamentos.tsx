@@ -2,7 +2,7 @@ import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Typogr
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';

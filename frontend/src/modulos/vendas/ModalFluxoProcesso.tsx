@@ -98,7 +98,7 @@ export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null
       }
     >
       {consulta.isLoading && <Skeleton active paragraph={{ rows: 6 }} />}
-      {consulta.isError && <Alert type="error" showIcon message="Não foi possível obter o fluxo do documento." />}
+      {consulta.isError && <Alert type="error" showIcon title="Não foi possível obter o fluxo do documento." />}
       {fluxo && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', paddingTop: '1rem' }}>
           {/* Coluna 1: Aprovisionamento (opcional) */}

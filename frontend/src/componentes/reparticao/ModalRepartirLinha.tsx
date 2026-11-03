@@ -52,9 +52,9 @@ export function ModalRepartirLinha({ valor, subtitulo, aoFechar, aoRepartir }: P
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
         {subtitulo ? `${subtitulo} · ` : ''}Valor a repartir: {formatarKz(valor)}. A linha é substituída por uma por unidade, com o mesmo total.
       </Typography.Paragraph>
-      {!(valor > 0) && <Alert type="warning" showIcon message="Indique primeiro o valor da linha a repartir." style={{ marginBottom: 8 }} />}
+      {!(valor > 0) && <Alert type="warning" showIcon title="Indique primeiro o valor da linha a repartir." style={{ marginBottom: 8 }} />}
       {semCriterios ? (
-        <Alert type="info" showIcon message="Não há critérios de repartição. Crie um em Configurações › Unidades de negócio › Critérios de repartição." />
+        <Alert type="info" showIcon title="Não há critérios de repartição. Crie um em Configurações › Unidades de negócio › Critérios de repartição." />
       ) : (
         <AlocacaoUN value={alocacao} onChange={setAlocacao} valor={valor} titulo="Alocar as unidades" />
       )}

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { Spin } from 'antd';
 
 const Mapa = lazy(() => import('../Mapa'));

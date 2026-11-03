@@ -68,6 +68,10 @@ describe('frente de caixa — produtos (3.1.5, 3.1.6)', () => {
   it('só aceita o URL relativo da API para a imagem do produto', () => {
     expect(urlImagemSegura('/vendas/produtos/12/imagem?v=1700000000')).toBe('/vendas/produtos/12/imagem?v=1700000000');
     expect(urlImagemSegura('https://exemplo.invalid/x.png')).toBeNull();
+    // URL público da imagem no Cloudflare R2 (ServicoImagensPublicas) é aceite tal e qual
+    const r2 = 'https://pub-abc.r2.dev/empresas/3/produtos/00000000-0000-4000-8000-000000000001.webp?v=1700000000';
+    expect(urlImagemSegura(r2)).toBe(r2);
+    expect(urlImagemSegura('http://pub-abc.r2.dev/empresas/3/produtos/00000000-0000-4000-8000-000000000001.png')).toBeNull();
     expect(urlImagemSegura('javascript:alert(1)')).toBeNull();
     expect(urlImagemSegura('data:image/svg+xml;base64,AAAA')).toBeNull();
     expect(urlImagemSegura(undefined)).toBeNull();

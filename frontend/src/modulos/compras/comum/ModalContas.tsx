@@ -38,7 +38,7 @@ export function ModalContas({ url, titulo, aberto, aoFechar, podeEditar, chaveCo
       confirmLoading={gravar.isPending}
       onOk={() => form.submit()}
     >
-      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Contas usadas quando o produto ou a entidade não têm conta própria. Só contas de movimento." />
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Contas usadas quando o produto ou a entidade não têm conta própria. Só contas de movimento." />
       {consulta.isLoading ? (
         <Skeleton active />
       ) : (

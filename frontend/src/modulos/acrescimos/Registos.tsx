@@ -10,7 +10,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { colunasExcelRegistos } from './comum/excelRegistos';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { faixaSaldosAD, indicadoresAD } from './comum/regras';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
@@ -117,7 +117,7 @@ function Lista() {
           showIcon
           icon={<IconeFa nome="cog" />}
           style={{ marginBottom: 16 }}
-          message={
+          title={
             <>
               Defina o diário e confirme as contas 37 em <strong>Definições</strong> antes de contabilizar.
             </>

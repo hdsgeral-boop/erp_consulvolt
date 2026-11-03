@@ -60,6 +60,24 @@ return [
             'report' => false,
         ],
 
+        // Imagens públicas no Cloudflare R2 (API compatível com S3). Activa-se com ERP_IMAGENS_DISCO=imagens (config/erp.php).
+        //   R2_ENDPOINT     https://<account_id>.r2.cloudflarestorage.com   (R2 › bucket › Settings › S3 API)
+        //   R2_URL_PUBLICA  https://pub-<id>.r2.dev ou o domínio próprio ligado ao bucket (R2 › bucket › Settings › Public access)
+        //   R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY   token da API R2 com «Object Read & Write» só neste bucket
+        // Sem «visibility»: o R2 não aceita ACL por objecto (o acesso público é do bucket); com ACL o PUT falhava.
+        'imagens' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'url' => env('R2_URL_PUBLICA'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+            'report' => true,
+        ],
+
     ],
 
     /*

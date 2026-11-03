@@ -351,7 +351,8 @@ final class ServicoAnaliticoProjetos
         $vp = app(ServicoVendaProjetos::class)->porProjeto(collect([$p->id => $p]))[$p->id];
         $aditamentos = AditamentoAlteracaoProjeto::query()->where('projeto_id', $p->id)->get();
         [$venda, $extras, $vendaGlobal, $facturado] = [$vp['venda'], $vp['aditamentos'], $vp['venda_global'], $vp['faturado']];
-        $pct = fn ($a, $b) => (float) $b > 0 ? round((float) $a / (float) $b * 100, 2) : 0.0;
+        // round(round(x, 10), 2): PHP >= 8.4 deixou de pré-arredondar (43500/80000*100 = 54.374999999999993 dava 54.37)
+        $pct = fn ($a, $b) => (float) $b > 0 ? round(round((float) $a / (float) $b * 100, 10), 2) : 0.0;
         $consumo = $pct($custo, $orcTotal);
         $factPct = $pct($facturado, $vendaGlobal);
 

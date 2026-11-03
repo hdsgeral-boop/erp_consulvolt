@@ -3,7 +3,7 @@ import { useEcraPequeno } from '@/componentes/responsivo';
 import { PainelPesquisaCompras } from '../comum/PainelPesquisaCompras';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';

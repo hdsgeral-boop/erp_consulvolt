@@ -271,7 +271,7 @@ export function PainelLinhas({ chave, campos, gravar, omissoes, linhasIniciais, 
           </tbody>
         </table>
       </div>
-      {aviso && <Alert style={{ marginTop: 8 }} type={aviso.tipo} showIcon message={aviso.texto} closable onClose={() => setAviso(null)} />}
+      {aviso && <Alert style={{ marginTop: 8 }} type={aviso.tipo} showIcon title={aviso.texto} closable onClose={() => setAviso(null)} />}
       {estado.progresso && (
         <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
           <Progress percent={Math.round((estado.progresso.feitas / Math.max(1, estado.progresso.total)) * 100)} size="small" style={{ flex: 1, margin: 0 }} aria-label="Progresso da gravação" />
@@ -288,7 +288,7 @@ export function PainelLinhas({ chave, campos, gravar, omissoes, linhasIniciais, 
             trigger={['click']}
             popupRender={() => (
               <div style={{ background: token.colorBgElevated, boxShadow: token.boxShadowSecondary, borderRadius: token.borderRadiusLG, padding: 8, maxHeight: 320, overflow: 'auto' }} role="group" aria-label="Colunas opcionais">
-                <Space direction="vertical" size={4}>
+                <Space orientation="vertical" size={4}>
                   {opcionais.map((c) => (
                     <Checkbox key={c.nome} checked={mostradas.includes(c.nome)} onChange={(e) => alternarColuna(c.nome, e.target.checked)}>
                       {c.rotulo}{c.seccao ? <Typography.Text type="secondary" style={{ fontSize: 11 }}> · {c.seccao}</Typography.Text> : null}

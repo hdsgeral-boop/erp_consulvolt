@@ -1,5 +1,5 @@
 import { Button, Flex, Space, Tag, Typography, theme } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { formatarData } from '@/utilitarios/formatacao';
 import { CartaoKpi, TabelaGestao, type TabelaApiGestao } from './componentes';
@@ -37,7 +37,7 @@ export function ResumoHolding({ dados, rotaPermitida }: { dados: DadosResumoHold
           <Typography.Title level={4} style={{ margin: 0 }}>
             {dados.grupo?.nome ?? 'Grupo consolidado'}
           </Typography.Title>
-          <Tag color="purple" bordered>
+          <Tag color="purple" variant="outlined">
             Holding
           </Tag>
           {typeof dados.empresas === 'number' && <Tag>{dados.empresas === 1 ? '1 empresa' : `${dados.empresas} empresas`}</Tag>}

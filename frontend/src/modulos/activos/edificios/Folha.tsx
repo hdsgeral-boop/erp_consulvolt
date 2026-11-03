@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Empty, Input, Modal, Select, Space, Spin, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
@@ -196,7 +196,7 @@ export function ComparacaoInventarioEcra() {
           <CartaoKpi barra="esquerda" cor="#2563eb" rotulo="Conformidade" valor={`${Number(r.conformidade ?? 0).toFixed(1).replace('.', ',')}%`}
             secundaria={r.por_contar ? `${r.por_contar} por contar` : 'contagem completa'} />
         </GrelhaKpi>
-        {!!r.por_contar && <Alert style={{ marginTop: 12 }} type="warning" showIcon message={`Ainda há ${r.por_contar} bem(ns) por contar — a comparação só fica completa depois de todos marcados.`} />}
+        {!!r.por_contar && <Alert style={{ marginTop: 12 }} type="warning" showIcon title={`Ainda há ${r.por_contar} bem(ns) por contar — a comparação só fica completa depois de todos marcados.`} />}
       </Card>
       {bloco('Em falta', '#dc2626', grupo('EM_FALTA'), false)}
       {bloco('Encontrados noutro local', '#d97706', grupo('DESLOCADO'), true)}

@@ -2,7 +2,7 @@ import { Button, Card, DatePicker, Modal, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';

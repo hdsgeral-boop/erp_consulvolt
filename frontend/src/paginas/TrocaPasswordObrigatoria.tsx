@@ -48,7 +48,7 @@ export function TrocaPasswordObrigatoria() {
           </Typography.Text>
         </Flex>
 
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Não é possível aceder a mais nenhuma área do sistema enquanto não trocar a password." />
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="Não é possível aceder a mais nenhuma área do sistema enquanto não trocar a password." />
 
         <Form form={form} layout="vertical" onFinish={(v) => void submeter(v)} requiredMark={false}>
           <Form.Item name="palavra_passe_actual" label="Password actual (a que recebeu por email)" rules={[{ required: true, message: 'Indique a password actual.' }]}>

@@ -61,7 +61,7 @@ export function SeparadorExecucao({ projecto, acc }: PropsSeparador) {
                 secundaria={`pela data de conclusão · ${e.cartoes.tarefas.atribuivel} com responsável interno`} />
             </GrelhaKpi>
             {e.sem_dono.length > 0 && (
-              <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Execução sem colaborador interno — não há a quem pagar"
+              <Alert style={{ marginTop: 12 }} type="warning" showIcon title="Execução sem colaborador interno — não há a quem pagar"
                 description={<ul style={{ margin: 0, paddingLeft: 18 }}>{e.sem_dono.map((o) => <li key={`${o.tipo}|${o.unidade}|${o.motivo}`}>{TIPOS_PONTE[o.tipo]}: {formatarQtd(o.quantidade, 4)} {o.unidade} — {o.motivo}</li>)}</ul>} />
             )}
             <Typography.Title level={5} style={{ marginTop: 16 }}>Por colaborador</Typography.Title>

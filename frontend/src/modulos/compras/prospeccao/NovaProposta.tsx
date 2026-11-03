@@ -3,7 +3,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState, type ClipboardEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem } from '@/componentes/formularios/colagemGrade';
@@ -249,7 +249,7 @@ export function NovaProposta() {
           {naoDisponiveis.length > 0 && (
             <Alert
               type="warning" showIcon style={{ marginTop: 8 }}
-              message={`Só se registam propostas para pedidos aprovados ou parcialmente adjudicados: ${naoDisponiveis.map((p) => `${numeroOuId(p.numero_pedido, p.id)} está ${p.estado}`).join(', ')}.`}
+              title={`Só se registam propostas para pedidos aprovados ou parcialmente adjudicados: ${naoDisponiveis.map((p) => `${numeroOuId(p.numero_pedido, p.id)} está ${p.estado}`).join(', ')}.`}
             />
           )}
         </Card>
@@ -347,14 +347,14 @@ export function NovaProposta() {
                 </div>
                 <Form.ErrorList errors={errors} />
                 {temReferencia && cambio === null && (
-                  <Alert style={{ marginTop: 12 }} type="info" showIcon message="Indique o câmbio para comparar a proposta com o valor da encomenda do cliente." />
+                  <Alert style={{ marginTop: 12 }} type="info" showIcon title="Indique o câmbio para comparar a proposta com o valor da encomenda do cliente." />
                 )}
                 {acima.length > 0 && (
                   <Alert
                     style={{ marginTop: 12 }}
                     type="error"
                     showIcon
-                    message={`Proposta acima do valor da encomenda em ${acima.length} artigo(s)`}
+                    title={`Proposta acima do valor da encomenda em ${acima.length} artigo(s)`}
                     description={<ListaAvisos itens={acima} />}
                   />
                 )}
@@ -363,7 +363,7 @@ export function NovaProposta() {
                     style={{ marginTop: 12 }}
                     type="warning"
                     showIcon
-                    message={`Proposta a ${Math.round(LIMIAR_AVISO * 100)} % ou mais do valor da encomenda em ${perto.length} artigo(s)`}
+                    title={`Proposta a ${Math.round(LIMIAR_AVISO * 100)} % ou mais do valor da encomenda em ${perto.length} artigo(s)`}
                     description={<ListaAvisos itens={perto} />}
                   />
                 )}

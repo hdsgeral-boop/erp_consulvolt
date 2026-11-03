@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api\Vendas;
 
 use App\Http\Controllers\Controller;
 use App\Models\Produto;
+use App\Services\Sistema\ServicoImagensPublicas;
 use App\Services\Vendas\ServicoImagemProduto;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -31,9 +34,15 @@ final class ImagemProdutoController extends Controller
     {
         $this->exigir(...self::VER);
         $lista = Produto::query()->where(fn ($q) => $q->whereNotNull('imagem_caminho')->orWhereNotNull('imagem_base64'))
-            ->orderBy('id')->get(['id', 'imagem_atualizada_em'])   // sem ler o base64 do legado (pode ser grande)
-            ->map(fn (Produto $p) => ['id' => $p->id,
-                'imagem_url' => "/vendas/produtos/{$p->id}/imagem?v=".($p->imagem_atualizada_em ? strtotime((string) $p->imagem_atualizada_em) : 0)])->values();
+            ->orderBy('id')->get(['id', 'imagem_caminho', 'imagem_atualizada_em', DB::raw('(imagem_base64 is not null) as tem_legado')])   // sem ler o base64 do legado (pode ser grande)
+            ->map(function (Produto $p) {
+                $versao = $p->imagem_atualizada_em ? strtotime((string) $p->imagem_atualizada_em) : 0;
+                $url = ServicoImagensPublicas::activo() && $p->imagem_caminho
+                    ? Storage::disk(ServicoImagemProduto::disco())->url($p->imagem_caminho)."?v={$versao}"   // directo da Cloudflare
+                    : "/vendas/produtos/{$p->id}/imagem?v={$versao}";
+
+                return ['id' => $p->id, 'imagem_url' => $url];
+            })->values();
 
         return RespostaApi::sucesso($lista, 'Produtos com imagem.');
     }

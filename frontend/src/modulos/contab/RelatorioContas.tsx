@@ -296,7 +296,7 @@ export default function RelatorioContas() {
       ) : (
         <>
           {d.alertas.map((a, i) => (
-            <Alert key={i} type={CORES_ALERTA[a.tipo] ?? 'info'} showIcon style={{ marginBottom: 8 }} message={a.texto} />
+            <Alert key={i} type={CORES_ALERTA[a.tipo] ?? 'info'} showIcon style={{ marginBottom: 8 }} title={a.texto} />
           ))}
           {/* legado (.rc-kpis, relatorio_contas.js:1052-1068): caixas simples, auto-fit de 170 px, rótulo em maiúsculas, negativos a vermelho */}
           <GrelhaKpi larguraMinima={170} style={{ margin: '12px 0 16px' }}>
@@ -514,7 +514,7 @@ export default function RelatorioContas() {
                         </Row>
                       </Card>
                       <Card size="small" title="Anexos do relatório impresso" style={{ marginBottom: 12 }}>
-                        <Space direction="vertical">
+                        <Space orientation="vertical">
                           {[
                             ['anexo_razao', `Balancete razão (2 dígitos) — abertura a Dezembro e abertura a apuramento (${d.anexos.razao_dezembro?.length ?? 0} contas)`],
                             ['anexo_geral', `Balancete geral (todas as contas) — abertura a Dezembro e abertura a apuramento (${d.anexos.geral_dezembro?.length ?? 0} contas)`],
@@ -530,7 +530,7 @@ export default function RelatorioContas() {
                     </Form>
                     <Card size="small" title="Consultar anexos">
                       <Tabs
-                        tabPosition={telemovel ? 'top' : 'left'}
+                        tabPlacement={telemovel ? 'top' : 'start'}
                         items={Object.entries(d.anexos).map(([k, linhas]) => ({
                           key: k,
                           label: NOMES_ANEXOS[k] ?? k,
@@ -554,7 +554,7 @@ export default function RelatorioContas() {
 }
 
 function TabelaAnexo({ nome, linhas }: { nome: string; linhas: Record<string, unknown>[] }) {
-  if (!linhas?.length) return <Alert type="info" message="Sem linhas." />;
+  if (!linhas?.length) return <Alert type="info" title="Sem linhas." />;
   const chaves = Object.keys(linhas[0]);
   const monetaria = (k: string) => linhas.some((l) => typeof l[k] === 'string' && /^-?\d+\.\d{2}$/.test(l[k] as string));
   return (

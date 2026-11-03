@@ -4,7 +4,7 @@ import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -62,7 +62,7 @@ export default function Assuntos() {
     {
       title: 'Estado', dataIndex: 'estado', align: 'center',
       render: (v: ResumoAssunto['estado'], a) => (
-        <Space size={2} direction="vertical">
+        <Space size={2} orientation="vertical">
           <Tag color={CORES_ESTADO[v]}>{ESTADOS[v]}</Tag>
           {a.deliberacao_estado === 'PENDENTE' && <Tag color={a.pode_decidir ? 'orange' : 'gold'}>{a.pode_decidir ? 'Decisão sua' : DELIB.PENDENTE}</Tag>}
         </Space>
@@ -96,7 +96,7 @@ export default function Assuntos() {
           tabBarExtraContent={<Input.Search size="small" allowClear placeholder="Número ou título" onSearch={setPesquisa} style={{ width: 220, maxWidth: '100%' }} />}
           items={VISTAS.map((v) => ({ key: v.chave, label: <span><IconeFa nome={v.icone} /> {v.rotulo}</span> }))} />
         {al && nAlertas > 0 && (
-          <Alert style={{ marginTop: 12 }} type="warning" showIcon message="A precisar de atenção:"
+          <Alert style={{ marginTop: 12 }} type="warning" showIcon title="A precisar de atenção:"
             description={
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {al.aguardam_minha_decisao.length > 0 && <li>{al.aguardam_minha_decisao.length} assunto(s) à espera da sua decisão: {tres(al.aguardam_minha_decisao)}</li>}
@@ -171,7 +171,7 @@ function HistoricoAssunto({ id, aoFechar }: { id: number | null; aoFechar: () =>
         <div style={{ maxHeight: '55vh', overflow: 'auto', paddingTop: 8 }}>
           <Timeline items={q.data.registos.map((x) => ({
             key: x.id,
-            children: <><div><strong>{x.acao}</strong>{x.detalhe ? ` — ${x.detalhe}` : ''}</div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{x.por || '—'} · {formatarDataHora(x.em)}</Typography.Text></>,
+            content: <><div><strong>{x.acao}</strong>{x.detalhe ? ` — ${x.detalhe}` : ''}</div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{x.por || '—'} · {formatarDataHora(x.em)}</Typography.Text></>,
           }))} />
         </div>
       ) : <Empty description="Sem registos." />}

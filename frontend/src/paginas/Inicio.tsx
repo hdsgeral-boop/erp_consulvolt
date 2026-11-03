@@ -2,7 +2,7 @@ import { Button, Col, Row, Skeleton } from 'antd';
 import { CheckCircleFilled, EnvironmentFilled, StarFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import type { ModuloMenu } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';

@@ -137,10 +137,10 @@ export default function PlataformaAgentesSuporte() {
         confirmLoading={criar.isPending || atualizar.isPending}
         onCancel={() => setAberto(null)}
         onOk={confirmar}
-        destroyOnClose
+        destroyOnHidden
       >
         {aberto === 'novo' && (
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Acesso isolado e por especialização" description="Este utilizador só vê o backoffice de suporte (/suporte) — tickets das categorias da especialização escolhida. Nunca alcança clientes, planos, licenciamento nem definições da plataforma." />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Acesso isolado e por especialização" description="Este utilizador só vê o backoffice de suporte (/suporte) — tickets das categorias da especialização escolhida. Nunca alcança clientes, planos, licenciamento nem definições da plataforma." />
         )}
         <Form form={form} layout="vertical">
           {aberto === 'novo' && (

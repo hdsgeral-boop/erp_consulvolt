@@ -4,7 +4,7 @@ import { PainelPesquisaCompras } from '../comum/PainelPesquisaCompras';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useAccao } from '@/componentes/Accoes';

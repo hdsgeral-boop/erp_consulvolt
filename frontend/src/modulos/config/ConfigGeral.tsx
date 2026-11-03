@@ -34,7 +34,7 @@ export default function ConfigGeral() {
     <>
       <NavConfig actual="config_geral" />
       <CabecalhoPagina titulo="Configurações e Backup" subtitulo="Cópias de segurança, clonagem de empresas, logótipo do ecrã de entrada e unidades de negócio" />
-      {nada && <Alert type="info" showIcon message="Não tem permissões para as ferramentas deste ecrã (cópias de segurança, ferramentas ou administração do sistema)." />}
+      {nada && <Alert type="info" showIcon title="Não tem permissões para as ferramentas deste ecrã (cópias de segurança, ferramentas ou administração do sistema)." />}
       <Row gutter={[16, 16]}>
         {pode('config_backup') && (
           <Col xs={24} xl={12}>
@@ -128,7 +128,7 @@ function ImportarReservada() {
       <Alert
         type="info"
         showIcon
-        message="Reservado à equipa de suporte"
+        title="Reservado à equipa de suporte"
         description="A importação de cópias de segurança só pode ser feita por um Super Administrador. Para pedir uma importação, abra um ticket em Minha Licença › Minha conta a indicar o que precisa."
       />
     </Card>
@@ -163,7 +163,7 @@ function Importar() {
   return (
     <Card title="Importar cópia de segurança" style={{ height: '100%' }}>
       <Typography.Paragraph type="secondary">Importa uma cópia para uma empresa nova ou para uma empresa existente vazia. Valide primeiro (simulação).</Typography.Paragraph>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Upload
           accept=".json,application/json"
           maxCount={1}
@@ -181,7 +181,7 @@ function Importar() {
           <Radio value="nova" disabled={!pode('config_empresas_gerir')}>Empresa nova</Radio>
           <Radio value="existente">Empresa existente (vazia)</Radio>
         </Radio.Group>
-        {!pode('config_empresas_gerir') && modo === 'nova' && <Alert type="warning" showIcon message="Criar uma empresa nova exige também a permissão de gerir empresas." />}
+        {!pode('config_empresas_gerir') && modo === 'nova' && <Alert type="warning" showIcon title="Criar uma empresa nova exige também a permissão de gerir empresas." />}
         <Form form={form} layout="vertical">
           {modo === 'existente' ? (
             <Form.Item name="empresa_destino_id" label="Empresa de destino" rules={[{ required: true, message: 'Escolha a empresa.' }]}>
@@ -227,7 +227,7 @@ function Importar() {
         </Space>
         {simulacao && <ResumoDaCopia r={simulacao} />}
         {resultado && (
-          <Alert type="success" showIcon message={`Importada para ${resultado.empresa_destino.nome ?? `#${resultado.empresa_destino.id}`}: ${formatarNumero(resultado.importadas)} linha(s).`} description="Volte a entrar ou escolha a empresa no topo para a abrir." />
+          <Alert type="success" showIcon title={`Importada para ${resultado.empresa_destino.nome ?? `#${resultado.empresa_destino.id}`}: ${formatarNumero(resultado.importadas)} linha(s).`} description="Volte a entrar ou escolha a empresa no topo para a abrir." />
         )}
       </Space>
     </Card>
@@ -256,7 +256,7 @@ function Clonar() {
   return (
     <Card title="Clonar estrutura para uma empresa nova" style={{ height: '100%' }}>
       <Typography.Paragraph type="secondary">Copia a estrutura (plano de contas, diários, tabelas, artigos, configurações) sem movimentos para uma nova empresa.</Typography.Paragraph>
-      {!gerirEmpresas && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Clonar exige também a permissão de gerir empresas." />}
+      {!gerirEmpresas && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Clonar exige também a permissão de gerir empresas." />}
       <Form form={form} layout="vertical" disabled={!gerirEmpresas} initialValues={{ empresa_origem_id: empresa?.id }} onValuesChange={() => setSimulacao(null)}>
         <Form.Item name="empresa_origem_id" label="Empresa de origem" rules={[{ required: true }]}>
           <Select showSearch optionFilterProp="label" options={empresas.map((e) => ({ value: e.id, label: e.nome }))} />

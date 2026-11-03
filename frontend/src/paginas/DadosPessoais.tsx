@@ -134,7 +134,7 @@ export function DadosPessoais() {
                 >
                   <Input.Password autoComplete="new-password" />
                 </Form.Item>
-                <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Ao alterar a palavra-passe, as suas outras sessões abertas (outros computadores ou navegadores) são terminadas." />
+                <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Ao alterar a palavra-passe, as suas outras sessões abertas (outros computadores ou navegadores) são terminadas." />
                 <Button type="primary" htmlType="submit" icon={<IconeFa nome="key" />} loading={aAlterar}>
                   Alterar palavra-passe
                 </Button>

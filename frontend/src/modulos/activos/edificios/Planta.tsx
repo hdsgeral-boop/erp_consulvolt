@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Col, Collapse, Empty, Input, Modal, Popconfirm, Row, Space, Spin, Table, Tag, theme, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type DragEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
@@ -176,7 +176,7 @@ export function PlantaEdificio() {
           </Col>
         </Row>
       </Card>
-      {mover.isError && <Alert type="error" showIcon message="Não foi possível mover o bem." style={{ marginTop: 8 }} />}
+      {mover.isError && <Alert type="error" showIcon title="Não foi possível mover o bem." style={{ marginTop: 8 }} />}
       <ModalAndar edificioId={edificioId} andar={andar} nAndares={p.andares.length} planta={p} aoFechar={() => setAndar(undefined)} />
       <ModalPortas planta={p} aberto={portas.aberto} andarId={portas.andarId} aoFechar={() => setPortas({ aberto: false })} />
       <ModalPorta porta={porta} aoFechar={() => setPorta(null)} />

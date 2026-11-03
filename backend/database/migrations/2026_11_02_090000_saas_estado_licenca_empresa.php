@@ -31,12 +31,12 @@ return new class extends Migration
 
         $existeEstado = DB::selectOne("SELECT 1 AS x FROM pg_constraint WHERE conname = 'ck_empresas_estado_licenca'");
         if ($existeEstado === null) {
-            DB::statement("ALTER TABLE empresas ADD CONSTRAINT ck_empresas_estado_licenca CHECK (estado_licenca IN "
+            DB::statement('ALTER TABLE empresas ADD CONSTRAINT ck_empresas_estado_licenca CHECK (estado_licenca IN '
                 ."('PENDENTE_ACTIVACAO','TRIAL','ACTIVA','PAGAMENTO_PENDENTE','TOLERANCIA','SUSPENSA','CANCELADA','EM_ENCERRAMENTO','ENCERRADA'))");
         }
         $existeMotivo = DB::selectOne("SELECT 1 AS x FROM pg_constraint WHERE conname = 'ck_empresas_motivo_suspensao'");
         if ($existeMotivo === null) {
-            DB::statement("ALTER TABLE empresas ADD CONSTRAINT ck_empresas_motivo_suspensao CHECK (motivo_suspensao IS NULL OR motivo_suspensao IN "
+            DB::statement('ALTER TABLE empresas ADD CONSTRAINT ck_empresas_motivo_suspensao CHECK (motivo_suspensao IS NULL OR motivo_suspensao IN '
                 ."('INCUMPRIMENTO','ADMINISTRATIVA','SEGURANCA','VOLUNTARIA'))");
         }
 

@@ -133,7 +133,7 @@ export default function Pipeline() {
           {quadro.isLoading ? (
             <Skeleton active />
           ) : quadro.error ? (
-            <Alert type="error" showIcon message={(quadro.error as Error).message} />
+            <Alert type="error" showIcon title={(quadro.error as Error).message} />
           ) : (
             <div className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }} role="list" aria-label="Etapas do funil">
               {quadro.data?.etapas.map((col) => {
@@ -154,7 +154,7 @@ export default function Pipeline() {
                       {formatarKz(col.valor)} Kz · pond. {formatarKz(col.ponderado)}
                       {col.etapa.tipo === 'ABERTA' && col.etapa.probabilidade !== null && col.etapa.probabilidade !== undefined && ` · ${col.etapa.probabilidade}%`}
                     </Typography.Text>
-                    <Space direction="vertical" size={8} style={{ width: '100%', marginTop: 8 }}>
+                    <Space orientation="vertical" size={8} style={{ width: '100%', marginTop: 8 }}>
                       {cartoes.map((c) => (
                         <CartaoOportunidade key={c.oportunidade.id} cartao={c} arrastavel={editar} aoAbrir={() => setAberta(c.oportunidade.id)} />
                       ))}

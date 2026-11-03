@@ -1,7 +1,7 @@
 import { Button, Modal, Typography } from 'antd';
 import { CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import { useEstadoLicenca } from '@/modulos/config/Licenca';
+import { useNavigate } from 'react-router';
+import { useEstadoLicenca } from '@/modulos/config/estadoLicenca';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAvisoLicencaVisto } from './avisoLicencaVisto';
 
@@ -23,7 +23,7 @@ export function AvisoLicenca() {
     <Modal
       open
       closable
-      maskClosable={false}
+      mask={{ closable: false }}
       onCancel={dispensar}
       title={
         <>

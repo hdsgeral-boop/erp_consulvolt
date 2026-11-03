@@ -1,6 +1,6 @@
 import { theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos';
 import { useSessao } from '@/sessao/SessaoContexto';

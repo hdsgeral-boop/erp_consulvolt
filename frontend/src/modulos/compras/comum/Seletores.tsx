@@ -86,7 +86,7 @@ export function SeletorTerceiro({ papel, onEscolher, permissaoCriar, ...props }:
         loading={consulta.isFetching}
         placeholder={papel === 'CLIENTE' ? 'Pesquisar cliente (nome ou NIF)' : 'Pesquisar fornecedor (nome ou NIF)'}
         options={(consulta.data?.itens ?? []).map((t) => ({ value: t.id, label: `${t.nome.trim()}${t.nif ? ` (NIF ${t.nif})` : ''}` }))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: papel === 'CLIENTE' ? 'cliente' : 'fornecedor', aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: papel === 'CLIENTE' ? 'cliente' : 'fornecedor', aoClicar: () => setACriar(true) })}
         {...props}
         onChange={(v, o) => { props.onChange?.(v, o); onEscolher?.((consulta.data?.itens ?? []).find((t) => t.id === v)); }}
       />
@@ -143,7 +143,7 @@ export function SeletorCategoria({ permissaoCriar, ...props }: PropsBase<number>
         loading={isLoading}
         placeholder="Categoria"
         options={(data ?? []).map((c) => ({ value: c.id, label: c.nome }))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'categoria', aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'categoria', aoClicar: () => setACriar(true) })}
         {...props}
       />
       {permissaoCriar && (
@@ -213,7 +213,7 @@ export function SeletorProduto({ apenasStock, permissaoCriar, ...props }: PropsB
         loading={isLoading}
         placeholder="Produto ou serviço"
         options={(data ?? []).filter((p) => !apenasStock || p.movimenta_stock).map((p) => ({ value: p.id, label: rotuloProduto(p) }))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'produto', aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'produto', aoClicar: () => setACriar(true) })}
         {...props}
       />
       {permissaoCriar && (
@@ -280,7 +280,7 @@ export function SeletorArmazem({ permissaoCriar, ...props }: PropsBase<number> &
         loading={isLoading}
         placeholder="Armazém"
         options={(data ?? []).map((a) => ({ value: a.id, label: `${a.nome}${a.predefinido ? ' (predefinido)' : ''}` }))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'armazém', aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'armazém', aoClicar: () => setACriar(true) })}
         {...props}
       />
       {permissaoCriar && (

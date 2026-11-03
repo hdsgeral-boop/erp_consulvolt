@@ -248,7 +248,7 @@ function EditorPerfil({ id, gerir, aoFechar, aoGravar }: { id: number | 'novo' |
     <Drawer
       open={aberto}
       onClose={aoFechar}
-      width={larguraGaveta(980)}
+      size={larguraGaveta(980)}
       title={id === 'novo' ? 'Novo perfil' : `Perfil — ${detalhe.data?.nome ?? ''}`}
       destroyOnHidden
       extra={
@@ -300,14 +300,14 @@ function EditorPerfil({ id, gerir, aoFechar, aoGravar }: { id: number | 'novo' |
                 style={{ marginBottom: 12 }}
                 type="warning"
                 showIcon
-                message="Permissões que já não existem no catálogo"
+                title="Permissões que já não existem no catálogo"
                 description={`${detalhe.data.chaves_fora_do_catalogo.join(', ')} — ao gravar, o servidor recusa-as; desmarque-as primeiro.`}
                 action={gerir && <Button size="small" onClick={() => setChaves(new Set([...chaves].filter((k) => !detalhe.data!.chaves_fora_do_catalogo.includes(k))))}>Retirar</Button>}
               />
             ) : null}
-            {detalhe.data?.formato === 'ANTIGO' && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="Perfil no formato antigo: ao gravar fica no formato actual (por ecrã e tarefa)." />}
+            {detalhe.data?.formato === 'ANTIGO' && <Alert style={{ marginBottom: 12 }} type="info" showIcon title="Perfil no formato antigo: ao gravar fica no formato actual (por ecrã e tarefa)." />}
             {total ? (
-              <Alert type="warning" showIcon message="Este perfil tem acesso a tudo, incluindo tarefas sensíveis e ecrãs futuros. Use só para administradores." />
+              <Alert type="warning" showIcon title="Este perfil tem acesso a tudo, incluindo tarefas sensíveis e ecrãs futuros. Use só para administradores." />
             ) : (
               <>
                 <Input.Search placeholder="Filtrar módulo, ecrã ou tarefa" allowClear style={{ marginBottom: 8 }} onChange={(e) => setFiltro(e.target.value)} />
@@ -382,7 +382,7 @@ function EditorPerfil({ id, gerir, aoFechar, aoGravar }: { id: number | 'novo' |
                       <CartaoKpi barra="nenhuma" rotulo="Tarefas sensíveis" valor={contagem.sensiveis} corValor={contagem.sensiveis ? '#b45309' : undefined} />
                       <CartaoKpi barra="nenhuma" rotulo="Conflitos de segregação" valor={contagem.conflitos.length} corValor={contagem.conflitos.length ? '#b45309' : undefined} />
                     </GrelhaKpi>
-                    {contagem.ecras === 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon message="Marque pelo menos um ecrã para consultar." />}
+                    {contagem.ecras === 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon title="Marque pelo menos um ecrã para consultar." />}
                     <Typography.Title level={5} style={{ marginTop: 12 }}>
                       Segregação de funções
                     </Typography.Title>
@@ -395,7 +395,7 @@ function EditorPerfil({ id, gerir, aoFechar, aoGravar }: { id: number | 'novo' |
                         style={{ marginTop: 8 }}
                         type={avaliacao.conflitos.length ? 'warning' : 'success'}
                         showIcon
-                        message={`Servidor: ${avaliacao.ecras} ecrãs, ${avaliacao.tarefas} tarefas (${avaliacao.sensiveis} sensíveis), ${avaliacao.conflitos.length} conflito(s).`}
+                        title={`Servidor: ${avaliacao.ecras} ecrãs, ${avaliacao.tarefas} tarefas (${avaliacao.sensiveis} sensíveis), ${avaliacao.conflitos.length} conflito(s).`}
                       />
                     )}
                     {contagem.sensiveis > 0 && (
@@ -442,7 +442,7 @@ function ListaConflitos({ conflitos }: { conflitos: RegraSegregacao[] }) {
       dataSource={conflitos}
       renderItem={(c) => (
         <List.Item style={{ padding: '4px 0' }}>
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Typography.Text type="danger">
               <WarningOutlined /> {c.motivo}
             </Typography.Text>
@@ -576,7 +576,7 @@ function Modelos() {
           style={{ marginTop: 16 }}
           type="info"
           showIcon
-          message={`Simulação: ${simulacao.mensagem}`}
+          title={`Simulação: ${simulacao.mensagem}`}
           description={
             simulacao.itens.length ? (
               <ul style={{ paddingLeft: 18, margin: 0 }}>
@@ -590,7 +590,7 @@ function Modelos() {
           }
           action={
             simulacao.itens.length > 0 && (
-              <Space direction="vertical">
+              <Space orientation="vertical">
                 <Button type="primary" size="small" loading={executar.isPending} onClick={() => executar.mutate({ tipo: simulacao.tipo, simular: false })}>
                   Confirmar
                 </Button>

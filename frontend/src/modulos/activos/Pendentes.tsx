@@ -93,7 +93,7 @@ export default function Pendentes() {
             <BotoesExportar tamanho="small" desactivado={!d?.linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Aquisições pendentes de inventariação (contas 11/12)', colunas, linhas: d?.linhas ?? [], totais: 'Total' })} />
           </Space>
         )}>
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Estes Lançamentos foram detectados no Diário (Classes 11 e 12). Pode inventariar o valor total ou parcial de cada linha." />
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Estes Lançamentos foram detectados no Diário (Classes 11 e 12). Pode inventariar o valor total ou parcial de cada linha." />
         <TabelaComModos<LinhaPendente>
           idVista="activos_pendentes"
           rowKey="id"
@@ -205,7 +205,7 @@ export function ModalInventariar({ linhas, aoFechar, aoConcluir }: { linhas: Lin
     >
       {combinada && (
         <Alert type="info" showIcon style={{ marginBottom: 12 }}
-          message={`Linhas combinadas: ${comb.ordenadas.map((l) => `${l.numero_documento ?? `#${l.id}`} (${l.codigo_conta}, ${formatarKz(l.por_inventariar)})`).join(' · ')}`}
+          title={`Linhas combinadas: ${comb.ordenadas.map((l) => `${l.numero_documento ?? `#${l.id}`} (${l.codigo_conta}, ${formatarKz(l.por_inventariar)})`).join(' · ')}`}
           description="Data de aquisição e fornecedor da primeira linha; o valor dos activos é repartido pelas linhas por esta ordem." />
       )}
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
@@ -221,7 +221,7 @@ export function ModalInventariar({ linhas, aoFechar, aoConcluir }: { linhas: Lin
           <span>Resto: <ValorKz valor={validacao.restante} forte /></span>
         </Space>
       </Flex>
-      {validacao.excede && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={`A soma dos itens excede o valor por inventariar ${combinada ? 'das linhas seleccionadas' : 'da linha'}.`} />}
+      {validacao.excede && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={`A soma dos itens excede o valor por inventariar ${combinada ? 'das linhas seleccionadas' : 'da linha'}.`} />}
       <Table<ItemInventario>
         size="small"
         rowKey="chave"

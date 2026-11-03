@@ -93,7 +93,7 @@ export function ComposicaoRubrica({ tipo, rubrica, parametros, comparativo, rotu
         )}
       </Space>
       {consulta.error ? (
-        <Alert type="error" showIcon message="Não foi possível obter o cálculo desta rubrica." />
+        <Alert type="error" showIcon title="Não foi possível obter o cálculo desta rubrica." />
       ) : !c ? (
         <Skeleton active paragraph={{ rows: 2 }} />
       ) : (
@@ -108,7 +108,7 @@ export function ComposicaoRubrica({ tipo, rubrica, parametros, comparativo, rotu
             </Typography.Paragraph>
           )}
           {c.historico ? (
-            <Alert type="info" showIcon message={`Valor dos saldos históricos importados: ${formatarKz(c.valor)}`} />
+            <Alert type="info" showIcon title={`Valor dos saldos históricos importados: ${formatarKz(c.valor)}`} />
           ) : c.componentes.length > 0 ? (
             <Table<ComponenteComposicao>
               rowKey="rubrica"
@@ -201,7 +201,7 @@ function MovimentosConta({ tipo, rubrica, periodo, parametros, conta }: { tipo: 
     retry: false,
   });
   const m = consulta.data?.movimentos;
-  if (consulta.error) return <Alert type="error" showIcon message="Não foi possível obter os movimentos da conta." />;
+  if (consulta.error) return <Alert type="error" showIcon title="Não foi possível obter os movimentos da conta." />;
   if (!m) return <Skeleton active paragraph={{ rows: 1 }} />;
   return (
     <Table

@@ -71,7 +71,7 @@ export function LigacaoAgtEmpresa() {
   }, [l, formLigacao]);
 
   if (consulta.isLoading) return <Skeleton active />;
-  if (consulta.error || !l) return <Alert type="error" showIcon message="Não foi possível obter a ligação da empresa à AGT." />;
+  if (consulta.error || !l) return <Alert type="error" showIcon title="Não foi possível obter a ligação da empresa à AGT." />;
 
   const carregarFicheiro = async (campo: 'chave_privada' | 'publica_ou_certificado', ficheiros: FileList | null) => {
     const f = ficheiros?.[0];
@@ -92,13 +92,13 @@ export function LigacaoAgtEmpresa() {
         cifrado no servidor e nunca volta a ser mostrado. Sem ligação própria, usa-se a configuração do servidor.
       </Typography.Paragraph>
       {!l.software.configurado && (
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Os dados do software certificado (productId, versão e n.º de validação) não estão configurados no servidor." />
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Os dados do software certificado (productId, versão e n.º de validação) não estão configurados no servidor." />
       )}
       {l.chave.expira_em_breve && (
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`O certificado da chave expira em ${l.chave.dias_para_expirar} dia(s). Carregue a chave nova antes dessa data.`} />
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`O certificado da chave expira em ${l.chave.dias_para_expirar} dia(s). Carregue a chave nova antes dessa data.`} />
       )}
       {l.ultimo_teste && (
-        <Alert type={l.ultimo_teste.ok ? 'success' : 'error'} showIcon style={{ marginBottom: 12 }} message={`Último teste (${formatarDataHora(l.ultimo_teste.em)}): ${l.ultimo_teste.mensagem}`} />
+        <Alert type={l.ultimo_teste.ok ? 'success' : 'error'} showIcon style={{ marginBottom: 12 }} title={`Último teste (${formatarDataHora(l.ultimo_teste.em)}): ${l.ultimo_teste.mensagem}`} />
       )}
       <Descriptions size="small" column={COLUNAS_DESCRICOES} bordered style={{ marginBottom: 16 }}>
         <Descriptions.Item label="NIF da empresa">{l.nif ?? <Tag color="red">Inválido</Tag>}</Descriptions.Item>
@@ -242,7 +242,7 @@ export function LigacaoAgtEmpresa() {
       <Modal open={webhook !== null} title="Webhook da AGT" width={larguraModal(640)} footer={<Button type="primary" onClick={() => setWebhook(null)}>Já guardei</Button>} onCancel={() => setWebhook(null)}>
         {webhook && (
           <>
-            <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Guarde já o segredo: não volta a ser mostrado." />
+            <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Guarde já o segredo: não volta a ser mostrado." />
             <Descriptions size="small" column={1} bordered>
               <Descriptions.Item label="Endereço"><Typography.Text copyable style={{ wordBreak: 'break-all' }}>{webhook.url}</Typography.Text></Descriptions.Item>
               <Descriptions.Item label="Segredo HMAC"><Typography.Text copyable code style={{ wordBreak: 'break-all' }}>{webhook.segredo}</Typography.Text></Descriptions.Item>

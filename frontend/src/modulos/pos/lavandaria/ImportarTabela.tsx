@@ -150,7 +150,7 @@ export function ImportarTabela({ tipo }: { tipo: TipoImportacaoLav }) {
               type={res.ignoradas ? 'warning' : 'success'}
               showIcon
               style={{ marginBottom: 8 }}
-              message={
+              title={
                 res.simulacao
                   ? `Linhas lidas: ${res.lidas} · válidas: ${res.validas} · com erros (ignoradas): ${res.ignoradas}. Nada foi gravado.`
                   : `Criadas: ${res.criadas} · actualizadas: ${res.actualizadas} · ignoradas: ${res.ignoradas}.`

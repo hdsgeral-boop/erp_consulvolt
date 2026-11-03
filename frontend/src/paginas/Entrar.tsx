@@ -2,7 +2,7 @@ import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'ant
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
@@ -75,8 +75,8 @@ export function Entrar() {
           <h1 className="erp-entrada-titulo">{portal ? 'Portal do Colaborador' : 'ERP Consulvolt'}</h1>
           <Typography.Text type="secondary">{portal ? 'Entre com o seu utilizador para aceder ao portal' : 'Aceda à sua conta para continuar'}</Typography.Text>
         </Flex>
-        {motivoSaida && <Alert type="info" showIcon message={motivoSaida} style={{ marginBottom: 16 }} />}
-        {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
+        {motivoSaida && <Alert type="info" showIcon title={motivoSaida} style={{ marginBottom: 16 }} />}
+        {erro && <Alert type="error" showIcon title={erro} style={{ marginBottom: 16 }} />}
         <Form layout="vertical" onFinish={submeter} requiredMark={false}>
           <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
             <Input size="large" prefix={<UserOutlined />} autoComplete="username" autoFocus />

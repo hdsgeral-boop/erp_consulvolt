@@ -1,6 +1,6 @@
 import { Space, Typography } from 'antd';
 import { ApartmentOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import type { FichaProjecto } from './tipos';
 

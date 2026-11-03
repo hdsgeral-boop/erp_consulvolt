@@ -38,7 +38,7 @@ export function ModalImportarEmprestimos({ periodoId, mesAno, aberto, aoFechar, 
       <Checkbox checked={substituir} onChange={(e) => setSubstituir(e.target.checked)} style={{ marginBottom: 8 }}>
         Substituir o valor se o colaborador já tiver lançamento nessa rubrica
       </Checkbox>
-      {q.error && <Alert type="error" showIcon message={(q.error as Error).message} style={{ marginBottom: 8 }} />}
+      {q.error && <Alert type="error" showIcon title={(q.error as Error).message} style={{ marginBottom: 8 }} />}
       <Table<PrestacaoDoMes> size="small" rowKey={(l) => l.id ?? `${l.emprestimo_id}-${l.numero}`} loading={q.isFetching} dataSource={linhas} pagination={false} scroll={scrollTabela('45vh')}
         rowSelection={{ selectedRowKeys: linhas.filter((l) => seleccao.includes(l.colaborador_id)).map((l) => l.id ?? `${l.emprestimo_id}-${l.numero}`),
           onChange: (_, rows) => setSeleccao([...new Set(rows.map((r) => r.colaborador_id))]) }}

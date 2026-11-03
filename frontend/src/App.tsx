@@ -1,39 +1,49 @@
 import { message, Spin } from 'antd';
-import { useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useEffect, type ComponentType } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { LayoutPrincipal } from '@/layout/LayoutPrincipal';
 import { Entrar } from '@/paginas/Entrar';
-import { RecuperarPassword } from '@/paginas/RecuperarPassword';
 import { EscolherEmpresa } from '@/paginas/EscolherEmpresa';
 import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
 import { DadosPessoais } from '@/paginas/DadosPessoais';
-import { TrocaPasswordObrigatoria } from '@/paginas/TrocaPasswordObrigatoria';
-import { PortalAutonomo } from '@/portal/PortalAutonomo';
 import { ehHostPortal } from '@/portal/rota';
-import { LandingPage } from '@/paginas/publico/LandingPage';
-import { RegistarEmpresa } from '@/paginas/publico/RegistarEmpresa';
-import { TermosUtilizacao } from '@/paginas/publico/legal/TermosUtilizacao';
-import { PoliticaPrivacidade } from '@/paginas/publico/legal/PoliticaPrivacidade';
-import { ConformidadeFiscal } from '@/paginas/publico/legal/ConformidadeFiscal';
-import { LayoutPlataforma } from '@/plataforma/LayoutPlataforma';
-import { PlataformaDashboardExecutivo } from '@/plataforma/PlataformaDashboardExecutivo';
-import { PlataformaLogin } from '@/plataforma/PlataformaLogin';
-import PlataformaClientes from '@/modulos/config/PlataformaClientes';
-import PlataformaPlanos from '@/modulos/config/PlataformaPlanos';
-import PlataformaSaasGestao from '@/modulos/config/PlataformaSaasGestao';
-import PlataformaSuporte from '@/modulos/config/PlataformaSuporte';
-import PlataformaAuditoria from '@/modulos/config/PlataformaAuditoria';
-import PlataformaDefinicoes from '@/modulos/config/PlataformaDefinicoes';
-import PlataformaSessoes from '@/modulos/config/PlataformaSessoes';
-import PlataformaAdministradores from '@/modulos/config/PlataformaAdministradores';
-import PlataformaAgentesSuporte from '@/modulos/config/PlataformaAgentesSuporte';
-import { LayoutSuporte } from '@/suporte/LayoutSuporte';
-import DashboardSuporte from '@/suporte/DashboardSuporte';
-import RespostasRapidasSuporte from '@/suporte/RespostasRapidasSuporte';
-import { SuporteLogin } from '@/suporte/SuporteLogin';
-import SuportePainel from '@/suporte/SuportePainel';
+
+/**
+ * Ecrãs fora do caminho principal do ERP (login → escolha de empresa → layout → ecrãs dos módulos) são carregados
+ * só quando a rota é visitada: cada um fica num fragmento próprio no build, em vez de engordar o JS inicial.
+ * `preguicoso` adapta exportações com nome ao `React.lazy` (que só aceita `default`).
+ */
+const preguicoso = (carregar: () => Promise<ComponentType>) => lazy(() => carregar().then((C) => ({ default: C })));
+const RecuperarPassword = preguicoso(() => import('@/paginas/RecuperarPassword').then((m) => m.RecuperarPassword));
+const TrocaPasswordObrigatoria = preguicoso(() => import('@/paginas/TrocaPasswordObrigatoria').then((m) => m.TrocaPasswordObrigatoria));
+const PortalAutonomo = preguicoso(() => import('@/portal/PortalAutonomo').then((m) => m.PortalAutonomo));
+const LandingPage = preguicoso(() => import('@/paginas/publico/LandingPage').then((m) => m.LandingPage));
+const RegistarEmpresa = preguicoso(() => import('@/paginas/publico/RegistarEmpresa').then((m) => m.RegistarEmpresa));
+const TermosUtilizacao = preguicoso(() => import('@/paginas/publico/legal/TermosUtilizacao').then((m) => m.TermosUtilizacao));
+const PoliticaPrivacidade = preguicoso(() => import('@/paginas/publico/legal/PoliticaPrivacidade').then((m) => m.PoliticaPrivacidade));
+const ConformidadeFiscal = preguicoso(() => import('@/paginas/publico/legal/ConformidadeFiscal').then((m) => m.ConformidadeFiscal));
+const LayoutPlataforma = preguicoso(() => import('@/plataforma/LayoutPlataforma').then((m) => m.LayoutPlataforma));
+const PlataformaDashboardExecutivo = preguicoso(() => import('@/plataforma/PlataformaDashboardExecutivo').then((m) => m.PlataformaDashboardExecutivo));
+const PlataformaLogin = preguicoso(() => import('@/plataforma/PlataformaLogin').then((m) => m.PlataformaLogin));
+const PlataformaClientes = lazy(() => import('@/modulos/config/PlataformaClientes'));
+const PlataformaPlanos = lazy(() => import('@/modulos/config/PlataformaPlanos'));
+const PlataformaSaasGestao = lazy(() => import('@/modulos/config/PlataformaSaasGestao'));
+const PlataformaSuporte = lazy(() => import('@/modulos/config/PlataformaSuporte'));
+const PlataformaAuditoria = lazy(() => import('@/modulos/config/PlataformaAuditoria'));
+const PlataformaDefinicoes = lazy(() => import('@/modulos/config/PlataformaDefinicoes'));
+const PlataformaSessoes = lazy(() => import('@/modulos/config/PlataformaSessoes'));
+const PlataformaAdministradores = lazy(() => import('@/modulos/config/PlataformaAdministradores'));
+const PlataformaAgentesSuporte = lazy(() => import('@/modulos/config/PlataformaAgentesSuporte'));
+const LayoutSuporte = preguicoso(() => import('@/suporte/LayoutSuporte').then((m) => m.LayoutSuporte));
+const DashboardSuporte = lazy(() => import('@/suporte/DashboardSuporte'));
+const RespostasRapidasSuporte = lazy(() => import('@/suporte/RespostasRapidasSuporte'));
+const SuporteLogin = preguicoso(() => import('@/suporte/SuporteLogin').then((m) => m.SuporteLogin));
+const SuportePainel = lazy(() => import('@/suporte/SuportePainel'));
+
+/** Indicador enquanto um fragmento preguiçoso é descarregado. */
+const A_CARREGAR = <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
 
 /**
  * Encaminhamento:
@@ -55,13 +65,13 @@ export function App() {
   const agenteSuporte = utilizador?.papel === 'AGENTE_SUPORTE';
 
   if (estado === 'a_carregar') {
-    return <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
+    return A_CARREGAR;
   }
 
   // Password gerada pelo sistema (criação, reposição ou recuperação): bloqueia TODO o sistema até trocar ou sair
   // (backend: ExigirTrocaPassword, falha fechado em qualquer rota — isto só evita o ecrã normal, não é a barreira real).
   if (estado === 'autenticado' && utilizador?.deve_alterar_password) {
-    return <TrocaPasswordObrigatoria />;
+    return <Suspense fallback={A_CARREGAR}><TrocaPasswordObrigatoria /></Suspense>;
   }
 
   // portal.<base>: endereço externo dedicado (ADR: isolamento por subdomínio). A barreira real é do servidor
@@ -69,137 +79,141 @@ export function App() {
   if (ehHostPortal()) {
     return (
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/portal" replace />} />
-          <Route path="portal/*" element={estado === 'anonimo' ? <Entrar /> : agenteSuporte ? <Navigate to="/suporte" replace /> : !empresa ? <EscolherEmpresa /> : <PortalAutonomo />} />
-          <Route
-            path="recuperar-password"
-            element={estado === 'anonimo' ? <RecuperarPassword /> : <Navigate to="/portal" replace />}
-          />
-          <Route path="termos" element={<TermosUtilizacao />} />
-          <Route path="privacidade" element={<PoliticaPrivacidade />} />
-          <Route path="conformidade-fiscal" element={<ConformidadeFiscal />} />
-          <Route path="*" element={<Navigate to="/portal" replace />} />
-        </Routes>
+        <Suspense fallback={A_CARREGAR}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/portal" replace />} />
+            <Route path="portal/*" element={estado === 'anonimo' ? <Entrar /> : agenteSuporte ? <Navigate to="/suporte" replace /> : !empresa ? <EscolherEmpresa /> : <PortalAutonomo />} />
+            <Route
+              path="recuperar-password"
+              element={estado === 'anonimo' ? <RecuperarPassword /> : <Navigate to="/portal" replace />}
+            />
+            <Route path="termos" element={<TermosUtilizacao />} />
+            <Route path="privacidade" element={<PoliticaPrivacidade />} />
+            <Route path="conformidade-fiscal" element={<ConformidadeFiscal />} />
+            <Route path="*" element={<Navigate to="/portal" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     );
   }
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={estado === 'anonimo' ? <LandingPage /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
-        />
-        <Route
-          path="registar"
-          element={estado === 'anonimo' ? <RegistarEmpresa /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
-        />
-        <Route
-          path="entrar"
-          element={estado === 'anonimo' ? <Entrar /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
-        />
-        <Route
-          path="recuperar-password"
-          element={estado === 'anonimo' ? <RecuperarPassword /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
-        />
-        <Route
-          path="portal/*"
-          element={estado === 'anonimo' ? <Entrar /> : agenteSuporte ? <Navigate to="/suporte" replace /> : !empresa ? <EscolherEmpresa /> : <PortalAutonomo />}
-        />
+      <Suspense fallback={A_CARREGAR}>
+        <Routes>
+          <Route
+            path="/"
+            element={estado === 'anonimo' ? <LandingPage /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+          />
+          <Route
+            path="registar"
+            element={estado === 'anonimo' ? <RegistarEmpresa /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+          />
+          <Route
+            path="entrar"
+            element={estado === 'anonimo' ? <Entrar /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+          />
+          <Route
+            path="recuperar-password"
+            element={estado === 'anonimo' ? <RecuperarPassword /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+          />
+          <Route
+            path="portal/*"
+            element={estado === 'anonimo' ? <Entrar /> : agenteSuporte ? <Navigate to="/suporte" replace /> : !empresa ? <EscolherEmpresa /> : <PortalAutonomo />}
+          />
 
-        {/* Páginas legais/institucionais: sempre públicas, independentemente da sessão */}
-        <Route path="termos" element={<TermosUtilizacao />} />
-        <Route path="privacidade" element={<PoliticaPrivacidade />} />
-        <Route path="conformidade-fiscal" element={<ConformidadeFiscal />} />
+          {/* Páginas legais/institucionais: sempre públicas, independentemente da sessão */}
+          <Route path="termos" element={<TermosUtilizacao />} />
+          <Route path="privacidade" element={<PoliticaPrivacidade />} />
+          <Route path="conformidade-fiscal" element={<ConformidadeFiscal />} />
 
-        {/* Portal de Administração da Plataforma SaaS */}
-        <Route
-          path="admin/login"
-          element={superAdmin ? <Navigate to="/admin" replace /> : agenteSuporte ? <Navigate to="/suporte" replace /> : <PlataformaLogin />}
-        />
-        <Route
-          path="admin"
-          element={
-            estado === 'anonimo' ? (
-              <Navigate to="/admin/login" replace />
-            ) : superAdmin ? (
-              <LayoutPlataforma />
-            ) : (
-              <AcessoNegadoPlataforma agenteSuporte={agenteSuporte} />
-            )
-          }
-        >
-          <Route index element={<PlataformaDashboardExecutivo />} />
-          <Route path="clientes" element={<PlataformaClientes />} />
-          <Route path="planos" element={<PlataformaPlanos />} />
-          <Route path="saas" element={<PlataformaSaasGestao />} />
-          <Route path="suporte" element={<PlataformaSuporte />} />
-          <Route path="auditoria" element={<PlataformaAuditoria />} />
-          <Route path="sessoes" element={<PlataformaSessoes />} />
-          <Route path="administradores" element={<PlataformaAdministradores />} />
-          <Route path="agentes-suporte" element={<PlataformaAgentesSuporte />} />
-          <Route path="definicoes" element={<PlataformaDefinicoes />} />
-        </Route>
+          {/* Portal de Administração da Plataforma SaaS */}
+          <Route
+            path="admin/login"
+            element={superAdmin ? <Navigate to="/admin" replace /> : agenteSuporte ? <Navigate to="/suporte" replace /> : <PlataformaLogin />}
+          />
+          <Route
+            path="admin"
+            element={
+              estado === 'anonimo' ? (
+                <Navigate to="/admin/login" replace />
+              ) : superAdmin ? (
+                <LayoutPlataforma />
+              ) : (
+                <AcessoNegadoPlataforma agenteSuporte={agenteSuporte} />
+              )
+            }
+          >
+            <Route index element={<PlataformaDashboardExecutivo />} />
+            <Route path="clientes" element={<PlataformaClientes />} />
+            <Route path="planos" element={<PlataformaPlanos />} />
+            <Route path="saas" element={<PlataformaSaasGestao />} />
+            <Route path="suporte" element={<PlataformaSuporte />} />
+            <Route path="auditoria" element={<PlataformaAuditoria />} />
+            <Route path="sessoes" element={<PlataformaSessoes />} />
+            <Route path="administradores" element={<PlataformaAdministradores />} />
+            <Route path="agentes-suporte" element={<PlataformaAgentesSuporte />} />
+            <Route path="definicoes" element={<PlataformaDefinicoes />} />
+          </Route>
 
-        {/* Backoffice de suporte, isolado da plataforma (ADR-076): agente de suporte ou super-administrador */}
-        <Route
-          path="suporte/login"
-          element={superAdmin || agenteSuporte ? <Navigate to="/suporte" replace /> : <SuporteLogin />}
-        />
-        <Route
-          path="suporte"
-          element={
-            estado === 'anonimo' ? (
-              <Navigate to="/suporte/login" replace />
-            ) : superAdmin || agenteSuporte ? (
-              <LayoutSuporte />
-            ) : (
-              <Navigate to="/app" replace />
-            )
-          }
-        >
-          <Route index element={<SuportePainel />} />
-          <Route path="dashboard" element={<DashboardSuporte />} />
-          <Route path="respostas-rapidas" element={<RespostasRapidasSuporte />} />
-        </Route>
+          {/* Backoffice de suporte, isolado da plataforma (ADR-076): agente de suporte ou super-administrador */}
+          <Route
+            path="suporte/login"
+            element={superAdmin || agenteSuporte ? <Navigate to="/suporte" replace /> : <SuporteLogin />}
+          />
+          <Route
+            path="suporte"
+            element={
+              estado === 'anonimo' ? (
+                <Navigate to="/suporte/login" replace />
+              ) : superAdmin || agenteSuporte ? (
+                <LayoutSuporte />
+              ) : (
+                <Navigate to="/app" replace />
+              )
+            }
+          >
+            <Route index element={<SuportePainel />} />
+            <Route path="dashboard" element={<DashboardSuporte />} />
+            <Route path="respostas-rapidas" element={<RespostasRapidasSuporte />} />
+          </Route>
 
-        {/* Área de Aplicação do Cliente ERP — nunca para um agente de suporte (ADR-076: fica só no backoffice) */}
-        <Route
-          path="app"
-          element={
-            estado === 'anonimo' ? (
-              <Navigate to="/entrar" replace />
-            ) : agenteSuporte ? (
-              <Navigate to="/suporte" replace />
-            ) : !empresa ? (
-              <EscolherEmpresa />
-            ) : (
-              <Navigate to="/inicio" replace />
-            )
-          }
-        />
-        <Route
-          element={
-            estado === 'anonimo' ? (
-              <Navigate to="/entrar" replace />
-            ) : agenteSuporte ? (
-              <Navigate to="/suporte" replace />
-            ) : !empresa ? (
-              <EscolherEmpresa />
-            ) : (
-              <LayoutPrincipal />
-            )
-          }
-        >
-          <Route path="m/:modulo/:ecra/*" element={<Ecra />} />
-          <Route path="dados-pessoais" element={<DadosPessoais />} />
-          <Route path="inicio" element={<Inicio />} />
-        </Route>
+          {/* Área de Aplicação do Cliente ERP — nunca para um agente de suporte (ADR-076: fica só no backoffice) */}
+          <Route
+            path="app"
+            element={
+              estado === 'anonimo' ? (
+                <Navigate to="/entrar" replace />
+              ) : agenteSuporte ? (
+                <Navigate to="/suporte" replace />
+              ) : !empresa ? (
+                <EscolherEmpresa />
+              ) : (
+                <Navigate to="/inicio" replace />
+              )
+            }
+          />
+          <Route
+            element={
+              estado === 'anonimo' ? (
+                <Navigate to="/entrar" replace />
+              ) : agenteSuporte ? (
+                <Navigate to="/suporte" replace />
+              ) : !empresa ? (
+                <EscolherEmpresa />
+              ) : (
+                <LayoutPrincipal />
+              )
+            }
+          >
+            <Route path="m/:modulo/:ecra/*" element={<Ecra />} />
+            <Route path="dados-pessoais" element={<DadosPessoais />} />
+            <Route path="inicio" element={<Inicio />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

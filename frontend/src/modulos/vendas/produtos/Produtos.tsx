@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, Col, Descriptions, Form, Input, InputNum
 import { ModalImportarProdutos, type EntidadeImportacao } from './ModalImportarProdutos';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type Key } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { AlternarFormulario, PainelLinhas, useVistaFormulario } from '@/componentes/formularios';
 import { BotoesExportar } from '@/componentes/impressao';
@@ -402,7 +402,7 @@ function SeparadorFichaTecnica() {
         <Form.Item label="Composição / características">
           <Form.List name="caracteristicas">
             {(campos, { add, remove }) => (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 {campos.map(({ key, name }) => (
                   <Space.Compact key={key} style={{ width: '100%' }}>
                     <Form.Item name={[name, 'chave']} noStyle rules={[{ max: 100 }]}><Input placeholder="Característica (ex.: Potência)" style={{ width: '40%' }} aria-label={`Característica ${name + 1}`} /></Form.Item>
@@ -435,7 +435,7 @@ function SeparadorNiveis() {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="Regras de notificação (stock somado de todos os armazéns)"
+        title="Regras de notificação (stock somado de todos os armazéns)"
         description="Abaixo do mínimo ou do stock de segurança: alerta crítico. Stock + encomendas em curso no ponto de encomenda ou abaixo: sugestão de reposição até ao máximo (Armazém › Níveis de stock). Acima do máximo: alerta de excesso."
       />
       <Row gutter={16}>
@@ -461,7 +461,7 @@ function ContasHerdadas({ categoria, ficha, activo }: { categoria?: Categoria; f
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="As contas contabilísticas definem-se na categoria do produto"
+        title="As contas contabilísticas definem-se na categoria do produto"
         description={categoria ? `Categoria «${categoria.nome}». Para mudar uma conta, edite a categoria em Vendas › Categorias (afecta todos os produtos da categoria).` : 'Escolha a categoria no separador Geral.'}
       />
       <Descriptions size="small" bordered column={{ xs: 1, md: 2 }}>

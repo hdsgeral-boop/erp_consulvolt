@@ -24,7 +24,7 @@ const PRIMARIA = '#3b82f6';
 export const TEMA_NOCTURNO: ThemeConfig = {
   inherit: false,
   // com inherit: false é preciso voltar a ligar as variáveis CSS (`var(--ant-color-primary)` passa a #3b82f6 no escuro)
-  cssVar: true,
+  cssVar: {},
   algorithm: theme.darkAlgorithm,
   token: {
     ...TEMA.token,

@@ -2,7 +2,7 @@ import { Alert, Button, Card, Col, Descriptions, Flex, Row, Skeleton, Table, Tag
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { scrollTabela } from '@/componentes/responsivo';
@@ -76,7 +76,7 @@ export function DetalheFatura() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const f = consulta.data;
-  if (!f) return <Alert type="error" message="Factura não encontrada." />;
+  if (!f) return <Alert type="error" title="Factura não encontrada." />;
   const a = accoesFatura(f, pode);
   const moeda = f.codigo_moeda || 'AOA';
   const linhas = linhasFatura(f);
@@ -125,7 +125,7 @@ export function DetalheFatura() {
           </>
         }
       />
-      {f.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Factura anulada${f.motivo_anulacao ? `: ${f.motivo_anulacao}` : '.'}`} />}
+      {f.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Factura anulada${f.motivo_anulacao ? `: ${f.motivo_anulacao}` : '.'}`} />}
       {/* «Dados do Fornecedor» e «Informação do Documento» lado a lado, como o legado (viewPurchaseInvoice, js/ui_compras_v2.js:3776-3790) */}
       <Row gutter={[24, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} md={16}>

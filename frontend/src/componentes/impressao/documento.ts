@@ -7,9 +7,15 @@ export function esc(texto: unknown): string {
   return String(texto ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
 }
 
-/** Só aceita logótipos em data URI de imagem (a CSP de produção só permite img-src 'self' data: blob:). */
+/**
+ * Só aceita logótipos em data URI de imagem ou o URL público da imagem no Cloudflare R2 (https://…r2.dev/…; a CSP de
+ * produção permite img-src 'self' data: blob: https://*.r2.dev). Outros endereços externos, javascript: ou texto solto
+ * ficam de fora. Com um domínio próprio ligado ao bucket, acrescentá-lo aqui e na CSP (cabecalhos-seguranca.conf).
+ */
 export function logotipoSeguro(v: string | null | undefined): string | null {
-  return v && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$/i.test(v) ? v : null;
+  if (!v) return null;
+  if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$/i.test(v)) return v;
+  return /^https:\/\/[a-z0-9-]+\.r2\.dev\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)$/i.test(v) ? v : null;
 }
 
 /** Nome de ficheiro sugerido (o navegador acrescenta «.pdf»). */

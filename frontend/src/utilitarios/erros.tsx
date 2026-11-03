@@ -6,7 +6,7 @@ export function notificarErro(e: unknown, titulo = 'Não foi possível concluir 
   const erro = e instanceof ErroApi ? e : null;
   const detalhes = erro?.erros ? listaDetalhes(erro.erros) : [];
   notification.error({
-    message: titulo,
+    title: titulo,
     description: (
       <>
         <div>{erro?.message ?? (e instanceof Error ? e.message : String(e))}</div>

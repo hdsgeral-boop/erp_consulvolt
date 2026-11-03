@@ -64,7 +64,7 @@ export function BlocoAgt({ documento }: { documento: Pick<DocumentoVenda, 'fatur
         {fe.penalizacao && <Descriptions.Item label="Validação"><Tag color="orange">Válido com penalização (comunicado com mais de 24 h)</Tag></Descriptions.Item>}
         {fe.contingencia_desde && <Descriptions.Item label="Em contingência desde">{formatarDataHora(fe.contingencia_desde)}</Descriptions.Item>}
       </Descriptions>
-      {orientacao && <Alert style={{ marginTop: 12 }} type={estado === 'ENVIADO' ? 'info' : 'warning'} showIcon message={orientacao} />}
+      {orientacao && <Alert style={{ marginTop: 12 }} type={estado === 'ENVIADO' ? 'info' : 'warning'} showIcon title={orientacao} />}
       <ListaMensagens titulo="Erros devolvidos pela AGT" itens={errosAgt} tipo="danger" />
       <ListaMensagens titulo="Erros do validador local" itens={erros} tipo="danger" />
       <ListaMensagens titulo="Avisos" itens={avisos} tipo="warning" />
@@ -73,7 +73,7 @@ export function BlocoAgt({ documento }: { documento: Pick<DocumentoVenda, 'fatur
           <Typography.Text strong>Últimas respostas</Typography.Text>
           <Timeline
             style={{ marginTop: 12, marginBottom: -24 }}
-            items={historico.map((h) => ({ children: <><Typography.Text type="secondary">{formatarDataHora(h.em)}</Typography.Text> · <strong>{h.accao}</strong>: {h.resultado}</> }))}
+            items={historico.map((h) => ({ content: <><Typography.Text type="secondary">{formatarDataHora(h.em)}</Typography.Text> · <strong>{h.accao}</strong>: {h.resultado}</> }))}
           />
         </div>
       )}

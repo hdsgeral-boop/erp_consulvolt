@@ -110,7 +110,7 @@ export default function Encerramento() {
             // legado: faixa verde «Exercício Encerrado» com cadeado (#closed-year-banner, js/ui_closing.js:18-20)
             <Alert type="success" showIcon icon={<LockOutlined />} style={{ marginBottom: 16, fontWeight: 700 }} message={`Exercício Encerrado (${ano})`} />
           ) : (
-            <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`O exercício de ${ano} está aberto. Execute os passos pela ordem, valide e encerre.`} />
+            <Alert type="info" showIcon style={{ marginBottom: 16 }} title={`O exercício de ${ano} está aberto. Execute os passos pela ordem, valide e encerre.`} />
           )}
           <PainelPlano ano={ano} encerrado={e.encerrado} />
           <Tabs
@@ -245,14 +245,14 @@ export default function Encerramento() {
               <Descriptions.Item label="Linhas a gerar">{previsao.data.linhas}</Descriptions.Item>
             </Descriptions>
             {previsao.data.numero_lan_anterior && (
-              <Alert style={{ marginBottom: 12 }} type="warning" showIcon message={`Já existe o lançamento ${previsao.data.numero_lan_anterior}: repetir o passo estorna-o e gera um novo.`} />
+              <Alert style={{ marginBottom: 12 }} type="warning" showIcon title={`Já existe o lançamento ${previsao.data.numero_lan_anterior}: repetir o passo estorna-o e gera um novo.`} />
             )}
             {previsao.data.contas_totalizadoras.length > 0 && (
               <Alert
                 style={{ marginBottom: 12 }}
                 type="error"
                 showIcon
-                message="Contas totalizadoras no apuramento"
+                title="Contas totalizadoras no apuramento"
                 description={`Não se lança em contas totalizadoras: ${previsao.data.contas_totalizadoras.join(', ')}. Corrija o plano de contas antes de executar.`}
               />
             )}
@@ -261,7 +261,7 @@ export default function Encerramento() {
                 style={{ marginBottom: 12 }}
                 type="warning"
                 showIcon
-                message="Contas de apuramento em falta"
+                title="Contas de apuramento em falta"
                 description={
                   <>
                     <div>{previsao.data.contas_em_falta.join(', ')}</div>
@@ -404,12 +404,12 @@ function PainelValidacoes({ ano, validacao, aCarregar, aoValidar }: { ano: numbe
       ) : (
         <>
           {validacao.pode_encerrar ? (
-            <Alert type="success" showIcon style={{ marginBottom: 12 }} message="Todas as validações bloqueantes foram aprovadas: o exercício pode ser encerrado." />
+            <Alert type="success" showIcon style={{ marginBottom: 12 }} title="Todas as validações bloqueantes foram aprovadas: o exercício pode ser encerrado." />
           ) : (
-            <Alert type="error" showIcon style={{ marginBottom: 12 }} message={`Existem ${validacao.divergencias.length} divergência(s) que impedem o encerramento.`} />
+            <Alert type="error" showIcon style={{ marginBottom: 12 }} title={`Existem ${validacao.divergencias.length} divergência(s) que impedem o encerramento.`} />
           )}
           {validacao.avisos.length > 0 && (
-            <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`${validacao.avisos.length} aviso(s): não impedem o encerramento, mas devem ser analisados.`} />
+            <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`${validacao.avisos.length} aviso(s): não impedem o encerramento, mas devem ser analisados.`} />
           )}
           <List
             dataSource={validacao.verificacoes}

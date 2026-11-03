@@ -75,11 +75,11 @@ export function ControloDesequilibrios({ aberto, aoFechar }: { aberto: boolean; 
             <Space size={32} wrap style={{ marginBottom: 12 }}>
               <Statistic title="Total a débito" value={formatarKz(r.debito)} />
               <Statistic title="Total a crédito" value={formatarKz(r.credito)} />
-              <Statistic title="Diferença" value={formatarKz(r.diferenca)} valueStyle={{ color: eZero(r.diferenca) ? undefined : '#cf1322' }} />
+              <Statistic title="Diferença" value={formatarKz(r.diferenca)} styles={{ content: { color: eZero(r.diferenca) ? undefined : '#cf1322' } }} />
               <Statistic title="Lançamentos desequilibrados" value={r.lancamentos_desequilibrados} />
             </Space>
             {r.lancamentos_desequilibrados === 0 ? (
-              <Alert type="success" showIcon message="Todos os lançamentos do período estão equilibrados (débito = crédito)." />
+              <Alert type="success" showIcon title="Todos os lançamentos do período estão equilibrados (débito = crédito)." />
             ) : (
               <>
                 <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>

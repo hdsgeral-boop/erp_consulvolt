@@ -204,12 +204,12 @@ export default function PlataformaSaasGestao() {
       {/* Cards de Métricas e Estado Geral */}
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ height: '100%' }}>
+          <Card variant="borderless" style={{ height: '100%' }}>
             <Statistic
               title="Empresas Ativas"
               value={stats?.empresas_ativas ?? 0}
               suffix={`/ ${stats?.empresas_total ?? 0}`}
-              valueStyle={{ color: '#52c41a' }}
+              styles={{ content: { color: '#52c41a' } }}
               prefix={<CheckCircleOutlined />}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -219,11 +219,11 @@ export default function PlataformaSaasGestao() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ height: '100%' }}>
+          <Card variant="borderless" style={{ height: '100%' }}>
             <Statistic
               title="Em Período de Demonstração"
               value={stats?.empresas_em_teste ?? 0}
-              valueStyle={{ color: '#1890ff' }}
+              styles={{ content: { color: '#1890ff' } }}
               prefix={<ClockCircleOutlined />}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -233,11 +233,11 @@ export default function PlataformaSaasGestao() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ height: '100%' }}>
+          <Card variant="borderless" style={{ height: '100%' }}>
             <Statistic
               title="Licenças Expiradas"
               value={stats?.empresas_expiradas ?? 0}
-              valueStyle={{ color: '#ff4d4f' }}
+              styles={{ content: { color: '#ff4d4f' } }}
               prefix={<CloseCircleOutlined />}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -247,11 +247,11 @@ export default function PlataformaSaasGestao() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ height: '100%' }}>
+          <Card variant="borderless" style={{ height: '100%' }}>
             <Statistic
               title="Licenças Vitalícias"
               value={stats?.empresas_sem_limite ?? 0}
-              valueStyle={{ color: '#fa8c16' }}
+              styles={{ content: { color: '#fa8c16' } }}
               prefix={<CrownOutlined />}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -335,7 +335,7 @@ export default function PlataformaSaasGestao() {
 
         {estadoGeral?.rls_cobertura_completa ? (
           <Alert
-            message="Segurança Multi-Tenant Ativa (RLS 100%)"
+            title="Segurança Multi-Tenant Ativa (RLS 100%)"
             description="Todas as tabelas de negócio do PostgreSQL possuem políticas de isolamento estrito por tenant ativas."
             type="success"
             showIcon
@@ -344,7 +344,7 @@ export default function PlataformaSaasGestao() {
           />
         ) : (
           <Alert
-            message="Atenção: Tabelas sem Isolamento RLS"
+            title="Atenção: Tabelas sem Isolamento RLS"
             description={`As seguintes tabelas necessitam de política RLS: ${estadoGeral?.tabelas_sem_rls.join(', ')}`}
             type="warning"
             showIcon
@@ -544,7 +544,7 @@ export default function PlataformaSaasGestao() {
         open={!!empresaAEditar}
         onCancel={() => setEmpresaAEditar(null)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={formEdicao}
@@ -575,7 +575,7 @@ export default function PlataformaSaasGestao() {
               if (origem === 'SEM_LIMITE') {
                 return (
                   <Alert
-                    message="Licença Vitalícia Selecionada"
+                    title="Licença Vitalícia Selecionada"
                     description="Esta empresa terá acesso total sem restrições ou contagem de tempo de validade."
                     type="info"
                     showIcon

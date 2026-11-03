@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Colaborador;
+use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -89,7 +90,7 @@ final class ServicoPermissoesTest extends TestCase
     {
         // Acesso total (perfil all=true) de um tenant que não é o da plataforma: vê tudo excepto os ecrãs plataforma_*
         // (administração do SaaS) — o mesmo que ExigirPlataforma já impede no servidor para estas rotas.
-        $outroTenant = \App\Models\Tenant::create(['nome' => 'Outro Cliente', 'slug' => 'outro-cliente-'.random_int(1000, 99999), 'estado' => \App\Models\Tenant::ESTADO_ATIVO]);
+        $outroTenant = Tenant::create(['nome' => 'Outro Cliente', 'slug' => 'outro-cliente-'.random_int(1000, 99999), 'estado' => Tenant::ESTADO_ATIVO]);
         $cliente = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['all' => true])->id]);
         $cliente->forceFill(['tenant_id' => $outroTenant->id])->save();
         $this->assertTrue($this->permissoes->tem($cliente, 'dashboard_view'));
@@ -111,7 +112,7 @@ final class ServicoPermissoesTest extends TestCase
         // O perfil "Acesso Total" (all=true) é atribuído por omissão ao administrador de uma empresa cliente —
         // o módulo `suporte` (ADR-077, só para especializar agentes do backoffice) não deve aparecer no menu
         // dessa empresa, mesmo assim (bug relatado: "Backoffice de Suporte" a aparecer no menu de um cliente normal).
-        $outroTenant = \App\Models\Tenant::create(['nome' => 'Outro Cliente', 'slug' => 'outro-cliente-'.random_int(1000, 99999), 'estado' => \App\Models\Tenant::ESTADO_ATIVO]);
+        $outroTenant = Tenant::create(['nome' => 'Outro Cliente', 'slug' => 'outro-cliente-'.random_int(1000, 99999), 'estado' => Tenant::ESTADO_ATIVO]);
         $cliente = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['all' => true])->id]);
         $cliente->forceFill(['tenant_id' => $outroTenant->id])->save();
         $this->assertFalse($this->permissoes->tem($cliente, 'suporte_tickets_geral_gerir'));

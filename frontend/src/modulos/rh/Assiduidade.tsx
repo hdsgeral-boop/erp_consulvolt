@@ -262,7 +262,7 @@ function Registos({ mes, soImportar, seletor }: { mes: string; soImportar?: bool
               <Button icon={<ClockCircleOutlined />} loading={relogio.isPending}>Ler relógio</Button>
             </Popconfirm>
           </Space>
-        ) : <Alert type="info" showIcon message="Sem permissão para registar efectividade." />}
+        ) : <Alert type="info" showIcon title="Sem permissão para registar efectividade." />}
         {modais}
       </Card>
     );
@@ -427,7 +427,7 @@ function Apuramento({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
               {a.fecho.motivo_reabertura && <Descriptions.Item label="Última reabertura" span="filled">{formatarDataHora(a.fecho.reaberto_em)} — {a.fecho.motivo_reabertura}</Descriptions.Item>}
             </Descriptions>
           )}
-          {!fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Apuramento provisório até ${formatarData(a.apurado_ate)} (o mês ainda não está fechado).`} />}
+          {!fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Apuramento provisório até ${formatarData(a.apurado_ate)} (o mês ainda não está fechado).`} />}
           <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
             As faltas descontam férias aprovadas e ausências justificadas aprovadas. Acima de 3 faltas injustificadas num mês (ou 12 no ano) há infracção disciplinar,
             além da perda de remuneração (art.º 230.º da Lei 12/23). A coluna «Faltas no ano» acumula as faltas de Janeiro até este mês.
@@ -576,7 +576,7 @@ function Ausencias({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
             <Select showSearch optionFilterProp="label" options={Object.entries(cat).map(([k, t]) => ({ value: k, label: t.nome }))} />
           </Form.Item>
           {tipoSel && (
-            <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Art.º ${tipoSel.artigo} · ${tipoSel.unidade === 'HORAS' ? 'em horas' : tipoSel.unidade === 'DIAS_UTEIS' ? 'dias úteis' : 'dias de calendário'} · remunerada: ${tipoSel.remunerada === 'SIM' ? 'sim' : tipoSel.remunerada === 'NAO' ? 'não' : 'a critério do empregador'}${tipoSel.max_seguidos ? ` · máx. ${tipoSel.max_seguidos} seguidos` : ''}${tipoSel.prova_opcional ? '' : ' · exige prova'}`} />
+            <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Art.º ${tipoSel.artigo} · ${tipoSel.unidade === 'HORAS' ? 'em horas' : tipoSel.unidade === 'DIAS_UTEIS' ? 'dias úteis' : 'dias de calendário'} · remunerada: ${tipoSel.remunerada === 'SIM' ? 'sim' : tipoSel.remunerada === 'NAO' ? 'não' : 'a critério do empregador'}${tipoSel.max_seguidos ? ` · máx. ${tipoSel.max_seguidos} seguidos` : ''}${tipoSel.prova_opcional ? '' : ' · exige prova'}`} />
           )}
           {tipoSel?.unidade === 'HORAS' && edicao === 'nova' && <Form.Item name="horas" label="Horas" rules={[{ required: true }]}><InputNumber min={0.5} max={744} step={0.5} style={{ width: '100%' }} /></Form.Item>}
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, message: 'Indique o motivo.' }]}><Input.TextArea rows={3} maxLength={1000} /></Form.Item>

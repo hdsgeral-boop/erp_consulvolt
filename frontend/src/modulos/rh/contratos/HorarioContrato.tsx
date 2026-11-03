@@ -58,7 +58,7 @@ export function CamposHorario({ form, semTitulo }: { form: FormInstance; /** Den
             <Checkbox.Group options={DIAS_CURTOS.map((d, i) => ({ value: i, label: d }))} />
           </Form.Item>
           <Alert type={previstas ? 'info' : 'warning'} showIcon style={{ marginBottom: 12 }}
-            message={previstas ? `${textoHorario(h)}: ${String(previstas).replace('.', ',')} h por dia (passam a ser as horas por dia do contrato).` : 'Indique um horário com horas pagas (o intervalo não pode consumir o turno).'} />
+            title={previstas ? `${textoHorario(h)}: ${String(previstas).replace('.', ',')} h por dia (passam a ser as horas por dia do contrato).` : 'Indique um horário com horas pagas (o intervalo não pode consumir o turno).'} />
         </>
       )}
     </>

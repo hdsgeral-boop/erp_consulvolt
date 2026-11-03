@@ -1,6 +1,6 @@
 import { Button } from 'antd';
 import { useState, type ComponentType } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { EstadoVazio } from '@/componentes/vistas';

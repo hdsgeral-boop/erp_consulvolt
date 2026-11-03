@@ -29,8 +29,8 @@ final class DominioPedidoTest extends TestCase
         $d = DominioPedido::de($this->pedido('portal.meuerp.online'));
 
         $this->assertSame(DominioPedido::PORTAL, $d->area);
-        $this->assertTrue($d->permite((new Utilizador())->forceFill(['tenant_id' => 1])));
-        $this->assertTrue($d->permite((new Utilizador())->forceFill(['tenant_id' => 99])));
+        $this->assertTrue($d->permite((new Utilizador)->forceFill(['tenant_id' => 1])));
+        $this->assertTrue($d->permite((new Utilizador)->forceFill(['tenant_id' => 99])));
     }
 
     #[Test]

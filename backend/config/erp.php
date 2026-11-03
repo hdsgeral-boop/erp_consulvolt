@@ -58,6 +58,14 @@ return [
         'cabecalho' => 'X-Empresa-Id',
     ],
 
+    'imagens' => [
+        // Disco PÚBLICO onde ficam as imagens (logótipos das empresas, logótipo do ecrã de entrada, imagens de produtos):
+        // «imagens» = Cloudflare R2 (API S3, config/filesystems.php). A aplicação guarda só o URL público e o navegador
+        // lê a imagem directamente da Cloudflare — nada de base64 na base de dados nem ficheiros no servidor.
+        // Vazio = comportamento antigo (data URI na base / ficheiro privado), enquanto o R2 não estiver configurado.
+        'disco' => env('ERP_IMAGENS_DISCO', ''),
+    ],
+
     'cache' => [
         // TTL (segundos) das leituras em cache — chaves erp:{empresa_id}:{modulo}:{chave}. O TTL é só a rede de
         // segurança: a frescura vem das invalidações explícitas (eventos dos models + InvalidacaoCache, depois do

@@ -274,7 +274,7 @@ export function MapaBanco({ periodoId, grupo: grupoFixo }: PropsMapa = {}) {
     <MolduraMapa embutido={embutido} titulo="Ordem de Pagamento (Banco)" subtitulo="Transferências dos salários líquidos (contém IBAN)" mapa={mapa} apenas={['VALIDADO']}
       filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!o?.linhas.length} onClick={exportar}>Exportar CSV</Button>}
-      aviso={o && o.sem_iban > 0 ? <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} message={`${o.sem_iban} colaborador(es) sem IBAN: registe-os em Coordenadas bancárias antes de emitir a carta.`} /> : null}>
+      aviso={o && o.sem_iban > 0 ? <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} title={`${o.sem_iban} colaborador(es) sem IBAN: registe-os em Coordenadas bancárias antes de emitir a carta.`} /> : null}>
       {ordem.isLoading ? <Card loading variant="borderless" /> : o && (
         <AreaImpressao>
           <CabecalhoMapa empresa={empresa?.nome} titulo="Ordem de Pagamento (Banco)" mesAno={mapa.periodo?.mes_ano} extra={<div>Grupo: {GRUPOS_PAGAMENTO.find((g) => g.value === grupo)?.label}</div>} />
@@ -348,7 +348,7 @@ export function MapaRecibos({ periodoId, grupo: grupoFixo }: PropsMapa = {}) {
           </Button>
         </Space>
       ) : undefined}
-      aviso={mapa.periodo && mapa.periodo.estado !== 'VALIDADO' ? <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Os recibos só se emitem de processamentos validados." /> : null}>
+      aviso={mapa.periodo && mapa.periodo.estado !== 'VALIDADO' ? <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="Os recibos só se emitem de processamentos validados." /> : null}>
       {mapa.periodo?.estado === 'VALIDADO' && (
         <AreaImpressao>
           {visiveis.length === 0 && <Empty />}

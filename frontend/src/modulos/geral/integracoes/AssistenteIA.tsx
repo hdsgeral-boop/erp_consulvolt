@@ -2,7 +2,7 @@ import { DeleteOutlined, EditOutlined, InboxOutlined, PlusOutlined, RobotOutline
 import { Alert, Button, Card, Descriptions, Drawer, Empty, Flex, Form, Input, List, Popconfirm, Segmented, Space, Switch, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { larguraGaveta, scrollTabela } from '@/componentes/responsivo';
@@ -90,7 +90,7 @@ export function AssistenteIA({ aberto, aoFechar }: { aberto: boolean; aoFechar: 
   const { pode } = useSessao();
   const estado = useQuery({ queryKey: CHAVE, queryFn: () => obter<EstadoIA>('/contabilidade/assistente'), enabled: aberto });
   return (
-    <Drawer title={<span><RobotOutlined /> Assistente IA para lançamentos</span>} open={aberto} onClose={aoFechar} width={larguraGaveta(820)} destroyOnHidden>
+    <Drawer title={<span><RobotOutlined /> Assistente IA para lançamentos</span>} open={aberto} onClose={aoFechar} size={larguraGaveta(820)} destroyOnHidden>
       <Tabs
         items={[
           ...(pode('lancamentos_post') ? [{ key: 'propor', label: 'Propor lançamento', children: <Propor estado={estado.data} aoFechar={aoFechar} /> }] : []),
@@ -128,7 +128,7 @@ function Propor({ estado, aoFechar }: { estado?: EstadoIA; aoFechar: () => void 
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message={estado.configurado ? 'A IA está desligada nesta empresa' : 'A IA não está configurada no servidor'}
+          title={estado.configurado ? 'A IA está desligada nesta empresa' : 'A IA não está configurada no servidor'}
           description="As regras internas continuam disponíveis. Veja o separador «Configuração» para saber como activar."
         />
       )}
@@ -166,7 +166,7 @@ function Propor({ estado, aoFechar }: { estado?: EstadoIA; aoFechar: () => void 
           <Typography.Text type="secondary">
             {pedir.data.motor === 'REGRAS' ? `Regra interna aplicada: «${pedir.data.regra}».` : `Proposto pela IA (${estado?.fornecedor ?? 'Claude'}).`} Nada foi gravado.
           </Typography.Text>
-          {pedir.data.observacoes && <Alert type="warning" showIcon style={{ marginTop: 8 }} message="Observações" description={pedir.data.observacoes} />}
+          {pedir.data.observacoes && <Alert type="warning" showIcon style={{ marginTop: 8 }} title="Observações" description={pedir.data.observacoes} />}
           {!pedir.data.propostas.length && <Empty description="Sem propostas para este conteúdo." />}
           {pedir.data.propostas.map((p, i) => (
             <Card
@@ -332,12 +332,12 @@ function Configuracao({ estado }: { estado?: EstadoIA }) {
   });
   if (!estado) return <Card loading />;
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       {!estado.configurado && (
         <Alert
           type="warning"
           showIcon
-          message="Como activar a IA"
+          title="Como activar a IA"
           description={
             <ol style={{ margin: 0, paddingInlineStart: 18 }}>
               <li>O administrador do servidor cria uma chave na consola da Anthropic e define a variável de ambiente <Typography.Text code>ANTHROPIC_API_KEY</Typography.Text> no ficheiro de ambiente do servidor (nunca no Git).</li>

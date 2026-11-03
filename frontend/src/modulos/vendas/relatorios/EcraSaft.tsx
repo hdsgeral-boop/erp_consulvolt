@@ -99,7 +99,7 @@ export function EcraSaft() {
     }
   };
 
-  if (!permitido) return <Alert type="info" showIcon message="Sem permissão para exportar o SAF-T (AO)." />;
+  if (!permitido) return <Alert type="info" showIcon title="Sem permissão para exportar o SAF-T (AO)." />;
   const s = analise.data?.sumario;
 
   return (
@@ -130,11 +130,11 @@ export function EcraSaft() {
           <Button icon={<IconeFa nome="search-dollar" />} loading={analise.isFetching} onClick={analisar} disabled={datas[0].isAfter(datas[1])}>Analisar Registos</Button>
           <Button type="primary" icon={<IconeFa nome="file-download" />} loading={aGerar} onClick={() => void gerar()} disabled={datas[0].isAfter(datas[1])}>Gerar e Descarregar XML</Button>
         </Flex>
-        {datas[0].isAfter(datas[1]) && <Alert type="warning" showIcon style={{ marginTop: 12 }} message="A data de início não pode ser posterior à data de fim." />}
+        {datas[0].isAfter(datas[1]) && <Alert type="warning" showIcon style={{ marginTop: 12 }} title="A data de início não pode ser posterior à data de fim." />}
       </Card>
 
       {analise.error ? (
-        <Alert type="error" showIcon message="Não foi possível analisar os registos." description={analise.error.message} />
+        <Alert type="error" showIcon title="Não foi possível analisar os registos." description={analise.error.message} />
       ) : s && analise.data ? (
         <Card>
           <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${token.colorSplit}`, paddingBottom: 12 }}>

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.setConfig({ testTimeout: 180_000 });
@@ -37,7 +37,7 @@ vi.mock('@/modulos/rh/comum/consultas', () => {
 });
 vi.mock('@/modulos/rh/comum/componentes', () => ({ SeletorColaborador: () => null }));
 vi.mock('@/modulos/contab/comum/dados', () => ({ useTabelaAux: () => ({ data: [] }), useUnidadesNegocio: () => ({ data: [] }) }));
-vi.mock('react-router-dom', async (orig) => ({ ...(await orig<typeof import('react-router-dom')>()), useNavigate: () => navegarMock }));
+vi.mock('react-router', async (orig) => ({ ...(await orig<typeof import('react-router')>()), useNavigate: () => navegarMock }));
 
 const envolver = (ui: ReactNode) =>
   render(

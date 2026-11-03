@@ -26,13 +26,13 @@ Internet ──HTTPS──► reverse proxy do host (Caddy / nginx / Traefik; ce
                    web  (nginx sem root, 8080) ── SPA React (frontend/dist dentro da imagem)
                       │  FastCGI app:9000 (/api, /up)
                       ▼
-                   app  (PHP 8.3-FPM sem root, código imutável, OPcache sem revalidação)
+                   app  (PHP 8.5-FPM sem root, código imutável, OPcache sem revalidação)
                    worker (queue:work redis — alta, agt, default, pdfs, baixa)
                    scheduler (schedule:work — ciclo AGT 2/2 min, partições da auditoria, contratos)
                       │
           ┌───────────┴───────────┐
-       postgres 16             redis 7 (palavra-passe; cache, locks, filas, limites)
-       (volume erp_pgdados)     (volume erp_redisdados)
+       postgres 18             redis 8 (palavra-passe; cache, locks, filas, limites)
+       (volume erp_pgdados18)   (volume erp_redisdados)
                    copias (pg_dump agendado + storage + segredos cifrados → ERP_PASTA_COPIAS)
 ```
 
@@ -313,7 +313,7 @@ sh ferramentas/operacao/prod.sh exec postgres sh -c 'psql -U "$POSTGRES_USER" -d
 
 **PostgreSQL.** O autovacuum está activo. Depois da migração definitiva, correr `ANALYZE` (já incluído no restauro). Espaço: `docker system df -v`.
 
-**Actualizações de segurança.** Reconstruir as imagens todos os meses (`deploy.sh` com o mesmo commit), para receber as correcções das imagens base `php:8.3-fpm-alpine`, `nginx-unprivileged`, `postgres:16-alpine` e `redis:7-alpine`. Uma mudança de versão maior do PostgreSQL exige `pg_dump`/restauro.
+**Actualizações de segurança.** Reconstruir as imagens todos os meses (`deploy.sh` com o mesmo commit), para receber as correcções das imagens base `php:8.5-fpm-alpine`, `nginx-unprivileged`, `postgres:18-alpine` e `redis:8-alpine`. Uma mudança de versão maior do PostgreSQL exige `pg_dump`/restauro: `ferramentas/operacao/migrar-postgres18.sh` fez a passagem 16 → 18 (volume novo `erp_pgdados18`, o antigo fica como recuo até ser apagado à mão).
 
 ## 11. Chaves e credenciais da AGT (ADR-030)
 
@@ -353,8 +353,8 @@ sh ferramentas/operacao/prod.sh exec postgres sh -c 'psql -U "$POSTGRES_USER" -d
 
 | Job | Passos |
 | :--- | :--- |
-| `backend` | PHP 8.3 (extensões do Dockerfile), serviços `postgres:16` e `redis:7`, `composer install`, `composer audit` (avisos de segurança e pacotes abandonados), extensões `unaccent`/`pg_trgm`, `.env` de teste, `vendor/bin/pint --test`, `php artisan test` na base `erp_consulvolt_testes` (ADR-019) |
-| `frontend` | Node 22, `npm ci --ignore-scripts=false` (o esbuild precisa do script de instalação), `npm audit --omit=dev --audit-level=high`, `npx tsc --noEmit -p .`, `npx vitest run`, `npm run build` |
+| `backend` | PHP 8.5 (extensões do Dockerfile), serviços `postgres:18` e `redis:8`, `composer install`, `composer audit` (avisos de segurança e pacotes abandonados), extensões `unaccent`/`pg_trgm`, `.env` de teste, `vendor/bin/pint --test`, `php artisan test` na base `erp_consulvolt_testes` (ADR-019) |
+| `frontend` | Node 26, `npm ci --ignore-scripts=false` (o esbuild precisa do script de instalação), `npm audit --omit=dev --audit-level=high`, `npx tsc --noEmit -p .`, `npx vitest run`, `npm run build` |
 | `producao` | ShellCheck dos scripts de operação, `docker compose config` do compose de produção (com o modelo de variáveis) e build das 3 imagens, **sem publicação** |
 
 As *actions* estão fixadas por SHA de commit, com a versão oficial em comentário (ADR-069): para actualizar, obter o SHA da nova tag com `gh api repos/<dono>/<repo>/commits/<tag> --jq .sha` e trocar SHA e comentário. O `npm audit` só falha a partir de «high»: as 2 vulnerabilidades moderadas do `react-router` 6 ficam no relatório até à migração para o 7.

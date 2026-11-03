@@ -100,7 +100,7 @@ export default function Manutencao() {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Operações com efeito em muitos registos"
+          title="Operações com efeito em muitos registos"
           description="Exporte uma cópia de segurança antes de executar. Cada passo fica registado na auditoria. O pedido expira em 7 dias e a aprovação em 24 horas."
         />
       ) : (
@@ -108,7 +108,7 @@ export default function Manutencao() {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Correcções em massa reservadas à equipa de suporte"
+          title="Correcções em massa reservadas à equipa de suporte"
           description="Anulações, estornos e outras correcções em massa só podem ser feitas por um Super Administrador. Para pedir uma, abra um ticket em Minha Licença › Minha conta a indicar o que precisa."
         />
       )}
@@ -161,7 +161,7 @@ function TabelaImpacto({ impacto }: { impacto: Impacto | null | undefined }) {
   const linhas = Object.entries(impacto.linhas).map(([chave, n]) => ({ chave, n }));
   return (
     <>
-      {impacto.bloqueio && <Alert type="error" showIcon style={{ marginBottom: 8 }} message={`Bloqueado: ${impacto.bloqueio}`} />}
+      {impacto.bloqueio && <Alert type="error" showIcon style={{ marginBottom: 8 }} title={`Bloqueado: ${impacto.bloqueio}`} />}
       <Table size="small" rowKey="chave" pagination={false} scroll={scrollTabela()} dataSource={linhas} locale={{ emptyText: 'Sem registos afectados.' }} columns={[{ title: 'Registos', dataIndex: 'chave', render: (v: string) => v.replace(/_/g, ' ') }, { title: 'Quantidade', dataIndex: 'n', align: 'right', render: formatarNumero }]} />
     </>
   );
@@ -207,7 +207,7 @@ function NovoPedido({ acoes, aoCriar }: { acoes: AccaoManutencao[]; aoCriar: () 
               type={accao.gravidade === 'alta' ? 'error' : 'warning'}
               showIcon
               style={{ marginBottom: 16 }}
-              message={<Space wrap>{accao.titulo}<Tag>{accao.ambito === 'sistema' ? 'Todo o sistema' : 'Empresa activa'}</Tag><Tag color={accao.gravidade === 'alta' ? 'red' : 'orange'}>Gravidade {accao.gravidade}</Tag></Space>}
+              title={<Space wrap>{accao.titulo}<Tag>{accao.ambito === 'sistema' ? 'Todo o sistema' : 'Empresa activa'}</Tag><Tag color={accao.gravidade === 'alta' ? 'red' : 'orange'}>Gravidade {accao.gravidade}</Tag></Space>}
               description={accao.descricao}
             />
             {accao.parametros.map((p) => (
@@ -286,11 +286,11 @@ function DetalhePedido({ id, aoFechar }: { id: number | null; aoFechar: () => vo
   const p = q.data;
   const acc = p && utilizador ? accoesPedido(p, { id: utilizador.id, superAdmin: utilizador.papel === 'SUPER_ADMINISTRADOR' }) : null;
   return (
-    <Drawer open={id !== null} onClose={aoFechar} width={larguraGaveta(720)} title={p ? `Pedido #${p.id} — ${p.rotulo_acao}` : 'Pedido'} destroyOnHidden>
+    <Drawer open={id !== null} onClose={aoFechar} size={larguraGaveta(720)} title={p ? `Pedido #${p.id} — ${p.rotulo_acao}` : 'Pedido'} destroyOnHidden>
       {!p ? (
         <Skeleton active />
       ) : (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Descriptions size="small" column={1} bordered>
             <Descriptions.Item label="Estado"><Tag color={CORES[p.estado]}>{ROTULOS[p.estado] ?? p.estado}</Tag>{p.expira_em && ['PENDENTE', 'APROVADO'].includes(p.estado) && <Typography.Text type="secondary"> expira {formatarDataHora(p.expira_em)}</Typography.Text>}</Descriptions.Item>
             <Descriptions.Item label="Âmbito">{p.ambito === 'sistema' ? 'Todo o sistema' : p.nome_empresa_ambito}</Descriptions.Item>
@@ -313,11 +313,11 @@ function DetalhePedido({ id, aoFechar }: { id: number | null; aoFechar: () => vo
             </Flex>
           )}
           {p.estado === 'PENDENTE' && p.pedido_por?.id === utilizador?.id && (
-            <Alert type="info" showIcon message="A aprovação tem de ser feita por outro administrador, na sessão dele, com a palavra-passe dele." />
+            <Alert type="info" showIcon title="A aprovação tem de ser feita por outro administrador, na sessão dele, com a palavra-passe dele." />
           )}
           {p.historico.length > 0 && (
             <Card size="small" title="Histórico">
-              <Timeline items={p.historico.map((h) => ({ children: <><Typography.Text type="secondary">{formatarDataHora(h.em)} · {h.por}</Typography.Text><div>{h.texto}</div></> }))} />
+              <Timeline items={p.historico.map((h) => ({ content: <><Typography.Text type="secondary">{formatarDataHora(h.em)} · {h.por}</Typography.Text><div>{h.texto}</div></> }))} />
             </Card>
           )}
         </Space>
@@ -375,7 +375,7 @@ function ModalDecisao({ pedido, tipo, aoFechar }: { pedido: Pedido; tipo: 'aprov
         )}
         {tipo === 'executar' && (
           <>
-            <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Esta operação altera muitos registos e não tem desfazer automático." />
+            <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Esta operação altera muitos registos e não tem desfazer automático." />
             <Form.Item name="copia" valuePropName="checked" rules={[{ validator: (_, v) => (v ? Promise.resolve() : Promise.reject(new Error('Confirme a cópia de segurança.'))) }]}>
               <Checkbox>Tenho uma cópia de segurança recente da empresa.</Checkbox>
             </Form.Item>

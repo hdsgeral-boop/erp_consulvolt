@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Flex, Modal, Select, Space, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -113,7 +113,7 @@ export function MonitorAgt() {
 
   return (
     <Card title={<><IconeFa nome="heart-pulse" style={{ marginRight: 6 }} />Monitorização da comunicação com a AGT</>} loading={consulta.isLoading}>
-      {consulta.error && <Alert type="error" showIcon message="Não foi possível obter a monitorização." />}
+      {consulta.error && <Alert type="error" showIcon title="Não foi possível obter a monitorização." />}
       {m && (
         <>
           <GrelhaKpi larguraMinima={200} style={{ marginBottom: 16 }}>
@@ -123,7 +123,7 @@ export function MonitorAgt() {
             <CartaoKpi rotulo="Comunicações (24 h)" valor={m.comunicacoes_24h.total} icone="exchange-alt" cor={m.comunicacoes_24h.falhas ? 'laranja' : 'verde'} secundaria={`${m.comunicacoes_24h.falhas} falha(s)`} />
           </GrelhaKpi>
           {m.alertas.map((a) => (
-            <Alert key={a.mensagem} type={a.nivel === 'erro' ? 'error' : 'warning'} showIcon style={{ marginBottom: 12 }} message={a.mensagem} />
+            <Alert key={a.mensagem} type={a.nivel === 'erro' ? 'error' : 'warning'} showIcon style={{ marginBottom: 12 }} title={a.mensagem} />
           ))}
           <Typography.Title level={5}>Recusados pela AGT</Typography.Title>
           <Table<LinhaMonitor> rowKey="id" size="small" pagination={false} dataSource={m.recusados} scroll={scrollTabela()} columns={colunasDoc(true)}
@@ -136,7 +136,7 @@ export function MonitorAgt() {
               type="info"
               showIcon
               style={{ marginTop: 16 }}
-              message={`${m.lotes_incertos.length} lote(s) com resultado incerto: são reenviados com o mesmo identificador (submissionUUID), sem risco de duplicar documentos.`}
+              title={`${m.lotes_incertos.length} lote(s) com resultado incerto: são reenviados com o mesmo identificador (submissionUUID), sem risco de duplicar documentos.`}
               description={m.lotes_incertos.map((l) => `${l.submission_uuid} · ${l.documentos?.length ?? 0} doc. · ${l.tentativas} tentativa(s)${l.proxima_tentativa_em ? ` · próxima ${formatarDataHora(l.proxima_tentativa_em)}` : ''}`).join('\n')}
             />
           )}

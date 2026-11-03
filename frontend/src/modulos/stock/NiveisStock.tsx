@@ -3,7 +3,7 @@ import { SwapOutlined, ToolOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
@@ -157,7 +157,7 @@ function ModalAjuste({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => vo
       nota="Uma linha por ajuste (produto, armazém e sentido). Sem custo unitário, a entrada usa o custo médio actual. Os ajustes ficam registados com o motivo; para regularizações de contagem física use o inventário."
       okText="Registar ajuste" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(620)}>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/logistica/ajustes', dados: dadosAjuste(v) })}>
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Os ajustes ficam registados com o motivo. Para regularizações de contagem física use o inventário." />
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="Os ajustes ficam registados com o motivo. Para regularizações de contagem física use o inventário." />
         <Row gutter={16}>
           <Col xs={24}>
             <Form.Item name="produto_id" label="Produto" rules={[{ required: true, message: 'Escolha o produto.' }]}>

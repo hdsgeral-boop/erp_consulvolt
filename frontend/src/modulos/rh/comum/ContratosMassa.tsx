@@ -160,7 +160,7 @@ export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial =
         )}
       </Form>
       {plano && (
-        <Alert type={plano.simulacao ? 'info' : 'success'} showIcon message={plano.simulacao ? 'Simulação (nada foi gravado)' : 'Aplicado'}
+        <Alert type={plano.simulacao ? 'info' : 'success'} showIcon title={plano.simulacao ? 'Simulação (nada foi gravado)' : 'Aplicado'}
           description={`${plano.actualizados.length} contrato(s) a actualizar · ${plano.criados.length} a criar · ${plano.sem_alteracao.length} já com estes valores`
             + `${plano.inactivos.length ? ` · ${plano.inactivos.length} não activo(s)` : ''}${plano.sem_contrato.length ? ` · ${plano.sem_contrato.length} sem contrato ignorado(s)` : ''}.`} />
       )}

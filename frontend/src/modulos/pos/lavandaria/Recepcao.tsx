@@ -217,13 +217,13 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
       />
     );
 
-  if (!pode('lav_ordens')) return <Alert type="info" showIcon message="Não tem permissão para registar ordens de serviço." />;
+  if (!pode('lav_ordens')) return <Alert type="info" showIcon title="Não tem permissão para registar ordens de serviço." />;
 
   return (
     <>
-      {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O terminal escolhido não tem sessão aberta: abra-a na frente de caixa para registar a recepção." />}
+      {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="O terminal escolhido não tem sessão aberta: abra-a na frente de caixa para registar a recepção." />}
       {terminal?.tipo === 'LAVANDARIA' && terminal.lavandaria_servicos_ids?.length === 0 && (
-        <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Este terminal ainda não tem serviços configurados. Configure-os em POS › Terminais antes de receber ordens." />
+        <Alert type="error" showIcon style={{ marginBottom: 12 }} title="Este terminal ainda não tem serviços configurados. Configure-os em POS › Terminais antes de receber ordens." />
       )}
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
@@ -345,7 +345,7 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
               <Typography.Text strong>{formatarCentimos(total)} Kz</Typography.Text>
             </Flex>
             <Divider style={{ margin: '10px 0' }} />
-            <Space direction="vertical" size={4} style={{ width: '100%', fontSize: 13 }}>
+            <Space orientation="vertical" size={4} style={{ width: '100%', fontSize: 13 }}>
               <span><CalendarOutlined /> Pronta a partir de {(prontaEm ?? dayjs()).format('DD/MM/YYYY')}</span>
               <span><TagsOutlined /> {etiquetas} etiqueta{etiquetas === 1 ? '' : 's'}</span>
               <span><PrinterOutlined /> Facturação {modo === 'ENTREGA' ? 'na entrega' : 'na recepção'}</span>

@@ -2,7 +2,7 @@ import { useEcraPequeno } from '@/componentes/responsivo';
 import { Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Segmented, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -656,7 +656,7 @@ export function ListaLancamentos() {
         campos={{ aceitar_avisos: aceitarAvisos }}
         ajuda="Use o template de importação de lançamentos («Baixar Template»; XLSX, XLS ou CSV). Valide primeiro com a simulação: nada é gravado se houver erros."
         extra={
-          <Space direction="vertical">
+          <Space orientation="vertical">
             <Button size="small" icon={<IconeFa nome="file-download" />} onClick={() => descarregarTemplate()}>
               Baixar Template
             </Button>

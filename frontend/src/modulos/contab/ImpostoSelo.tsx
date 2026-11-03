@@ -96,7 +96,7 @@ export default function ImpostoSelo() {
       <Card loading={resumo.isLoading} style={{ marginBottom: 16 }} title={r ? `Documento ${r.documento} · ${formatarData(r.data_documento)}` : undefined}>
         {r && (
           <>
-            {r.lancamento_existente && <Alert type="success" showIcon style={{ marginBottom: 12 }} message={`O imposto deste mês já foi lançado (${r.lancamento_existente}).`} />}
+            {r.lancamento_existente && <Alert type="success" showIcon style={{ marginBottom: 12 }} title={`O imposto deste mês já foi lançado (${r.lancamento_existente}).`} />}
             <Descriptions bordered size="small" column={{ xs: 1, md: 2 }}>
               <Descriptions.Item label="Base — vendas a dinheiro e cobranças">{formatarKz(r.base_vd_cb)} Kz ({r.movimentos_vd_cb} mov.)</Descriptions.Item>
               <Descriptions.Item label="Base — caixa">{formatarKz(r.base_cx)} Kz ({r.movimentos_cx} mov.)</Descriptions.Item>

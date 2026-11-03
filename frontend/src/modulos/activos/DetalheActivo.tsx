@@ -3,7 +3,7 @@ import { ArrowLeftOutlined, CloudUploadOutlined, DeleteOutlined, EditOutlined, S
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -28,7 +28,7 @@ import { eAlheio, textoContrato } from './comum/propriedade';
 function OrigensCombinadas({ origens }: { origens: OrigemActivo[] }) {
   return (
     <>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Inventariado em conjunto a partir de ${origens.length} linhas de aquisição; o valor de aquisição reparte-se por elas, por esta ordem.`} />
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Inventariado em conjunto a partir de ${origens.length} linhas de aquisição; o valor de aquisição reparte-se por elas, por esta ordem.`} />
       <Table<OrigemActivo>
         rowKey="id"
         size="small"
@@ -155,7 +155,7 @@ export function DetalheActivo() {
         }
       />
       {eAlheio(a) && (
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Bem alheio — ${textoContrato(a)}`}
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Bem alheio — ${textoContrato(a)}`}
           description={<>Não é imobilizado da empresa: não amortiza, não entra nos mapas fiscais nem se liga a lançamentos de aquisição.
             {a.renda_mensal && Number(a.renda_mensal) ? <> Renda/encargo mensal: <strong>{formatarKz(a.renda_mensal)}</strong>.</> : null}
             {a.propriedade_notas ? <> {a.propriedade_notas}</> : null}</>} />
@@ -227,7 +227,7 @@ export function DetalheActivo() {
                   <Descriptions.Item label="Descrição" span="filled">{a.origem.descricao ?? '—'}</Descriptions.Item>
                 </Descriptions>
               ) : (
-                <Alert type="info" showIcon message="Activo sem lançamento de compra associado" description="Pode ligá-lo a uma linha 11/12 no ecrã Aquisições pendentes." />
+                <Alert type="info" showIcon title="Activo sem lançamento de compra associado" description="Pode ligá-lo a uma linha 11/12 no ecrã Aquisições pendentes." />
               ),
             },
             {

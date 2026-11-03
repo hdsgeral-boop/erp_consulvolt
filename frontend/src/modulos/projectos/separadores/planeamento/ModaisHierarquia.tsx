@@ -38,7 +38,7 @@ export function ModalDuplicar({ projectoId, alvo, aoFechar }: { projectoId: numb
           <InputNumber min={-3660} max={3660} precision={0} style={{ width: 160 }} />
         </Form.Item>
       </Form>
-      <Alert type="info" showIcon message="A cópia nasce a 0% e pendente. Horas, custos, autos, medições e requisições não são copiados." />
+      <Alert type="info" showIcon title="A cópia nasce a 0% e pendente. Horas, custos, autos, medições e requisições não são copiados." />
     </Modal>
   );
 }
@@ -81,7 +81,7 @@ export function ModalNivel({ projectoId, alvo, aoFechar }: { projectoId: number;
         <Form.Item name="destino" label="Passar a" rules={[{ required: true, message: 'Escolha o novo nível.' }]}><Select showSearch optionFilterProp="label" options={opcoes} /></Form.Item>
         <Form.Item name="encaixar" valuePropName="checked"><Checkbox>Encaixar as datas no novo nível acima, se não couberem</Checkbox></Form.Item>
       </Form>
-      {!fase && <Alert type="warning" showIcon message="Converter em fase só é possível numa tarefa sem horas, custos, autos, orçamento, requisições nem medições." />}
+      {!fase && <Alert type="warning" showIcon title="Converter em fase só é possível numa tarefa sem horas, custos, autos, orçamento, requisições nem medições." />}
     </Modal>
   );
 }

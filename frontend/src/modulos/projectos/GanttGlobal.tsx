@@ -2,7 +2,7 @@ import { Button, Card, Checkbox, Flex, Input, Space } from 'antd';
 import { IconeFa } from '@/componentes/fluxos';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { formatarData } from '@/utilitarios/formatacao';

@@ -1,7 +1,7 @@
 import { Alert, Badge, Button, Card, Col, Empty, Row, Select, Space, Table, Tag, theme, Typography } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
@@ -114,7 +114,7 @@ function Cartoes({ aoAbrirFolhas }: { aoAbrirFolhas: () => void }) {
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>Activos do tipo edifício/local com andares e portas numeradas; os restantes bens ficam localizados numa porta.</Typography.Paragraph>
       {!!d?.sem_local && (
         <Alert type="info" showIcon style={{ marginBottom: 12 }}
-          message={`${d.sem_local} bem(ns) ainda sem porta atribuída (sem localização) — abra a planta de um edifício e arraste-os para a porta respectiva.`} />
+          title={`${d.sem_local} bem(ns) ainda sem porta atribuída (sem localização) — abra a planta de um edifício e arraste-os para a porta respectiva.`} />
       )}
       {d && !d.edificios.length && (
         <Empty image={<IconeFa nome="city" style={{ fontSize: 32, color: '#cbd5e1' }} />}

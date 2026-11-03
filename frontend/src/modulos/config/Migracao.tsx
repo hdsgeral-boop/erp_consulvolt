@@ -167,9 +167,9 @@ function Importacao() {
               type="info"
               showIcon
               style={{ marginBottom: 12 }}
-              message="Preencha o modelo no Excel e carregue o ficheiro .xlsx (a linha de exemplo, se ficar, é ignorada). Também pode colar a tabela (com o cabeçalho) ou carregar um CSV."
+              title="Preencha o modelo no Excel e carregue o ficheiro .xlsx (a linha de exemplo, se ficar, é ignorada). Também pode colar a tabela (com o cabeçalho) ou carregar um CSV."
             />
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Space wrap>
                 <Upload
                   accept=".xlsx,.xls,.csv,.txt"
@@ -195,7 +195,7 @@ function Importacao() {
                 )}
               </Space>
               <Input.TextArea rows={8} value={conteudo} disabled={ficheiro !== null} onChange={(e) => { setConteudo(e.target.value); setResultado(null); }} placeholder={modelo.colunas.map((c) => c.cabecalho).join('\t')} style={{ fontFamily: 'monospace' }} />
-              {cabecalhosEmFalta.length > 0 && <Alert type="error" showIcon message={`Faltam colunas obrigatórias no cabeçalho: ${cabecalhosEmFalta.join(', ')}.`} />}
+              {cabecalhosEmFalta.length > 0 && <Alert type="error" showIcon title={`Faltam colunas obrigatórias no cabeçalho: ${cabecalhosEmFalta.join(', ')}.`} />}
               <Flex gap={16} wrap align="center">
                 <Typography.Text>{ficheiro ? (resultado?.linhas_lidas !== undefined ? `${resultado.linhas_lidas} linha(s) no ficheiro` : 'Ficheiro lido no servidor') : `${linhas.length} linha(s)`}</Typography.Text>
                 <Radio.Group value={decisao} onChange={(e) => setDecisao(e.target.value)} options={[{ value: 'IGNORAR', label: 'Ignorar existentes' }, { value: 'ACTUALIZAR', label: 'Actualizar existentes' }]} />
@@ -213,7 +213,7 @@ function Importacao() {
                 <Alert
                   type={resultado.rejeitadas.length || resultado.erros.length ? 'warning' : 'success'}
                   showIcon
-                  message={
+                  title={
                     resultado.simulacao
                       ? `Simulação: ${resultado.novos} novo(s), ${resultado.existentes.length} existente(s), ${resultado.repetidos} repetido(s) no ficheiro, ${resultado.rejeitadas.length} rejeitado(s), ${resultado.erros.length} erro(s).${resultado.linhas_exemplo_ignoradas ? ` Linha de exemplo do modelo ignorada.` : ''}`
                       : `Concluído: ${resultado.criados} criado(s), ${resultado.actualizados} actualizado(s), ${resultado.ignorados} ignorado(s).`
@@ -352,7 +352,7 @@ function EdicaoMassa() {
                   type="info"
                   showIcon
                   style={{ marginBottom: 12 }}
-                  message="As contas dos produtos vêm da categoria"
+                  title="As contas dos produtos vêm da categoria"
                   description="A conta da categoria sobrepõe-se à do produto, por isso as contas já não se alteram produto a produto. Para mudar as contas dos produtos seleccionados, mude a categoria deles acima ou edite as contas da categoria."
                 />
                 {podeContasCategoria ? (
@@ -367,7 +367,7 @@ function EdicaoMassa() {
                           type="warning"
                           showIcon
                           style={{ marginBottom: 12 }}
-                          message={`Altera a contabilização de todos os produtos da categoria «${categoriaEditada.nome}»${categoriaEditada.produtos != null ? ` (${categoriaEditada.produtos})` : ''}, não só dos seleccionados.`}
+                          title={`Altera a contabilização de todos os produtos da categoria «${categoriaEditada.nome}»${categoriaEditada.produtos != null ? ` (${categoriaEditada.produtos})` : ''}, não só dos seleccionados.`}
                         />
                         {CONTAS_CATEGORIA.map((c) => {
                           const actual = (categoriaEditada as unknown as Record<string, string | null | undefined>)[c.campo];

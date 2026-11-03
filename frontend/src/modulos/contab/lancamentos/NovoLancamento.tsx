@@ -2,7 +2,7 @@ import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Se
 import { ArrowLeftOutlined, SaveOutlined, ScissorOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
@@ -244,7 +244,7 @@ export function NovoLancamento() {
             </Typography.Paragraph>
           )}
           {!e.equilibrado && (
-            <Alert style={{ marginTop: 12 }} type="warning" showIcon message="O lançamento só pode ser gravado com o total a débito igual ao total a crédito." />
+            <Alert style={{ marginTop: 12 }} type="warning" showIcon title="O lançamento só pode ser gravado com o total a débito igual ao total a crédito." />
           )}
         </Card>
         <Space wrap>

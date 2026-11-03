@@ -95,7 +95,7 @@ export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, paramsMo
           <Button type="primary" icon={<UploadOutlined />} disabled={!ficheiro} loading={aEnviar} onClick={() => void executar(false)}>Importar</Button>
         </Space>
       }>
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
           {ajuda ?? 'Preencha o modelo Excel e importe-o. Use primeiro «Simular»: nada é gravado e o relatório indica as linhas com erro.'}
         </Typography.Paragraph>
@@ -113,7 +113,7 @@ export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, paramsMo
           </Radio.Group>
         )}
         {rel && (
-          <Alert type={rel.simulacao ? 'info' : 'success'} showIcon message={rel.simulacao ? 'Simulação (nada foi gravado)' : 'Importação concluída'}
+          <Alert type={rel.simulacao ? 'info' : 'success'} showIcon title={rel.simulacao ? 'Simulação (nada foi gravado)' : 'Importação concluída'}
             description={
               <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }}>
                 {rel.novos !== undefined && <Descriptions.Item label="Novos">{rel.novos}</Descriptions.Item>}

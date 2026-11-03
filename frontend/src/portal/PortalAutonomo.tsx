@@ -2,7 +2,7 @@ import { Button, Card, ConfigProvider, Flex, Layout, Result, Spin, Tooltip, Typo
 import { AppstoreOutlined, LogoutOutlined, MoonOutlined, SunOutlined, SwapOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';

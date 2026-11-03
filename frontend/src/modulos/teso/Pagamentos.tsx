@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { DetalheDocumento } from './pagamentos/DetalheDocumento';
 import { FormularioDocumento } from './pagamentos/FormularioDocumento';
 import { ListaDocumentos } from './pagamentos/ListaDocumentos';

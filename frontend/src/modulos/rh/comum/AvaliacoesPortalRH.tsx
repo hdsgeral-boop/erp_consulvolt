@@ -60,7 +60,7 @@ export function AutoavaliacoesRH() {
         ]} />
       <Modal title={`Autoavaliação — ${ver?.nome ?? ''}`} open={ver !== null} width={larguraModal(760)} onCancel={() => setVer(null)} footer={<Button onClick={() => setVer(null)}>Fechar</Button>}>
         {ver && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Table size="small" rowKey="chave" pagination={false} dataSource={ver.criterios ?? []} columns={[
               { title: 'Critério', render: (_, c) => c.nome ?? c.chave }, { title: 'Nota', dataIndex: 'nota', align: 'center' }, { title: 'Comentário', dataIndex: 'comentario' },
             ]} />
@@ -105,9 +105,9 @@ export function AvaliacaoChefiasRH() {
       ]} />
       <Modal title={`Avaliação ascendente — ${chefia?.nome ?? ''} (${periodo} ${ano})`} open={chefia !== null} onCancel={() => setChefia(null)} footer={<Button onClick={() => setChefia(null)}>Fechar</Button>}>
         {res.isFetching && <Typography.Text>A carregar…</Typography.Text>}
-        {r && !r.liberado && <Alert type="info" showIcon message={`Resultados anónimos ainda não disponíveis: ${r.respostas} resposta(s) de um mínimo de ${r.minimo} (ou o ciclo ainda não libertou os resultados).`} />}
+        {r && !r.liberado && <Alert type="info" showIcon title={`Resultados anónimos ainda não disponíveis: ${r.respostas} resposta(s) de um mínimo de ${r.minimo} (ou o ciclo ainda não libertou os resultados).`} />}
         {r?.liberado && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Typography.Text>{r.respostas} resposta(s){r.media != null ? ` · média ${formatarNumero(r.media)}` : ''}</Typography.Text>
             <Table size="small" rowKey="chave" pagination={false} dataSource={Object.entries(r.questoes ?? {}).map(([chave, x]) => ({ chave, ...x }))} columns={[{ title: 'Questão', dataIndex: 'nome' }, { title: 'Média', dataIndex: 'media', align: 'right', render: (v: number | null) => (v != null ? formatarNumero(v) : '—') }]} />
             {(r.comentarios ?? []).length > 0 && <ul>{r.comentarios?.map((c, i) => <li key={i}>{c}</li>)}</ul>}

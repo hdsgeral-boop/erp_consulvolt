@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { ModalIva } from '../comum/ModalIva';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -46,7 +46,7 @@ export function DetalheProposta() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const c = consulta.data;
-  if (!c) return <Alert type="error" message="Proposta não encontrada." />;
+  if (!c) return <Alert type="error" title="Proposta não encontrada." />;
   const a = accoesProposta(c, pode);
   const moeda = c.codigo_moeda || 'AOA';
   const nome = numeroOuId(c.numero_proposta, c.id);
@@ -142,7 +142,7 @@ export function DetalheProposta() {
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message="A adjudicação gera a encomenda ao fornecedor e recusa as restantes propostas do pedido. Se o valor exigir níveis de aprovação ainda não obtidos, o pedido volta à deliberação."
+            title="A adjudicação gera a encomenda ao fornecedor e recusa as restantes propostas do pedido. Se o valor exigir níveis de aprovação ainda não obtidos, o pedido volta à deliberação."
           />
           <Form.Item name="data" label="Data da encomenda">
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />

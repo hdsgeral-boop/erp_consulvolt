@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { CabecalhoFluxo, CartoesProcessos, PainelProcesso, SeparadoresFluxo } from './componentes';
@@ -14,7 +14,7 @@ vi.mock('@/sessao/SessaoContexto', () => ({
   useSessao: () => ({ menu: [{ id: 'rh', ecras: [{ id: 'processamento', vistas: ['processamento'] }] }] }),
 }));
 const navegarMock = vi.fn();
-vi.mock('react-router-dom', async (orig) => ({ ...(await orig<typeof import('react-router-dom')>()), useNavigate: () => navegarMock }));
+vi.mock('react-router', async (orig) => ({ ...(await orig<typeof import('react-router')>()), useNavigate: () => navegarMock }));
 
 const ETAPAS = [
   { id: 'base', nome: 'Dados base', icone: 'users' },

@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
@@ -223,7 +223,7 @@ function NovoRecibo() {
         >
           {adiantamento && (
             <Alert type="info" showIcon style={{ marginBottom: 16 }}
-              message="Recibo de adiantamento: D caixa/banco / C adiantamentos de clientes (conta configurada nas contas de vendas). Depois de contabilizado, aloque-o às facturas no detalhe do recibo." />
+              title="Recibo de adiantamento: D caixa/banco / C adiantamentos de clientes (conta configurada nas contas de vendas). Depois de contabilizado, aloque-o às facturas no detalhe do recibo." />
           )}
           <Row gutter={16}>
             <Col xs={24} md={10}>
@@ -283,7 +283,7 @@ function NovoRecibo() {
             </Space>
           }
         >
-          {distribuicao && distribuicao.excedente > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`O valor recebido excede o pendente em ${formatarKz(distribuicao.excedente)} Kz.`} />}
+          {distribuicao && distribuicao.excedente > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`O valor recebido excede o pendente em ${formatarKz(distribuicao.excedente)} Kz.`} />}
           <Table<DocumentoVenda>
             rowKey="id"
             size="small"
@@ -336,7 +336,7 @@ function DetalheRecibo() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const r = consulta.data;
-  if (!r) return <Alert type="error" message="Recibo não encontrado." />;
+  if (!r) return <Alert type="error" title="Recibo não encontrado." />;
   const a = accoesRecibo(r, pode);
 
   return (
@@ -355,7 +355,7 @@ function DetalheRecibo() {
           </>
         }
       />
-      {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Recibo anulado${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`}
+      {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Recibo anulado${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`}
         description={r.anulado_por || r.anulado_em ? `Anulado${r.anulado_por ? ` por ${r.anulado_por}` : ''}${r.anulado_em ? ` em ${formatarData(r.anulado_em)}` : ''}.` : undefined} />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
@@ -446,7 +446,7 @@ function ModalAlocar({ recibo, aoFechar }: { recibo: ReciboVenda; aoFechar: () =
         <DatePicker format="DD/MM/YYYY" value={data} onChange={(d) => d && setData(d)} allowClear={false} />
         <Button onClick={() => setAlocacoes(distribuirMontante(facturas, saldo).alocacoes)} disabled={!facturas.length}>Distribuir o saldo</Button>
       </Space>
-      {total > saldo + 0.005 && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={`O total a alocar (${formatarKz(total)} Kz) excede o saldo do adiantamento.`} />}
+      {total > saldo + 0.005 && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={`O total a alocar (${formatarKz(total)} Kz) excede o saldo do adiantamento.`} />}
       <Table<DocumentoVenda>
         rowKey="id"
         size="small"

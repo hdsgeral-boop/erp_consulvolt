@@ -2,7 +2,12 @@
 
 use App\Exceptions\ErroNegocio;
 use App\Exceptions\ManipuladorExcecoesApi;
+use App\Http\Middleware\BloquearExportacaoComLicencaExpirada;
 use App\Http\Middleware\BloquearTokenMfaPendente;
+use App\Http\Middleware\ExigirAdministradorCliente;
+use App\Http\Middleware\ExigirAreaPortal;
+use App\Http\Middleware\ExigirPlataforma;
+use App\Http\Middleware\ExigirSuporte;
 use App\Http\Middleware\ExigirTrocaPassword;
 use App\Http\Middleware\ForcarRespostaJson;
 use App\Http\Middleware\ResolverEmpresaAtiva;
@@ -35,11 +40,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
         $middleware->alias([
             'empresa' => ResolverEmpresaAtiva::class,
-            'plataforma' => \App\Http\Middleware\ExigirPlataforma::class,
-            'admin_cliente' => \App\Http\Middleware\ExigirAdministradorCliente::class,
-            'suporte' => \App\Http\Middleware\ExigirSuporte::class,
-            'licenca_exportacao' => \App\Http\Middleware\BloquearExportacaoComLicencaExpirada::class,
-            'area_portal' => \App\Http\Middleware\ExigirAreaPortal::class,
+            'plataforma' => ExigirPlataforma::class,
+            'admin_cliente' => ExigirAdministradorCliente::class,
+            'suporte' => ExigirSuporte::class,
+            'licenca_exportacao' => BloquearExportacaoComLicencaExpirada::class,
+            'area_portal' => ExigirAreaPortal::class,
         ]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);

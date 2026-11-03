@@ -187,7 +187,7 @@ function IbanColaboradores() {
     <Card title="2. IBANs dos Colaboradores"
       extra={podeGerir ? <Button icon={<PlusOutlined />} onClick={() => { formLinhas.resetFields(); setLinhasAberto(true); }}>Vários IBAN</Button> : undefined}>
       {semIban > 0 && (
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={`${semIban} colaborador(es) activo(s) sem IBAN: não podem entrar em cartas de pagamento.`}
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }} title={`${semIban} colaborador(es) activo(s) sem IBAN: não podem entrar em cartas de pagamento.`}
           action={filtro !== 'sem' ? <Button size="small" onClick={() => setFiltro('sem')}>Ver</Button> : undefined} />
       )}
       {podeGerir && (

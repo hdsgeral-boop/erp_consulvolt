@@ -187,7 +187,7 @@ function ListaEstadias({ terminal }: { terminal: ReturnType<typeof useTerminalDe
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="Se a listagem falhar com «erro interno», é a lacuna conhecida do GET /api/pos/hotelaria/estadias (registada para o backend); as estadias abertas continuam acessíveis no mapa."
+        title="Se a listagem falhar com «erro interno», é a lacuna conhecida do GET /api/pos/hotelaria/estadias (registada para o backend); as estadias abertas continuam acessíveis no mapa."
       />
       <TabelaApi<Estadia>
         url="/pos/hotelaria/estadias"

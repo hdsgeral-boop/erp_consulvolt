@@ -39,7 +39,7 @@ export function ModalCheckin({ quarto, terminal, aoFechar }: { quarto: Quarto | 
 
   return (
     <Modal open={!!quarto} title={`Check-in · ${quarto?.nome ?? ''}`} okText="Registar check-in" cancelText="Cancelar" confirmLoading={checkin.isPending} okButtonProps={{ disabled: !sessaoId }} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(600)} destroyOnHidden>
-      {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O terminal de hotelaria não tem sessão aberta: abra-a na frente de caixa." />}
+      {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="O terminal de hotelaria não tem sessão aberta: abra-a na frente de caixa." />}
       {quarto && (
         <Form
           form={form}
@@ -129,7 +129,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
     <Drawer
       open={!!id}
       onClose={aoFechar}
-      width={larguraGaveta(820)}
+      size={larguraGaveta(820)}
       destroyOnHidden
       title={e ? `${e.nome_quarto} · ${e.nome_hospede ?? ''}` : 'Estadia'}
       extra={
@@ -162,7 +162,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
         <Skeleton active />
       ) : (
         <>
-          {e.proposta_atraso && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Saída tardia: a estadia passaria a ${e.proposta_atraso.quantidade} (${e.modo === 'HORA' ? 'horas' : 'diárias'}). Decide-se no check-out.`} />}
+          {e.proposta_atraso && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Saída tardia: a estadia passaria a ${e.proposta_atraso.quantidade} (${e.modo === 'HORA' ? 'horas' : 'diárias'}). Decide-se no check-out.`} />}
           <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Estado">
               <EstadoPOS estado={e.estado} />
@@ -251,7 +251,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
               <Typography.Title level={5} style={{ marginTop: 16 }}>
                 Histórico
               </Typography.Title>
-              <Timeline items={(e.historico_alteracoes ?? []).map((h) => ({ children: `${formatarDataHora(h.em)} · ${h.por} — ${h.texto}` }))} />
+              <Timeline items={(e.historico_alteracoes ?? []).map((h) => ({ content: `${formatarDataHora(h.em)} · ${h.por} — ${h.texto}` }))} />
             </>
           )}
           <ModalAlterar estadia={alterar ? e : null} carregando={accao.isPending} aoFechar={() => setAlterar(false)} aoConfirmar={(dados) => accao.mutate({ metodo: 'put', url: `/pos/hotelaria/estadias/${e.id}`, dados })} />

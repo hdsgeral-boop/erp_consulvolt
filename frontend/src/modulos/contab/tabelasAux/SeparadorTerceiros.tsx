@@ -331,7 +331,7 @@ export function SeparadorTerceiros() {
                   </Form.Item>
                 )}
               </SeccaoFormulario>
-              {aviso && <Alert type="error" showIcon message={aviso} style={{ marginBottom: 12 }} />}
+              {aviso && <Alert type="error" showIcon title={aviso} style={{ marginBottom: 12 }} />}
 
               {/* Contas bancárias: a carta de ordem de pagamento só se emite a quem tiver uma mapeada */}
               <ContasBancariasTerceiro terceiroId={edicao?.id ?? null} podeGerir={gerir} />

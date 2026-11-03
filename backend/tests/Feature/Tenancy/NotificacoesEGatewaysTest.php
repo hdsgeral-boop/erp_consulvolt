@@ -6,6 +6,9 @@ use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -84,7 +87,7 @@ class NotificacoesEGatewaysTest extends TestCase
             'nome' => 'Plano Teste', 'preco_mensal' => 10000, 'moeda' => 'AOA', 'ativo' => true,
         ]);
 
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa([
             'nif' => '5000000077',
             'licenca_origem' => Empresa::LICENCA_PLANO,
@@ -124,7 +127,7 @@ class NotificacoesEGatewaysTest extends TestCase
         $this->assertSame('EXPRESS', $resExp['gateway']);
         $this->assertSame('923123456', $resExp['telemovel']);
 
-        \Illuminate\Support\Facades\DB::table('configuracoes_gateway')->where('chave', 'ref_webhook_segredo')->update(['valor' => 'segredo-teste-referencia']);
+        DB::table('configuracoes_gateway')->where('chave', 'ref_webhook_segredo')->update(['valor' => 'segredo-teste-referencia']);
         $corpo = [
             'referencia' => str_replace(' ', '', $resRef['referencia']),
             'status' => 'paid',
@@ -134,7 +137,7 @@ class NotificacoesEGatewaysTest extends TestCase
             ->assertOk()->assertJsonPath('sucesso', true);
 
         // Subscrição passa a PAGO e empresa ganha licença de PLANO
-        $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+        $sub = app(ContextoEmpresa::class)->semIsolamento(
             fn () => SubscricaoEmpresa::query()->findOrFail($subId)
         );
         $this->assertSame(SubscricaoEmpresa::PAGO, $sub->estado);

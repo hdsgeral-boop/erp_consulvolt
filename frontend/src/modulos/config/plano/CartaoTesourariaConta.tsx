@@ -70,7 +70,7 @@ export function CartaoTesourariaConta() {
             </Col>
           </Row>
           <Alert type="warning" showIcon style={{ marginBottom: 12 }}
-            message="Só os últimos dígitos" description="Escreva só os últimos dígitos do cartão. O número completo (PAN) não deve ficar registado no ERP." />
+            title="Só os últimos dígitos" description="Escreva só os últimos dígitos do cartão. O número completo (PAN) não deve ficar registado no ERP." />
           <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
             O cartão passa a aparecer na Tesouraria (meios de pagamento, recebimentos/pagamentos, mapas e conciliação) e entra abatido nas disponibilidades.
           </Typography.Text>

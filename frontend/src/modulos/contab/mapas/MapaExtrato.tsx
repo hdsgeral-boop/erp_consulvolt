@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, Collapse, DatePicker, Flex, Form, Input,
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type Key } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { BotaoImprimir, pares, type PedidoImpressao } from '@/componentes/impressao';
@@ -358,7 +358,7 @@ export default function MapaExtrato() {
               <BotaoImprimir obterPedido={pedido} modo="pdf" texto="Extrair" tipo="primary" tamanho="small" />
             </Space>
           </Flex>
-          {ultimo && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={descreverUltimo(d.ultimo)} />}
+          {ultimo && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={descreverUltimo(d.ultimo)} />}
           <Segmented<'movimentos' | 'contas'>
             size="small"
             className="imp-nao-imprimir"

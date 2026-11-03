@@ -189,7 +189,7 @@ export function Categorias() {
             <Form.Item name="nome" label="Nome da Categoria" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input /></Form.Item>
             <Form.Item name="descricao" label="Descrição" rules={[{ max: 2000 }]}><Input.TextArea rows={2} /></Form.Item>
             <SeccaoFormulario titulo="Contas contabilísticas (herdadas pelos produtos da categoria)">
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 {!podeContas && <span style={{ color: token.colorTextSecondary }}>Só de leitura: alterar as contas exige a permissão «Definir as contas contabilísticas das categorias».</span>}
                 <CamposContasCategoria desactivado={!podeContas} />
               </Space>

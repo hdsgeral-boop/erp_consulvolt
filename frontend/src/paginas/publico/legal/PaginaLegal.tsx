@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import '../publico.css';
 
 /** Casca partilhada pelas páginas legais/institucionais (Termos, Privacidade, Conformidade Fiscal) — mesma identidade da landing page. */

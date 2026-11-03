@@ -234,7 +234,7 @@ function ModalDeliberar({
           <Form form={form} layout="vertical" onFinish={(v) => aoConfirmar({ decisao: v.decisao, nota: v.nota?.trim() || undefined })}>
             <Form.Item name="decisao" rules={[{ required: true, message: 'Escolha a decisão.' }]}>
               <Radio.Group>
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   {opcoes.map((o) => (
                     <Radio key={o.valor} value={o.valor} disabled={!!o.desactivada}>
                       <b>{DECISOES[o.valor].rotulo}</b> <Typography.Text type="secondary">— {o.desactivada ?? DECISOES[o.valor].descricao}</Typography.Text>
@@ -255,7 +255,7 @@ function ModalDeliberar({
             <Alert
               type="warning"
               showIcon
-              message="A sessão ainda não está contabilizada: só é possível deliberar «sem efeito». Para lançar a sobra/falta, contabilize primeiro a sessão."
+              title="A sessão ainda não está contabilizada: só é possível deliberar «sem efeito». Para lançar a sobra/falta, contabilize primeiro a sessão."
             />
           )}
         </>

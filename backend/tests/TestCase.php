@@ -7,6 +7,7 @@ use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Testing\TestResponse;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -100,7 +101,7 @@ abstract class TestCase extends BaseTestCase
      * Os testes continuam a autenticar por Authorization: Bearer (também aceite — AppServiceProvider::configurarSanctum
      * tenta o cabeçalho primeiro, só cai para o cookie se faltar), para não reescrever toda a suite.
      */
-    protected function tokenDoCookie(\Illuminate\Testing\TestResponse $resposta): ?string
+    protected function tokenDoCookie(TestResponse $resposta): ?string
     {
         return $resposta->getCookie(config('erp.sessao.cookie_token'), false)?->getValue();
     }

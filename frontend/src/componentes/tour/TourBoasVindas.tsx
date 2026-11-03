@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Button, Modal, Typography } from 'antd';
 import { CompassOutlined, LeftOutlined, RightOutlined, RocketOutlined } from '@ant-design/icons';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useEstadoLicenca } from '@/modulos/config/Licenca';
+import { useEstadoLicenca } from '@/modulos/config/estadoLicenca';
 import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
 
 /**
@@ -217,7 +217,7 @@ export function TourBoasVindas() {
       <Modal
         open
         closable={false}
-        maskClosable={false}
+        mask={{ closable: false }}
         footer={null}
         width={480}
         centered
@@ -320,7 +320,7 @@ export function TourBoasVindas() {
                 Anterior
               </Button>
             )}
-            <Button size="small" type="primary" onClick={avancar} icon={!ultimoPasso ? <RightOutlined /> : undefined} iconPosition="end">
+            <Button size="small" type="primary" onClick={avancar} icon={!ultimoPasso ? <RightOutlined /> : undefined} iconPlacement="end">
               {ultimoPasso ? 'Concluir' : 'Seguinte'}
             </Button>
           </div>

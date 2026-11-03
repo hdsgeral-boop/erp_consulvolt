@@ -50,7 +50,7 @@ export const TEMA: ThemeConfig = {
   // Variáveis CSS do AntD (`--ant-color-primary`, `--ant-color-border`…): os estilos próprios (CSS e `style` inline) que
   // usam `var(--ant-…)` seguem o tema activo — também a tela nocturna (TEMA_NOCTURNO volta a ligá-las, com inherit: false).
   // As variáveis ficam declaradas na classe `css-var-…` da raiz de cada componente AntD (Layout, Modal…) e herdam-se.
-  cssVar: true,
+  cssVar: {},
   token: {
     colorPrimary: COR_PRIMARIA,
     colorInfo: COR_PRIMARIA,

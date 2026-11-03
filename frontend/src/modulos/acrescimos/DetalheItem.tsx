@@ -3,7 +3,7 @@ import { ArrowLeftOutlined, CheckSquareOutlined, DeleteOutlined, EditOutlined, S
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
@@ -173,7 +173,7 @@ export function ModalRegularizar({ item, documento, aoFechar }: { item: Pick<Ite
         </Space>
         <Form.Item name="motivo" label="Motivo / observação"><Input maxLength={100} /></Form.Item>
       </Form>
-      {documento && <Alert type="info" showIcon message={`Documento recolhido de ${documento.fonte}: ${documento.doc}`} />}
+      {documento && <Alert type="info" showIcon title={`Documento recolhido de ${documento.fonte}: ${documento.doc}`} />}
     </Modal>
   );
 }
@@ -184,7 +184,7 @@ function ModalTerminar({ item, aoFechar }: { item: ItemAD | null; aoFechar: () =
   useEffect(() => { if (item) form.setFieldsValue({ data: dayjs(), motivo: '' }); }, [item, form]);
   return (
     <Modal title={`Terminar antecipadamente «${item?.descricao ?? ''}»`} open={!!item} onCancel={aoFechar} onOk={() => form.submit()} okText="Terminar" cancelText="Cancelar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} width={larguraModal(560)} destroyOnHidden>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O saldo por reconhecer é contabilizado de uma vez na proposta do mês da data indicada." />
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="O saldo por reconhecer é contabilizado de uma vez na proposta do mês da data indicada." />
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/acrescimos/itens/${item?.id}/terminar`, dados: { data: dataApi(v.data), motivo: v.motivo || null } })}>
         <Form.Item name="data" label="Data do término" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" /></Form.Item>
         <Form.Item name="motivo" label="Motivo"><Input.TextArea rows={2} maxLength={500} /></Form.Item>

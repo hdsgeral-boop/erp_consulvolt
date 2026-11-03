@@ -158,7 +158,7 @@ function BlocoSessao({ s }: { s: SessaoPrevista }) {
         {[s.numero_z, s.nome_terminal, s.nome_operador].filter(Boolean).join(' · ')}
       </div>
       {s.impedimentos.map((i) => (
-        <Alert key={i.codigo + i.mensagem} type="error" showIcon banner style={{ fontSize: '0.78rem' }} message={i.mensagem} />
+        <Alert key={i.codigo + i.mensagem} type="error" showIcon banner style={{ fontSize: '0.78rem' }} title={i.mensagem} />
       ))}
       {s.lancamentos.map((l) => {
         const docs = documentosDoLancamento(l.descricao);

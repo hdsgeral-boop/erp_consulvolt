@@ -51,6 +51,15 @@ final class CompressaoCacheRedisTest extends TestCase
         return Cache::getStore()->getPrefix().$chave;
     }
 
+    /**
+     * Chave completa para comandos em bruto: ao contrário de get/set/ttl, o rawCommand do phpredis NÃO aplica o
+     * prefixo da ligação (REDIS_PREFIX, ex.: «erp_e2e:» no contentor e2e) — sem isto o MEMORY USAGE devolvia 0.
+     */
+    private function chaveParaRawCommand(string $chave): string
+    {
+        return (string) Redis::connection('cache')->client()->getOption(\Redis::OPT_PREFIX).$this->chaveBruta($chave);
+    }
+
     /** @return list<array<string, mixed>> conjunto com a forma do catálogo/plano de contas (chaves repetidas) */
     private function conjuntoGrande(int $n = 1500): array
     {
@@ -115,8 +124,8 @@ final class CompressaoCacheRedisTest extends TestCase
 
         Cache::put('teste_compr:bruto', $dados, 600);   // como era gravado antes
         $cliente = Redis::connection('cache')->client();
-        $memComprimida = (int) $cliente->rawCommand('MEMORY', 'USAGE', $this->chaveBruta('teste_compr:grande'));
-        $memBruta = (int) $cliente->rawCommand('MEMORY', 'USAGE', $this->chaveBruta('teste_compr:bruto'));
+        $memComprimida = (int) $cliente->rawCommand('MEMORY', 'USAGE', $this->chaveParaRawCommand('teste_compr:grande'));
+        $memBruta = (int) $cliente->rawCommand('MEMORY', 'USAGE', $this->chaveParaRawCommand('teste_compr:bruto'));
         $this->assertLessThan($memBruta * 0.3, $memComprimida, "comprimido {$memComprimida} B vs bruto {$memBruta} B");
 
         // a invalidação continua a ser um forget da mesma chave

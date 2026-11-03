@@ -2,7 +2,7 @@ import { Alert, Button, Card, DatePicker, Form, Modal, Progress, Select, Tabs, T
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { BarraFiltros } from '@/componentes/responsivo';

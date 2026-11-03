@@ -7,10 +7,10 @@ import { eFolhaExcel } from './regras';
 describe('descarregar ficheiros binários', () => {
   const resposta = (status: number, corpo: Blob, cabecalhos: Record<string, string> = {}) =>
     ({ status, data: corpo, headers: cabecalhos, statusText: '', config: {} }) as never;
-  let expirou: ReturnType<typeof vi.fn>;
+  let expirou: ReturnType<typeof vi.fn<() => void>>;
 
   beforeEach(() => {
-    expirou = vi.fn();
+    expirou = vi.fn<() => void>();
     definirAoExpirar(expirou);
     URL.createObjectURL = vi.fn(() => 'blob:x');
     URL.revokeObjectURL = vi.fn();

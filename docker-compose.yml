@@ -8,7 +8,7 @@ x-backend: &backend
   build:
     context: .
     dockerfile: docker/php/Dockerfile
-  image: erp_consulvolt/php:8.3
+  image: erp_consulvolt/php:8.5
   restart: unless-stopped
   working_dir: /var/www/html
   volumes:
@@ -59,7 +59,7 @@ services:
 
   # 2. Nginx: SPA React + proxy /api
   web:
-    image: nginx:1.27-alpine
+    image: nginx:1.31-alpine
     container_name: erp_web
     restart: unless-stopped
     ports:
@@ -73,7 +73,7 @@ services:
 
   # 3. PostgreSQL 16
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: erp_postgres
     restart: unless-stopped
     environment:
@@ -97,7 +97,7 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORTA:-5433}:5432"
     volumes:
-      - erp_pgdados:/var/lib/postgresql/data
+      - erp_pgdados18:/var/lib/postgresql
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -110,7 +110,7 @@ services:
   # não têm TTL e nunca são despejados. Os locks têm TTL: o maxmemory tem de ter folga para nunca chegar ao despejo
   # (vigiar evicted_keys — docs/arquitetura/CACHE.md §Política de memória). Reescrita do AOF explícita (100 % / 64 MB).
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: erp_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}",
@@ -143,5 +143,5 @@ services:
 
 volumes:
   erp_vendor:
-  erp_pgdados:
+  erp_pgdados18:
   erp_redisdados:

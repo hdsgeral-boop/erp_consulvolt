@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useRef, useState, type CSSProperties } from 'react';
 import { BotoesExportar, clonarParaImpressao } from '@/componentes/impressao';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -87,7 +87,7 @@ export default function Dashboard() {
   const cliente = useQueryClient();
 
   if (lista.isLoading) return <Skeleton active />;
-  if (lista.error) return <Alert type="error" showIcon message="Não foi possível carregar os painéis." />;
+  if (lista.error) return <Alert type="error" showIcon title="Não foi possível carregar os painéis." />;
   const paineis = lista.data?.paineis ?? [];
   const holding = !!lista.data?.holding;
   // a comparação mostra valores contabilísticos: exige as vistas do painel de Contabilidade (como o servidor)
@@ -150,7 +150,7 @@ export default function Dashboard() {
           <Space size={6} wrap>
             <IconeFa nome={holding ? 'sitemap' : 'building'} />
             <span>{empresa?.nome}</span>
-            {holding && <Tag color="purple" bordered>Consolidação</Tag>}
+            {holding && <Tag color="purple" variant="outlined">Consolidação</Tag>}
             <span>
               · Período de referência: <strong>{MESES[filtros.mes - 1]} {filtros.ano}</strong>
             </span>
@@ -227,7 +227,7 @@ export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: Da
   // cor do módulo: barra do aviso e contorno dos atalhos (legado htmlConteudo: border-left-color / border-color = mod.cor)
   const corModulo = estiloPainel(modulo.id).cor;
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Flex justify="end">
         <BotoesExportar
           tamanho="small"
@@ -246,7 +246,7 @@ export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: Da
           {dados.aviso}
         </div>
       )}
-      {!!dados.filtros_ignorados?.length && <Alert type="warning" showIcon message="Este painel não suporta os filtros por unidade de negócio ou centro de custo; foram ignorados." />}
+      {!!dados.filtros_ignorados?.length && <Alert type="warning" showIcon title="Este painel não suporta os filtros por unidade de negócio ou centro de custo; foram ignorados." />}
       <div ref={refVisual}>
       {kpis.length > 0 && (
         <div className="painel-kpis">
@@ -323,7 +323,7 @@ function PainelModulo({ modulo, filtros, actualizar, aoIrPara }: { modulo: strin
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.error ? (
-        <Alert type="error" showIcon message={(consulta.error as Error).message} />
+        <Alert type="error" showIcon title={(consulta.error as Error).message} />
       ) : consulta.data ? (
         <ConteudoPainel dados={consulta.data} aoIrPara={aoIrPara} />
       ) : null}
@@ -373,7 +373,7 @@ function ComparacaoEmpresas({ filtros, actualizar, holding }: { filtros: Filtros
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.error ? (
-        <Alert type="error" showIcon message={(consulta.error as Error).message} />
+        <Alert type="error" showIcon title={(consulta.error as Error).message} />
       ) : consulta.data ? (
         <ConteudoPainel dados={{ ...consulta.data, modulo: consulta.data.modulo ?? MODULO_COMPARACAO }} tituloImpressao="Comparação de empresas" />
       ) : null}
@@ -389,7 +389,7 @@ function Cubo() {
   if (!lista.length) return <Empty description="Não há conjuntos de dados disponíveis para as suas permissões." />;
   const actual = lista.find((c) => c.id === id) ?? lista[0];
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       <Flex gap={8} align="center" wrap>
         <Typography.Text strong>Conjunto de dados:</Typography.Text>
         <Select style={{ minWidth: 280 }} value={actual.id} onChange={setId} options={lista.map((c) => ({ value: c.id, label: c.nome }))} />

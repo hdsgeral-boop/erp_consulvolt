@@ -16,7 +16,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    image: erp_consulvolt/php:8.3
+    image: erp_consulvolt/php:8.5
     container_name: erp_app_e2e
     restart: unless-stopped
     working_dir: /var/www/html
@@ -61,7 +61,7 @@ services:
       retries: 5
 
   web_e2e:
-    image: nginx:1.27-alpine
+    image: nginx:1.31-alpine
     container_name: erp_web_e2e
     restart: unless-stopped
     ports:

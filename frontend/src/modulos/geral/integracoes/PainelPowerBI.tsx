@@ -63,7 +63,7 @@ export function PainelPowerBI({ aberto, aoFechar }: { aberto: boolean; aoFechar:
   const copiar = (t: string) => void navigator.clipboard?.writeText(t).then(() => message.success('Copiado.'), () => undefined);
   const d = dados.data;
   return (
-    <Drawer title={<span><ApiOutlined /> Power BI — feed OData de leitura</span>} open={aberto} onClose={aoFechar} width={larguraGaveta(760)} destroyOnHidden>
+    <Drawer title={<span><ApiOutlined /> Power BI — feed OData de leitura</span>} open={aberto} onClose={aoFechar} size={larguraGaveta(760)} destroyOnHidden>
       <Typography.Paragraph>
         O Power BI lê os dados desta empresa, linha a linha, dos mesmos conjuntos da Análise Dinâmica (lançamentos, vendas, compras, tesouraria, armazém, salários,
         projectos e activos). Cada token só lê a empresa em que foi criado e pode ser revogado a qualquer momento.
@@ -73,7 +73,7 @@ export function PainelPowerBI({ aberto, aoFechar }: { aberto: boolean; aoFechar:
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Como ligar no Power BI Desktop"
+          title="Como ligar no Power BI Desktop"
           description={
             <ol style={{ margin: 0, paddingInlineStart: 18 }}>
               <li>Obter dados › <strong>Feed OData</strong> › URL: <Typography.Text code copyable>{d.endereco}</Typography.Text></li>
@@ -127,7 +127,7 @@ export function PainelPowerBI({ aberto, aoFechar }: { aberto: boolean; aoFechar:
         </Form>
       </Modal>
       <Modal title="Token criado" open={!!novo} onCancel={() => setNovo(null)} footer={<Button type="primary" onClick={() => setNovo(null)}>Já copiei</Button>}>
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Copie o token agora: por segurança não volta a ser mostrado." />
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Copie o token agora: por segurança não volta a ser mostrado." />
         <Space.Compact style={{ width: '100%' }}>
           <Input readOnly value={novo ?? ''} aria-label="Token" />
           <Button icon={<CopyOutlined />} onClick={() => novo && copiar(novo)}>Copiar</Button>

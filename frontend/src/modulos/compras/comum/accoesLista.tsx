@@ -137,7 +137,7 @@ export function ModalDeliberacao({ pedido, aoFechar }: { pedido: PedidoCompra | 
             {(pedido.deliberacao?.sem_preco ?? 0) > 0 && ` (${pedido.deliberacao?.sem_preco} linha(s) sem preço)`} · Estado: <strong>{rotuloEstado(pedido.estado)}</strong>
           </p>
           <Steps
-            direction="vertical"
+            orientation="vertical"
             size="small"
             items={etapas.map((e) => ({
               title: `Nível ${e.ordem}: ${e.nome}`,

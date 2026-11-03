@@ -59,7 +59,7 @@ export default function PlataformaSuporte() {
         <Table<Ticket> rowKey="id" size="middle" loading={lista.isLoading} dataSource={lista.data ?? []} scroll={{ x: 'max-content' }}
           expandable={{
             expandedRowRender: (t) => (
-              <Space direction="vertical" size={8}>
+              <Space orientation="vertical" size={8}>
                 <span>{t.descricao ?? '—'}</span>
                 <Space>
                   <span>Tempo de atendimento (min):</span>
@@ -111,7 +111,7 @@ export default function PlataformaSuporte() {
         titulo={conversa ? `#${conversa.id} — ${conversa.assunto}` : undefined}
         aoFechar={() => setConversa(null)}
       />
-      <Modal open={aberto} title="Novo ticket" okText="Criar" confirmLoading={criar.isPending} onCancel={() => setAberto(false)} destroyOnClose onOk={() => form.validateFields().then((v) => criar.mutate(v))}>
+      <Modal open={aberto} title="Novo ticket" okText="Criar" confirmLoading={criar.isPending} onCancel={() => setAberto(false)} destroyOnHidden onOk={() => form.validateFields().then((v) => criar.mutate(v))}>
         <Form form={form} layout="vertical" initialValues={{ prioridade: 'NORMAL', categoria: 'GERAL' }}>
           <Form.Item name="tenant_id" label="Cliente" rules={[{ required: true }]}><Select options={(clientes.data ?? []).map((c) => ({ value: c.id, label: c.nome }))} /></Form.Item>
           <Form.Item name="assunto" label="Assunto" rules={[{ required: true }]}><Input maxLength={200} /></Form.Item>

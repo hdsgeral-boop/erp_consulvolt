@@ -130,7 +130,7 @@ export function ModalMapearQuantidade({ projectoId, linha, aoFechar }: { project
         )}
       {!fechada && previsao && (
         <>
-          <Alert type="info" showIcon style={{ marginBottom: 8 }} message={<><strong>{formatarQtd(previsao.quantidade)} {previsao.unidade}</strong> em {previsao.linhas.length} tarefa(s) · preço unitário <strong>{formatarKz(previsao.preco_unitario, true)}</strong>
+          <Alert type="info" showIcon style={{ marginBottom: 8 }} title={<><strong>{formatarQtd(previsao.quantidade)} {previsao.unidade}</strong> em {previsao.linhas.length} tarefa(s) · preço unitário <strong>{formatarKz(previsao.preco_unitario, true)}</strong>
             {(previsao.sobra ?? 0) >= 0.01 ? ` · ficam ${formatarKz(previsao.sobra, true)} por mapear` : (previsao.sobra ?? 0) < -0.009 ? ' · acima do saldo!' : ' · a rubrica fica inteiramente mapeada'}</>} />
           <Table size="small" rowKey="tarefa_id" pagination={false} dataSource={previsao.linhas} scroll={{ y: 200 }}
             columns={[{ title: 'Tarefa', key: 't', render: (_, x) => `${x.codigo ? `${x.codigo} ` : ''}${x.nome}` }, { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: (q) => `${formatarQtd(q)} ${previsao.unidade}` },

@@ -68,7 +68,7 @@ export function ResumoAlocacaoUN({ resumo }: { resumo: ResumoAlocacao }) {
         Critério: <strong>{resumo.criterio ? `${resumo.criterio.codigo ?? ''} ${resumo.criterio.nome ?? ''}`.trim() : 'critério já não existe'}</strong>
         {' '}<Tag>{resumo.unidades.length} unidade(s)</Tag>
       </div>
-      {resumo.erro && <Alert type="warning" showIcon message={resumo.erro} style={{ marginBottom: 6 }} />}
+      {resumo.erro && <Alert type="warning" showIcon title={resumo.erro} style={{ marginBottom: 6 }} />}
       {!!resumo.linhas.length && (
         <Table<LinhaReparticao>
           size="small"
@@ -130,7 +130,7 @@ export function ModalAlocacaoUN({ tipo, id, valor, aoFechar, invalidar = [], tit
           <AlocacaoUN value={valorForm} onChange={setValorForm} valor={valor ?? null} titulo="Repartir por várias unidades de negócio" />
         </>
       )}
-      {(gravada.error || gravar.error) && <Alert style={{ marginTop: 8 }} type="error" showIcon message={((gravar.error ?? gravada.error) as Error).message} />}
+      {(gravada.error || gravar.error) && <Alert style={{ marginTop: 8 }} type="error" showIcon title={((gravar.error ?? gravada.error) as Error).message} />}
     </Modal>
   );
 }

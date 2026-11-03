@@ -114,7 +114,7 @@ export function SeletorProjecto({ permissaoCriar, ...props }: PropsSelect<number
         placeholder="Projecto"
         popupMatchSelectWidth={false}
         options={(q.data ?? []).map((p) => ({ value: p.id, label: `${p.codigo ?? ''} — ${p.nome}` }))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'projecto', aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'projecto', aoClicar: () => setACriar(true) })}
         {...props}
       />
       {permissaoCriar && (

@@ -115,7 +115,7 @@ export function ModelosTexto() {
               key: 'outros',
               label: `Outros modelos guardados deste tipo (${outros.length})`,
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>As cartas saem com o texto acima. Estes textos continuam guardados; «Usar este» passa-o a texto do tipo.</Typography.Text>
                   {outros.map((m) => (
                     <Card key={m.id} size="small" type="inner" title={m.nome ?? `Modelo #${m.id}`}

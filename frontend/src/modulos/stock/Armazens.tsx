@@ -1,7 +1,7 @@
 import { Button, Card, Checkbox, Flex, Form, Input, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';

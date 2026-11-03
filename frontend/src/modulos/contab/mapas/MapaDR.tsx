@@ -54,7 +54,7 @@ export default function MapaDR() {
       {!porUN && !porEmpresa && d && (
         <>
           {comparativo && !d.historico_anterior && (
-            <Alert type="info" showIcon style={{ marginBottom: 16 }} message="O comparativo é calculado a partir dos lançamentos (sem saldos históricos importados)." />
+            <Alert type="info" showIcon style={{ marginBottom: 16 }} title="O comparativo é calculado a partir dos lançamentos (sem saldos históricos importados)." />
           )}
           <Card>
             <TabelaDemonstracao

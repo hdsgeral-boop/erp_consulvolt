@@ -18,7 +18,7 @@ import {
   TeamOutlined,
   CheckCircleFilled,
 } from '@ant-design/icons';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useModoMenuPlataforma } from './modoMenuPlataforma';
 import './plataforma.css';

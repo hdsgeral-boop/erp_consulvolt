@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { CustomerServiceOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
 
@@ -63,8 +63,8 @@ export function SuporteLogin() {
           <Typography.Text type="secondary">Acesso restrito à equipa de suporte Consulvolt</Typography.Text>
         </Flex>
 
-        {motivoSaida && <Alert type="info" showIcon message={motivoSaida} style={{ marginBottom: 16 }} />}
-        {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
+        {motivoSaida && <Alert type="info" showIcon title={motivoSaida} style={{ marginBottom: 16 }} />}
+        {erro && <Alert type="error" showIcon title={erro} style={{ marginBottom: 16 }} />}
 
         <Form layout="vertical" onFinish={submeter} requiredMark={false}>
           <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>

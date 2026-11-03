@@ -70,7 +70,7 @@ export function formatarValor(v: number, monetario?: boolean): string {
 }
 
 /** Largura real do contentor (px), actualizada ao redimensionar; 640 antes da primeira medição (e nos testes). */
-function useLargura(): [React.RefObject<HTMLDivElement>, number] {
+function useLargura(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [largura, setLargura] = useState(640);
   useLayoutEffect(() => {

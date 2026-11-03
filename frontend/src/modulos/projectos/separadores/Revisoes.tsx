@@ -17,7 +17,7 @@ import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/respons
 import { BotoesExportar, CSS_SIMULACAO_COMUM, marcaSimulacao, pares, tabelaHtml } from '@/componentes/impressao';
 import { useRef } from 'react';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { tratarErroConfiguracao } from './Configuracao';
 
 /** Fecha o diálogo e abre o separador «Configuração» do projecto (ligação dos 422 de artigo em falta). */
@@ -251,7 +251,7 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
       </Space>
       {simulacao && (
         <>
-          {simulacao.revisao_existente && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Já existe revisão para este mês: a execução deduz o que já foi imputado." />}
+          {simulacao.revisao_existente && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Já existe revisão para este mês: a execução deduz o que já foi imputado." />}
           <Typography.Title level={5}>Mão de obra interna</Typography.Title>
           <Table scroll={scrollTabela()} size="small" rowKey="membro_id" pagination={false} dataSource={simulacao.internos}
             columns={[
@@ -292,12 +292,12 @@ function DetalheAuto({ projectoId, revisaoId, aoFechar }: { projectoId: number; 
       title={d ? `Auto ${d.revisao.referencia} — ${MESES[d.revisao.mes - 1]} ${d.revisao.ano}` : 'Auto de medição'}
       open={!!revisaoId}
       onClose={aoFechar}
-      width={larguraGaveta(820)}
+      size={larguraGaveta(820)}
       loading={q.isLoading}
       extra={d && <BotoesExportar tamanho="small" obterPedido={() => pedidoAutoMedicao(d, MESES[d.revisao.mes - 1])} />}
     >
       {d && (
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Projecto">{d.projeto.codigo} — {d.projeto.nome}</Descriptions.Item>
             <Descriptions.Item label="Cliente">{d.cliente}</Descriptions.Item>
@@ -340,7 +340,7 @@ function ModalFaturar({ projectoId, revisao, aoFechar }: { projectoId: number; r
   const p = proposta.data;
   return (
     <Modal title={`Facturar o auto ${revisao?.referencia ?? ''}`} open={!!revisao} onCancel={aoFechar} onOk={() => form.submit()} okText="Emitir documento" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(640)} destroyOnHidden>
-      {proposta.error && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={(proposta.error as Error).message} />}
+      {proposta.error && <Alert type="error" showIcon style={{ marginBottom: 12 }} title={(proposta.error as Error).message} />}
       {p && (
         <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered style={{ marginBottom: 12 }}>
           <Descriptions.Item label="Execução global">{p.execucao_global}%</Descriptions.Item>
@@ -350,7 +350,7 @@ function ModalFaturar({ projectoId, revisao, aoFechar }: { projectoId: number; r
           <Descriptions.Item label="IVA da encomenda" span={2}>{p.taxa_iva_encomenda}%</Descriptions.Item>
         </Descriptions>
       )}
-      {p?.ja_faturado_por && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Este auto já foi facturado por ${p.ja_faturado_por}.`} />}
+      {p?.ja_faturado_por && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Este auto já foi facturado por ${p.ja_faturado_por}.`} />}
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({
         url: `/projetos/${projectoId}/revisoes/${revisao?.id}/faturar`,
         dados: { ...v, data_emissao: dataApi(v.data_emissao) ?? null, produto_id: v.produto_id ?? null, conta_disponibilidade: v.conta_disponibilidade || null, meio_pagamento: v.meio_pagamento || null },

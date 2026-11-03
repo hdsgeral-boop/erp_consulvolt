@@ -27,7 +27,7 @@ export function AvisoSessoesAntigas({ estilo }: { estilo?: CSSProperties }) {
       showIcon
       icon={<IconeFa nome="exclamation-triangle" />}
       style={{ background: '#fff7ed', borderColor: '#fed7aa', color: '#9a3412', marginBottom: 12, ...estilo }}
-      message={texto}
+      title={texto}
     />
   );
 }

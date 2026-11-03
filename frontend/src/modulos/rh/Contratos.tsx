@@ -388,7 +388,7 @@ export default function Contratos() {
               }}
             </Form.Item>
           </Row>
-          {!pode('contratos_terminate') && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Terminar um contrato (data de fim ou estado Inactivo) exige a permissão de rescisão." />}
+          {!pode('contratos_terminate') && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Terminar um contrato (data de fim ou estado Inactivo) exige a permissão de rescisão." />}
           </SeccaoFormulario>
           {/* como no legado, o horário só se abre quando o contrato o tem; recolhido continua montado (valores e regras mantêm-se) */}
           <SeccaoFormulario titulo="Horário de trabalho" recolhida={!contratoAberto?.horario?.entrada}>

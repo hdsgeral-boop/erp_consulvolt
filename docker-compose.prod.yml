@@ -146,7 +146,7 @@ services:
 
   # 5. PostgreSQL 16 — volume persistente, SEM porta publicada (acesso: exec psql ou túnel SSH)
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env.prod}
@@ -175,7 +175,7 @@ services:
       - -c
       - log_lock_waits=on
     volumes:
-      - erp_pgdados:/var/lib/postgresql/data
+      - erp_pgdados18:/var/lib/postgresql
       - ./docker/postgres/producao:/docker-entrypoint-initdb.d:ro
     shm_size: 256m
     healthcheck:
@@ -192,7 +192,7 @@ services:
 
   # 6. Redis 7 — cache, locks e filas; palavra-passe obrigatória, SEM porta publicada
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\" --maxmemory 512mb --maxmemory-policy volatile-lru --auto-aof-rewrite-percentage 100 --auto-aof-rewrite-min-size 64mb --protected-mode yes"]
     environment:
@@ -254,6 +254,6 @@ services:
     logging: *logs
 
 volumes:
-  erp_pgdados:
+  erp_pgdados18:
   erp_redisdados:
   erp_storage:

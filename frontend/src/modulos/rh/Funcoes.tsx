@@ -111,7 +111,7 @@ export default function Funcoes() {
                       {({ getFieldValue }) => {
                         const usam = (getFieldValue('cargos_estrutura') as string[] | undefined) ?? [];
                         return usam.length > 0 && (
-                          <Alert type="info" showIcon style={{ marginBottom: 8 }} message={`Esta função descreve ${usam.length} cargo(s) da estrutura orgânica:`}
+                          <Alert type="info" showIcon style={{ marginBottom: 8 }} title={`Esta função descreve ${usam.length} cargo(s) da estrutura orgânica:`}
                             description={<>
                               <ul style={{ margin: '4px 0', paddingLeft: 18 }}>{usam.map((c) => <li key={c}>{c}</li>)}</ul>
                               O que alterar aqui passa a valer para todos eles e para os contratos que forem emitidos a partir de agora.

@@ -100,7 +100,7 @@ export function AMinhaEquipa() {
           <Button loading={accao.isPending} onClick={() => formA.validateFields().then((v) => gravar(v, false))}>Gravar rascunho</Button>
           <Button type="primary" loading={accao.isPending} onClick={() => formA.validateFields().then((v) => gravar(v, true))}>Concluir avaliação</Button></Space>}>
         <Form form={formA} layout="vertical">
-          {avaliar && avaliar.criterios.length === 0 && <Alert type="info" message="Sem critérios configurados." />}
+          {avaliar && avaliar.criterios.length === 0 && <Alert type="info" title="Sem critérios configurados." />}
           <Typography.Title level={5}>Critérios (nota de 1 a 5)</Typography.Title>
           <Form.List name="criterios">{(campos) => campos.map(({ key, name }) => {
             const i = avaliar?.criterios[name];

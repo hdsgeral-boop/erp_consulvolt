@@ -35,7 +35,7 @@ export function ModalCargaTrabalho({ projectoId, aberto, aoFechar }: { projectoI
               <BotoesExportar tamanho="small" obterPedido={() => (ref.current ? { titulo: `Carga de trabalho — ${c.projeto.codigo ?? ''} ${c.projeto.nome}`, conteudo: ref.current, orientacao: 'paisagem' as const } : null)} />
             </Space>
           </Flex>
-          {c.areas_sem_gente.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Áreas do organigrama com tarefas e sem ninguém lá colocado: ${c.areas_sem_gente.join(', ')}.`} />}
+          {c.areas_sem_gente.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Áreas do organigrama com tarefas e sem ninguém lá colocado: ${c.areas_sem_gente.join(', ')}.`} />}
           <div ref={ref}>
             {!c.grupos.length ? <Empty description="A equipa do projecto está vazia." /> : (
               <Collapse activeKey={abertos ?? chaves} onChange={(k) => setAbertos(k as string[])}

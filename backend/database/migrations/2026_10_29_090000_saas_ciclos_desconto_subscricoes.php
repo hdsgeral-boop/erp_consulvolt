@@ -23,7 +23,7 @@ return new class extends Migration
             $t->decimal('valor_apos_ciclo', 14, 2)->default(0)->after('valor_desconto_ciclo');
         });
 
-        DB::statement("ALTER TABLE subscricoes_empresa ADD CONSTRAINT ck_subscricoes_empresa_ciclo_codigo "
+        DB::statement('ALTER TABLE subscricoes_empresa ADD CONSTRAINT ck_subscricoes_empresa_ciclo_codigo '
             ."CHECK (ciclo_codigo IN ('MENSAL','TRIMESTRAL','SEMESTRAL','ANUAL','PERSONALIZADO'))");
 
         // Subscrições já existentes nunca tiveram desconto: valor_bruto e valor_apos_ciclo ficam iguais a valor.

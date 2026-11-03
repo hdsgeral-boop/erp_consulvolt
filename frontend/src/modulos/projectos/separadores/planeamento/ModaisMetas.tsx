@@ -49,7 +49,7 @@ export function ModalMedicao({ projectoId, tarefa, aoFechar, aoLinhas }: { proje
       footer={(orig) => <Flex justify="space-between" wrap gap={8}><Button onClick={() => { aoFechar(); aoLinhas(); }}>Folha de medição (várias tarefas)</Button><Space>{orig}</Space></Flex>}
     >
       <Alert type="info" showIcon style={{ marginBottom: 12 }}
-        message={<>Meta: <strong>{formatarQtd(meta)} {un}</strong> · realizado <strong>{formatarQtd(feito)}</strong> · falta <strong>{formatarQtd(Math.max(0, meta - feito))}</strong></>} />
+        title={<>Meta: <strong>{formatarQtd(meta)} {un}</strong> · realizado <strong>{formatarQtd(feito)}</strong> · falta <strong>{formatarQtd(Math.max(0, meta - feito))}</strong></>} />
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/projetos/${projectoId}/tarefas/${tarefa?.id}/medicoes`, dados: { quantidade: v.quantidade, data: dataApi(v.data), nota: v.nota || null, membro_id: v.membro_id ?? null } })}>
         <Row gutter={12}>
           <Col xs={24} md={12}>

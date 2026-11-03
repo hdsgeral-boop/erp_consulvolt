@@ -127,6 +127,8 @@ describe('documento', () => {
     expect(html).toContain('A &amp; B');
     expect(html).not.toContain('imp-logotipo"');
     expect(logotipoSeguro('data:text/html;base64,AAAA')).toBeNull();
+    expect(logotipoSeguro('https://pub-abc.r2.dev/empresas/1/logotipo-0123456789abcdef.png')).toBe('https://pub-abc.r2.dev/empresas/1/logotipo-0123456789abcdef.png');
+    expect(logotipoSeguro('https://pub-abc.r2.dev/x.svg')).toBeNull();
     expect(nomeFicheiroPadrao('Mapa: IRT/2026', 'Empresa', new Date(2026, 1, 3))).toBe('Mapa IRT 2026 - Empresa - 2026-02-03');
   });
 

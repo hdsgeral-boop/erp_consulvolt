@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 const obter = vi.fn();
 const obterPagina = vi.fn();
@@ -80,20 +80,21 @@ describe('EmitirDocumento — Colar do Excel (itens da venda)', () => {
     // linha inicial (em branco) + as 2 coladas
     expect(container.querySelectorAll('[data-colar-linha]').length).toBe(3);
 
-    expect(celula(container, 1, 0).querySelector('.ant-select-selection-item')?.textContent).toBe('P001 — Cimento');
+    expect(celula(container, 1, 0).querySelector('.ant-select-content-has-value')?.textContent).toBe('P001 — Cimento');
     expect((celula(container, 1, 1).querySelector('input') as HTMLInputElement).value).toBe('Saco 50kg');
     expect(numeroDe(celula(container, 1, 2).querySelector('input'))).toBe(3);
     expect(numeroDe(screen.getByLabelText('Preço da linha 2'))).toBe(900);
     expect(screen.getByLabelText('Observação do artigo da linha 2')).toHaveValue('Entrega rápida');
 
     // 2.ª linha colada: sem descrição nem preço — ficam o nome e o preço da ficha do produto (como ao escolher no selector)
-    expect(celula(container, 2, 0).querySelector('.ant-select-selection-item')?.textContent).toBe('P002 — Areia');
+    expect(celula(container, 2, 0).querySelector('.ant-select-content-has-value')?.textContent).toBe('P002 — Areia');
     expect((celula(container, 2, 1).querySelector('input') as HTMLInputElement).value).toBe('Areia');
     expect(numeroDe(celula(container, 2, 2).querySelector('input'))).toBe(2);
     expect(numeroDe(screen.getByLabelText('Preço da linha 3'))).toBe(500);
 
     // os totais recalculam como ao preencher à mão
-    expect(totalEstimativa()).not.toBe(totalAntes);
+    // o Form.useWatch das linhas (antd 6) actualiza numa macro-tarefa, depois do clique
+    await waitFor(() => expect(totalEstimativa()).not.toBe(totalAntes));
   });
 
   it('colagem directa numa célula: preenche a partir da linha/coluna clicada, cria linhas em falta e actualiza os totais', async () => {
@@ -114,6 +115,7 @@ describe('EmitirDocumento — Colar do Excel (itens da venda)', () => {
     expect(numeroDe(celula(container, 1, 2).querySelector('input'))).toBe(2);
     expect(numeroDe(screen.getByLabelText('Preço da linha 2'))).toBe(400);
 
-    expect(totalEstimativa()).not.toBe(totalAntes);
+    // o Form.useWatch das linhas (antd 6) actualiza numa macro-tarefa, depois do clique
+    await waitFor(() => expect(totalEstimativa()).not.toBe(totalAntes));
   });
 });

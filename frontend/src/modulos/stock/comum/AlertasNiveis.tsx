@@ -44,7 +44,7 @@ export function AlertasNiveis() {
   const nSugestoes = sugestoes(consulta.data?.linhas ?? []).length;
   const escolhidas = linhas.filter((l) => escolhidos.includes(l.produto_id));
 
-  if (consulta.error) return <Alert type="error" showIcon style={{ marginBottom: 16 }} message="Não foi possível avaliar os níveis de stock." />;
+  if (consulta.error) return <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Não foi possível avaliar os níveis de stock." />;
   if (!consulta.isLoading && !consulta.data?.linhas.length) return null;   // nenhum produto precisa de atenção
 
   return (
@@ -84,7 +84,7 @@ export function AlertasNiveis() {
         columns={[
           { title: 'Estado', dataIndex: 'estado', render: (e: EstadoNivel, l) => <Tooltip title={l.motivo}><Tag color={ESTADOS_NIVEL[e].cor}>{ESTADOS_NIVEL[e].rotulo}</Tag></Tooltip> },
           { title: 'Código', dataIndex: 'codigo', render: (x: string | null) => x ?? '—' },
-          { title: 'Produto', dataIndex: 'nome', render: (x: string, l) => <Space direction="vertical" size={0}><strong>{x}</strong>{l.motivo && <small style={{ opacity: 0.75 }}>{l.motivo}</small>}</Space> },
+          { title: 'Produto', dataIndex: 'nome', render: (x: string, l) => <Space orientation="vertical" size={0}><strong>{x}</strong>{l.motivo && <small style={{ opacity: 0.75 }}>{l.motivo}</small>}</Space> },
           { title: 'Stock', dataIndex: 'stock', align: 'right', render: qtd },
           { title: 'Em encomenda', dataIndex: 'em_encomenda', align: 'right', render: (x: string) => (Number(x) ? qtd(x) : '—') },
           { title: 'Mín. / Seg.', key: 'ms', align: 'right', render: (_, l) => `${qtd(l.stock_minimo)} / ${qtd(l.stock_seguranca)}` },

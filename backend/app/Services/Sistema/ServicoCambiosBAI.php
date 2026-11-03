@@ -93,7 +93,9 @@ final class ServicoCambiosBAI
     /** Variação percentual (2 casas) da média face ao último câmbio; null se o último não for positivo. */
     public static function variacao(float $media, float $ultimo): ?float
     {
-        return $ultimo > 0 ? round(($media - $ultimo) / $ultimo * 100, 2) : null;
+        // PHP >= 8.4 deixou de pré-arredondar em round(): 115/800*100 = 14.374999999999998 dava 14.37 em vez de 14.38.
+        // Arredondar primeiro a 10 casas repõe o resultado decimal esperado (meio para cima).
+        return $ultimo > 0 ? round(round(($media - $ultimo) / $ultimo * 100, 10), 2) : null;
     }
 
     /**

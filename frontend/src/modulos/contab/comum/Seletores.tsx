@@ -97,7 +97,7 @@ export function SeletorConta({ id, value, onChange, placeholder = 'Conta', allow
         style={{ minWidth: 200, ...style }}
         popupMatchSelectWidth={false}
         filterSort={(a, b) => String(a.value).localeCompare(String(b.value))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'conta', aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: 'conta', aoClicar: () => setACriar(true) })}
       />
       {permissaoCriar && (
         <ModalCriarContaRapida
@@ -191,7 +191,7 @@ export function SeletorAux({ id, tabela, value, onChange, placeholder, allowClea
         style={{ minWidth: 160, ...style }}
         popupMatchSelectWidth={false}
         options={(t.data ?? []).map((r) => ({ value: r.id, label: `${r.codigo} — ${r.descricao ?? ''}` }))}
-        dropdownRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: ROTULO_TABELA_AUX[tabela], aoClicar: () => setACriar(true) })}
+        popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: ROTULO_TABELA_AUX[tabela], aoClicar: () => setACriar(true) })}
       />
       {permissaoCriar && (
         <ModalCriarAuxRapido

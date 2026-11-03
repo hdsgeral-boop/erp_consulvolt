@@ -17,7 +17,7 @@ import { dadosEncomendaCompra } from '../comum/impressao';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { linhaIvaEditavel, ModalIva } from '../comum/ModalIva';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -247,7 +247,7 @@ export function DetalheEncomenda() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const e = consulta.data;
-  if (!e) return <Alert type="error" message="Encomenda não encontrada." />;
+  if (!e) return <Alert type="error" title="Encomenda não encontrada." />;
   const a = accoesEncomenda(e, pode);
   const moeda = e.codigo_moeda || 'AOA';
   const nome = numeroOuId(e.numero_encomenda, e.id);
@@ -268,7 +268,7 @@ export function DetalheEncomenda() {
           </>
         }
       />
-      {e.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Encomenda anulada${e.motivo_anulacao ? `: ${e.motivo_anulacao}` : '.'}`} />}
+      {e.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Encomenda anulada${e.motivo_anulacao ? `: ${e.motivo_anulacao}` : '.'}`} />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(e.data)}</Descriptions.Item>

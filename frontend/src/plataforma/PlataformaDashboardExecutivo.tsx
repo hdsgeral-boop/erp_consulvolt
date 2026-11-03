@@ -15,7 +15,7 @@ import {
   WarningFilled,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
@@ -103,7 +103,7 @@ export function PlataformaDashboardExecutivo() {
     return <Spin size="large" style={{ display: 'block', marginTop: 120 }} />;
   }
   if (painel.isError || !painel.data) {
-    return <Alert type="error" showIcon message="Não foi possível carregar o painel da plataforma." />;
+    return <Alert type="error" showIcon title="Não foi possível carregar o painel da plataforma." />;
   }
 
   const p = painel.data;
@@ -118,7 +118,7 @@ export function PlataformaDashboardExecutivo() {
           type="warning"
           showIcon
           icon={<WarningFilled />}
-          message={`${p.empresas.licenca_expirada} empresa(s) com a licença expirada`}
+          title={`${p.empresas.licenca_expirada} empresa(s) com a licença expirada`}
           description="Estão em modo só-leitura até regularizarem o pagamento ou um super-administrador prolongar a licença."
           action={
             <Link to="/admin/saas">
@@ -253,7 +253,7 @@ export function PlataformaDashboardExecutivo() {
               </Space>
             }
           >
-            <Statistic value={p.utilizadores} valueStyle={{ fontSize: 32, fontWeight: 700 }} suffix={<span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>em {p.clientes.total} cliente(s)</span>} />
+            <Statistic value={p.utilizadores} styles={{ content: { fontSize: 32, fontWeight: 700 } }} suffix={<span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>em {p.clientes.total} cliente(s)</span>} />
           </Card>
 
           <Card title="Clientes mais recentes" style={{ marginTop: 16 }} extra={<Link to="/admin/clientes">Ver todos</Link>}>

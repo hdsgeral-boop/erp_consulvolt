@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Utilizador;
 use App\Services\Autenticacao\ServicoTotp;
 use Tests\TestCase;
 

@@ -1,7 +1,7 @@
 import { Alert, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
@@ -119,7 +119,7 @@ export function ModalPortas({ planta, andarId, aberto, aoFechar }: { planta: Pla
           <Form.Item name="tipo" label="Tipo (opcional)"><Input maxLength={50} placeholder="Ex.: Gabinete, Armazém" /></Form.Item>
           <Form.Item name="capacidade" label="Capacidade (opcional)"><InputNumber min={0} precision={0} /></Form.Item>
         </Space>
-        <Alert type={previa.valida ? 'info' : 'warning'} showIcon message={previa.texto} />
+        <Alert type={previa.valida ? 'info' : 'warning'} showIcon title={previa.texto} />
       </Form>
       </Col>
       <Col xs={24} md={12}>
@@ -220,7 +220,7 @@ export function ModalGerarInventario({ planta, pedido, aoFechar }: { planta: Pla
           <Form.Item name="responsavel" label="Responsável"><Input maxLength={150} /></Form.Item>
         </Space>
         <Form.Item name="notas" label="Notas"><Input maxLength={2000} placeholder="Opcional" /></Form.Item>
-        <Alert type="info" showIcon message={`A folha vai ter ${nBens} bem(ns) esperado(s), no valor de ${formatarKz(valor.toFixed(2))}.`} />
+        <Alert type="info" showIcon title={`A folha vai ter ${nBens} bem(ns) esperado(s), no valor de ${formatarKz(valor.toFixed(2))}.`} />
       </Form>
     </Modal>
   );

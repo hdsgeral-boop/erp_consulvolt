@@ -2,7 +2,7 @@ import { Alert, Button, Card, Descriptions, Form, Input, Modal, Radio, Skeleton,
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -55,7 +55,7 @@ export function DetalhePedido() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const p = consulta.data;
-  if (!p) return <Alert type="error" message="Pedido não encontrado." />;
+  if (!p) return <Alert type="error" title="Pedido não encontrado." />;
 
   const a = accoesPedido(p, pode);
   const etapa = etapaPendente(p);
@@ -89,7 +89,7 @@ export function DetalhePedido() {
           </>
         }
       />
-      {p.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Pedido anulado${p.motivo_anulacao ? `: ${p.motivo_anulacao}` : '.'}`} />}
+      {p.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Pedido anulado${p.motivo_anulacao ? `: ${p.motivo_anulacao}` : '.'}`} />}
 
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">

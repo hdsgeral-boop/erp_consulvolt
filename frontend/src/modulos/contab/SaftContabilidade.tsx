@@ -55,7 +55,7 @@ export default function SaftContabilidade() {
     }
   };
 
-  if (!permitido) return <Alert type="info" showIcon message="Sem permissão para exportar o SAF-T (AO) de Contabilidade." />;
+  if (!permitido) return <Alert type="info" showIcon title="Sem permissão para exportar o SAF-T (AO) de Contabilidade." />;
 
   return (
     <>
@@ -87,7 +87,7 @@ export default function SaftContabilidade() {
             style={{ marginTop: 16 }}
             type={previa.avisos.length ? 'warning' : 'success'}
             showIcon
-            message={`${previa.lancamentos} linha(s) de lançamento, ${previa.contas} conta(s) do plano, no exercício de ${ano}.`}
+            title={`${previa.lancamentos} linha(s) de lançamento, ${previa.contas} conta(s) do plano, no exercício de ${ano}.`}
             description={previa.avisos.length ? <ul style={{ margin: 0, paddingLeft: 18 }}>{previa.avisos.map((a) => <li key={a}>{a}</li>)}</ul> : undefined}
           />
         )}

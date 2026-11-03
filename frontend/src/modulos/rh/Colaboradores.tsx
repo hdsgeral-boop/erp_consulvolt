@@ -6,7 +6,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { descarregar, obter } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { AlocacaoUN, alocacaoDeApi, alocacaoParaApi, gravarAlocacao, obterAlocacao, useCriterios, validarAlocacao, type Alocacao } from '@/componentes/reparticao';
@@ -179,7 +179,7 @@ function FichaDoColaborador() {
 
   if (ficha.isLoading) return <Skeleton active />;
   const c = ficha.data;
-  if (!c) return <Alert type="error" message="Colaborador não encontrado." />;
+  if (!c) return <Alert type="error" title="Colaborador não encontrado." />;
 
   const colContratos: ColumnsType<ContratoTrabalho> = [
     { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
@@ -334,7 +334,7 @@ function FichaDoColaborador() {
                   <Descriptions.Item label="IBAN"><code>{formatarIban(c.coordenada_bancaria.iban)}</code></Descriptions.Item>
                 </Descriptions>
               ) : (
-                <Alert type="warning" showIcon message="Sem IBAN registado (gere-se no ecrã Coordenadas bancárias)." />
+                <Alert type="warning" showIcon title="Sem IBAN registado (gere-se no ecrã Coordenadas bancárias)." />
               ),
             },
           ]}
@@ -446,7 +446,7 @@ function FormularioColaborador() {
           <Col xs={24} md={8}><Form.Item name="email" label="E-mail" rules={[{ type: 'email', message: 'E-mail inválido.' }]}><Input maxLength={255} autoComplete="off" /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="telefone_alternativo" label="Telefone alternativo"><Input maxLength={50} /></Form.Item></Col>
-          <Col xs={24}><Divider orientation="left" plain style={{ margin: '4px 0 12px' }}>Contacto de emergência</Divider></Col>
+          <Col xs={24}><Divider titlePlacement="start" plain style={{ margin: '4px 0 12px' }}>Contacto de emergência</Divider></Col>
           <Col xs={24} md={8}><Form.Item name="emergencia_nome" label="Nome"><Input maxLength={255} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="emergencia_telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="emergencia_parentesco" label="Parentesco"><Input maxLength={100} /></Form.Item></Col>
@@ -536,8 +536,8 @@ function FormularioColaborador() {
               <Select allowClear showSearch optionFilterProp="label" placeholder="— responsável da unidade —" options={colaboradores.lista.filter((x) => String(x.id) !== id).map((x) => ({ value: x.id, label: x.nome_completo }))} />
             </Form.Item>
           </Col>
-          {estrutura.isError && <Col xs={24}><Alert type="info" showIcon message="Não foi possível ler a estrutura orgânica (permissões ou ainda sem estrutura definida)." /></Col>}
-          {!estrutura.isError && !estrutura.isLoading && !unidades.length && <Col xs={24}><Alert type="info" showIcon message="Ainda não há estrutura orgânica definida (menu Estrutura Orgânica)." /></Col>}
+          {estrutura.isError && <Col xs={24}><Alert type="info" showIcon title="Não foi possível ler a estrutura orgânica (permissões ou ainda sem estrutura definida)." /></Col>}
+          {!estrutura.isError && !estrutura.isLoading && !unidades.length && <Col xs={24}><Alert type="info" showIcon title="Ainda não há estrutura orgânica definida (menu Estrutura Orgânica)." /></Col>}
         </Row>
       ),
     },

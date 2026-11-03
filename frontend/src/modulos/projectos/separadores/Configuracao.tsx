@@ -54,7 +54,7 @@ export function SeparadorConfiguracao(_: PropsSeparador) {
   return (
     <Card title="Configuração dos projectos">
       <Alert type="info" showIcon style={{ marginBottom: 16 }}
-        message="Configuração comum a todos os projectos da empresa."
+        title="Configuração comum a todos os projectos da empresa."
         description="Os artigos são usados quando o pedido não indica outro: na revisão mensal (facturas de subempreitada aos terceiros) e na facturação dos autos ao cliente." />
       <Form form={form} layout="vertical" disabled={!podeGravar} style={{ maxWidth: 560 }}
         onFinish={(v) => accao.mutate({ metodo: 'put', url: '/projetos/configuracao', dados: { produto_subempreitada_id: v.produto_subempreitada_id ?? null, produto_faturacao_id: v.produto_faturacao_id ?? null } })}>

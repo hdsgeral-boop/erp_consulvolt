@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, Col, Flex, Form, Input, Modal, Popconfir
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, useVistaFormulario } from '@/componentes/formularios';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -278,7 +278,7 @@ function PlanoContas() {
     return (plano.data ?? []).filter((c) => (!tipo || c.tipo === tipo) && (!f || c.codigo.startsWith(f) || (c.descricao ?? '').toLowerCase().includes(f)));
   }, [plano.data, filtro, tipo]);
 
-  if (plano.isError) return <Alert type="warning" showIcon message="Não tem acesso ao plano de contas nesta empresa." />;
+  if (plano.isError) return <Alert type="warning" showIcon title="Não tem acesso ao plano de contas nesta empresa." />;
 
   const colunasPlano: ColunaApi<ContaPlano>[] = [
           { title: 'Código', dataIndex: 'codigo', width: 160, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : undefined }}>{v}</span> },

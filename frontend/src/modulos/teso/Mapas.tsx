@@ -130,7 +130,7 @@ export default function Mapas() {
         </Row>
       </Card>
       {erro && (
-        <Alert type="error" showIcon style={{ marginBottom: 16 }} message="Não foi possível obter o mapa." action={<Button size="small" onClick={() => notificarErro(erro)}>Detalhe</Button>} />
+        <Alert type="error" showIcon style={{ marginBottom: 16 }} title="Não foi possível obter o mapa." action={<Button size="small" onClick={() => notificarErro(erro)}>Detalhe</Button>} />
       )}
       <Tabs
         activeKey={separador}
@@ -232,7 +232,7 @@ export default function Mapas() {
                         />
                       </Space>
                     </Flex>
-                    {!extratoConfere(e) && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O saldo corrido não confere com o saldo final; actualize o extracto." />}
+                    {!extratoConfere(e) && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="O saldo corrido não confere com o saldo final; actualize o extracto." />}
                     {/* colunas do legado pela ordem (ui_tesouraria.js:3551-3580): «SALDO ANTERIOR AO PERÍODO» na 1.ª linha e
                         «TOTAIS DO PERÍODO» no rodapé, alinhados com Débito / Crédito / Saldo; Diário e Lançamento só no sistema novo */}
                     <Table<LinhaExtrato>

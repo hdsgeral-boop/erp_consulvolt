@@ -542,7 +542,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
             />
           </Tooltip>
         </div>
-        {exigeDesconto(carrinho, desconto) && !podeDesconto && <Alert type="warning" showIcon message="A venda tem preços alterados: precisa da permissão de descontos." />}
+        {exigeDesconto(carrinho, desconto) && !podeDesconto && <Alert type="warning" showIcon title="A venda tem preços alterados: precisa da permissão de descontos." />}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.6rem 0', borderTop: `1px solid ${cores.borda}`, borderBottom: `1px solid ${cores.borda}` }}>
           <div style={linhaTotais}>
             <span>Subtotal Líquido:</span>
@@ -646,7 +646,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
         onCancel={() => setCobrar(false)}
         title={`Pagamento · ${formatarCentimos(totais.total)} Kz`}
         width={larguraModal(760)}
-        maskClosable={false}
+        mask={{ closable: false }}
         destroyOnHidden
         footer={[
           <Button key="c" size="large" onClick={() => setCobrar(false)}>
@@ -671,7 +671,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
             title={`Factura-recibo ${emitida.numero_documento}`}
             subTitle={`Total ${formatarKz(emitida.total_bruto)} Kz${emitida.nome_tabela ? ` · ${emitida.nome_tabela}` : ''}${Number(emitida.arredondamento_agt ?? 0) !== 0 ? ` · arredondamento AGT ${formatarKz(emitida.arredondamento_agt)} Kz` : ''}`}
             extra={[
-              <Statistic key="t" title="Troco" value={formatarKz(emitida.pos_troco ?? '0')} suffix="Kz" valueStyle={{ fontSize: 40, color: '#3f8600' }} style={{ marginBottom: 16 }} />,
+              <Statistic key="t" title="Troco" value={formatarKz(emitida.pos_troco ?? '0')} suffix="Kz" styles={{ content: { fontSize: 40, color: '#3f8600' } }} style={{ marginBottom: 16 }} />,
               <Flex key="b" gap={8} justify="center" wrap>
                 <Button size="large" icon={<IconeFa nome="print" />} onClick={() => imprimir(emitida, true)}>
                   Imprimir talão

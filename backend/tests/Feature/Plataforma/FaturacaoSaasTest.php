@@ -5,6 +5,7 @@ namespace Tests\Feature\Plataforma;
 use App\Models\Empresa;
 use App\Models\PlanoConta;
 use App\Models\PlanoLicenca;
+use App\Models\SubscricaoEmpresa;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Contabilidade\ServicoPlanoContas;
@@ -66,7 +67,7 @@ class FaturacaoSaasTest extends TestCase
         // Reprocessar a mesma subscrição já facturada (ex.: um reprocessamento manual) nunca duplica a factura.
         // ContextoEmpresa::executarComo() porque a subscrição (PertenceEmpresa) só se lê com o contexto activo.
         app(ContextoEmpresa::class)->executarComo($empresa->id, function () use ($id) {
-            app(ServicoFaturacaoSaas::class)->emitirParaSubscricaoPaga(\App\Models\SubscricaoEmpresa::query()->findOrFail($id));
+            app(ServicoFaturacaoSaas::class)->emitirParaSubscricaoPaga(SubscricaoEmpresa::query()->findOrFail($id));
         });
         $this->assertSame(1, DB::table('vendas')->count());
     }

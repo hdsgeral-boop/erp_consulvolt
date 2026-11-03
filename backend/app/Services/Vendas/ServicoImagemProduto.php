@@ -4,6 +4,7 @@ namespace App\Services\Vendas;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Produto;
+use App\Services\Sistema\ServicoImagensPublicas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -21,9 +22,15 @@ use Illuminate\Support\Str;
  *   - servida só por GET /api/vendas/produtos/{id}/imagem, com autenticação, empresa activa e permissão, e com
  *     X-Content-Type-Options: nosniff e Content-Disposition inline com nome neutro.
  * As imagens migradas do legado (produtos.imagem_base64, data URL) continuam a ser servidas enquanto não houver ficheiro.
+ *
+ * Cloudflare R2 (ServicoImagensPublicas, config erp.imagens.disco): com o disco público configurado, o ficheiro vai para o
+ * R2 (mesma pasta por empresa) e `imagem_url` passa a ser o URL público — o navegador/POS lê a imagem directamente da
+ * Cloudflare, sem passar pela API nem pela base de dados. As imagens antigas (ficheiro privado ou base64) migram com
+ * `php artisan erp:imagens:migrar`.
  */
 final class ServicoImagemProduto
 {
+    /** Disco privado usado enquanto o Cloudflare R2 não estiver configurado. */
     public const DISCO = 'local';
 
     public const TAMANHO_MAXIMO_KB = 2048;
@@ -34,6 +41,12 @@ final class ServicoImagemProduto
     public const TIPOS = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
     public function __construct(private readonly ContextoEmpresa $contexto) {}
+
+    /** Nome do disco em uso: o público (Cloudflare R2) quando configurado, senão o privado «local». */
+    public static function disco(): string
+    {
+        return ServicoImagensPublicas::nomeDisco() ?? self::DISCO;
+    }
 
     public function guardar(Produto $produto, UploadedFile $ficheiro): Produto
     {
@@ -53,19 +66,22 @@ final class ServicoImagemProduto
 
         $pasta = "empresas/{$empresa}/produtos";
         $nome = Str::uuid()->toString().'.'.$extensao;
-        $caminho = Storage::disk(self::DISCO)->putFileAs($pasta, $ficheiro, $nome);
+        $disco = Storage::disk(self::disco());
+        // No disco público: Content-Type e cache longa (o nome é único por versão, logo imutável) para a CDN da Cloudflare.
+        $opcoes = ServicoImagensPublicas::activo() ? ['ContentType' => $mime, 'CacheControl' => 'public, max-age=31536000, immutable'] : [];
+        $caminho = $disco->putFileAs($pasta, $ficheiro, $nome, $opcoes);
         if (! $caminho) {
             throw new ErroNegocio('Não foi possível guardar a imagem.', 'IMAGEM_NAO_GRAVADA', 500);
         }
         $anterior = $produto->imagem_caminho;
         try {
-            DB::transaction(fn () => $produto->forceFill(['imagem_caminho' => $caminho, 'imagem_mime' => $mime, 'imagem_atualizada_em' => now()])->save());
+            DB::transaction(fn () => $produto->forceFill(['imagem_caminho' => $caminho, 'imagem_mime' => $mime, 'imagem_base64' => null, 'imagem_atualizada_em' => now()])->save());
         } catch (\Throwable $e) {
-            Storage::disk(self::DISCO)->delete($caminho);
+            $disco->delete($caminho);
             throw $e;
         }
         if ($anterior && $anterior !== $caminho && $this->daEmpresa($anterior, $empresa)) {
-            Storage::disk(self::DISCO)->delete($anterior);
+            $disco->delete($anterior);
         }
 
         return $produto->refresh();
@@ -78,7 +94,7 @@ final class ServicoImagemProduto
         $anterior = $produto->imagem_caminho;
         DB::transaction(fn () => $produto->forceFill(['imagem_caminho' => null, 'imagem_mime' => null, 'imagem_base64' => null, 'imagem_atualizada_em' => now()])->save());
         if ($anterior && $this->daEmpresa($anterior, $empresa)) {
-            Storage::disk(self::DISCO)->delete($anterior);
+            Storage::disk(self::disco())->delete($anterior);
         }
 
         return $produto->refresh();
@@ -93,10 +109,10 @@ final class ServicoImagemProduto
     {
         $empresa = $this->contexto->obrigatorio();
         $caminho = $produto->imagem_caminho;
-        if ($caminho && $this->daEmpresa($caminho, $empresa) && Storage::disk(self::DISCO)->exists($caminho)) {
+        if ($caminho && $this->daEmpresa($caminho, $empresa) && Storage::disk(self::disco())->exists($caminho)) {
             $mime = in_array($produto->imagem_mime, array_keys(self::TIPOS), true) ? $produto->imagem_mime : 'application/octet-stream';
 
-            return ['conteudo' => (string) Storage::disk(self::DISCO)->get($caminho), 'mime' => $mime];
+            return ['conteudo' => (string) Storage::disk(self::disco())->get($caminho), 'mime' => $mime];
         }
 
         return self::descodificarLegado($produto->imagem_base64);
@@ -107,13 +123,20 @@ final class ServicoImagemProduto
         return ! empty($produto->imagem_caminho) || ! empty($produto->imagem_base64);
     }
 
-    /** URL (relativo à API) para o frontend/POS; inclui a versão para não ficar com uma imagem antiga em cache. */
+    /**
+     * URL da imagem para o frontend/POS, com a versão para não ficar com uma imagem antiga em cache:
+     *  - Cloudflare R2 configurado e ficheiro já lá: URL público absoluto (lido directamente da Cloudflare);
+     *  - caso contrário: URL relativo à API (GET /api/vendas/produtos/{id}/imagem, autenticado).
+     */
     public static function url(Produto $produto): ?string
     {
         if (! self::temImagem($produto)) {
             return null;
         }
         $versao = $produto->imagem_atualizada_em ? strtotime((string) $produto->imagem_atualizada_em) : 0;
+        if (ServicoImagensPublicas::activo() && ! empty($produto->imagem_caminho)) {
+            return Storage::disk(self::disco())->url($produto->imagem_caminho)."?v={$versao}";
+        }
 
         return "/vendas/produtos/{$produto->id}/imagem?v={$versao}";
     }

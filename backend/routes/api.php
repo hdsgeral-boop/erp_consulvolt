@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Autenticacao\MfaController;
 use App\Http\Controllers\Api\Autenticacao\RegistoEmpresaController;
-use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Compras\ComprasController;
 use App\Http\Controllers\Api\Compras\ContratosComprasController;
 use App\Http\Controllers\Api\Contabilidade\DiarioController;

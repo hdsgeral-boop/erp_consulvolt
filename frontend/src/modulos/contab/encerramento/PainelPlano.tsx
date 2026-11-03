@@ -56,7 +56,7 @@ export function PainelPlano({ ano, encerrado }: { ano: number; encerrado: boolea
         type="warning"
         showIcon
         style={{ marginBottom: abrir ? 8 : 16 }}
-        message={`Plano de contas: ${d.contas.length} conta(s) do apuramento a corrigir antes de encerrar ${ano}.`}
+        title={`Plano de contas: ${d.contas.length} conta(s) do apuramento a corrigir antes de encerrar ${ano}.`}
         action={
           <Button size="small" icon={<ToolOutlined />} onClick={() => setAbrir((a) => !a)}>
             {abrir ? 'Ocultar' : 'Corrigir'}

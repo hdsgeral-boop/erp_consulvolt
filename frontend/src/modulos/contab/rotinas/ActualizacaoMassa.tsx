@@ -117,7 +117,7 @@ export function ActualizacaoMassa({ exec }: { exec: boolean }) {
       <Alert
         type="info"
         style={{ marginBottom: 12 }}
-        message="Instruções"
+        title="Instruções"
         description={
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li>
@@ -129,7 +129,7 @@ export function ActualizacaoMassa({ exec }: { exec: boolean }) {
           </ul>
         }
       />
-      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={12}>
         <Segmented<'ficheiro' | 'colar'>
           value={origem}
           onChange={(v) => {
@@ -202,7 +202,7 @@ export function ActualizacaoMassa({ exec }: { exec: boolean }) {
           <Alert
             type={aplicado ? (resumo.erros ? 'warning' : 'success') : resumo.erros ? 'warning' : 'info'}
             showIcon
-            message={
+            title={
               aplicado
                 ? `${aplicado.actualizadas} linha(s) actualizada(s) · ${resumo.erros} com erro${aplicado.codigo ? ` · rotina ${aplicado.codigo} (pode ser anulada no Histórico)` : ''}`
                 : `Pré-visualização: ${resumo.alterar} alteração(ões), ${resumo.semAlteracao} sem alteração, ${resumo.erros} com erro. Nada foi gravado.`

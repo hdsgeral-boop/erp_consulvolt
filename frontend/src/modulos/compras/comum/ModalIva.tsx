@@ -35,7 +35,7 @@ export function ModalIva({ aberto, titulo, linhas, url, encomenda = false, aoFec
       onCancel={() => { setTaxas({}); aoFechar(); }}
       onOk={() => accao.mutate({ metodo: 'put', url, dados: { linhas: alteradas.map(([id, t]) => ({ item_id: Number(id), taxa_imposto: t })) } })}
     >
-      {encomenda && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Só as linhas ainda por facturar admitem correcção; as já facturadas corrigem-se na factura do fornecedor." />}
+      {encomenda && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Só as linhas ainda por facturar admitem correcção; as já facturadas corrigem-se na factura do fornecedor." />}
       <Table<ItemCompra>
         rowKey="id"
         size="small"

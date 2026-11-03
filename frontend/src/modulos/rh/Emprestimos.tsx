@@ -66,7 +66,7 @@ export function autorizacaoDescontoHtml(e: Emprestimo, nome: string, empresa: st
 function AvisoPorConfigurar({ porConfigurar, aoConfigurar }: { porConfigurar: string[]; aoConfigurar?: () => void }) {
   if (!porConfigurar.length) return null;
   return (
-    <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={`Por configurar: ${porConfigurar.join('; ')}`}
+    <Alert type="warning" showIcon style={{ marginBottom: 16 }} title={`Por configurar: ${porConfigurar.join('; ')}`}
       description="Enquanto faltar, os colaboradores não conseguem pedir empréstimos."
       action={aoConfigurar && <Button size="small" onClick={aoConfigurar}>Abrir configurações</Button>} />
   );
@@ -130,7 +130,7 @@ function Lista({ aoConfigurar }: { aoConfigurar?: () => void }) {
           </Button>
         ) : null}>
         {detalhe.data && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Descriptions size="small" bordered column={{ xs: 1, md: 2 }}>
               <Descriptions.Item label="Colaborador">{detalhe.data.nome}</Descriptions.Item>
               <Descriptions.Item label="Estado"><EstadoTag estado={detalhe.data.estado} /></Descriptions.Item>
@@ -142,7 +142,7 @@ function Lista({ aoConfigurar }: { aoConfigurar?: () => void }) {
               {detalhe.data.motivo_cancelamento && <Descriptions.Item label="Cancelamento" span={2}>{detalhe.data.motivo_cancelamento}</Descriptions.Item>}
             </Descriptions>
             {(detalhe.data.prestacoes_plano ?? []).length ? <TabelaPlano plano={detalhe.data.prestacoes_plano ?? []} comJuro={Number(detalhe.data.taxa_juro) > 0} />
-              : <Alert type="info" showIcon message="O plano de amortização é gerado quando o pedido for aprovado." />}
+              : <Alert type="info" showIcon title="O plano de amortização é gerado quando o pedido for aprovado." />}
           </Space>
         )}
       </Modal>

@@ -2,7 +2,7 @@ import { Button, Card, Input, Select, Space, Tag, Typography } from 'antd';
 import { PlusOutlined, TagsOutlined } from '@ant-design/icons';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';

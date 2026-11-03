@@ -45,7 +45,7 @@ function NotaContaCaixa() {
   if (tipo === 'T' || !String(codigo ?? '').trim().startsWith('45')) return null;
   return (
     <Alert type="info" showIcon style={{ marginBottom: 16 }}
-      message="Esta conta aparece automaticamente como disponibilidade (caixa) na Tesouraria — não precisa de mais nenhuma configuração." />
+      title="Esta conta aparece automaticamente como disponibilidade (caixa) na Tesouraria — não precisa de mais nenhuma configuração." />
   );
 }
 
@@ -325,7 +325,7 @@ function Substituir() {
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message="Substitui a conta de origem pela de destino nos dados mestre e documentos por contabilizar"
+        title="Substitui a conta de origem pela de destino nos dados mestre e documentos por contabilizar"
         description="Lançamentos e documentos já contabilizados não são alterados (use estornos). Simule sempre antes; a operação é registada na auditoria."
       />
       <Form form={form} layout="vertical" initialValues={{ empresas: empresa ? [empresa.id] : [] }} onValuesChange={() => setSimulacao(null)}>
@@ -363,7 +363,7 @@ function Substituir() {
               ),
               children: (
                 <>
-                  {e.motivo && <Alert type="error" showIcon message={e.motivo} style={{ marginBottom: 8 }} />}
+                  {e.motivo && <Alert type="error" showIcon title={e.motivo} style={{ marginBottom: 8 }} />}
                   <Row gutter={16}>
                     <Col xs={24} lg={12}>
                       <Typography.Text strong>Alterados</Typography.Text>

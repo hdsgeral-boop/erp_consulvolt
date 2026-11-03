@@ -50,7 +50,7 @@ export default function ConfigCRM() {
   return (
     <>
       <CabecalhoPagina titulo="Configuração do CRM" subtitulo={SUBTITULO_CONFIG_CRM} />
-      {!gerir && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Só consulta: alterar a configuração exige a permissão de configurar o CRM." />}
+      {!gerir && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Só consulta: alterar a configuração exige a permissão de configurar o CRM." />}
       <Tabs activeKey={sep} onChange={setSep} items={SEPARADORES_CONFIG_CRM.map((x) => ({ key: x.key, label: x.label, children: filhos[x.key] }))} />
     </>
   );
@@ -196,7 +196,7 @@ function EditorFunil({ funil, gerir, aoFechar }: { funil: Funil | 'novo' | null;
           <Col xs={24} sm={5}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} sm={5}><Form.Item name="ativo" label="Activo" valuePropName="checked"><Switch /></Form.Item></Col>
         </Row>
-        {erros.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={erros.join(' ')} />}
+        {erros.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={erros.join(' ')} />}
         <Form.List name="etapas">
           {(campos, { add, remove, move }) => (
             <>
@@ -265,7 +265,7 @@ function Modelos({ gerir }: { gerir: boolean }) {
       <Alert
         type="info"
         style={{ marginBottom: 10 }}
-        message={<>Marcadores: {(config.data?.marcadores ?? []).map((m) => <Typography.Text key={m} code>{`{{${m}}}`}</Typography.Text>)} — substituídos pelos dados da conta, contacto e oportunidade.</>}
+        title={<>Marcadores: {(config.data?.marcadores ?? []).map((m) => <Typography.Text key={m} code>{`{{${m}}}`}</Typography.Text>)} — substituídos pelos dados da conta, contacto e oportunidade.</>}
       />
       {gerir && <Button type="primary" icon={<PlusOutlined />} style={{ marginBottom: 10 }} onClick={() => setEdicao('novo')}>Novo modelo</Button>}
       <TabelaComModos<ModeloEmail> idVista="modelos" scroll={scrollTabela()}
@@ -302,7 +302,7 @@ function Modelos({ gerir }: { gerir: boolean }) {
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             Marcadores: {(config.data?.marcadores ?? []).map((m) => <Typography.Text key={m} code>{`{{${m}}}`}</Typography.Text>)}
           </Typography.Text>
-          {desconhecidos.length > 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon message={`Marcadores desconhecidos (ficam em branco): ${desconhecidos.join(', ')}`} />}
+          {desconhecidos.length > 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon title={`Marcadores desconhecidos (ficam em branco): ${desconhecidos.join(', ')}`} />}
         </Form>
       </Modal>
     </Card>
@@ -327,7 +327,7 @@ function Sequencias({ gerir }: { gerir: boolean }) {
   return (
     // separador «Sequências» (crm_ui_gestao.js:422-427)
     <Card>
-      <Alert type="info" style={{ marginBottom: 10 }} message="Quando uma oportunidade entra na etapa, os passos são agendados como emails (dias após a entrada). Cada email abre-se com o modelo preenchido a partir da agenda ou da oportunidade." />
+      <Alert type="info" style={{ marginBottom: 10 }} title="Quando uma oportunidade entra na etapa, os passos são agendados como emails (dias após a entrada). Cada email abre-se com o modelo preenchido a partir da agenda ou da oportunidade." />
       {gerir && <Button type="primary" icon={<PlusOutlined />} style={{ marginBottom: 10 }} onClick={() => setEdicao('nova')}>Nova sequência</Button>}
       <TabelaComModos<Sequencia> idVista="sequencias" scroll={scrollTabela()}
         rowKey="id"

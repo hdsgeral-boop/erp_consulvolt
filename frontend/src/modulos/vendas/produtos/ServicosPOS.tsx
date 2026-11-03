@@ -36,16 +36,16 @@ export function ServicosPOS({ produtoId }: { produtoId: number }) {
   }, [consulta.data, actual]);
 
   if (consulta.isLoading) return <Skeleton active paragraph={{ rows: 3 }} />;
-  if (!consulta.data) return <Alert type="warning" showIcon message="Não foi possível obter os serviços do POS." />;
+  if (!consulta.data) return <Alert type="warning" showIcon title="Não foi possível obter os serviços do POS." />;
   const podeGerir = pode('vendas_produtos_gerir');
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       <Typography.Text type="secondary">
         Escolha em que pontos de venda este artigo aparece. Os quartos aparecem sempre só na Hotelaria e os serviços de lavandaria sempre na Lavandaria.
       </Typography.Text>
       <Radio.Group value={todos ? 'todos' : 'escolhidos'} disabled={!podeGerir} onChange={(e) => setTodos(e.target.value === 'todos')}>
-        <Space direction="vertical">
+        <Space orientation="vertical">
           <Radio value="todos">Em todos os serviços do POS</Radio>
           <Radio value="escolhidos">Só nos serviços escolhidos</Radio>
         </Space>
@@ -58,7 +58,7 @@ export function ServicosPOS({ produtoId }: { produtoId: number }) {
           options={consulta.data.servicos.map((s) => ({ value: s.valor, label: s.rotulo }))}
         />
       )}
-      {!todos && marcados.length === 0 && <Alert type="info" showIcon message="Sem nenhum serviço escolhido, o artigo não aparece em nenhum POS." />}
+      {!todos && marcados.length === 0 && <Alert type="info" showIcon title="Sem nenhum serviço escolhido, o artigo não aparece em nenhum POS." />}
       {podeGerir && (
         <Button
           type="primary"

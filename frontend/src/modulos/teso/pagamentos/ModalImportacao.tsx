@@ -81,7 +81,7 @@ export function ModalImportacaoTesouraria({ aberto, aoFechar }: { aberto: boolea
             style={{ marginTop: 12 }}
             type={resultado.erros.length ? 'warning' : 'success'}
             showIcon
-            message={resultado.simulacao
+            title={resultado.simulacao
               ? `Simulação: ${resultado.linhas_lidas} linha(s), ${resultado.documentos} documento(s); ${resultado.gravados.length} válido(s), ${resultado.erros.length} erro(s). Nada foi gravado.`
               : `${resultado.gravados.length} documento(s) importado(s) por integrar; ${resultado.erros.length} erro(s).`}
           />

@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\AnexoSuporte;
 use App\Models\PerfilUtilizador;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoAnexosSuporte;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -114,7 +116,7 @@ final class SuporteProfissionalizacaoTest extends TestCase
 
     public function test_anexos_na_conversa_aceitam_imagem_e_pdf_mas_recusam_outros_tipos(): void
     {
-        Storage::fake(\App\Services\Plataforma\ServicoAnexosSuporte::DISCO);
+        Storage::fake(ServicoAnexosSuporte::DISCO);
         [, $as] = $this->agente();
         config(['erp.saas.ativo' => true]);
         $cliente = Tenant::query()->create(['nome' => 'Cliente Anexos', 'slug' => 'cliente-anexos']);
@@ -124,8 +126,8 @@ final class SuporteProfissionalizacaoTest extends TestCase
         $r = $this->postJson("/api/suporte/tickets/{$ticket->id}/mensagens", ['mensagem' => 'Veja o anexo.', 'ficheiros' => [$imagem]], $as)->assertCreated();
         $anexoId = $r->json('dados.anexos.0.id');
         $this->assertNotNull($anexoId);
-        $anexo = \App\Models\AnexoSuporte::findOrFail($anexoId);
-        Storage::disk(\App\Services\Plataforma\ServicoAnexosSuporte::DISCO)->assertExists($anexo->caminho);
+        $anexo = AnexoSuporte::findOrFail($anexoId);
+        Storage::disk(ServicoAnexosSuporte::DISCO)->assertExists($anexo->caminho);
 
         $this->getJson("/api/suporte/anexos/{$anexoId}", $as)->assertOk()->assertHeader('Content-Type', 'image/png');
 

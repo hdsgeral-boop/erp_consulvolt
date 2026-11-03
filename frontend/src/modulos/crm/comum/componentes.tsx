@@ -89,8 +89,8 @@ export function ModalMoverEtapa({
       destroyOnHidden
     >
       <Typography.Paragraph>{oportunidade?.titulo}</Typography.Paragraph>
-      {etapa?.tipo === 'GANHA' && <Alert type="success" showIcon style={{ marginBottom: 12 }} message="A oportunidade fica ganha. Pode depois convertê-la em documento de venda." />}
-      {!!etapa?.tarefas?.length && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Esta etapa cria ${etapa.tarefas.length} tarefa(s) automática(s).`} />}
+      {etapa?.tipo === 'GANHA' && <Alert type="success" showIcon style={{ marginBottom: 12 }} title="A oportunidade fica ganha. Pode depois convertê-la em documento de venda." />}
+      {!!etapa?.tarefas?.length && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Esta etapa cria ${etapa.tarefas.length} tarefa(s) automática(s).`} />}
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/crm/oportunidades/${oportunidade!.id}/etapa`, dados: { etapa_codigo: etapa!.id, ...v } })}>
         {perda && (
           <>

@@ -2,7 +2,7 @@ import { Alert, Button, Checkbox, Descriptions, Drawer, Empty, Input, Select, Sk
 import { ExportOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import { BarraFiltros, COLUNAS_DESCRICOES, larguraGaveta, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -55,7 +55,7 @@ export default function Validacoes() {
 
   if (consulta.isLoading) return <Skeleton active />;
   if (consulta.isError) {
-    return <Alert type="error" showIcon message="Não foi possível executar as validações." description={consulta.error instanceof Error ? consulta.error.message : undefined} action={<Button onClick={() => void consulta.refetch()}>Tentar de novo</Button>} />;
+    return <Alert type="error" showIcon title="Não foi possível executar as validações." description={consulta.error instanceof Error ? consulta.error.message : undefined} action={<Button onClick={() => void consulta.refetch()}>Tentar de novo</Button>} />;
   }
 
   return (
@@ -157,7 +157,7 @@ function DetalheValidacaoGaveta({ validacao, aoFechar }: { validacao: ResumoVali
     <Drawer
       open
       title={validacao.titulo}
-      width={larguraGaveta(980)}
+      size={larguraGaveta(980)}
       onClose={aoFechar}
       extra={
         <BotoesExportar
@@ -182,12 +182,12 @@ function DetalheValidacaoGaveta({ validacao, aoFechar }: { validacao: ResumoVali
         <Descriptions.Item label="Origem no sistema antigo" span="filled">{validacao.legado}</Descriptions.Item>
         <Descriptions.Item label="Código" span="filled"><Typography.Text code>{validacao.codigo}</Typography.Text></Descriptions.Item>
       </Descriptions>
-      {truncado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Mostram-se as primeiras ${Math.min(LIMITE_DETALHE, linhas.length)} de ${formatarNumero(validacao.ocorrencias)} ocorrências.`} />}
-      {ligacao && !acessivel && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Os registos corrigem-se num ecrã a que não tem acesso." />}
+      {truncado && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Mostram-se as primeiras ${Math.min(LIMITE_DETALHE, linhas.length)} de ${formatarNumero(validacao.ocorrencias)} ocorrências.`} />}
+      {ligacao && !acessivel && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Os registos corrigem-se num ecrã a que não tem acesso." />}
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.isError ? (
-        <Alert type="error" showIcon message="Não foi possível obter o detalhe." description={consulta.error instanceof Error ? consulta.error.message : undefined} />
+        <Alert type="error" showIcon title="Não foi possível obter o detalhe." description={consulta.error instanceof Error ? consulta.error.message : undefined} />
       ) : (
         <Table<Record<string, unknown>>
           rowKey="__chave"

@@ -166,7 +166,7 @@ final class ServicoComparacaoEmpresas
               AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND NOT EXISTS (SELECT 1 FROM diarios_contabeis d_sal WHERE d_sal.id = l.diario_id AND d_sal.codigo = 'SAL')) GROUP BY 1, 2", array_merge($params, [$inicio, $p->fimMes]));
         // Disponibilidades inclui as contas-cartão (classe 3 marcada): consulta directa a plano_contas, porque esta
         // query cruza várias empresas de uma vez (comparação/holding) e ContextoEmpresa só vale para uma empresa activa.
-        $cartao = "EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = l.codigo_conta AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)";
+        $cartao = 'EXISTS (SELECT 1 FROM plano_contas pc WHERE pc.empresa_id = l.empresa_id AND pc.codigo = l.codigo_conta AND pc.cartao_tesouraria = true AND pc.eliminado_em IS NULL)';
         $saldos = DB::select("SELECT {$chave} AS chave,
                 SUM(CASE WHEN l.codigo_conta LIKE '43%' OR l.codigo_conta LIKE '45%' OR {$cartao} THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END ELSE 0 END) AS disp,
                 SUM(CASE WHEN l.codigo_conta LIKE '31%' THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END ELSE 0 END) AS cli,

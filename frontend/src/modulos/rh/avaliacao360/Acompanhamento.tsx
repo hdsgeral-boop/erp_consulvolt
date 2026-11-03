@@ -1,5 +1,5 @@
 import { Alert, Card, Space, Tag, Typography } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { IconeFa } from '@/componentes/fluxos';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
@@ -97,8 +97,8 @@ export function Reunioes({ dados, carregando }: { dados?: Acompanhamento360; car
   ];
   const r = dados?.reunioes;
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={12}>
-      {r?.periodicidade === 'NENHUM' && <Alert type="info" showIcon message="Este ciclo não tem reuniões de acompanhamento (veja «Feedback periódico» na Configuração da avaliação)." />}
+    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
+      {r?.periodicidade === 'NENHUM' && <Alert type="info" showIcon title="Este ciclo não tem reuniões de acompanhamento (veja «Feedback periódico» na Configuração da avaliação)." />}
       {(r?.em_falta.length ?? 0) > 0 && (
         <Card title={`Reuniões em falta (${r?.em_falta.length})`}>
           <TabelaComModos<EmFalta> idVista="reunioes-falta" rowKey={(l) => `${l.colaborador_id}-${l.periodo_referencia}`} size="small" columns={colFalta} dataSource={r?.em_falta ?? []} modos={false}
@@ -120,14 +120,14 @@ export function Comunicado({ dados, nomeCiclo }: { dados?: Acompanhamento360; no
   type Leitura = Acompanhamento360['comunicado']['confirmacoes'][number];
   const total = (c?.confirmacoes.length ?? 0) + (c?.por_confirmar.length ?? 0);
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
       <Card title={<Space><IconeFa nome="bullhorn" />{c?.titulo || nomeCiclo}</Space>}>
         {c?.texto ? <div style={{ whiteSpace: 'pre-line' }}>{c.texto}</div> : <Typography.Text type="secondary">Sem texto de comunicado (Configuração da avaliação › Comunicado e abertura).</Typography.Text>}
       </Card>
       <Card title={`Confirmações de leitura: ${c?.confirmacoes.length ?? 0} / ${total}`}>
         {(c?.por_confirmar.length ?? 0) > 0
-          ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Por confirmar (${c?.por_confirmar.length}): ${c?.por_confirmar.map((p) => p.nome).join(', ')}`} />
-          : total > 0 && <Alert type="success" showIcon style={{ marginBottom: 12 }} message="Todos confirmaram a leitura." />}
+          ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`Por confirmar (${c?.por_confirmar.length}): ${c?.por_confirmar.map((p) => p.nome).join(', ')}`} />
+          : total > 0 && <Alert type="success" showIcon style={{ marginBottom: 12 }} title="Todos confirmaram a leitura." />}
         <TabelaComModos<Leitura> idVista="leituras-comunicado" rowKey="colaborador_id" size="small" modos={false} dataSource={c?.confirmacoes ?? []}
           columns={[
             { title: 'Colaborador', dataIndex: 'nome', render: (v: string | null) => v ?? '—' },

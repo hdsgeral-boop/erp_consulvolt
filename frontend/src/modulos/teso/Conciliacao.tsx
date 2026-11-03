@@ -581,7 +581,7 @@ function Mapa({ conta, data }: { conta: string; data: Dayjs }) {
         <CartaoKpi barra="nenhuma" rotulo="Extracto por reconciliar (líquido)" valor={formatarKz(d.por_reconciliar_extrato.total)} unidade="Kz" />
         <CartaoKpi barra="nenhuma" rotulo="Saldo esperado no banco" valor={formatarKz(d.saldo_banco_esperado)} unidade="Kz" />
       </GrelhaKpi>
-      <Alert style={{ marginTop: 16 }} type="info" showIcon message="Saldo esperado no banco = saldo do diário − movimentos do diário por reconciliar + movimentos do extracto por reconciliar." />
+      <Alert style={{ marginTop: 16 }} type="info" showIcon title="Saldo esperado no banco = saldo do diário − movimentos do diário por reconciliar + movimentos do extracto por reconciliar." />
     </Card>
   );
 }

@@ -20,7 +20,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
 import { useEcra } from '@/componentes/responsivo/useEcra';
@@ -432,7 +432,7 @@ function Estrutura() {
             placement="left"
             open={gavetaAberta}
             onClose={() => setGavetaAberta(false)}
-            width={larguraGaveta(300)}
+            size={larguraGaveta(300)}
             title={<MarcaEmpresa tamanho={34} comProduto escuro />}
             destroyOnHidden
             aria-label="Menu principal"

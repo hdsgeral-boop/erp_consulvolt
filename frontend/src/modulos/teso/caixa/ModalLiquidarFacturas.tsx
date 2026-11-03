@@ -169,7 +169,7 @@ export function ModalLiquidarFacturas({ sessao, modo, aoFechar }: Props) {
           </Col>
         </Row>
       </Form>
-      {erros.length > 0 && <Alert type="warning" showIcon message="Corrija os valores assinalados (positivos e até ao saldo em aberto)." />}
+      {erros.length > 0 && <Alert type="warning" showIcon title="Corrija os valores assinalados (positivos e até ao saldo em aberto)." />}
       <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0, fontSize: pequeno ? 12 : undefined }}>
         Cada documento dá um movimento {modo === 'PAGAR' ? 'de saída' : 'de entrada'} na caixa {sessao.codigo_conta}, ligado à factura. A factura só fica liquidada quando a sessão for
         contabilizada; até lá, o valor conta como «em liquidação».

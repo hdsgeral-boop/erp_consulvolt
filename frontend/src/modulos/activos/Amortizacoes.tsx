@@ -3,7 +3,7 @@ import { CloudUploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
 import { BotoesExportar, CSS_SIMULACAO_COMUM, marcaSimulacao, tabelaHtml, tabelaLancamentoHtml, type PedidoImpressao } from '@/componentes/impressao';
@@ -273,7 +273,7 @@ function PainelReabrir({ aoFechar, aoReabrir }: { aoFechar: () => void; aoReabri
   return (
     <CartaoPainel cor="#ef4444" icone="history" titulo="Histórico de Fechos - Reabertura em Massa" aoFechar={aoFechar}>
       {q.isLoading ? <Typography.Text type="secondary">A carregar…</Typography.Text> : !lista.length ? (
-        <Alert type="info" showIcon message="Não existem períodos contabilizados para reabrir." />
+        <Alert type="info" showIcon title="Não existem períodos contabilizados para reabrir." />
       ) : (
         <>
           <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 16 }}>
@@ -310,7 +310,7 @@ function PainelCalculo({ aoFechar }: { aoFechar: () => void }) {
   return (
     <CartaoPainel cor="#f59e0b" icone="play" titulo="Processamento em Massa de Pendentes" aoFechar={aoFechar}>
       {q.isLoading ? <Typography.Text type="secondary">A carregar…</Typography.Text> : !lista.length ? (
-        <Alert type="info" showIcon message="Não foram detectados períodos pendentes de amortização." />
+        <Alert type="info" showIcon title="Não foram detectados períodos pendentes de amortização." />
       ) : (
         <>
           <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 16 }}>
@@ -345,7 +345,7 @@ function PainelIntegracao({ aoFechar }: { aoFechar: () => void }) {
   return (
     <CartaoPainel cor="#10b981" icone="file-import" titulo="Integração em Massa na Contabilidade" aoFechar={aoFechar}>
       {q.isLoading ? <Typography.Text type="secondary">A carregar…</Typography.Text> : !lista.length ? (
-        <Alert type="info" showIcon message="Não existem cálculos pendentes (rascunhos) para integrar." />
+        <Alert type="info" showIcon title="Não existem cálculos pendentes (rascunhos) para integrar." />
       ) : (
         <>
           <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>Serão gerados lançamentos no Diário AM para os seguintes períodos:</Typography.Paragraph>
@@ -356,7 +356,7 @@ function PainelIntegracao({ aoFechar }: { aoFechar: () => void }) {
               </div>
             ))}
           </div>
-          <Alert type="info" style={{ marginBottom: 24 }} message={<>Total Global a Contabilizar: <strong>{formatarKz(totalMeses(lista))}</strong></>} />
+          <Alert type="info" style={{ marginBottom: 24 }} title={<>Total Global a Contabilizar: <strong>{formatarKz(totalMeses(lista))}</strong></>} />
           <Flex justify="end" gap={10}>
             <Button onClick={aoFechar}>Cancelar</Button>
             <Button type="primary" style={{ background: '#10b981' }} icon={<IconeFa nome="check-double" />} loading={integrar.isPending} onClick={confirmar}>
@@ -425,7 +425,7 @@ function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: stri
         ),
       ]}
     >
-      {q.error && <Alert type="warning" showIcon message={(q.error as Error).message} />}
+      {q.error && <Alert type="warning" showIcon title={(q.error as Error).message} />}
       {p && (
         <>
           <Descriptions size="small" column={COLUNAS_DESCRICOES} style={{ marginBottom: 12 }}>
@@ -484,7 +484,7 @@ function ModalReabrir({ periodos, aoFechar }: { periodos: string[]; aoFechar: ()
       onOk={() => accao.mutate({ url: '/ativos/amortizacoes/reabrir', dados: { periodos, motivo: motivo.trim() || null } })}
     >
       <Alert type="warning" showIcon style={{ marginBottom: 12 }}
-        message={varios ? `Tem a certeza que deseja reabrir ${periodos.length} período(s)? Os lançamentos são estornados e os cálculos anulados (incluindo os migrados).`
+        title={varios ? `Tem a certeza que deseja reabrir ${periodos.length} período(s)? Os lançamentos são estornados e os cálculos anulados (incluindo os migrados).`
           : 'Os lançamentos do período são estornados e os cálculos anulados (incluindo os migrados).'}
         description={varios ? periodos.join(', ') : undefined} />
       <Input.TextArea rows={3} maxLength={500} placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
@@ -503,7 +503,7 @@ function VerificacaoAmortizacoes() {
             style={{ marginBottom: 16 }}
             type={v.quotas_divergentes.length || v.acumulados_divergentes.length ? 'warning' : 'success'}
             showIcon
-            message={`${v.registos} quota(s) verificada(s): ${v.quotas_divergentes.length} divergente(s) do cálculo, ${v.acumulados_divergentes.length} ficha(s) com acumulado diferente do integrado.`}
+            title={`${v.registos} quota(s) verificada(s): ${v.quotas_divergentes.length} divergente(s) do cálculo, ${v.acumulados_divergentes.length} ficha(s) com acumulado diferente do integrado.`}
             description="Diferenças de 1 cêntimo nos registos migrados resultam do arredondamento em vírgula flutuante do sistema antigo (ADR-051); os registos migrados não são alterados."
           />
           <Flex justify="end" style={{ marginBottom: 8 }}>

@@ -7,6 +7,7 @@ use App\Models\Empresa;
 use App\Models\SubscricaoEmpresa;
 use App\Models\TicketSuporte;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -70,12 +71,12 @@ final class ServicoDashboardExecutivo
         return round((float) $total, 2);
     }
 
-    private function receitaRecebida(\Illuminate\Support\Carbon $desde): float
+    private function receitaRecebida(Carbon $desde): float
     {
         return (float) (SubscricaoEmpresa::query()->where('estado', SubscricaoEmpresa::PAGO)->where('pago_em', '>=', $desde)->sum('valor') ?? 0);
     }
 
-    private function taxaCancelamento(\Illuminate\Support\Carbon $desde): float
+    private function taxaCancelamento(Carbon $desde): float
     {
         $canceladasEsteMes = Empresa::query()->whereIn('estado_licenca', [Empresa::LICENCA_CANCELADA, Empresa::LICENCA_SUSPENSA])
             ->where('estado_licenca_desde', '>=', $desde)->count();
@@ -85,7 +86,7 @@ final class ServicoDashboardExecutivo
         return $base > 0 ? round($canceladasEsteMes / $base * 100, 1) : 0.0;
     }
 
-    private function taxaConversaoTrial(\Illuminate\Support\Carbon $desde): float
+    private function taxaConversaoTrial(Carbon $desde): float
     {
         $convertidosEsteMes = Empresa::query()->where('licenca_origem', Empresa::LICENCA_PLANO)
             ->whereIn('estado_licenca', [Empresa::LICENCA_ACTIVA, Empresa::LICENCA_TOLERANCIA])

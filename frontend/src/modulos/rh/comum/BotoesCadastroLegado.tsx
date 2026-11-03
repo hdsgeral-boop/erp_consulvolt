@@ -81,7 +81,7 @@ function ModalCopiar({ entidade, aoFechar }: { entidade: EntidadeCadastro; aoFec
         showSearch optionFilterProp="label" options={(empresas.data ?? []).map((e) => ({ value: e.id, label: e.nome }))} aria-label="Empresa de origem"
         notFoundContent="Sem outras empresas acessíveis" />
       {rel && (
-        <Alert style={{ marginTop: 12 }} type={rel.simulacao ? 'info' : 'success'} showIcon message={rel.simulacao ? 'Simulação (nada foi gravado)' : 'Cópia concluída'}
+        <Alert style={{ marginTop: 12 }} type={rel.simulacao ? 'info' : 'success'} showIcon title={rel.simulacao ? 'Simulação (nada foi gravado)' : 'Cópia concluída'}
           description={
             <Descriptions size="small" column={2}>
               <Descriptions.Item label={rel.simulacao ? 'A copiar' : 'Copiados'}>{rel.criados}</Descriptions.Item>

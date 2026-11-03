@@ -59,16 +59,21 @@ final class RegistoEmpresaController extends Controller
         $diasTeste = DefinicoesPlataforma::diasTestePadrao();
         $perfilTotal = $this->perfis->perfilAcessoTotal();
         $resultado = DB::transaction(function () use ($d, $diasTeste, $perfilTotal) {
-            $base = Str::limit(Str::slug($d['nome_comercial']) ?: 'empresa', 32, ''); $slug = $base; $n = 1;
+            $base = Str::limit(Str::slug($d['nome_comercial']) ?: 'empresa', 32, '');
+            $slug = $base;
+            $n = 1;
             // Nenhum cliente pode reclamar um slug reservado (admin, portal, …): colidiria com a área desse endereço (DominioPedido).
             $reservado = fn (string $s) => in_array($s, (array) config('erp.dominio.slugs_reservados'), true);
-            while (Tenant::query()->where('slug', $slug)->exists() || $reservado($slug)) $slug = Str::limit($base, 28, '').'-'.++$n;
+            while (Tenant::query()->where('slug', $slug)->exists() || $reservado($slug)) {
+                $slug = Str::limit($base, 28, '').'-'.++$n;
+            }
             $tenant = Tenant::create(['nome' => $d['nome_comercial'], 'slug' => $slug, 'estado' => Tenant::ESTADO_ATIVO, 'plano' => $d['plano'] ?? null]);
             if ($d['plano'] ?? null) {
                 // ModulosPlano tem tenant_id => código do plano em cache (ServicoPermissoes nunca consulta `tenants`):
                 // sem isto, o tenant novo só ficaria restrito ao seu plano depois do TTL da cache expirar.
                 ModulosPlano::invalidar();
             }
+
             return $this->tenants->executarComo((int) $tenant->id, function () use ($d, $tenant, $diasTeste, $perfilTotal) {
                 // Papel ADMINISTRADOR (não SUPER_ADMINISTRADOR, de propósito): um super-administrador fica isento da
                 // expiração da licença (ResolverEmpresaAtiva::licenca) e isso anularia o próprio período de
@@ -80,10 +85,12 @@ final class RegistoEmpresaController extends Controller
                 $empresa = Empresa::create(['nome' => $d['nome_comercial'], 'nif' => $d['nif'], 'telefone' => $d['telefone'], 'provincia' => $d['provincia'], 'email' => $d['email'], 'moeda_funcional' => 'AOA', 'licenca_origem' => Empresa::LICENCA_TESTE, 'licenca_inicio' => now()->toDateString(), 'licenca_fim' => now()->addDays($diasTeste)->toDateString()]);
                 $admin->empresas()->attach($empresa->id);
                 $this->planoContasModelo->semear($empresa->id);
+
                 return compact('tenant', 'empresa');
             });
         });
-        $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], 'web-registo', $r->ip(), $r->userAgent()); $u = $sessao['utilizador'];
+        $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], 'web-registo', $r->ip(), $r->userAgent());
+        $u = $sessao['utilizador'];
         $nomePlano = $d['plano'] ?? null ? PlanoLicenca::query()->where('codigo', $d['plano'])->value('nome') : null;
         Mail::to($d['email'])->send(new BoasVindasEmpresaMail($d['nome_completo'], $d['nome_comercial'], $diasTeste, $nomePlano));
 

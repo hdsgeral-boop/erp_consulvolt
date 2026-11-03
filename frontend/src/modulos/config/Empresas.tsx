@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Row, Segmented, Switch, Tag, Upload, Image, message } from 'antd';
 import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
@@ -246,7 +246,7 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                     </Col>
                   )}
                   <Col xs={24}>
-                    <Alert type="info" showIcon message="Os membros do grupo e as regras de eliminação definem-se em Contabilidade › Consolidação." />
+                    <Alert type="info" showIcon title="Os membros do grupo e as regras de eliminação definem-se em Contabilidade › Consolidação." />
                   </Col>
                 </Row>
         </SeccaoFormulario>

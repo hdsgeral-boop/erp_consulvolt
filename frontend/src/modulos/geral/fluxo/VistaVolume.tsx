@@ -1,7 +1,7 @@
 import { Button, Skeleton } from 'antd';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obterPagina } from '@/api/cliente';
 import { FunilFluxo, IconeFa, LegendaFluxo, MiniProgresso, PillEstado, type EtapaDiagrama, type NarrativaDaEtapa } from '@/componentes/fluxos';
 import { formatarKz } from '@/utilitarios/formatacao';
@@ -157,7 +157,7 @@ export function VistaVolume({
   const [pesquisa, setPesquisa] = useState('');
   const [pagina, setPagina] = useState(1);
   const [sel, setSel] = useState<string | null>(null);
-  const temporizador = useRef<ReturnType<typeof setTimeout>>();
+  const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const porPagina = vista.por_pagina || 25;
 
   // pesquisa ao escrever, 200 ms depois da última tecla (fluxo_tabela.js:208-211)

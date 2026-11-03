@@ -87,7 +87,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
     <Drawer
       open={!!id}
       onClose={aoFechar}
-      width={larguraGaveta(1000)}
+      size={larguraGaveta(1000)}
       destroyOnHidden
       title={d ? `${d.pedido.numero_encomenda} · ${d.cliente?.nome ?? ''}` : 'Ordem de serviço'}
       extra={
@@ -140,7 +140,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
         <Skeleton active />
       ) : (
         <>
-          {outroTerminal && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Ordem recebida no terminal ${d.pedido.codigo_terminal}; as operações de caixa correm na sessão do terminal ${terminal?.codigo}.`} />}
+          {outroTerminal && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Ordem recebida no terminal ${d.pedido.codigo_terminal}; as operações de caixa correm na sessão do terminal ${terminal?.codigo}.`} />}
           <Descriptions size="small" bordered column={{ xs: 1, md: 3 }}>
             <Descriptions.Item label="Estado">
               <EstadoPOS estado={d.pedido.estado} /> {d.pedido.urgente && <Tag color="red">Urgente</Tag>}
@@ -330,7 +330,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
               {
                 key: 'historico',
                 label: 'Histórico',
-                children: <Timeline items={(d.pedido.historico_alteracoes ?? []).map((h) => ({ children: `${formatarDataHora(h.em)} · ${h.por} — ${h.texto}` }))} />,
+                children: <Timeline items={(d.pedido.historico_alteracoes ?? []).map((h) => ({ content: `${formatarDataHora(h.em)} · ${h.por} — ${h.texto}` }))} />,
               },
             ]}
           />

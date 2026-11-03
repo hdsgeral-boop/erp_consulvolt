@@ -95,7 +95,7 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
               Continuar a vender nesta caixa
             </Button>
           ) : terminal && !accoes.abrir ? (
-            <Alert type="info" showIcon message={terminal.ativo ? 'Não tem permissão para abrir sessões neste terminal.' : 'Terminal inactivo: active-o em Terminais POS.'} />
+            <Alert type="info" showIcon title={terminal.ativo ? 'Não tem permissão para abrir sessões neste terminal.' : 'Terminal inactivo: active-o em Terminais POS.'} />
           ) : (
             <Button
               type="primary"

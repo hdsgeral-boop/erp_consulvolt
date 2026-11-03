@@ -27,8 +27,8 @@ return [
     | same cache driver to group types of items stored in your caches.
     |
     | Supported drivers: "array", "database", "file", "memcached",
-    |                    "redis", "dynamodb", "octane",
-    |                    "failover", "null"
+    |                    "redis", "dynamodb", "storage", "octane",
+    |                    "session", "failover", "null"
     |
     */
 
@@ -50,7 +50,13 @@ return [
         'file' => [
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),
-            'lock_path' => storage_path('framework/cache/data'),
+            'lock_path' => storage_path('framework/cache/locks'),
+        ],
+
+        'storage' => [
+            'driver' => 'storage',
+            'disk' => env('CACHE_STORAGE_DISK'),
+            'path' => env('CACHE_STORAGE_PATH', 'framework/cache/data'),
         ],
 
         'memcached' => [
@@ -113,5 +119,21 @@ return [
     */
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Serializable Classes
+    |--------------------------------------------------------------------------
+    |
+    | Classes que podem ser desserializadas a partir da cache. Com `false`
+    | nenhuma classe PHP é desserializada, o que impede ataques de «gadget
+    | chain» se a APP_KEY fugir. A aplicação só guarda arrays e escalares na
+    | cache (os valores grandes passam por App\Support\Cache\CacheComprimida,
+    | que serializa o envelope por conta própria); se um dia for preciso guardar
+    | objectos, listar aqui as classes permitidas.
+    |
+    */
+
+    'serializable_classes' => false,
 
 ];

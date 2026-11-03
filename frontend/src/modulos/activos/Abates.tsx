@@ -1,5 +1,5 @@
 import { Button, Card, DatePicker, Input, Select, Tag, Typography } from 'antd';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { RollbackOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';

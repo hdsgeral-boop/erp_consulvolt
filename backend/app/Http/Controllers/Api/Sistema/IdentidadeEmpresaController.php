@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Sistema;
 
 use App\Http\Controllers\Controller;
+use App\Services\Sistema\ServicoImagensPublicas;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
@@ -30,8 +31,9 @@ final class IdentidadeEmpresaController extends Controller
             'telefone' => $e->telefone, 'email' => $e->email, 'website' => $e->website, 'registo_comercial' => $e->numero_registo_comercial,
             'rodape' => $e->rodape_documento,
             'nome_sistema' => $nomeSistema ?: null,
-            // só imagens data URI (validadas na gravação por ServicoGestaoEmpresas::validarLogotipo)
-            'logotipo' => is_string($e->logotipo) && str_starts_with($e->logotipo, 'data:image/') ? $e->logotipo : null,
+            // só imagens data URI (validadas na gravação por ServicoGestaoEmpresas::validarLogotipo) ou o URL público
+            // da imagem no Cloudflare R2 (ServicoImagensPublicas)
+            'logotipo' => is_string($e->logotipo) && (str_starts_with($e->logotipo, 'data:image/') || ServicoImagensPublicas::eUrl($e->logotipo)) ? $e->logotipo : null,
         ], 'Identidade da empresa activa.');
     }
 }

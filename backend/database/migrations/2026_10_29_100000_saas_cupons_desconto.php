@@ -38,9 +38,9 @@ return new class extends Migration
             $t->foreign('criado_por', 'fk_cupons_desconto_criado_por')->references('id')->on('utilizadores')->nullOnDelete();
         });
         DB::statement('CREATE UNIQUE INDEX uq_cupons_desconto_codigo ON cupons_desconto (codigo)');
-        DB::statement("ALTER TABLE cupons_desconto ADD CONSTRAINT ck_cupons_desconto_codigo_maiusculas CHECK (codigo = upper(codigo))");
+        DB::statement('ALTER TABLE cupons_desconto ADD CONSTRAINT ck_cupons_desconto_codigo_maiusculas CHECK (codigo = upper(codigo))');
         DB::statement("ALTER TABLE cupons_desconto ADD CONSTRAINT ck_cupons_desconto_tipo CHECK (tipo_desconto IN ('PERCENTAGEM','VALOR_FIXO'))");
-        DB::statement("ALTER TABLE cupons_desconto ADD CONSTRAINT ck_cupons_desconto_percentagem_max "
+        DB::statement('ALTER TABLE cupons_desconto ADD CONSTRAINT ck_cupons_desconto_percentagem_max '
             ."CHECK (tipo_desconto <> 'PERCENTAGEM' OR valor_desconto <= 15)");
         DB::statement('ALTER TABLE cupons_desconto ADD CONSTRAINT ck_cupons_desconto_periodo CHECK (data_fim >= data_inicio)');
 

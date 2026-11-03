@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -60,14 +60,14 @@ export function RecuperarPassword() {
           </Typography.Text>
         </Flex>
 
-        {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
+        {erro && <Alert type="error" showIcon title={erro} style={{ marginBottom: 16 }} />}
 
         {sucesso ? (
           <div style={{ textAlign: 'center' }}>
             <Alert
               type="success"
               showIcon
-              message="Pedido registado com sucesso"
+              title="Pedido registado com sucesso"
               description={sucesso}
               style={{ marginBottom: 24, textAlign: 'left' }}
             />

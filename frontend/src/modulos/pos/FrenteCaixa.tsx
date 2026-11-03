@@ -141,7 +141,7 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
             type="info"
             showIcon
             style={{ marginBottom: 12 }}
-            message={`Terminal de ${TIPOS_TERMINAL[terminal.tipo].toLowerCase()}: as ordens, recebimentos e entregas fazem-se no ecrã próprio, nesta mesma sessão.`}
+            title={`Terminal de ${TIPOS_TERMINAL[terminal.tipo].toLowerCase()}: as ordens, recebimentos e entregas fazem-se no ecrã próprio, nesta mesma sessão.`}
           />
         )}
         {accoes.vender ? (

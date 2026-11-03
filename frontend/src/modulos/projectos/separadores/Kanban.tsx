@@ -59,7 +59,7 @@ export function SeparadorKanban({ projecto, acc }: PropsSeparador) {
   return (
     <Card loading={q.isLoading} extra={<Space wrap>{acc.gerir && <Button icon={<SettingOutlined />} onClick={() => setConfigurar(true)}>Colunas</Button>}<ImpressaoSeparador alvo={refQuadro} titulo="Quadro Kanban" projecto={projecto} orientacao="paisagem" /></Space>}>
       {k && k.por_mapear.length > 0 && (
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`${k.por_mapear.length} tarefa(s) sem coluna: ${k.por_mapear.map((t) => t.nome).join(', ')}`} />
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`${k.por_mapear.length} tarefa(s) sem coluna: ${k.por_mapear.map((t) => t.nome).join(', ')}`} />
       )}
       <div ref={refQuadro} className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }}>
         {k?.colunas.map((c) => (

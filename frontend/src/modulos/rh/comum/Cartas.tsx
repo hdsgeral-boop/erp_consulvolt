@@ -199,7 +199,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
               <tfoot><tr><td colSpan={3}>Total</td><td className="num">{formatarKz(c.montante_total)}</td></tr></tfoot>
             </table>
             </DeslocamentoHorizontal>
-            {c.documento_tesouraria && <Alert className="rh-nao-imprimir" style={{ marginTop: 12 }} type="success" showIcon message={`Pagamento ${c.documento_tesouraria.numero_documento} (${c.documento_tesouraria.estado}).`} />}
+            {c.documento_tesouraria && <Alert className="rh-nao-imprimir" style={{ marginTop: 12 }} type="success" showIcon title={`Pagamento ${c.documento_tesouraria.numero_documento} (${c.documento_tesouraria.estado}).`} />}
             <div className="rh-recibo-assinatura"><div>{c.nome_assinatura ?? 'Assinatura autorizada'}</div></div>
           </AreaImpressao>
         )}

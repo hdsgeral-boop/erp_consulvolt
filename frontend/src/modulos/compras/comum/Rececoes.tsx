@@ -12,7 +12,7 @@ import { somar } from '@/utilitarios/decimal';
 import { dadosRececaoCompra } from './impressao';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useNavigate, useParams } from 'react-router';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -209,7 +209,7 @@ export function DetalheRececao() {
 
   if (consulta.isLoading) return <Skeleton active />;
   const r = consulta.data;
-  if (!r) return <Alert type="error" message="Recepção não encontrada." />;
+  if (!r) return <Alert type="error" title="Recepção não encontrada." />;
   const a = accoesRececao(r, pode);
   const nome = numeroOuId(r.numero_rececao, r.id);
   const predefinido = armazens.data?.find((x) => x.predefinido)?.id;
@@ -240,7 +240,7 @@ export function DetalheRececao() {
           </>
         }
       />
-      {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Recepção anulada${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`} />}
+      {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Recepção anulada${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`} />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Guia do fornecedor">{r.numero_entrega || '—'}</Descriptions.Item>
@@ -267,7 +267,7 @@ export function DetalheRececao() {
           ]}
         />
         {r.linhas?.some((l) => !l.item_compra_id) && (
-          <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Recepção migrada do legado sem ligação às linhas da encomenda: a anulação e a reversão têm de ser feitas manualmente." />
+          <Alert style={{ marginTop: 12 }} type="warning" showIcon title="Recepção migrada do legado sem ligação às linhas da encomenda: a anulação e a reversão têm de ser feitas manualmente." />
         )}
       </Card>
 
@@ -282,7 +282,7 @@ export function DetalheRececao() {
         onOk={() => form.submit()}
       >
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/compras/rececoes/${r.id}/validar`, dados: { armazem_id: v.armazem_id } })}>
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="A validação dá entrada dos artigos de stock no armazém (custo médio) e regista o lançamento na contabilidade (compras/transitória e inventário)." />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} title="A validação dá entrada dos artigos de stock no armazém (custo médio) e regista o lançamento na contabilidade (compras/transitória e inventário)." />
           <Form.Item name="armazem_id" label="Armazém de entrada" tooltip="Vazio: armazém predefinido.">
             <SeletorArmazem allowClear />
           </Form.Item>

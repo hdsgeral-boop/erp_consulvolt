@@ -3,7 +3,7 @@ import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router';
 import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml } from '@/componentes/impressao';
@@ -153,11 +153,11 @@ function DashboardVendas() {
         }
       />
       {!podeResumo ? (
-        <Alert type="info" showIcon message="Os indicadores exigem a consulta dos relatórios de vendas. A exportação SAF-T está disponível." />
+        <Alert type="info" showIcon title="Os indicadores exigem a consulta dos relatórios de vendas. A exportação SAF-T está disponível." />
       ) : consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.error || !resumo ? (
-        <Alert type="error" showIcon message="Não foi possível calcular os indicadores." description={consulta.error?.message} />
+        <Alert type="error" showIcon title="Não foi possível calcular os indicadores." description={consulta.error?.message} />
       ) : (
         <>
           {/* 4.3.2/4.3.5: cartões do legado (barra de cor por baixo, valor grande a negrito), rótulos explícitos com/sem IVA */}
@@ -244,7 +244,7 @@ function AlertasStock() {
   return (
     <Card title="Alertas de Stock Baixo" style={{ marginBottom: 24 }} styles={{ body: { padding: 0 } }} loading={alertas.isLoading}>
       {alertas.error ? (
-        <Alert type="error" showIcon style={{ margin: 16 }} message="Não foi possível ler os alertas de stock." />
+        <Alert type="error" showIcon style={{ margin: 16 }} title="Não foi possível ler os alertas de stock." />
       ) : !alertas.data?.length ? (
         <div style={{ padding: 32, textAlign: 'center', color: token.colorTextSecondary }}>Nenhum alerta de stock.</div>
       ) : (

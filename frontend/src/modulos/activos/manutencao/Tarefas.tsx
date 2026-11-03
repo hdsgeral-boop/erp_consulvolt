@@ -118,7 +118,7 @@ export function HistoricoOrdem({ eventos }: { eventos: EventoOrdem[] | null | un
       children: (
         <Timeline items={lista.map((e, i) => ({
           key: i, color: cor(e.accao),
-          children: (
+          content: (
             <div>
               <strong>{ACCOES_HISTORICO[e.accao as AccaoHistorico] ?? e.accao}</strong>{e.texto ? ` — ${e.texto}` : ''}
               <div style={{ fontSize: 12, opacity: 0.75 }}>{quando(e.em)}{e.por ? ` · ${e.por}` : ''}{e.motivo ? ` · ${e.motivo}` : ''}</div>

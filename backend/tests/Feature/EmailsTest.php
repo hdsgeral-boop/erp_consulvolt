@@ -16,6 +16,8 @@ use App\Mail\TicketRespostaMail;
 use App\Models\Empresa;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -28,7 +30,7 @@ final class EmailsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        $this->withoutMiddleware(ThrottleRequests::class);
         Mail::fake();
     }
 
@@ -136,7 +138,7 @@ final class EmailsTest extends TestCase
 
     public function test_criar_ticket_avisa_o_suporte_e_resposta_da_plataforma_avisa_o_cliente(): void
     {
-        \Illuminate\Support\Facades\DB::table('definicoes_plataforma')->updateOrInsert(['chave' => 'email_suporte'], ['valor' => 'suporte@consulvolt.ao', 'atualizado_em' => now()]);
+        DB::table('definicoes_plataforma')->updateOrInsert(['chave' => 'email_suporte'], ['valor' => 'suporte@consulvolt.ao', 'atualizado_em' => now()]);
 
         $plat = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
         $cliente = app(ServicoClientes::class)->criar([

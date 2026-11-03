@@ -85,7 +85,7 @@ export function PainelSuporteCliente({ base, anexosBase }: { base: string; anexo
         okText="Enviar"
         confirmLoading={abrir.isPending}
         onCancel={() => setNovo(false)}
-        destroyOnClose
+        destroyOnHidden
         onOk={() => form.validateFields().then((v) => abrir.mutate(v))}
       >
         <Form form={form} layout="vertical" initialValues={{ categoria: 'GERAL' }}>
@@ -133,7 +133,7 @@ export function PainelSuporteCliente({ base, anexosBase }: { base: string; anexo
         onCancel={() => setAvaliar(null)}
         onOk={() => avaliarAccao.mutate()}
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <div>
             <Typography.Text>Como avalia o apoio que recebeu?</Typography.Text>
             <div>

@@ -27,13 +27,13 @@ describe('ModalEditarMassaProdutos — colagem do Excel', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Acrescentar linhas' }));
 
-    expect(document.body.querySelector('[data-colar-coluna="0"] .ant-select-selection-item')?.textContent).toBe('Definir o preço (Kz)');
+    expect(document.body.querySelector('[data-colar-coluna="0"] .ant-select-content-has-value')?.textContent).toBe('Definir o preço (Kz)');
     expect((document.body.querySelector('[data-colar-coluna="1"] input') as HTMLInputElement).value).toBe('1500');
-    expect(document.body.querySelector('[data-colar-coluna="2"] .ant-select-selection-item')?.textContent).toBe('14% (geral)');
-    expect(document.body.querySelector('[data-colar-coluna="3"] .ant-select-selection-item')?.textContent).toBe('Bebidas');
-    expect(document.body.querySelector('[data-colar-coluna="4"] .ant-select-selection-item')?.textContent).toBe('Sim');
-    expect(document.body.querySelector('[data-colar-coluna="5"] .ant-select-selection-item')?.textContent).toBe('Não');
-    expect(document.body.querySelector('[data-colar-coluna="6"] .ant-select-selection-item')?.textContent).toBe('Não');
+    expect(document.body.querySelector('[data-colar-coluna="2"] .ant-select-content-has-value')?.textContent).toBe('14% (geral)');
+    expect(document.body.querySelector('[data-colar-coluna="3"] .ant-select-content-has-value')?.textContent).toBe('Bebidas');
+    expect(document.body.querySelector('[data-colar-coluna="4"] .ant-select-content-has-value')?.textContent).toBe('Sim');
+    expect(document.body.querySelector('[data-colar-coluna="5"] .ant-select-content-has-value')?.textContent).toBe('Não');
+    expect(document.body.querySelector('[data-colar-coluna="6"] .ant-select-content-has-value')?.textContent).toBe('Não');
   }, 60_000);
 
   it('colagem directa numa célula: preenche a partir da coluna clicada, sem tocar nos campos anteriores', () => {
@@ -41,11 +41,11 @@ describe('ModalEditarMassaProdutos — colagem do Excel', () => {
     const celulaTaxa = document.body.querySelector('[data-colar-linha="0"] [data-colar-coluna="2"] input') as HTMLElement;
     fireEvent.paste(celulaTaxa, { clipboardData: { getData: () => '14\tBebidas\tSim' } });
 
-    expect(document.body.querySelector('[data-colar-coluna="2"] .ant-select-selection-item')?.textContent).toBe('14% (geral)');
-    expect(document.body.querySelector('[data-colar-coluna="3"] .ant-select-selection-item')?.textContent).toBe('Bebidas');
-    expect(document.body.querySelector('[data-colar-coluna="4"] .ant-select-selection-item')?.textContent).toBe('Sim');
+    expect(document.body.querySelector('[data-colar-coluna="2"] .ant-select-content-has-value')?.textContent).toBe('14% (geral)');
+    expect(document.body.querySelector('[data-colar-coluna="3"] .ant-select-content-has-value')?.textContent).toBe('Bebidas');
+    expect(document.body.querySelector('[data-colar-coluna="4"] .ant-select-content-has-value')?.textContent).toBe('Sim');
     // coluna anterior (preço) não foi tocada — continua sem selecção
-    expect(document.body.querySelector('[data-colar-coluna="0"] .ant-select-selection-item')).toBeNull();
+    expect(document.body.querySelector('[data-colar-coluna="0"] .ant-select-content-has-value')).toBeNull();
   });
 
   it('valor não reconhecido fica por preencher (não limpa a selecção) e avisa', () => {
@@ -57,8 +57,8 @@ describe('ModalEditarMassaProdutos — colagem do Excel', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Acrescentar linhas' }));
 
-    expect(document.body.querySelector('[data-colar-coluna="0"] .ant-select-selection-item')?.textContent).toBe('Definir o preço (Kz)');
-    expect(document.body.querySelector('[data-colar-coluna="2"] .ant-select-selection-item')).toBeNull();
+    expect(document.body.querySelector('[data-colar-coluna="0"] .ant-select-content-has-value')?.textContent).toBe('Definir o preço (Kz)');
+    expect(document.body.querySelector('[data-colar-coluna="2"] .ant-select-content-has-value')).toBeNull();
     expect(screen.getByText(/valor\(es\) não reconhecido\(s\)/)).toBeInTheDocument();
   }, 60_000);
 });

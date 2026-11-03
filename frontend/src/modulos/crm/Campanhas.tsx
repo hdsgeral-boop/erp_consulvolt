@@ -114,7 +114,7 @@ export default function Campanhas() {
         </Flex>
       </Card>
       {!modelo ? (
-        <Alert type="info" message="Escolha o modelo de email (crie-os em CRM › Configuração)." />
+        <Alert type="info" title="Escolha o modelo de email (crie-os em CRM › Configuração)." />
       ) : (
         <Row gutter={[12, 12]}>
           <Col xs={24} xl={16}>
@@ -175,7 +175,7 @@ export default function Campanhas() {
           <Col xs={24} xl={8}>
             <Card size="small" title="Envio">
               <Radio.Group value={modo} onChange={(e) => setModo(e.target.value)} style={{ marginBottom: 12 }}>
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   {/* botões do antigo (crm_ui_gestao.js:346-347) */}
                   <Radio value="INDIVIDUAL">Abrir seleccionados um a um (personalizado)</Radio>
                   <Radio value="BCC">Uma mensagem em Bcc (sem personalização)</Radio>
@@ -186,14 +186,14 @@ export default function Campanhas() {
                   Registar e enviar
                 </Button>
               ) : (
-                <Alert type="info" showIcon message="Não tem permissão para enviar campanhas." />
+                <Alert type="info" showIcon title="Não tem permissão para enviar campanhas." />
               )}
               {resultado && (
                 <Alert
                   style={{ marginTop: 12 }}
                   type="success"
                   showIcon
-                  message={`${resultado.registadas} email(s) registado(s) no histórico.`}
+                  title={`${resultado.registadas} email(s) registado(s) no histórico.`}
                   description={
                     resultado.envios?.length ? (
                       <>

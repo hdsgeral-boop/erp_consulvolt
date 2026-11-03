@@ -6,7 +6,8 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
 use App\Models\Venda;
 use chillerlan\QRCode\Common\EccLevel;
-use chillerlan\QRCode\Output\QROutputInterface;
+use chillerlan\QRCode\Output\QRGdImagePNG;
+use chillerlan\QRCode\Output\QRMarkupSVG;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 
@@ -41,11 +42,12 @@ final class ServicoQrAgt
     {
         $url = $this->urlDoDocumento($venda);
         if ($formato === 'svg') {
-            $svg = (new QRCode(new QROptions(['outputType' => QROutputInterface::MARKUP_SVG, 'eccLevel' => EccLevel::M, 'outputBase64' => false, 'quietzoneSize' => 4])))->render($url);
+            // php-qrcode 6: o formato escolhe-se pela classe de saída ('outputInterface'); 'outputType' deixou de existir.
+            $svg = (new QRCode(new QROptions(['outputInterface' => QRMarkupSVG::class, 'eccLevel' => EccLevel::M, 'outputBase64' => false, 'quietzoneSize' => 4])))->render($url);
 
             return ['conteudo' => $svg, 'tipo' => 'image/svg+xml'];
         }
-        $png = (new QRCode(new QROptions(['outputType' => QROutputInterface::GDIMAGE_PNG, 'eccLevel' => EccLevel::M, 'outputBase64' => false,
+        $png = (new QRCode(new QROptions(['outputInterface' => QRGdImagePNG::class, 'eccLevel' => EccLevel::M, 'outputBase64' => false,
             'quietzoneSize' => 4, 'scale' => 10])))->render($url);
 
         return ['conteudo' => $this->ajustar($png), 'tipo' => 'image/png'];

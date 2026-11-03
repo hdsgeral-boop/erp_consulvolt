@@ -1,6 +1,6 @@
 import { Tabs } from 'antd';
 import { SafetyOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 
 /** Separadores do topo das Configurações do legado (Geral/Backup … Manutenção de dados), na mesma ordem e com os mesmos rótulos. */

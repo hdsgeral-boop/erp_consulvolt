@@ -24,7 +24,7 @@ export function IndicadorEquilibrio({ linhas }: { linhas: (LinhaDC | null | unde
       <Statistic
         title="Diferença"
         value={formatarKz(e.diferenca)}
-        valueStyle={{ color: e.equilibrado ? undefined : '#cf1322' }}
+        styles={{ content: { color: e.equilibrado ? undefined : '#cf1322' } }}
       />
       {e.equilibrado && e.valido ? <Tag color="green">Equilibrado</Tag> : e.equilibrado ? <Tag>Sem valores</Tag> : <Tag color="red">Desequilibrado</Tag>}
     </Flex>

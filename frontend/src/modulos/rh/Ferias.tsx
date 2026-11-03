@@ -306,7 +306,7 @@ function PeriodoFeriasAnoTab() {
 
   return (
     <Card variant="borderless">
-      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Janela de pedidos de férias pelo Portal"
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Janela de pedidos de férias pelo Portal"
         description="Enquanto não houver período definido para um ano, os colaboradores não conseguem pedir férias desse ano pelo Portal do Colaborador. A marcação directa pelo RH (acima, em «Períodos») não é limitada por este período." />
       {editar && <Button type="primary" icon={<PlusOutlined />} style={{ marginBottom: 16 }} onClick={() => abrir('novo')}>Novo período</Button>}
       <TabelaComModos<PeriodoFeriasAno> idVista="periodo-ano-ferias" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()} modos={false}
@@ -342,7 +342,7 @@ function RegrasFerias({ editar }: { editar: boolean }) {
   const accao = useAccaoRh();
   return (
     <Card loading={q.isLoading} variant="borderless">
-      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Regra da Lei Geral do Trabalho (Lei n.º 12/23) — confirme com o jurista ou o acordo colectivo"
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Regra da Lei Geral do Trabalho (Lei n.º 12/23) — confirme com o jurista ou o acordo colectivo"
         description="Direito anual de 22 dias úteis. No ano de admissão: 2 dias úteis por cada mês completo de serviço até 31/12 (máximo 22) e gozo só depois de 6 meses completos. O saldo não gozado de um ano gerido no plano transita para o seguinte, até ao limite indicado. O direito gravado à mão no plano prevalece." />
       {q.data && (
         <Form form={form} layout="vertical" disabled={!editar} initialValues={q.data} style={{ maxWidth: 720 }}

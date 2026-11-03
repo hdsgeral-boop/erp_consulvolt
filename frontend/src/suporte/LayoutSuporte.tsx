@@ -1,6 +1,6 @@
 import { Avatar, Dropdown, Layout, Menu, Space, Tag, type MenuProps } from 'antd';
 import { CustomerServiceOutlined, DashboardOutlined, DownOutlined, IdcardOutlined, LogoutOutlined, MessageOutlined } from '@ant-design/icons';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import '@/plataforma/plataforma.css';
 

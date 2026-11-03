@@ -44,7 +44,7 @@ export function TabelaIrt() {
 
   return (
     <>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Confirme a tabela com o Código do IRT em vigor"
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Confirme a tabela com o Código do IRT em vigor"
         description="Por omissão é a tabela do sistema anterior (engine_v2.js): isenção até 150 000 Kz e parcela fixa de 12 500 Kz a partir de 150 000,01 Kz. Se a lei mudar, altere-a aqui; os períodos já encerrados não mudam." />
       <Space wrap style={{ marginBottom: 12 }}>
         {q.data?.tabela_irt_personalizada ? <Tag color="orange">Tabela alterada</Tag> : <Tag color="green">Tabela original (engine_v2.js)</Tag>}

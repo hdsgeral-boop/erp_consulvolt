@@ -127,7 +127,7 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
             resumo.ferias.periodo ? (
               <>
                 <Alert type="info" showIcon style={{ marginBottom: 12 }}
-                  message={`Saldo disponível: ${resumo.ferias.saldo} dias úteis. Período de férias de ${resumo.ano}: ${formatarData(resumo.ferias.periodo.data_inicio)} a ${formatarData(resumo.ferias.periodo.data_fim)}.`} />
+                  title={`Saldo disponível: ${resumo.ferias.saldo} dias úteis. Período de férias de ${resumo.ano}: ${formatarData(resumo.ferias.periodo.data_inicio)} a ${formatarData(resumo.ferias.periodo.data_fim)}.`} />
                 <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}>
                   <DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }}
                     disabledDate={(d) => d.isBefore(dayjs(), 'day') || d.isBefore(dayjs(resumo.ferias.periodo!.data_inicio), 'day') || d.isAfter(dayjs(resumo.ferias.periodo!.data_fim), 'day')} />
@@ -135,7 +135,7 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
                 <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={2000} /></Form.Item>
               </>
             ) : (
-              <Alert type="warning" showIcon message={`Ainda não foi definido o período de férias de ${resumo.ano}. Peça ao administrador para o configurar antes de pedir férias.`} />
+              <Alert type="warning" showIcon title={`Ainda não foi definido o período de férias de ${resumo.ano}. Peça ao administrador para o configurar antes de pedir férias.`} />
             )
           )}
           {tipo === 'AUSENCIA' && (
@@ -161,7 +161,7 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
           )}
           {tipo === 'AGREGADO' && (
             <>
-              <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Indique o agregado completo (substitui o registado depois da aprovação do RH)." />
+              <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Indique o agregado completo (substitui o registado depois da aprovação do RH)." />
               <Form.List name="dependentes">
                 {(campos, { add, remove }) => (
                   <>

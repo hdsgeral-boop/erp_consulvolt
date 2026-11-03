@@ -225,7 +225,7 @@ function ConteudoOpcoesExportar({ textoImprimir, textoPdf, excel, textoExcel, co
   const outro = (m: Modo) => ocupado !== null && ocupado !== m;
   const executarEFechar = (m: Modo) => void executar(m).finally(aoConcluir);
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       <Button block size={tamanho} icon={<PrinterOutlined />} disabled={outro('imprimir')} loading={ocupado === 'imprimir'} onClick={() => executarEFechar('imprimir')}>
         {textoImprimir}
       </Button>

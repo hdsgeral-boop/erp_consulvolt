@@ -146,7 +146,7 @@ export function colunasOperacoes(tipo?: TipoDocumento): ColunaApi<DocumentoTesou
   ];
 }
 
-const tipoEtiqueta = (t: TipoDocumento) => <Tag bordered={false} color={t === 'PAGAMENTO' ? 'red' : 'green'}>{t}</Tag>;
+const tipoEtiqueta = (t: TipoDocumento) => <Tag variant="filled" color={t === 'PAGAMENTO' ? 'red' : 'green'}>{t}</Tag>;
 const contrapartidasLinhas = (r: DocumentoTesouraria) =>
   pilha(linhas(r).map((c) => <>{etiquetaConta(c.codigo_conta)} [{c.tipo_dc}] {formatarKz(c.valor)}</>));
 const textoContrapartidas = (r: DocumentoTesouraria) => linhas(r).map((c) => `${c.codigo_conta} [${c.tipo_dc}] ${formatarKz(c.valor)}`).join('; ');
@@ -178,7 +178,7 @@ function Compensacao({ d }: { d: DocumentoTesouraria }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
       <code style={{ fontSize: 11, background: 'rgba(249,115,22,0.1)', color: '#c2410c', border: '1px solid rgba(249,115,22,0.35)', borderRadius: 4, padding: '2px 6px', wordBreak: 'break-all' }} title="ID de Compensação">{c.codigo}</code>
-      <Tag bordered={false} style={{ background: 'rgba(249,115,22,0.15)', color: '#c2410c', fontSize: 10 }}>Compensado</Tag>
+      <Tag variant="filled" style={{ background: 'rgba(249,115,22,0.15)', color: '#c2410c', fontSize: 10 }}>Compensado</Tag>
     </div>
   );
 }
@@ -190,7 +190,7 @@ function ReconciliacaoBancaria({ d }: { d: DocumentoTesouraria }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
       <code style={{ fontSize: 11, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 4, padding: '2px 6px', wordBreak: 'break-all' }} title="ID de Sessão de conciliação Bancária">{r.codigo}</code>
       {r.data && <span style={{ fontSize: 11, color: '#6b7280' }}><IconeFa nome="calendar-check" style={{ color: '#059669', marginRight: 3 }} />{formatarData(r.data)}</span>}
-      <Tag bordered={false} style={{ background: 'rgba(16,185,129,0.15)', color: '#059669', fontSize: 10 }}>{r.estado ?? 'CONCILIADO_BANCO'}</Tag>
+      <Tag variant="filled" style={{ background: 'rgba(16,185,129,0.15)', color: '#059669', fontSize: 10 }}>{r.estado ?? 'CONCILIADO_BANCO'}</Tag>
     </div>
   );
 }
@@ -208,6 +208,6 @@ export function colunasHistorico(aoAbrir: (d: DocumentoTesouraria) => void): Col
     { title: 'Doc. Origem', key: 'doc_origem', valorImpressao: (r) => docsOrigem(r).join('; ') || '-', render: (_, r) => pilha(docsOrigem(r)) },
     { title: 'Compensação', key: 'compensacao', align: 'center', width: 180, valorImpressao: (r) => (r.compensacao ? `${r.compensacao.codigo} (Compensado)` : 'Pendente'), render: (_, r) => <Compensacao d={r} /> },
     { title: 'Reconciliação Bancária', key: 'reconciliacao', align: 'center', width: 180, valorImpressao: (r) => (r.reconciliacao_bancaria ? r.reconciliacao_bancaria.codigo : 'Sem conciliação'), render: (_, r) => <ReconciliacaoBancaria d={r} /> },
-    { title: 'Status', dataIndex: 'estado', key: 'status', render: () => <Tag bordered={false} color="success" icon={<IconeFa nome="check" />}> INTEGRADO</Tag>, valorImpressao: () => 'INTEGRADO' },
+    { title: 'Status', dataIndex: 'estado', key: 'status', render: () => <Tag variant="filled" color="success" icon={<IconeFa nome="check" />}> INTEGRADO</Tag>, valorImpressao: () => 'INTEGRADO' },
   ];
 }

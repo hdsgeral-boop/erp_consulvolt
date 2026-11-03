@@ -114,9 +114,9 @@ export function PainelPagamentos({ meios, total, pagamentos, onChange, grande, d
         <Statistic title="Total" value={formatarCentimos(total)} suffix="Kz" />
         <Statistic title="Recebido" value={formatarCentimos(resumo.recebido)} suffix="Kz" />
         {resumo.falta > 0 ? (
-          <Statistic title="Falta" value={formatarCentimos(resumo.falta)} suffix="Kz" valueStyle={{ color: '#cf1322' }} />
+          <Statistic title="Falta" value={formatarCentimos(resumo.falta)} suffix="Kz" styles={{ content: { color: '#cf1322' } }} />
         ) : (
-          <Statistic title="Troco" value={formatarCentimos(resumo.troco)} suffix="Kz" valueStyle={{ color: '#3f8600', fontWeight: 600 }} />
+          <Statistic title="Troco" value={formatarCentimos(resumo.troco)} suffix="Kz" styles={{ content: { color: '#3f8600', fontWeight: 600 } }} />
         )}
       </Flex>
 
@@ -124,8 +124,8 @@ export function PainelPagamentos({ meios, total, pagamentos, onChange, grande, d
         <Alert
           type="warning"
           showIcon
-          message={
-            <Space direction="vertical" size={0}>
+          title={
+            <Space orientation="vertical" size={0}>
               {resumo.erros.map((e) => (
                 <span key={e}>{e}</span>
               ))}

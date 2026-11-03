@@ -2,7 +2,7 @@ import { Alert, Button, Card, Empty, Modal, Select, Spin, Table, Typography, the
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';
@@ -138,7 +138,7 @@ export default function Controlo() {
         </div>
       )}
       {q.isLoading && <div style={{ padding: '2rem', textAlign: 'center', color: token.colorTextSecondary }}><Spin /> A calcular o realizado...</div>}
-      {q.error && <Alert type="error" showIcon message={`Não foi possível calcular o controlo: ${(q.error as Error).message}`} />}
+      {q.error && <Alert type="error" showIcon title={`Não foi possível calcular o controlo: ${(q.error as Error).message}`} />}
       {c && totais && res && mensal && (
         <>
           <div style={{ marginBottom: 12 }}>
@@ -246,7 +246,7 @@ function ModalAnaliseDesvio({ orcamentoId, linha, meses, ano, aoFechar }: { orca
     <Modal open={!!linha} onCancel={aoFechar} footer={null} width={larguraModal(980)} destroyOnHidden
       title={<><IconeFa nome="search-plus" /> {linha ? `Análise do desvio — ${linha.codigo} ${linha.nome} · ${periodo}` : 'Análise do desvio'}</>}>
       {q.isLoading && <div style={{ padding: '2rem', textAlign: 'center', color: token.colorTextSecondary }}><Spin /> A analisar movimentos...</div>}
-      {q.error && <Alert type="error" showIcon message={`Não foi possível analisar: ${(q.error as Error).message}`} />}
+      {q.error && <Alert type="error" showIcon title={`Não foi possível analisar: ${(q.error as Error).message}`} />}
       {d && (
         <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
           <div style={{ marginBottom: 10 }}>

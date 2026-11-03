@@ -4,7 +4,7 @@ import { IconeFa } from '@/componentes/fluxos';
 import { colunasContas } from './comum/colunasContas';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { camposConta, CAMPOS_CONTACTO, dadosConta, dadosContacto } from './comum/formularios';
@@ -192,7 +192,7 @@ function FichaConta({ id, aoFechar, aoEditar }: { id: number | null; aoFechar: (
     <Drawer
       open={id !== null}
       onClose={aoFechar}
-      width={larguraGaveta(900)}
+      size={larguraGaveta(900)}
       destroyOnHidden
       rootClassName="crm-ficha-conta"
       title={c ? <Space wrap>{c.nome}{c.tipo === 'CLIENTE' ? <Tag color="green">Cliente</Tag> : <Tag color="blue">Prospect</Tag>}</Space> : 'Conta'}
@@ -233,7 +233,7 @@ function FichaConta({ id, aoFechar, aoEditar }: { id: number | null; aoFechar: (
             <KpiCrm rotulo="Taxa de ganho" valor={d.resumo.taxa_ganho === null ? '—' : `${Math.round(d.resumo.taxa_ganho)} %`} secundaria={`${d.resumo.ganhas} ganhas · ${d.resumo.perdidas} perdidas`} />
           </GrelhaKpiCrm>
           {Number(d.financeiro.em_atraso) > 0 && (
-            <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`${formatarKz(d.financeiro.em_atraso)} Kz em atraso em ${d.financeiro.n_atrasadas} factura(s) (até ${d.financeiro.max_dias_atraso} dias).`} />
+            <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`${formatarKz(d.financeiro.em_atraso)} Kz em atraso em ${d.financeiro.n_atrasadas} factura(s) (até ${d.financeiro.max_dias_atraso} dias).`} />
           )}
           <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="NIF">{c.nif ?? '—'}</Descriptions.Item>
@@ -343,7 +343,7 @@ function FichaConta({ id, aoFechar, aoEditar }: { id: number | null; aoFechar: (
                     />
                   </>
                 ) : (
-                  <Alert type="info" showIcon message="Prospect sem cliente associado: ainda não há movimento financeiro." />
+                  <Alert type="info" showIcon title="Prospect sem cliente associado: ainda não há movimento financeiro." />
                 ),
               },
             ]}

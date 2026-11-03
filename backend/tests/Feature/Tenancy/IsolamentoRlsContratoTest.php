@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Tenancy;
 
-use App\Models\TokenAcesso;
 use App\Models\Tenant;
+use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\IsolamentoRls;

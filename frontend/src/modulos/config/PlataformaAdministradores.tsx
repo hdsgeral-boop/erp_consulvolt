@@ -134,7 +134,7 @@ export default function PlataformaAdministradores() {
         confirmLoading={criar.isPending || atualizar.isPending}
         onCancel={() => setAberto(null)}
         onOk={confirmar}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           {aberto === 'novo' && (

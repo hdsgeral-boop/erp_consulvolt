@@ -1,7 +1,7 @@
 import { Button, Card, Col, Row, Statistic, Table, Tag } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 
@@ -43,7 +43,7 @@ export default function DashboardSuporte() {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={8}>
-          <Card loading={m.isLoading}><Statistic title="Tickets em atraso (SLA vencido)" value={d?.em_atraso ?? 0} valueStyle={d && d.em_atraso > 0 ? { color: '#dc2626' } : undefined} /></Card>
+          <Card loading={m.isLoading}><Statistic title="Tickets em atraso (SLA vencido)" value={d?.em_atraso ?? 0} styles={{ content: d && d.em_atraso > 0 ? { color: '#dc2626' } : undefined }} /></Card>
         </Col>
       </Row>
       <Card title="Tickets por estado" style={{ marginTop: 16 }}>

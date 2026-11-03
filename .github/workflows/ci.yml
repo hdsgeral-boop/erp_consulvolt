@@ -38,7 +38,7 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: ci_utilizador
           POSTGRES_PASSWORD: ci_palavra_passe_descartavel
@@ -51,7 +51,7 @@ jobs:
           --health-cmd "pg_isready -U ci_utilizador -d erp_consulvolt_testes"
           --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -73,7 +73,7 @@ jobs:
       - name: PHP 8.3 com as extensões do docker/php/Dockerfile
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
-          php-version: "8.3"
+          php-version: "8.5"
           extensions: pdo_pgsql, pgsql, intl, zip, bcmath, opcache, pcntl, gd, redis
           ini-values: date.timezone=Africa/Luanda, memory_limit=1G
           coverage: none
@@ -125,7 +125,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: "26"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

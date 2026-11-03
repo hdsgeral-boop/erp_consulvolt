@@ -59,7 +59,7 @@ export function ModalDefinicoesCaixa({ aberto, aoFechar }: { aberto: boolean; ao
       ]}
     >
       {definicoes.isError ? (
-        <Alert type="warning" showIcon message="Não tem acesso às definições de caixa do POS." />
+        <Alert type="warning" showIcon title="Não tem acesso às definições de caixa do POS." />
       ) : !definicoes.data ? (
         <Skeleton active />
       ) : (

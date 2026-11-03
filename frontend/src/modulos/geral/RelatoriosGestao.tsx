@@ -148,7 +148,7 @@ export default function RelatoriosGestao() {
 
   if (catalogo.isLoading) return <Skeleton active />;
   const cat = catalogo.data;
-  if (!cat) return <Alert type="error" showIcon message="Não foi possível carregar os relatórios de gestão." />;
+  if (!cat) return <Alert type="error" showIcon title="Não foi possível carregar os relatórios de gestão." />;
 
   const p = periodos.data;
   const datasA: Datas | null = presetA === 'livre' ? livreA : p ? { inicio: p.a.inicio, fim: p.a.fim } : null;
@@ -306,7 +306,7 @@ export default function RelatoriosGestao() {
       </div>
       <div ref={area} role="tabpanel" aria-label={nomeSeparador}>
         {!params ? (
-          <Alert type="info" showIcon message="Escolha as datas do período." />
+          <Alert type="info" showIcon title="Escolha as datas do período." />
         ) : separador === 'resumo' ? (
           <ResumoExecutivo params={params} aoAbrir={setSeparador} />
         ) : (
@@ -353,7 +353,7 @@ export function CartaoRg({ k, temB }: { k: KpiGestao; temB: boolean }) {
 function ResumoExecutivo({ params, aoAbrir }: { params: ParamsPeriodo; aoAbrir: (modulo: string) => void }) {
   const q = useQuery({ queryKey: ['gestao', 'relatorios', 'resumo', params], queryFn: () => obter<Resumo>('/gestao/relatorios/resumo', params as unknown as Record<string, unknown>) });
   if (q.isLoading) return <Skeleton active />;
-  if (q.error || !q.data) return <Alert type="error" showIcon message={(q.error as Error | null)?.message ?? 'Erro ao carregar o resumo.'} />;
+  if (q.error || !q.data) return <Alert type="error" showIcon title={(q.error as Error | null)?.message ?? 'Erro ao carregar o resumo.'} />;
   const temB = !!q.data.periodos.b;
   return (
     <>
@@ -420,7 +420,7 @@ function ResumoExecutivo({ params, aoAbrir }: { params: ParamsPeriodo; aoAbrir: 
 function RelatorioDoModulo({ modulo, params }: { modulo: string; params: ParamsPeriodo }) {
   const q = useQuery({ queryKey: ['gestao', 'relatorios', modulo, params], queryFn: () => obter<RelatorioModulo>(`/gestao/relatorios/${modulo}`, params as unknown as Record<string, unknown>) });
   if (q.isLoading) return <Skeleton active />;
-  if (q.error || !q.data) return <Alert type="error" showIcon message={(q.error as Error | null)?.message ?? 'Erro ao carregar o relatório.'} />;
+  if (q.error || !q.data) return <Alert type="error" showIcon title={(q.error as Error | null)?.message ?? 'Erro ao carregar o relatório.'} />;
   const r = q.data;
   const temB = !!r.periodos?.b;
   return (

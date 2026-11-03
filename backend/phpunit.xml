@@ -35,6 +35,10 @@
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="BROADCAST_CONNECTION" value="null" force="true"/>
         <!-- Argon2id mais leve nos testes (produção usa os valores por omissão). -->
+        <!-- Limites de login que os testes assumem (5 por utilizador+IP, 60 por IP): o contentor e2e sobe-os para
+             1000 (ERP_SESSAO_TENTATIVAS_POR_MINUTO*) por causa dos testes de browser e a suite não pode depender disso. -->
+        <env name="ERP_SESSAO_TENTATIVAS_POR_MINUTO" value="5" force="true"/>
+        <env name="ERP_SESSAO_TENTATIVAS_POR_MINUTO_IP" value="60" force="true"/>
         <env name="ARGON_MEMORY" value="1024" force="true"/>
         <env name="ARGON_TIME" value="1" force="true"/>
         <env name="ARGON_THREADS" value="1" force="true"/>
@@ -50,6 +54,8 @@
         <server name="SESSION_DRIVER" value="array" force="true"/>
         <server name="MAIL_MAILER" value="array" force="true"/>
         <server name="BROADCAST_CONNECTION" value="null" force="true"/>
+        <server name="ERP_SESSAO_TENTATIVAS_POR_MINUTO" value="5" force="true"/>
+        <server name="ERP_SESSAO_TENTATIVAS_POR_MINUTO_IP" value="60" force="true"/>
         <server name="ARGON_MEMORY" value="1024" force="true"/>
         <server name="ARGON_TIME" value="1" force="true"/>
         <server name="ARGON_THREADS" value="1" force="true"/>

@@ -54,7 +54,7 @@ export function ModalEscaloes({ aberto, aoFechar }: { aberto: boolean; aoFechar:
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="O valor estimado do pedido define os níveis que têm de aprovar, por ordem. O nível 1 é o responsável da unidade do requisitante; ninguém aprova os próprios pedidos."
+        title="O valor estimado do pedido define os níveis que têm de aprovar, por ordem. O nível 1 é o responsável da unidade do requisitante; ninguém aprova os próprios pedidos."
       />
       {consulta.isLoading ? (
         <Skeleton active />
@@ -98,7 +98,7 @@ export function ModalEscaloes({ aberto, aoFechar }: { aberto: boolean; aoFechar:
               </>
             )}
           </Form.List>
-          {erro && <Alert type="warning" style={{ marginTop: 12 }} message={erro} />}
+          {erro && <Alert type="warning" style={{ marginTop: 12 }} title={erro} />}
         </Form>
       ) : (
         <Table<Escalao> scroll={scrollTabela()}

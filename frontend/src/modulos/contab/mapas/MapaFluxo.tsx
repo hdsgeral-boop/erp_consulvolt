@@ -46,7 +46,7 @@ export default function MapaFluxo() {
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
-              message={`Variação não explicada pelas notas de fluxo: ${formatarKz(d.controlo.nao_explicado, true)}`}
+              title={`Variação não explicada pelas notas de fluxo: ${formatarKz(d.controlo.nao_explicado, true)}`}
               description={`Variação da classe 4 no período: ${formatarKz(d.controlo.variacao_classe_4, true)}. Associe as notas de fluxo aos movimentos de caixa e bancos.`}
             />
           )}

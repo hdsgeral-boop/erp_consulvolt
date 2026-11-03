@@ -54,7 +54,7 @@ export function SimularMassa({ aberto, aoFechar }: { aberto: boolean; aoFechar: 
             <Descriptions.Item label="Líquido">{formatarKz(sim.totais.liquido)}</Descriptions.Item>
             <Descriptions.Item label="Custo total (bruto + INSS empresa)">{formatarKz(Number(sim.totais.bruto) + Number(sim.totais.inss_patronal))}</Descriptions.Item>
           </Descriptions>
-          {sim.ignorados.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`${sim.ignorados.length} colaborador(es) fora da simulação`} description={sim.ignorados.join(' · ')} />}
+          {sim.ignorados.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`${sim.ignorados.length} colaborador(es) fora da simulação`} description={sim.ignorados.join(' · ')} />}
           <Table<ResultadoSalarial> rowKey="colaborador_id" size="small" dataSource={sim.resultados} pagination={{ pageSize: 50 }} scroll={{ x: 'max-content' }} columns={[
             { title: 'Colaborador', dataIndex: 'nome' },
             { title: 'Bruto', dataIndex: 'bruto', align: 'right', render: (v: string) => formatarKz(v) },

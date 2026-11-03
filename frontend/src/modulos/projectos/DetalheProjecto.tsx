@@ -2,7 +2,7 @@ import { Button, Dropdown, Input, Modal, Result, Space, Spin, Tabs, Tag, Tooltip
 import { ArrowLeftOutlined, DownOutlined, EditOutlined, FlagFilled } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';

@@ -357,7 +357,7 @@ function EditorTerminal({ alvo, terminais, aoFechar, aoCriarLavandaria }: { alvo
           <IconeFa nome="desktop" style={{ color: token.colorPrimary }} /> {novo ? 'Novo terminal' : 'Configurar terminal'}
         </span>
       }
-      maskClosable={false}
+      mask={{ closable: false }}
       footer={
         <Flex justify="end" gap={8} style={{ borderTop: `1px solid ${token.colorSplit}`, paddingTop: '0.9rem' }}>
           <Button onClick={aoFechar}>Cancelar</Button>
@@ -496,7 +496,7 @@ function EditorTerminal({ alvo, terminais, aoFechar, aoCriarLavandaria }: { alvo
             style={{ marginTop: 12 }}
             type="error"
             showIcon
-            message="Corrija os meios de pagamento"
+            title="Corrija os meios de pagamento"
             description={
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {erros.map((e) => (
@@ -650,13 +650,13 @@ function ModalCopiarMeios({ destino, terminais, aoFechar }: { destino: Terminal 
         </Form.Item>
         <Form.Item name="modo" label="Modo">
           <Radio.Group>
-            <Space direction="vertical">
+            <Space orientation="vertical">
               <Radio value="SUBSTITUIR">Substituir os meios actuais (reaproveita os identificadores por tipo)</Radio>
               <Radio value="ACRESCENTAR">Acrescentar aos meios actuais</Radio>
             </Space>
           </Radio.Group>
         </Form.Item>
-        <Alert type="info" showIcon message="As contas são validadas no destino: têm de existir no plano desta empresa." />
+        <Alert type="info" showIcon title="As contas são validadas no destino: têm de existir no plano desta empresa." />
       </Form>
     </Modal>
   );

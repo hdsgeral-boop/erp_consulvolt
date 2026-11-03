@@ -79,7 +79,7 @@ export function ModalImportarProdutos({ entidade, aoFechar }: { entidade: Entida
             style={{ marginTop: 12 }}
             showIcon
             type={resultado.erros.length ? 'warning' : 'success'}
-            message={`${resultado.simulacao ? 'Simulação: ' : ''}${resultado.linhas_lidas} linha(s) — ${resultado.criados} a criar/criado(s), ${resultado.actualizados} actualizado(s), ${resultado.erros.length} erro(s).${resultado.simulacao ? ' Nada foi gravado.' : ''}`}
+            title={`${resultado.simulacao ? 'Simulação: ' : ''}${resultado.linhas_lidas} linha(s) — ${resultado.criados} a criar/criado(s), ${resultado.actualizados} actualizado(s), ${resultado.erros.length} erro(s).${resultado.simulacao ? ' Nada foi gravado.' : ''}`}
           />
           {[...resultado.erros.map((e) => ({ t: 'danger' as const, m: e.mensagem })), ...resultado.avisos.map((a) => ({ t: 'warning' as const, m: a }))].length > 0 && (
             <List

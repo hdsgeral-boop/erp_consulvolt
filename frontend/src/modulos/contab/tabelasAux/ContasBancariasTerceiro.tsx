@@ -159,7 +159,7 @@ export function ContasBancariasTerceiro({ terceiroId, podeGerir }: { terceiroId:
               </Form.Item>
             </Col>
           </Row>
-          <Space style={{ width: '100%' }} direction="vertical">
+          <Space style={{ width: '100%' }} orientation="vertical">
             <Button block htmlType="submit" icon={<IconeFa nome="plus" />} loading={adicionar.isPending}>
               Adicionar conta bancária
             </Button>

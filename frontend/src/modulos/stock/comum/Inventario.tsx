@@ -8,7 +8,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useArmazens } from '@/modulos/compras/comum/referencias';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState, type ClipboardEvent } from 'react';
-import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
 import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
 import type { CampoFormulario } from '@/componentes/formularios/tipos';
@@ -218,7 +218,7 @@ function FolhasActivas({ modo }: { modo: Exclude<ModoInventario, 'sessoes'> }) {
       {lote ? (
         <DetalheSessao key={lote} modo={modo} idSessao={lote} />
       ) : (
-        <Alert type="info" style={{ textAlign: 'center', padding: '2rem' }} message={t.semEscolha} />
+        <Alert type="info" style={{ textAlign: 'center', padding: '2rem' }} title={t.semEscolha} />
       )}
     </>
   );
@@ -333,9 +333,9 @@ function ModalAbrir({ aberto, aoFechar, aoAbrir }: { aberto: boolean; aoFechar: 
           type="info"
           showIcon
           style={{ fontSize: '0.85rem' }}
-          message="Ao iniciar, o sistema criará uma «Folha de Contagem Cega» para este Armazém, registando o stock atual (esperado) em background. Os operadores não verão estas quantidades durante a contagem."
+          title="Ao iniciar, o sistema criará uma «Folha de Contagem Cega» para este Armazém, registando o stock atual (esperado) em background. Os operadores não verão estas quantidades durante a contagem."
         />
-        <Alert type="warning" showIcon style={{ marginTop: 8, fontSize: '0.85rem' }} message="Enquanto o inventário estiver aberto, o armazém fica sem movimentos até à aprovação ou anulação." />
+        <Alert type="warning" showIcon style={{ marginTop: 8, fontSize: '0.85rem' }} title="Enquanto o inventário estiver aberto, o armazém fica sem movimentos até à aprovação ou anulação." />
       </Form>
     </Modal>
   );
@@ -384,7 +384,7 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
   const previsao = useMemo(() => previsualizarRegularizacao(linhasRevistas), [linhasRevistas]);
 
   if (consulta.isLoading) return <Skeleton active />;
-  if (!s) return <Alert type="error" message="Inventário não encontrado." />;
+  if (!s) return <Alert type="error" title="Inventário não encontrado." />;
   const a = accoesInventario(s, pode);
   const nome = `INV ${dayjs(s.data).format('YYYY')}/${s.id}`;
   const alteradas = linhasAlteradas(linhas, edicoes);
@@ -701,9 +701,9 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
           )
         }
       >
-        {s.estado === 'ANULADA' && <Alert type="error" showIcon banner message={`Inventário anulado${s.motivo_anulacao ? `: ${s.motivo_anulacao}` : '.'}`} />}
-        {!revisaoFolha && !emContagem && <Alert type="info" showIcon banner message="Este inventário já não está em contagem." />}
-        {revisaoFolha && s.estado !== 'REVISAO' && <Alert type="info" showIcon banner message="Este inventário não está em revisão." />}
+        {s.estado === 'ANULADA' && <Alert type="error" showIcon banner title={`Inventário anulado${s.motivo_anulacao ? `: ${s.motivo_anulacao}` : '.'}`} />}
+        {!revisaoFolha && !emContagem && <Alert type="info" showIcon banner title="Este inventário já não está em contagem." />}
+        {revisaoFolha && s.estado !== 'REVISAO' && <Alert type="info" showIcon banner title="Este inventário não está em revisão." />}
         {revisaoFolha && s.estado !== 'ANULADA' && (
           // resumo financeiro do legado (ui_inventory.js:756-770); saldo e diferenças por justificar são do sistema novo e ficam a seguir
           <div style={{ padding: '1.5rem', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
@@ -827,7 +827,7 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
           </>
         }
       />
-      {s.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Inventário anulado${s.motivo_anulacao ? `: ${s.motivo_anulacao}` : '.'}`} />}
+      {s.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} title={`Inventário anulado${s.motivo_anulacao ? `: ${s.motivo_anulacao}` : '.'}`} />}
 
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">

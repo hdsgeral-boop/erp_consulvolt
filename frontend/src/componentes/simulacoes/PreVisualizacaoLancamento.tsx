@@ -87,10 +87,10 @@ export function BotaoPreVisualizarLancamento({ url, titulo, tamanho, aoContabili
           </Space>
         }>
         {q.isLoading && <Typography.Text type="secondary">A calcular no servidor…</Typography.Text>}
-        {q.error && <Alert type="warning" showIcon message="Não é possível contabilizar este documento" description={(q.error as Error).message} />}
+        {q.error && <Alert type="warning" showIcon title="Não é possível contabilizar este documento" description={(q.error as Error).message} />}
         {p && (
           <>
-            <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Simulação — nada foi gravado" description="Estas são as linhas que a contabilização vai gravar (mesmas contas e valores)." />
+            <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Simulação — nada foi gravado" description="Estas são as linhas que a contabilização vai gravar (mesmas contas e valores)." />
             <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }} style={{ marginBottom: 12 }}>
               <Descriptions.Item label="Diário">{p.diario ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="Data">{formatarData(p.data_documento)}</Descriptions.Item>

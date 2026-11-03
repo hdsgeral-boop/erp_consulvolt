@@ -1,7 +1,7 @@
 import { Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag, theme } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { NavActivos } from './comum/NavActivos';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BotaoCartao } from './inventario/BotaoCartao';

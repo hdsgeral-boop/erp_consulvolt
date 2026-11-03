@@ -2,7 +2,7 @@ import { Alert, Button, Card, Checkbox, Empty, Form, Input, Modal, Segmented, Sk
 import { ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, type Key } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -267,7 +267,7 @@ export default function EncomendasClientes() {
       </Card>
       <Modal width={larguraModal(560)} title="Gerar Pedido de Compra" open={!!gerar} onCancel={() => setGerar(null)} okText="Gerar pedido" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => gerar && accao.mutate({ url: '/compras/encomendas-clientes/pedido', dados: { itens: gerar, nome_requerente: v.nome_requerente || undefined, descricao: v.descricao || undefined } })}>
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`${gerar?.length ?? 0} linha(s) escolhida(s). O pedido é criado com as quantidades pendentes e segue para deliberação.`} />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} title={`${gerar?.length ?? 0} linha(s) escolhida(s). O pedido é criado com as quantidades pendentes e segue para deliberação.`} />
           <Form.Item name="nome_requerente" label="Requerente" rules={[{ max: 255 }]}>
             <Input />
           </Form.Item>

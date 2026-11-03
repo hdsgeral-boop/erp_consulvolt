@@ -9,6 +9,7 @@ use App\Models\TransacaoGateway;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoLicenca;
 use App\Services\Sistema\ServicoNotificacoes;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -180,7 +181,7 @@ final class ProcessadorPagamentos
             ];
         }
 
-        $contextoEmpresa = app(\App\Support\Tenancy\ContextoEmpresa::class);
+        $contextoEmpresa = app(ContextoEmpresa::class);
 
         $subscricao = $contextoEmpresa->semIsolamento(fn () => SubscricaoEmpresa::query()->find($resultado->subscricaoId));
         if (! $subscricao || $subscricao->estado !== SubscricaoEmpresa::PENDENTE) {

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { CabecalhoModulo, separadorActivo } from './CabecalhoModulo';
 
 let permissoes: string[] = ['*'];

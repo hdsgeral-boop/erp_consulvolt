@@ -142,7 +142,7 @@ export function ModalImportarClientes({ aberto, aoFechar }: { aberto: boolean; a
         Colunas do modelo: NIF, Nome, Endereco, Email, Conta_Contábil. As linhas sem conta contabilística não são importadas; um cliente já
         existente (mesmo NIF ou, sem NIF, o mesmo nome) só é actualizado se o pedir.
       </Typography.Paragraph>
-      <Space direction="vertical">
+      <Space orientation="vertical">
         <Upload accept=".xlsx,.xls,.csv" maxCount={1} beforeUpload={(f) => { setFicheiro(f); setResultado(null); return false; }}
           onRemove={() => { setFicheiro(null); setResultado(null); }} fileList={ficheiro ? [{ uid: '1', name: ficheiro.name, status: 'done' }] : []}>
           <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
@@ -155,7 +155,7 @@ export function ModalImportarClientes({ aberto, aoFechar }: { aberto: boolean; a
             style={{ marginTop: 12 }}
             type={resultado.erros.length ? 'warning' : 'success'}
             showIcon
-            message={`${resultado.simulacao ? 'Simulação: ' : ''}${resultado.linhas_lidas} linha(s): ${resultado.criados} novo(s), ${resultado.actualizados} actualizado(s), ${resultado.ignorados} já existente(s), ${resultado.repetidos} repetido(s), ${resultado.erros.length} erro(s).${resultado.simulacao ? ' Nada foi gravado.' : ''}`}
+            title={`${resultado.simulacao ? 'Simulação: ' : ''}${resultado.linhas_lidas} linha(s): ${resultado.criados} novo(s), ${resultado.actualizados} actualizado(s), ${resultado.ignorados} já existente(s), ${resultado.repetidos} repetido(s), ${resultado.erros.length} erro(s).${resultado.simulacao ? ' Nada foi gravado.' : ''}`}
           />
           {resultado.erros.length > 0 && (
             <List size="small" header={<strong>Erros</strong>} dataSource={resultado.erros} style={{ marginTop: 8, maxHeight: 220, overflow: 'auto' }}

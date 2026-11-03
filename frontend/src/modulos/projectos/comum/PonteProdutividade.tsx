@@ -68,12 +68,12 @@ export function PonteProdutividade({ de, ate, projetos }: { de: string; ate: str
   };
 
   if (q.isLoading) return <Spin style={{ display: 'block', margin: 24 }} />;
-  if (q.error) return <Alert type="error" showIcon message={(q.error as Error).message} />;
+  if (q.error) return <Alert type="error" showIcon title={(q.error as Error).message} />;
   if (!r) return null;
   const quem = (l: LinhaRecolha) => l.nome ?? l.motivo ?? '—';
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {!r.linhas.length && !r.orfas.length ? <Empty description="Sem horas, medições nem tarefas concluídas no intervalo." /> : (
         <>
           <Typography.Text type="secondary">Escolha o item de produtividade de cada grupo (sugerido: mesma métrica e unidade equivalente) e o período. Só entram colaboradores com o item no contrato activo.</Typography.Text>
@@ -91,7 +91,7 @@ export function PonteProdutividade({ de, ate, projetos }: { de: string; ate: str
               ) },
             ]} />
           {r.orfas.length > 0 && (
-            <Alert type="warning" showIcon message="Execução sem colaborador interno (não entra no subsídio)"
+            <Alert type="warning" showIcon title="Execução sem colaborador interno (não entra no subsídio)"
               description={<ul style={{ margin: 0, paddingLeft: 18 }}>{r.orfas.map((o) => <li key={`${o.tipo}|${o.unidade}|${o.motivo}`}>{TIPOS_PONTE[o.tipo]}: {formatarQtd(o.quantidade, 4)} {o.unidade} — {o.motivo}</li>)}</ul>} />
           )}
           <Flex gap={8} wrap align="center">
@@ -121,7 +121,7 @@ export function PonteProdutividade({ de, ate, projetos }: { de: string; ate: str
               { title: '', key: 'e', render: (_, v) => (v.registo_existente_id ? <Tag color="blue">actualiza</Tag> : <Tag color="green">novo</Tag>) },
             ]} />
           {analise.erros.length > 0 && (
-            <Alert style={{ marginTop: 8 }} type="error" showIcon message="Linhas que não podem ser enviadas"
+            <Alert style={{ marginTop: 8 }} type="error" showIcon title="Linhas que não podem ser enviadas"
               description={<ul style={{ margin: 0, paddingLeft: 18 }}>{analise.erros.map((e, i) => <li key={i}>{quem(e.linha)} · {e.item.codigo}: {e.erro}</li>)}</ul>} />
           )}
         </Card>

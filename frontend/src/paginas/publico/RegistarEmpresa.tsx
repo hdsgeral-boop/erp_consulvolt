@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Row, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
@@ -117,7 +117,7 @@ export function RegistarEmpresa() {
           <Alert
             type="info"
             showIcon
-            message="Nome e email preenchidos a partir da sua conta Google. Falta só completar os dados da empresa e escolher uma palavra-passe."
+            title="Nome e email preenchidos a partir da sua conta Google. Falta só completar os dados da empresa e escolher uma palavra-passe."
             style={{ marginBottom: 16 }}
           />
         )}
@@ -126,7 +126,7 @@ export function RegistarEmpresa() {
           <Alert
             type="error"
             showIcon
-            message={erro}
+            title={erro}
             description={
               detalhesErros.length > 0 ? (
                 <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
@@ -253,7 +253,7 @@ export function RegistarEmpresa() {
           <Alert
             type="info"
             showIcon
-            message={`Durante os ${diasTeste} dias de demonstração tem acesso a todos os módulos do sistema, sem precisar de escolher um plano. Escolhe o plano apenas quando quiser continuar a usar o sistema depois do período gratuito.`}
+            title={`Durante os ${diasTeste} dias de demonstração tem acesso a todos os módulos do sistema, sem precisar de escolher um plano. Escolhe o plano apenas quando quiser continuar a usar o sistema depois do período gratuito.`}
             style={{ marginTop: 4, marginBottom: 12 }}
           />
 

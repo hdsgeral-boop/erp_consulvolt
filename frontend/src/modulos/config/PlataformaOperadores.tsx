@@ -138,10 +138,10 @@ export default function PlataformaOperadores() {
         confirmLoading={criar.isPending || atualizar.isPending}
         onCancel={() => setAberto(null)}
         onOk={confirmar}
-        destroyOnClose
+        destroyOnHidden
       >
         {aberto === 'novo' && (
-          <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Acesso granular, nunca total" description="Este utilizador entra na área da plataforma, mas cada operação sensível (clientes, planos, pagamentos, auditoria, …) exige ainda a chave do seu perfil — nunca o acesso irrestrito de um super-administrador." />
+          <Alert type="info" showIcon style={{ marginBottom: 16 }} title="Acesso granular, nunca total" description="Este utilizador entra na área da plataforma, mas cada operação sensível (clientes, planos, pagamentos, auditoria, …) exige ainda a chave do seu perfil — nunca o acesso irrestrito de um super-administrador." />
         )}
         <Form form={form} layout="vertical">
           {aberto === 'novo' && (
