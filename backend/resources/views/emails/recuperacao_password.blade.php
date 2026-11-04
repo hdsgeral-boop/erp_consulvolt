@@ -25,6 +25,12 @@ Esta password é temporária: no próximo acesso, o sistema vai pedir-lhe para a
 
 <tr><td>@include('emails.componentes.botao', ['url' => $url, 'texto' => 'Entrar no ERP'])</td></tr>
 
+@if (! empty($quando))
+<tr><td style="padding-bottom:12px; font-size:13px; color:#475569;">
+Pedido feito em <strong>{{ $quando }}</strong> a partir de <strong>{{ $dispositivo ?? 'um dispositivo desconhecido' }}</strong>@if (! empty($ip)) (IP {{ $ip }})@endif.
+</td></tr>
+@endif
+
 <tr><td style="padding-top:8px; font-size:13px; color:#64748b;">
 Se não foi você a pedir esta recuperação, contacte imediatamente o administrador da sua empresa ou o suporte Consulvolt — a sua password já foi alterada.
 </td></tr>

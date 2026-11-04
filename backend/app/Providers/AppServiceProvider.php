@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Models\Empresa;
 use App\Models\TokenAcesso;
 use App\Models\Utilizador;
+use App\Services\Autenticacao\ServicoSessoes;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Services\Vendas\Agt\ClienteAgt;
 use App\Services\Vendas\Agt\ClienteAgtPorEmpresa;
+use App\Support\Autenticacao\CookiesSessao;
 use App\Support\Dados\OrdenacaoTexto;
 use App\Support\Seguranca\ValorSemFormulas;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -124,7 +126,7 @@ class AppServiceProvider extends ServiceProvider
             // Fase D: o token continua a ser o mesmo Bearer opaco do Sanctum, só a entrega muda — o cabeçalho
             // Authorization serve clientes que não sejam o SPA (ex.: scripts, Power BI); o SPA passa a enviá-lo
             // num cookie HttpOnly (CookiesSessao), nunca acessível a JavaScript.
-            $token = $request->bearerToken() ?: $request->cookie(config('erp.sessao.cookie_token'));
+            $token = $request->bearerToken() ?: CookiesSessao::token($request);
             if ($token && ContextoTenant::ativo() && str_contains($token, '|')) {
                 [$id] = explode('|', $token, 2);
                 if (ctype_digit($id)) {
@@ -151,8 +153,12 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $referencia = $token->ultimo_uso_em ?? $token->criado_em;
+            if ($referencia === null || ! $referencia->gt(now()->subMinutes(config('erp.sessao.inatividade_minutos')))) {
+                return false;
+            }
 
-            return $referencia !== null && $referencia->gt(now()->subMinutes(config('erp.sessao.inatividade_minutos')));
+            // ADR-082: vinculação ao navegador/sistema que iniciou a sessão e auditoria de mudanças de IP.
+            return app(ServicoSessoes::class)->validarVinculo($token, request());
         });
     }
 

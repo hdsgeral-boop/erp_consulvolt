@@ -42,6 +42,36 @@ return [
         'cookie_token' => 'erp_token',
         'cookie_csrf' => 'XSRF-TOKEN',
         'cabecalho_csrf' => 'X-XSRF-TOKEN',
+        // Cookie do identificador do dispositivo (emitido pelo servidor, HttpOnly, assinado — ADR-082).
+        'cookie_dispositivo' => 'erp_dev',
+        // Cookies seguros (Secure + prefixo __Host-): true/false força; vazio = automático (Secure quando o pedido chega por
+        // HTTPS, directamente ou por X-Forwarded-Proto de um proxy de confiança). Em http://localhost fica sem Secure nem prefixo.
+        'cookie_secure' => env('ERP_COOKIE_SECURE') === null || env('ERP_COOKIE_SECURE') === '' ? null : filter_var(env('ERP_COOKIE_SECURE'), FILTER_VALIDATE_BOOLEAN),
+        // SameSite dos cookies de sessão: strict (omissão) | lax. Strict: o cookie nunca acompanha pedidos iniciados por outro
+        // site; o regresso do Google e as ligações de e-mail abrem a SPA (HTML estático) e é a SPA, já dentro do site, que
+        // chama a API com o cookie. Usar lax só se algum fluxo precisar de GET autenticado vindo de fora.
+        'cookie_samesite' => env('ERP_COOKIE_SAMESITE', 'strict'),
+        // Validade do cookie do dispositivo, em dias (máx. prático dos navegadores: 400).
+        'dispositivo_dias' => (int) env('ERP_SESSAO_DISPOSITIVO_DIAS', 180),
+        // Rotação do token (ADR-082): um pedido autenticado com um token com mais de N minutos recebe um token novo
+        // (cookie novo); o anterior fica válido só durante a tolerância (pedidos paralelos em voo) e, depois, a sua
+        // apresentação é tratada como roubo: revoga a sessão desse dispositivo e avisa o utilizador.
+        'rotacao_minutos' => (int) env('ERP_SESSAO_ROTACAO_MINUTOS', 10),
+        'rotacao_tolerancia_segundos' => (int) env('ERP_SESSAO_ROTACAO_TOLERANCIA_SEGUNDOS', 45),
+        // Máximo de sessões completas simultâneas por utilizador (dispositivos); ao exceder, a mais antiga termina. 0 = sem limite.
+        'max_sessoes_por_utilizador' => (int) env('ERP_SESSAO_MAX_POR_UTILIZADOR', 10),
+        // Vincula o token ao navegador+sistema operativo do início da sessão: uma mudança de família (ex.: Chrome→Firefox)
+        // termina a sessão. Versões novas do mesmo navegador não contam. Mudanças de IP nunca terminam a sessão (só auditoria).
+        'vincular_agente' => (bool) env('ERP_SESSAO_VINCULAR_AGENTE', true),
+        // Defesa em profundidade do CSRF: em pedidos que alteram estado, com sessão por cookie, rejeita Origin/Sec-Fetch-Site
+        // de outro site. Origens extra aceites (além do próprio anfitrião do pedido), separadas por vírgulas.
+        'verificar_origem' => (bool) env('ERP_SESSAO_VERIFICAR_ORIGEM', true),
+        'origens_permitidas' => env('ERP_SESSAO_ORIGENS_PERMITIDAS', ''),
+        // Recuperação de palavra-passe (POST /autenticacao/recuperar-password): pedidos por CONTA por hora, intervalo mínimo
+        // entre pedidos da mesma conta (s) e duração mínima da resposta (ms) para o tempo não revelar se a conta existe.
+        'recuperacao_max_por_hora' => (int) env('ERP_RECUPERACAO_MAX_POR_HORA', 3),
+        'recuperacao_intervalo_segundos' => (int) env('ERP_RECUPERACAO_INTERVALO_SEGUNDOS', 120),
+        'recuperacao_tempo_minimo_ms' => (int) env('ERP_RECUPERACAO_TEMPO_MINIMO_MS', 1200),
     ],
 
     'api' => [

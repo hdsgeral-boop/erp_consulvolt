@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
+use App\Support\Autenticacao\CookiesSessao;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Testing\TestResponse;
@@ -87,13 +88,22 @@ abstract class TestCase extends BaseTestCase
      */
     protected function entrar(Utilizador $utilizador, string $palavraPasse = 'Palavra#Passe2026', ?string $dispositivo = null): array
     {
-        $resposta = $this->postJson('/api/autenticacao/entrar', array_filter([
+        // ADR-082: o dispositivo já não vem do corpo — é o cookie HttpOnly assinado que o servidor emite. Para simular
+        // vários dispositivos, apresenta-se o cookie de cada um (o omisso 'api' é sempre o mesmo dispositivo).
+        $resposta = $this->comDispositivo($dispositivo ?? 'api')->postJson('/api/autenticacao/entrar', [
             'nome_utilizador' => $utilizador->nome_utilizador,
             'palavra_passe' => $palavraPasse,
-            'dispositivo' => $dispositivo,
-        ], fn ($v) => $v !== null))->assertOk();
+        ])->assertOk();
 
         return ['Authorization' => 'Bearer '.$this->tokenDoCookie($resposta)];
+    }
+
+    /** Cookie de dispositivo assinado pelo servidor para o nome de dispositivo de teste indicado (sempre o mesmo id para o mesmo nome). */
+    protected function comDispositivo(string $nome): static
+    {
+        $id = substr(CookiesSessao::b64(hash('sha256', $nome, true)), 0, 22);
+
+        return $this->withCredentials()->withUnencryptedCookie(CookiesSessao::nome('dispositivo'), CookiesSessao::assinarDispositivo($id));
     }
 
     /**

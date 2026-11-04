@@ -17,6 +17,7 @@ final class CacheCondicional
 {
     public function handle(Request $request, Closure $next, string $modo = 'privado'): Response
     {
+        $request->attributes->set('cache_condicional', true);   // CabecalhosSemCache não repõe no-store nestas rotas
         $resposta = $next($request);
         if (! $request->isMethod('GET') || $resposta->getStatusCode() !== 200) {
             return $resposta;

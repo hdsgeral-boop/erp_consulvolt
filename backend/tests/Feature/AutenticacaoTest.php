@@ -144,14 +144,18 @@ final class AutenticacaoTest extends TestCase
     public function token_fica_na_tabela_tokens_acesso_em_portugues_sem_guardar_o_segredo(): void
     {
         $u = $this->criarUtilizador();
-        $resposta = $this->postJson('/api/autenticacao/entrar', ['nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026', 'dispositivo' => 'Portátil RH'])
+        $resposta = $this->withHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36')
+            ->postJson('/api/autenticacao/entrar', ['nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026'])
             ->assertOk();
         $token = $this->tokenDoCookie($resposta);
 
         $linha = DB::table('tokens_acesso')->first();
         $this->assertSame('utilizador', $linha->portador_tipo);
         $this->assertSame($u->id, (int) $linha->portador_id);
-        $this->assertSame('Portátil RH', $linha->nome);
+        $this->assertNotNull($linha->dispositivo_id);
+        $this->assertSame('web-'.substr($linha->dispositivo_id, 0, 8), $linha->nome);
+        $this->assertSame('Chrome em Windows', $linha->rotulo);
+        $this->assertNull($linha->agente_utilizador, 'o User-Agent completo não é guardado');
         $this->assertNotNull($linha->expira_em);
         $this->assertSame(hash('sha256', explode('|', $token, 2)[1]), $linha->token);
     }
@@ -160,15 +164,15 @@ final class AutenticacaoTest extends TestCase
     public function um_novo_login_do_mesmo_dispositivo_invalida_o_token_anterior(): void
     {
         $u = $this->criarUtilizador();
-        $primeiro = $this->postJson('/api/autenticacao/entrar', [
-            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026', 'dispositivo' => 'Portátil',
+        $primeiro = $this->comDispositivo('Portátil')->postJson('/api/autenticacao/entrar', [
+            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026',
         ])->assertOk();
         $tokenAntigo = ['Authorization' => 'Bearer '.$this->tokenDoCookie($primeiro)];
         $this->getJson('/api/autenticacao/eu', $tokenAntigo)->assertOk();
 
-        // novo login do MESMO dispositivo: invalida de imediato a sessão completa anterior desse dispositivo.
-        $this->postJson('/api/autenticacao/entrar', [
-            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026', 'dispositivo' => 'Portátil',
+        // novo login do MESMO dispositivo (mesmo cookie assinado): invalida de imediato a sessão completa anterior.
+        $this->comDispositivo('Portátil')->postJson('/api/autenticacao/entrar', [
+            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026',
         ])->assertOk();
 
         $this->getJson('/api/autenticacao/eu', $tokenAntigo)->assertStatus(401);
@@ -179,13 +183,13 @@ final class AutenticacaoTest extends TestCase
     public function um_novo_login_de_outro_dispositivo_nao_afecta_a_sessao_existente(): void
     {
         $u = $this->criarUtilizador();
-        $portatil = $this->postJson('/api/autenticacao/entrar', [
-            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026', 'dispositivo' => 'Portátil',
+        $portatil = $this->comDispositivo('Portátil')->postJson('/api/autenticacao/entrar', [
+            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026',
         ])->assertOk();
         $tokenPortatil = ['Authorization' => 'Bearer '.$this->tokenDoCookie($portatil)];
 
-        $this->postJson('/api/autenticacao/entrar', [
-            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026', 'dispositivo' => 'Telemóvel',
+        $this->comDispositivo('Telemóvel')->postJson('/api/autenticacao/entrar', [
+            'nome_utilizador' => $u->nome_utilizador, 'palavra_passe' => 'Palavra#Passe2026',
         ])->assertOk();
 
         $this->getJson('/api/autenticacao/eu', $tokenPortatil)->assertOk();

@@ -51,15 +51,15 @@ final class EmailsTest extends TestCase
         $this->criarUtilizador(['nome_utilizador' => 'sem.email', 'email' => null]);
 
         $this->postJson('/api/autenticacao/recuperar-password', ['identificador' => 'com.email'])->assertOk();
-        Mail::assertQueued(RecuperacaoPasswordMail::class, fn ($m) => $m->hasTo('com.email@teste.ao'));
+        Mail::assertSent(RecuperacaoPasswordMail::class, fn ($m) => $m->hasTo('com.email@teste.ao'));   // entregue antes de a palavra-passe mudar (ADR-082)
 
         Mail::fake();
         $this->postJson('/api/autenticacao/recuperar-password', ['identificador' => 'sem.email'])->assertOk();
-        Mail::assertNotQueued(RecuperacaoPasswordMail::class);
+        Mail::assertNotSent(RecuperacaoPasswordMail::class);
 
         Mail::fake();
         $this->postJson('/api/autenticacao/recuperar-password', ['identificador' => 'nao.existe.ninguem'])->assertOk();
-        Mail::assertNotQueued(RecuperacaoPasswordMail::class);
+        Mail::assertNotSent(RecuperacaoPasswordMail::class);
     }
 
     public function test_criar_utilizador_com_email_envia_credenciais_e_sem_email_nao_envia(): void

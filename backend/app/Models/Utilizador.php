@@ -112,6 +112,15 @@ class Utilizador extends Autenticavel
     }
 
     /** Tokens Sanctum na tabela tokens_acesso (colunas portador_tipo/portador_id). */
+    /**
+     * Segredo do token de sessão: 256 bits do gerador criptográfico em base64url (43 caracteres), em vez dos 40
+     * caracteres alfanuméricos (~238 bits) do Sanctum. Só o SHA-256 vai para a base.
+     */
+    public function generateTokenString()
+    {
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    }
+
     public function tokens(): MorphMany
     {
         return $this->morphMany(TokenAcesso::class, 'portador', 'portador_tipo', 'portador_id');

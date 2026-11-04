@@ -82,7 +82,8 @@ final class AutenticacaoGoogleController extends Controller
             return redirect('/entrar?erro=google_conta_inactiva');
         }
 
-        $sessao = $this->autenticacao->emitirSessaoOuMfa($utilizador, 'web-google', $r->ip(), $r->userAgent());
+        $dispositivo = CookiesSessao::dispositivoDoPedido($r);
+        $sessao = $this->autenticacao->emitirSessaoOuMfa($utilizador, $dispositivo['id'], $r->ip(), $r->userAgent());
 
         if ($sessao['mfa_pendente']) {
             // MFA activo nesta conta: o 2.º passo (código TOTP) ainda não tem ecrã algum no frontend — nem para
@@ -90,6 +91,6 @@ final class AutenticacaoGoogleController extends Controller
             return redirect('/entrar?erro=google_mfa_obrigatorio');
         }
 
-        return CookiesSessao::anexar(redirect('/app'), $sessao['token'], $sessao['expira_em']);
+        return CookiesSessao::anexar(redirect('/app'), $sessao['token'], $sessao['expira_em'], $dispositivo['id'], $r);
     }
 }

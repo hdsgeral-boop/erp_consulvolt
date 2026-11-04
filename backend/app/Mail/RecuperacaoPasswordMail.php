@@ -14,6 +14,9 @@ final class RecuperacaoPasswordMail extends EmailBase
         private readonly string $nomeUtilizador,
         private readonly string $nomeCompleto,
         private readonly string $palavraPasse,
+        private readonly ?string $ipAproximado = null,
+        private readonly ?string $quando = null,
+        private readonly ?string $dispositivo = null,
     ) {}
 
     public function envelope(): Envelope
@@ -29,6 +32,7 @@ final class RecuperacaoPasswordMail extends EmailBase
     protected function dados(): array
     {
         return ['nomeUtilizador' => $this->nomeUtilizador, 'nomeCompleto' => $this->nomeCompleto,
-            'palavraPasse' => $this->palavraPasse, 'url' => config('app.url')];
+            'palavraPasse' => $this->palavraPasse, 'url' => config('app.url'),
+            'ip' => $this->ipAproximado, 'quando' => $this->quando, 'dispositivo' => $this->dispositivo];
     }
 }

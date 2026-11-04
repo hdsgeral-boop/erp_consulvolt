@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Exceptions\ErroContextoEmpresa;
 use App\Models\Empresa;
+use App\Models\TokenAcesso;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Tenancy\ContextoEmpresa;
 use App\Support\Tenancy\DefinicoesPlataforma;
@@ -29,6 +30,13 @@ final class ResolverEmpresaAtiva
     {
         $cabecalho = config('erp.tenancy.cabecalho');
         $valor = $request->header($cabecalho);
+
+        // Sem cabeçalho: a empresa activa da sessão (guardada no servidor, PUT /autenticacao/empresa-activa — ADR-082).
+        // Com cabeçalho, manda o cabeçalho; em ambos os casos o acesso do utilizador à empresa é validado abaixo.
+        if (($valor === null || $valor === '') && ($token = $request->user()?->currentAccessToken()) instanceof TokenAcesso
+            && $token->empresa_ativa_id !== null) {
+            $valor = (string) $token->empresa_ativa_id;
+        }
 
         if ($valor === null || $valor === '') {
             throw ErroContextoEmpresa::naoIndicado($cabecalho);

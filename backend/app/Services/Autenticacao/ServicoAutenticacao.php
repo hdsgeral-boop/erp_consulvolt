@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoAuditoria;
+use App\Support\Autenticacao\AgenteUtilizador;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ final class ServicoAutenticacao
         private readonly VerificadorPasswordLegado $verificadorLegado,
         private readonly ServicoAuditoria $auditoria,
         private readonly ContextoTenant $tenant,
+        private readonly ServicoSessoes $sessoes,
     ) {}
 
     /**
@@ -104,10 +106,10 @@ final class ServicoAutenticacao
             // completa (habilidade '*') só é emitida depois do código TOTP confirmado (ver MfaController::verificar).
             if ($utilizador->mfa_ativo) {
                 $expiraPendente = now()->addMinutes(5);
-                $pendente = $utilizador->createToken($dispositivo.':mfa-pendente', ['mfa:pendente'], $expiraPendente);
+                $pendente = $utilizador->createToken($this->nomeDoDispositivo($dispositivo).':mfa-pendente', ['mfa:pendente'], $expiraPendente);
                 /** @var TokenAcesso $tokenPendente */
                 $tokenPendente = $pendente->accessToken;
-                $tokenPendente->forceFill(['endereco_ip' => $ip, 'agente_utilizador' => $agente ? mb_substr($agente, 0, 500) : null])->save();
+                $tokenPendente->forceFill($this->dadosDaSessao($dispositivo, $ip, $agente))->save();
 
                 $this->auditoria->registar('Autenticação', 'Entrar (MFA pendente)', 'Credenciais válidas; a aguardar o código de autenticação.',
                     'utilizadores', $utilizador->getKey(), utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
@@ -144,17 +146,22 @@ final class ServicoAutenticacao
     /** @return array{token: string, expira_em: Carbon, utilizador: Utilizador} */
     private function emitirTokenCompleto(Utilizador $utilizador, string $dispositivo, ?string $ip, ?string $agente): array
     {
-        // Fase D: um único token completo activo por dispositivo — um novo login do mesmo dispositivo invalida de
-        // imediato qualquer sessão completa anterior ainda activa nesse dispositivo (não afecta outros dispositivos
-        // do mesmo utilizador, nem o token limitado 'mfa:pendente', que tem outro nome — ver entrar()).
-        $utilizador->tokens()->where('nome', $dispositivo)->delete();
+        // Fase D: um único token completo activo por dispositivo — um novo login do mesmo dispositivo (o identificador vem do
+        // cookie assinado pelo servidor, nunca do cliente) invalida de imediato qualquer sessão completa anterior desse
+        // dispositivo (não afecta outros dispositivos do mesmo utilizador, nem o token limitado 'mfa:pendente').
+        $this->sessoes->substituirDoDispositivo($utilizador, $dispositivo);
 
-        $expiraEm = now()->addHours(config('erp.sessao.validade_horas'));
-        $novo = $utilizador->createToken($dispositivo, ['*'], $expiraEm);
+        $expiraEm = $this->sessoes->expiraEm();
+        $novo = $utilizador->createToken($this->nomeDoDispositivo($dispositivo), ['*'], $expiraEm);
 
         /** @var TokenAcesso $token */
         $token = $novo->accessToken;
-        $token->forceFill(['endereco_ip' => $ip, 'agente_utilizador' => $agente ? mb_substr($agente, 0, 500) : null])->save();
+        $token->forceFill($this->dadosDaSessao($dispositivo, $ip, $agente) + ['rotacao_em' => now()])->save();
+
+        $this->sessoes->aplicarLimite($utilizador, (int) $token->getKey());
+        if ($this->sessoes->registarDispositivo($utilizador, $dispositivo)) {
+            $this->sessoes->avisarNovoDispositivo($utilizador, $agente, $ip);
+        }
 
         $utilizador->forceFill(['ultimo_acesso_em' => now()])->saveQuietly();
 
@@ -162,6 +169,24 @@ final class ServicoAutenticacao
             utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
 
         return ['token' => $novo->plainTextToken, 'expira_em' => $expiraEm, 'utilizador' => $utilizador];
+    }
+
+    /** «web-xxxxxxxx»: nome curto e legível no ecrã «Sessões» da plataforma (não revela o identificador completo). */
+    private function nomeDoDispositivo(string $dispositivo): string
+    {
+        return 'web-'.substr($dispositivo, 0, 8);
+    }
+
+    /** @return array<string, mixed> só o necessário do pedido: família do navegador (rótulo e hash) e IP, nunca o User-Agent completo. */
+    private function dadosDaSessao(string $dispositivo, ?string $ip, ?string $agente): array
+    {
+        return [
+            'endereco_ip' => $ip,
+            'agente_utilizador' => null,
+            'dispositivo_id' => $dispositivo,
+            'rotulo' => AgenteUtilizador::rotulo($agente),
+            'agente_assinatura' => AgenteUtilizador::assinatura($agente),
+        ];
     }
 
     public function sair(Utilizador $utilizador): void

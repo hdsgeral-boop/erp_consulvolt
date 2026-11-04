@@ -97,8 +97,9 @@ final class MfaController extends Controller
             throw new ErroNegocio('Código inválido.', 'CODIGO_INVALIDO', 422);
         }
 
+        $dispositivo = CookiesSessao::dispositivoDoPedido($request);
         $sessao = $this->autenticacao->emitirTokenCompletoPosMfa(
-            $utilizador, $request->string('dispositivo')->toString() ?: 'api', $request->ip(), $request->userAgent(),
+            $utilizador, $dispositivo['id'], $request->ip(), $request->userAgent(),
         );
 
         // Fase D: tal como em AutenticacaoController::entrar, o token só vai no cookie HttpOnly, nunca no corpo.
@@ -106,7 +107,7 @@ final class MfaController extends Controller
             'mfa_pendente' => false,
             'tipo_token' => 'Bearer',
             'expira_em' => $sessao['expira_em']->toAtomString(),
-        ], 'Sessão iniciada com sucesso.'), $sessao['token'], $sessao['expira_em']);
+        ], 'Sessão iniciada com sucesso.'), $sessao['token'], $sessao['expira_em'], $dispositivo['id'], $request);
     }
 
     /** Um código de recuperação só serve uma vez: se válido, é removido da lista antes de devolver true. */

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
 use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Autenticacao\MfaController;
+use App\Http\Controllers\Api\Autenticacao\MinhasSessoesController;
 use App\Http\Controllers\Api\Autenticacao\PlataformaInicialController;
 use App\Http\Controllers\Api\Autenticacao\RegistoEmpresaController;
 use App\Http\Controllers\Api\Compras\ComprasController;
@@ -90,6 +91,11 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         Route::post('sair', [AutenticacaoController::class, 'sair'])->name('sair');
         Route::get('eu', [AutenticacaoController::class, 'eu'])->name('eu');
+        // Empresa activa da sessão (estado no servidor, não no navegador) e «As minhas sessões» (ADR-082)
+        Route::put('empresa-activa', [AutenticacaoController::class, 'definirEmpresaActiva'])->name('empresa_activa');
+        Route::get('sessoes', [MinhasSessoesController::class, 'index'])->name('sessoes.index');
+        Route::post('sessoes/terminar-outras', [MinhasSessoesController::class, 'terminarOutras'])->name('sessoes.terminar_outras');
+        Route::delete('sessoes/{id}', [MinhasSessoesController::class, 'terminar'])->whereNumber('id')->name('sessoes.terminar');
         // «Gerir Dados Pessoais»: o próprio utilizador (sem empresa activa nem permissões do catálogo)
         Route::get('dados-pessoais', [DadosPessoaisController::class, 'show'])->name('dados_pessoais.show');
         Route::put('dados-pessoais', [DadosPessoaisController::class, 'update'])->name('dados_pessoais.update');

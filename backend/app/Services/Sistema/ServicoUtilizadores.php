@@ -296,17 +296,26 @@ final class ServicoUtilizadores
      */
     public function redefinirPorRecuperacao(Utilizador $u): string
     {
-        return DB::transaction(function () use ($u) {
+        $palavraPasse = $this->gerarPalavraPasseAleatoria();
+        $this->aplicarRecuperacao($u, $palavraPasse);
+
+        return $palavraPasse;
+    }
+
+    /**
+     * Aplica uma palavra-passe de recuperação JÁ ENTREGUE ao titular (ServicoRecuperacaoPassword envia primeiro, aplica
+     * depois): grava-a, exige a troca no próximo acesso e revoga as sessões abertas.
+     */
+    public function aplicarRecuperacao(Utilizador $u, string $palavraPasse): void
+    {
+        DB::transaction(function () use ($u, $palavraPasse) {
             $u = Utilizador::query()->lockForUpdate()->findOrFail($u->id);
-            $palavraPasse = $this->gerarPalavraPasseAleatoria();
             $this->definirPalavraPasse($u, $palavraPasse);
             $u->deve_alterar_password = true;
             $u->save();
             $revogadas = $u->tokens()->delete();
             $this->auditoria->registar('Sistema/Utilizadores', 'Recuperar palavra-passe', "Palavra-passe de '{$u->nome_utilizador}' redefinida por recuperação"
                 ." ({$revogadas} sessão(ões) revogada(s)).", 'utilizadores', $u->id, utilizadorId: $u->id, nomeUtilizador: $u->nome_utilizador);
-
-            return $palavraPasse;
         });
     }
 

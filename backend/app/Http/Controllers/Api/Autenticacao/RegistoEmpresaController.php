@@ -92,10 +92,11 @@ final class RegistoEmpresaController extends Controller
                 return compact('tenant', 'empresa');
             });
         });
-        $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], 'web-registo', $r->ip(), $r->userAgent());
+        $dispositivo = CookiesSessao::dispositivoDoPedido($r);
+        $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], $dispositivo['id'], $r->ip(), $r->userAgent());
         $u = $sessao['utilizador'];
 
         // Fase D: o token vai só no cookie HttpOnly (CookiesSessao), nunca no corpo — tal como em AutenticacaoController::entrar.
-        return CookiesSessao::anexar(RespostaApi::criado(['tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo."), $sessao['token'], $sessao['expira_em']);
+        return CookiesSessao::anexar(RespostaApi::criado(['tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo."), $sessao['token'], $sessao['expira_em'], $dispositivo['id'], $r);
     }
 }
