@@ -115,6 +115,7 @@ class MaquinaEstadosLicencaTest extends TestCase
         $subId = $this->postJson('/api/licenca/renovacao', ['plano_id' => $plano->id, 'meses' => 1], $sessao)->assertCreated()->json('dados.id');
 
         $super = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true])) + ['X-Empresa-Id' => $empresa->id];
+        config(['erp.saas.simulacao_pagamento' => true]);
         $this->postJson("/api/licenca/subscricoes/{$subId}/simular-confirmacao", [], $super)->assertOk();
 
         $sub = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->findOrFail($subId));

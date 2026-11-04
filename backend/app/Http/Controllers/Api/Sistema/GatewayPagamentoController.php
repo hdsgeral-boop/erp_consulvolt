@@ -80,9 +80,17 @@ final class GatewayPagamentoController extends Controller
         return RespostaApi::sucesso($resultado->toArray(), 'Pagamento iniciado com sucesso.');
     }
 
-    /** POST /api/licenca/subscricoes/{id}/simular-confirmacao (apenas super-administrador) */
+    /**
+     * POST /api/licenca/subscricoes/{id}/simular-confirmacao (apenas super-administrador).
+     * Só existe com `erp.saas.simulacao_pagamento` ligado (env SAAS_SIMULACAO_PAGAMENTO) — e não por APP_ENV: o servidor de
+     * teste corre com APP_ENV=production mas precisa da simulação; na produção real fica desligada (404).
+     */
     public function simularConfirmacao(Request $request, int $id): JsonResponse
     {
+        if (! config('erp.saas.simulacao_pagamento', false)) {
+            return RespostaApi::erro('Recurso não encontrado.', 404, 'SIMULACAO_INDISPONIVEL');
+        }
+
         $this->exigirSuperAdmin($request);
 
         $subscricao = SubscricaoEmpresa::query()->findOrFail($id);
