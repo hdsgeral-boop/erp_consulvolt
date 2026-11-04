@@ -209,6 +209,7 @@ export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
     e('config', 'minha_conta', 'Minha conta', 'id-card'),
     e('config', 'plataforma_planos', 'Plataforma: Planos e versões', 'tags'),
     e('config', 'plataforma_codigos', 'Plataforma: Manual de códigos', 'book'),
+    e('config', 'plataforma_ia', 'Plataforma: Inteligência artificial', 'robot'),
   ]),
   e('config', 'config_migracao', 'Migração de Dados', 'file-import'),
 ]);
