@@ -65,6 +65,7 @@ final class ServicoDadosPessoais
         if (mb_strlen($nova) < ServicoUtilizadores::MINIMO_PALAVRA_PASSE) {
             throw new ErroNegocio('A nova palavra-passe tem de ter pelo menos '.ServicoUtilizadores::MINIMO_PALAVRA_PASSE.' caracteres.', 'PALAVRA_PASSE_CURTA', 422);
         }
+        ServicoUtilizadores::exigirForca($nova);   // PALAVRA_PASSE_FRACA: maiúscula + minúscula + algarismo
         if (hash_equals($actual, $nova)) {
             throw new ErroNegocio('A nova palavra-passe tem de ser diferente da actual.', 'PALAVRA_PASSE_IGUAL', 422);
         }

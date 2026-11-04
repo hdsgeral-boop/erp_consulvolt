@@ -10,6 +10,7 @@ use App\Services\Plataforma\ServicoLimitesPlano;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 /**
@@ -125,8 +126,9 @@ final class ServicoUtilizadores
 
         return DB::transaction(function () use ($d, $actor) {
             $nome = trim((string) $d['nome_utilizador']);
-            if (Utilizador::withTrashed()->where('nome_utilizador', $nome)->exists()) {
-                throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
+            $existente = Utilizador::withTrashed()->where('nome_utilizador', $nome)->first();
+            if ($existente !== null) {
+                return $this->reactivarEliminado($existente, $d, $actor);
             }
             $perfil = $this->perfilAtribuivel((int) $d['perfil_utilizador_id'], $actor);
             $todas = (bool) ($d['acesso_todas_empresas'] ?? false);
@@ -145,7 +147,12 @@ final class ServicoUtilizadores
                 'ativo' => (bool) ($d['ativo'] ?? true),
                 'palavra_passe' => $palavraPasse,
             ]);
-            $u->forceFill(['palavra_passe_alterada_em' => now(), 'deve_alterar_password' => true])->save();
+            try {
+                $u->forceFill(['palavra_passe_alterada_em' => now(), 'deve_alterar_password' => true])->save();
+            } catch (UniqueConstraintViolationException) {
+                // o nome é único em toda a instalação; sob RLS a pesquisa acima não vê as contas de outros clientes
+                throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
+            }
             $this->sincronizarEmpresas($u, $d['empresas'] ?? [], $actor);
 
             $this->auditoria->registar('Sistema/Utilizadores', 'Criar utilizador', "Utilizador '{$u->nome_utilizador}' criado com o perfil '{$perfil->nome}'.",
@@ -153,6 +160,37 @@ final class ServicoUtilizadores
 
             return ['utilizador' => $u->refresh(), 'palavra_passe' => $palavraPasse];
         });
+    }
+
+    /**
+     * O nome pedido já é de alguém. A eliminação é lógica (a conta fica guardada para a auditoria e o histórico), por isso
+     * o nome de um utilizador eliminado continua ocupado: se for do mesmo cliente, devolve UTILIZADOR_ELIMINADO para o ecrã
+     * oferecer a reactivação; com `reactivar`, recupera essa conta e grava-lhe os dados indicados (perfil, empresas…).
+     * Como em qualquer conta nova, a palavra-passe é gerada pelo servidor (nova, com troca obrigatória) e as sessões
+     * antigas ficam revogadas. Nome de uma conta activa ou de outro cliente: UTILIZADOR_DUPLICADO.
+     *
+     * @param  array<string, mixed>  $d
+     * @return array{utilizador: Utilizador, palavra_passe: string}
+     */
+    private function reactivarEliminado(Utilizador $existente, array $d, Utilizador $actor): array
+    {
+        if (! $existente->trashed() || (int) $existente->tenant_id !== (int) $actor->tenant_id) {
+            throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
+        }
+        if (empty($d['reactivar'])) {
+            throw new ErroNegocio("O nome «{$existente->nome_utilizador}» pertence a um utilizador eliminado. Pode reactivá-lo com os dados indicados.",
+                'UTILIZADOR_ELIMINADO', 422, ['utilizador_id' => $existente->id]);
+        }
+        $existente->restore();
+        $palavraPasse = $this->gerarPalavraPasseAleatoria();
+        $this->definirPalavraPasse($existente, $palavraPasse);
+        $existente->forceFill(['ativo' => (bool) ($d['ativo'] ?? true), 'deve_alterar_password' => true])->save();
+        $existente->tokens()->delete();
+        $this->auditoria->registar('Sistema/Utilizadores', 'Reactivar utilizador', "Utilizador eliminado '{$existente->nome_utilizador}' reactivado ao criar uma conta com o mesmo nome.",
+            'utilizadores', $existente->id);
+        unset($d['nome_utilizador'], $d['reactivar'], $d['ativo']);
+
+        return ['utilizador' => $this->atualizar($existente, $d, $actor), 'palavra_passe' => $palavraPasse];
     }
 
     /** @param  array<string, mixed>  $d */
@@ -416,7 +454,32 @@ final class ServicoUtilizadores
      */
     public function gerarPalavraPasseAleatoria(): string
     {
-        return Str::password(14);
+        // repete até cumprir a política de força (maiúscula, minúscula e algarismo): o acaso puro falha-a com frequência
+        do {
+            $palavraPasse = Str::password(14);
+        } while (self::problemaDeForca($palavraPasse) !== null);
+
+        return $palavraPasse;
+    }
+
+    /**
+     * Força mínima de uma palavra-passe ESCOLHIDA por quem a vai usar (troca da própria): pelo menos 8 caracteres, com
+     * maiúscula, minúscula e algarismo. Nas geradas pelo servidor garante-se em `gerarPalavraPasseAleatoria`.
+     */
+    public static function problemaDeForca(string $palavraPasse): ?string
+    {
+        return match (true) {
+            mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE => 'A palavra-passe tem de ter pelo menos '.self::MINIMO_PALAVRA_PASSE.' caracteres.',
+            ! preg_match('/\p{Lu}/u', $palavraPasse) || ! preg_match('/\p{Ll}/u', $palavraPasse) || ! preg_match('/\d/', $palavraPasse) => 'A palavra-passe é fraca: use maiúsculas, minúsculas e algarismos (por exemplo, «Luanda#2026»).',
+            default => null,
+        };
+    }
+
+    public static function exigirForca(string $palavraPasse): void
+    {
+        if (($problema = self::problemaDeForca($palavraPasse)) !== null) {
+            throw new ErroNegocio($problema, mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE ? 'PALAVRA_PASSE_CURTA' : 'PALAVRA_PASSE_FRACA', 422);
+        }
     }
 
     /** Hash Argon2id (cast "hashed" do model, o mesmo do login); limpa a credencial PBKDF2 do legado. */

@@ -41,7 +41,8 @@ final class ServicoAutenticacao
         // atravessar todos — o único caso legítimo de ver `utilizadores` sem contexto definido (login_localizar_utilizador,
         // SECURITY DEFINER, migração saas_rls_utilizadores). `Utilizador::query()->where(...)` ficaria sempre vazio
         // sob a RLS de `utilizadores`, porque app_tenant_id() ainda não tem valor.
-        $utilizador = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizador(?, NULL)', [$nomeUtilizador])->first();
+        $utilizador = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizador(?, NULL)', [$nomeUtilizador])->first()
+            ?? $this->porEmail($nomeUtilizador);
 
         // OWASP A07: verificar SEMPRE uma palavra-passe — sem utilizador, contra um hash fictício com o mesmo custo — para
         // o tempo de resposta não revelar se o nome existe (antes: ~ms sem utilizador vs. ~100 ms do Argon2id).
@@ -67,6 +68,25 @@ final class ServicoAutenticacao
         DB::transaction(fn () => $this->modernizarHash($utilizador, $palavraPasse));
 
         return $this->emitirSessaoOuMfa($utilizador, $dispositivo, $ip, $agente);
+    }
+
+    /**
+     * Entrar também com o e-mail (sem distinguir maiúsculas). O e-mail não é único: com mais do que uma conta activa,
+     * pede-se o nome de utilizador em vez de adivinhar (EMAIL_AMBIGUO). Sem tenant na sessão, por isso a pesquisa usa a
+     * função SECURITY DEFINER `login_localizar_utilizadores_por_email` (a RLS esconderia todos os utilizadores).
+     */
+    private function porEmail(string $texto): ?Utilizador
+    {
+        $email = mb_strtolower(trim($texto));
+        if (! str_contains($email, '@')) {
+            return null;
+        }
+        $contas = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizadores_por_email(?)', [$email]);
+        if ($contas->count() > 1) {
+            throw new ErroNegocio('Este e-mail está associado a mais de uma conta: entre com o nome de utilizador.', 'EMAIL_AMBIGUO', 401);
+        }
+
+        return $contas->first();
     }
 
     /**
