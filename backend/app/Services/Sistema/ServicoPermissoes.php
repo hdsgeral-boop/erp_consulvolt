@@ -109,6 +109,22 @@ final class ServicoPermissoes
     }
 
     /**
+     * Anti-escalada: das chaves pedidas, as que o actor NÃO tem (um administrador sem acesso total só concede o que
+     * ele próprio possui). Quem tem acesso total não tem excedentes. `_v2`/`all` ignoram-se (formato, não permissões).
+     *
+     * @param  list<string>  $chaves
+     * @return list<string>
+     */
+    public function excedentes(Utilizador $actor, array $chaves): array
+    {
+        if ($this->total($actor)) {
+            return [];
+        }
+
+        return array_values(array_filter($chaves, fn ($k) => ! in_array($k, ['_v2', 'all'], true) && ! $this->tem($actor, (string) $k)));
+    }
+
+    /**
      * Administrador para efeitos de aprovação (papelAdmin, js/manutencao.js:21): papel SUPER_ADMINISTRADOR ou
      * ADMINISTRADOR, ou perfil de acesso total (no legado, o perfil n.º 1 "Super Administrador").
      */
@@ -274,6 +290,8 @@ final class ServicoPermissoes
         }
         $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaPeloPlano($utilizador, $k)));
         $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaForaDoSuperAdministrador($utilizador, $k)));
+        // chaves da plataforma/suporte gravadas num perfil de cliente nunca valem (tem()): também não se anunciam
+        $chaves = array_values(array_filter($chaves, fn ($k) => $this->tem($utilizador, $k, $empresaId) || (! $this->ePlataforma($k) && ! $this->eSuporte($k))));
         sort($chaves);
 
         return $chaves;

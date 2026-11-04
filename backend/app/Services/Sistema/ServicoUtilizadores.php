@@ -213,7 +213,8 @@ final class ServicoUtilizadores
                     $u->{$campo} = $d[$campo];
                 }
             }
-            $perfil = isset($d['perfil_utilizador_id']) ? $this->perfilAtribuivel((int) $d['perfil_utilizador_id'], $actor) : $u->perfil;
+            $perfil = isset($d['perfil_utilizador_id']) && (int) $d['perfil_utilizador_id'] !== (int) $u->perfil_utilizador_id
+                ? $this->perfilAtribuivel((int) $d['perfil_utilizador_id'], $actor) : $u->perfil;
             if ($perfil) {
                 $u->perfil_utilizador_id = $perfil->id;
             }
@@ -351,6 +352,11 @@ final class ServicoUtilizadores
         $perfil = PerfilUtilizador::query()->find($perfilId) ?? throw new ErroNegocio('O perfil indicado não existe.', 'PERFIL_INEXISTENTE', 422);
         if (($perfil->permissoes['all'] ?? null) === true && ! $this->permissoes->total($actor)) {
             throw new ErroNegocio('Só um administrador de acesso total pode atribuir um perfil de acesso total.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
+        // anti-escalada: um perfil só se atribui (a outrem ou a si) se não der nada que o próprio actor não tenha
+        $chaves = array_keys(array_filter($perfil->permissoes ?? [], fn ($v) => $v === true));
+        if ($this->permissoes->excedentes($actor, array_map('strval', $chaves)) !== []) {
+            throw new ErroNegocio('Não pode atribuir um perfil com permissões que você próprio não tem.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
         }
 
         return $perfil;

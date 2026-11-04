@@ -36,7 +36,8 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
         $this->empresa = $this->criarEmpresa(['nif' => '5417000101']);
         $this->outra = $this->criarEmpresa(['nif' => '5417000102']);
         $this->admin = $this->criarUtilizador(['nome_utilizador' => 'gestor', 'perfil_utilizador_id' => $this->criarPerfil(['_v2' => true,
-            'config_utilizadores_view' => true, 'config_util_gerir' => true, 'config_perfis_view' => true, 'config_perfis_gerir' => true], 'Gestor de acessos')->id]);
+            'config_utilizadores_view' => true, 'config_util_gerir' => true, 'config_perfis_view' => true, 'config_perfis_gerir' => true,
+            'lancamentos_view' => true], 'Gestor de acessos')->id]);
         $this->admin->empresas()->attach($this->empresa->id);
         $this->s = $this->entrar($this->admin) + ['X-Empresa-Id' => $this->empresa->id];
     }

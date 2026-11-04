@@ -125,6 +125,12 @@ final class ServicoPerfis
                     Log::info('Perfis: permissões fora do catálogo descartadas ao gravar', ['perfil' => $p?->id, 'nome' => $nome, 'chaves' => $descartadas]);
                     $chaves = array_values(array_diff($chaves, $descartadas));
                 }
+                // anti-escalada: só se acrescenta ao perfil o que o próprio actor tem (acesso total dispensa)
+                $novas = array_values(array_diff($chaves, $p ? $this->chaves($p->permissoes ?? []) : []));
+                if ($this->permissoes->excedentes($actor, $novas) !== []) {
+                    throw new ErroNegocio('Não pode conceder permissões que você próprio não tem.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403,
+                        ['permissoes' => $this->permissoes->excedentes($actor, $novas)]);
+                }
                 $contagem = $this->contar($chaves);
                 if ($contagem['ecras'] === 0) {
                     throw new ErroNegocio('Marque pelo menos um ecrã para consultar.', 'PERFIL_SEM_ECRAS', 422);
