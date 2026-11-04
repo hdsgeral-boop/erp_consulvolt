@@ -3,13 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
+import { GraficosPainel, type SeriesPainel } from '@/plataforma/GraficosPainel';
 
 interface Painel {
   clientes: { total: number; ativos: number; suspensos: number };
   empresas: { total: number; ativas: number; em_teste: number; licenca_expirada: number };
   utilizadores: number;
   ultimos_clientes: { id: number; nome: string; slug: string; criado_em: string }[];
-  indicadores: {
+  indicadores: SeriesPainel & {
     mrr: number; arr: number; receita_recebida_mes: number;
     pagamentos: { pendentes: number; confirmados_mes: number };
     taxa_cancelamento_mes: number; taxa_conversao_trial_mes: number;
@@ -45,6 +46,7 @@ export default function PlataformaPainel() {
         {n('Tickets abertos', data?.indicadores.tickets.abertos)}
         {n('Tickets vencidos (SLA)', data?.indicadores.tickets.vencidos)}
       </Row>
+      <GraficosPainel series={data?.indicadores} carregar={isLoading} />
       <Card title="Últimos clientes" style={{ marginTop: 12 }}>
         <Table rowKey="id" size="small" pagination={false} loading={isLoading} dataSource={data?.ultimos_clientes ?? []}
           columns={[{ title: 'Cliente', dataIndex: 'nome' }, { title: 'Endereço', dataIndex: 'slug' }, { title: 'Criado em', render: (_, c) => formatarDataHora(c.criado_em) }]} />

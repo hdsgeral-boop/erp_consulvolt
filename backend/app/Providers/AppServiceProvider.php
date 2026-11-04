@@ -178,6 +178,13 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Primeiro acesso da plataforma (sem sessão): consulta leve; criação com limite forte, contra força bruta do segredo de instalação
+        RateLimiter::for('plataforma-inicial-estado', fn (Request $request) => Limit::perMinute(30)->by('pi-est|'.$request->ip()));
+        RateLimiter::for('plataforma-inicial-criar', fn (Request $request) => [
+            Limit::perMinute(3)->by('pi-cri|'.$request->ip()),
+            Limit::perHour(10)->by('pi-cri-h|'.$request->ip()),
+        ]);
+
         // Alteração da própria palavra-passe (exige a actual): poucas tentativas por utilizador, contra adivinhação (OWASP A07)
         RateLimiter::for('palavra-passe', fn (Request $request) => Limit::perMinute(5)->by('pp|'.($request->user()?->getKey() ?: $request->ip())));
 
