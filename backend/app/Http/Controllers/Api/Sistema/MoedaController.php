@@ -51,6 +51,7 @@ final class MoedaController extends Controller
     public function store(Request $r): JsonResponse
     {
         $this->exigir('config_moedas_gerir');
+        $this->moedas->exigirGestaoCatalogo();
         $d = $r->validate(['codigo' => ['required', 'string', 'regex:/^[A-Za-z]{3}$/'], 'nome' => ['required', 'string', 'max:255'], 'simbolo' => ['required', 'string', 'max:10'],
             'casas_decimais' => ['nullable', 'integer', 'between:0,6']], ['codigo.regex' => 'O código da moeda tem 3 letras (ISO 4217).']);
 
@@ -60,6 +61,7 @@ final class MoedaController extends Controller
     public function update(Request $r, int $moeda): JsonResponse
     {
         $this->exigir('config_moedas_gerir');
+        $this->moedas->exigirGestaoCatalogo();
         $d = $r->validate(['nome' => ['sometimes', 'string', 'max:255'], 'simbolo' => ['sometimes', 'string', 'max:10'], 'ativo' => ['sometimes', 'boolean']]);
 
         return RespostaApi::sucesso($this->moedas->atualizarMoeda(Moeda::query()->findOrFail($moeda), $d), 'Moeda actualizada com sucesso.');

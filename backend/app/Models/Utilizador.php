@@ -139,6 +139,16 @@ class Utilizador extends Autenticavel
     }
 
     /**
+     * Pertence à plataforma SaaS (tenant da plataforma) com poder de gestão: super-administrador ou operador do back-office.
+     * Usado para decidir quem altera o que é partilhado por todos os clientes (catálogo de moedas, câmbios «todas»).
+     */
+    public function ePlataforma(): bool
+    {
+        return ($this->eSuperAdministrador() || $this->eOperadorPlataforma())
+            && (int) $this->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
+    }
+
+    /**
      * Conta privilegiada (Fase 4 da extensão SaaS, secção 12, ponto 222: "MFA obrigatório para contas
      * privilegiadas") — qualquer papel com poder administrativo acima de um utilizador comum de empresa.
      */
