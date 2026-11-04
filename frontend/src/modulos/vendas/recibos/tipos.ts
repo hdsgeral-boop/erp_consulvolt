@@ -1,3 +1,5 @@
+import type { RetencaoRecibo } from './retencao';
+
 /** Recibo de cliente (ReciboVendaResource). */
 export interface ReciboVenda {
   id: number;
@@ -22,6 +24,10 @@ export interface ReciboVenda {
   referencia?: string | null;
   /** saldo por alocar (só nos adiantamentos) */
   saldo_adiantamento?: string;
+  /** retenção na fonte do cliente: o recibo liquida pelo bruto (montante_total); em caixa/banco entra o líquido */
+  valor_retido?: string;
+  valor_liquido?: string;
+  retencao?: RetencaoRecibo | null;
   alocacoes?: { venda_id: number; numero_documento: string | null; montante: string; data_alocacao?: string | null; numero_lan?: string | null }[];
 }
 

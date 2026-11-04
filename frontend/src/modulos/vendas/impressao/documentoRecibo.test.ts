@@ -31,6 +31,17 @@ describe('recibos em duas vias', () => {
     expect(html).not.toContain('Sem linhas');
   });
 
+  it('recibo com retenção na fonte: mostra a percentagem, o valor retido e o valor recebido (líquido)', () => {
+    const html = htmlDocumentoComercial(dadosRecibo({ ...recibo, valor_retido: '812.50', valor_liquido: '11687.50',
+      retencao: { tipo_retencao_fonte_id: 1, codigo_tipo: 'IND_SERV', descricao_tipo: 'Imposto Industrial', percentagem: '6.5000', base_incidencia: '12500.00', valor_retido: '812.50', valor_calculado: '812.50', referencia_comprovativo: 'GR-9', data_comprovativo: '2026-09-29', conta_imposto: '341' } }));
+    expect(html).toContain('Retenção na fonte (6,5 %)');
+    expect(html).toContain('812,50');
+    expect(html).toContain('Valor recebido (líquido)');
+    expect(html).toContain('11');
+    expect(html).toContain('GR-9');
+    expect(htmlDocumentoComercial(dadosRecibo(recibo))).not.toContain('Retenção na fonte');
+  });
+
   it('o recibo leva sempre o IBAN da conta predefinida da empresa, a seguir ao meio de pagamento escolhido', () => {
     const predefinido: MeioPagamentoVenda = { id: 9, nome: 'BAI — Conta principal', codigo_conta: '4311', iban: 'AO06004000001111111111174', swift: 'BAIAAOLU', predefinido: true, codigo_moeda: 'AOA' };
     const pags = dadosRecibo(recibo, predefinido).pagamentos;

@@ -16,7 +16,9 @@ export function dadosRecibo(r: ReciboVenda, predefinido?: MeioPagamentoVenda | n
   const linhas: (string | null)[][] = alocacoes.map((a) => [a.numero_documento ?? `#${a.venda_id}`, formatarKz(a.montante)]);
   // Adiantamento sem facturas (ainda) alocadas: a linha descreve o adiantamento em vez de «Sem linhas».
   if (adiantamento && !linhas.length) linhas.push([`Adiantamento${r.referencia ? ` — ${r.referencia}` : ''}`, formatarKz(r.montante_total)]);
-  const pagamentos: { descricao: string; valor?: string }[] = meio !== '—' ? [{ descricao: meio, valor: r.montante_total }] : [];
+  const ret = r.retencao && Number(r.retencao.valor_retido) > 0 ? r.retencao : null;
+  const liquido = r.valor_liquido ?? r.montante_total;
+  const pagamentos: { descricao: string; valor?: string }[] = meio !== '—' ? [{ descricao: meio, valor: ret ? liquido : r.montante_total }] : [];
   if (predefinido?.iban) {
     const banco = [`IBAN ${predefinido.iban}`, predefinido.swift && `SWIFT ${predefinido.swift}`].filter(Boolean).join(' · ');
     pagamentos.push({ descricao: [predefinido.nome ?? predefinido.codigo_conta ?? 'Conta', banco].filter(Boolean).join(' — ') });
@@ -33,11 +35,18 @@ export function dadosRecibo(r: ReciboVenda, predefinido?: MeioPagamentoVenda | n
       ['Referência do pagamento', r.referencia_pagamento],
       ['Conta', r.codigo_conta],
       ['Contabilização', r.numero_lan_contabilizacao],
+      ...(ret ? ([
+        ['Comprovativo da retenção', [ret.referencia_comprovativo, ret.data_comprovativo && dataDoc(ret.data_comprovativo)].filter(Boolean).join(' · ') || null],
+      ] as [string, string | null][]) : []),
       ...(adiantamento ? ([['Saldo por alocar', `${formatarKz(r.saldo_adiantamento ?? 0)} Kz`]] as [string, string][]) : []),
     ],
     colunas: [{ titulo: adiantamento && !alocacoes.length ? 'Descrição' : 'Documento liquidado' }, { titulo: 'Montante (Kz)', alinhar: 'direita' }],
     linhas,
-    totais: { total: r.montante_total, rotuloTotal: 'Total recebido' },
+    totais: {
+      total: r.montante_total,
+      rotuloTotal: ret ? 'Total liquidado (bruto)' : 'Total recebido',
+      ...(ret ? { extra: [[`Retenção na fonte (${String(Number(ret.percentagem)).replace(".", ",")} %)`, `-${ret.valor_retido}`], ['Valor recebido (líquido)', liquido]] as [string, string][] } : {}),
+    },
     pagamentos,
     impostos: false,
     legal: ['Documento processado por computador.', adiantamento ? 'Adiantamento a deduzir nas facturas a emitir/alocar.' : null],

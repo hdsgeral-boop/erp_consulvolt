@@ -22,6 +22,8 @@ import { EstadoTag } from '@/modulos/compras/comum/estados';
 import { SeletorConta, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import type { DocumentoVenda } from '../api';
 import { alocacoesParaPedido, distribuirMontante, totalAlocado } from './alocacao';
+import { BlocoRetencao, ModalTiposRetencao, textoRetencao } from './RetencaoFonte';
+import { RETENCAO_VAZIA, resumirRecibo, retencaoParaPedido, type EstadoRetencao } from './retencao';
 import { accoesRecibo, MEIOS_RECIBO, rotuloMeio, type ReciboVenda } from './tipos';
 
 /** Vendas › Facturação › Recibos de clientes (/api/vendas/recibos). */
@@ -44,6 +46,7 @@ function ListaRecibos() {
   const [nomeCliente, setNomeCliente] = useState<string>();
   const [seleccao, setSeleccao] = useState<number[]>([]);
   const [alocar, setAlocar] = useState<ReciboVenda | null>(null);
+  const [tiposRetencao, setTiposRetencao] = useState(false);
   const pequeno = useEcraPequeno();
   const consulta = useQueryClient();
   const operacoes = useOperacoes();
@@ -75,6 +78,8 @@ function ListaRecibos() {
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Cliente', render: (_, r) => r.cliente?.nome ?? `#${r.cliente_id}` },
     { title: 'Montante (Kz)', dataIndex: 'montante_total', align: 'right', render: (v: string) => formatarKz(v), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => (l.estado === 'ANULADO' ? 0 : l.montante_total)))) },
+    { title: 'Retenção (Kz)', dataIndex: 'valor_retido', align: 'right', responsive: ['lg'], render: (v: string | undefined, r) => (Number(v ?? 0) > 0 ? <span title={r.retencao ? `${r.retencao.descricao_tipo} (${Number(r.retencao.percentagem)} %)` : undefined}>{formatarKz(v)}</span> : '—'), valorImpressao: (r) => (Number(r.valor_retido ?? 0) > 0 ? formatarKz(r.valor_retido) : '—') },
+    { title: 'Líquido (Kz)', dataIndex: 'valor_liquido', align: 'right', responsive: ['lg'], render: (v: string | undefined, r) => formatarKz(v ?? r.montante_total), valorImpressao: (r) => formatarKz(r.valor_liquido ?? r.montante_total) },
     { title: 'Meio', dataIndex: 'meio_pagamento', responsive: ['md'], render: rotuloMeio },
     { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['lg'], render: (v) => v || '—' },
     { title: 'Estado', dataIndex: 'estado', responsive: ['sm'], render: (e: string) => <EstadoTag estado={e} /> },
@@ -94,7 +99,7 @@ function ListaRecibos() {
       <CabecalhoPagina
         titulo="Recibos"
         subtitulo="Recebimentos de clientes que liquidam facturas"
-        accoes={pode('vendas_recibos') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo recibo</Button>}
+        accoes={<Space wrap>{pode('vendas_config') && <Button onClick={() => setTiposRetencao(true)}>Tipos de retenção na fonte</Button>}{pode('vendas_recibos') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo recibo</Button>}</Space>}
       />
       <Card>
         <BarraFiltros
@@ -133,6 +138,7 @@ function ListaRecibos() {
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
+      {pode('vendas_config') && <ModalTiposRetencao aberto={tiposRetencao} aoFechar={() => setTiposRetencao(false)} />}
       <ModalAlocacaoUN tipo="recibo_venda" id={alocar?.id ?? null} valor={alocar ? Number(alocar.montante_total) : null} invalidar={[['vendas']]}
         titulo={`Repartição por unidades de negócio — recibo ${alocar?.numero_recibo ?? ''}`} aoFechar={() => setAlocar(null)} />
     </>
@@ -174,6 +180,7 @@ export function NovoRecibo() {
   const [tipoRecibo, setTipoRecibo] = useState<'NORMAL' | 'ADIANTAMENTO'>('NORMAL');
   const adiantamento = tipoRecibo === 'ADIANTAMENTO';
   const montanteAdiantamento = Form.useWatch('montante', form) ?? 0;
+  const [retencao, setRetencao] = useState<EstadoRetencao>(RETENCAO_VAZIA);
 
   const pendentes = useQuery({
     queryKey: ['vendas', 'pendentes', clienteId],
@@ -192,6 +199,8 @@ export function NovoRecibo() {
     if (f) setAlocacoes((a) => (a[f.id] !== undefined ? a : { ...a, [f.id]: Number(f.valor_pendente ?? f.total_bruto) || 0 }));
   }, [pendentes.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = totalAlocado(alocacoes);
+  const brutoRecibo = adiantamento ? Number(montanteAdiantamento) || 0 : total;
+  const resumo = resumirRecibo(brutoRecibo, retencao);
   const distribuicao = recebido !== null ? distribuirMontante(facturas, recebido) : null;
   const emitir = useAccao<ReciboVenda>({ invalidar: [['vendas'], ['teso']], aoSucesso: (r) => navegar(`../${r.id}`), tituloErro: 'Não foi possível emitir o recibo' });
 
@@ -207,7 +216,8 @@ export function NovoRecibo() {
             emitir.mutate({
               url: '/vendas/recibos',
               dados: { tipo_recibo: 'ADIANTAMENTO', cliente_id: v.cliente_id, data: dataApi(v.data), codigo_conta: v.codigo_conta, meio_pagamento: v.meio_pagamento,
-                referencia_pagamento: v.referencia_pagamento || undefined, contabilizar: v.contabilizar, montante: v.montante, observacoes: v.observacoes || undefined },
+                referencia_pagamento: v.referencia_pagamento || undefined, contabilizar: v.contabilizar, montante: v.montante, observacoes: v.observacoes || undefined,
+                retencao: retencaoParaPedido(retencao, Number(v.montante) || 0) },
             });
             return;
           }
@@ -218,7 +228,7 @@ export function NovoRecibo() {
           }
           emitir.mutate({
             url: '/vendas/recibos',
-            dados: { cliente_id: v.cliente_id, data: dataApi(v.data), codigo_conta: v.codigo_conta, meio_pagamento: v.meio_pagamento, referencia_pagamento: v.referencia_pagamento || undefined, contabilizar: v.contabilizar, alocacoes: linhas },
+            dados: { cliente_id: v.cliente_id, data: dataApi(v.data), codigo_conta: v.codigo_conta, meio_pagamento: v.meio_pagamento, referencia_pagamento: v.referencia_pagamento || undefined, contabilizar: v.contabilizar, alocacoes: linhas, retencao: retencaoParaPedido(retencao, total) },
           });
         }}
       >
@@ -294,6 +304,7 @@ export function NovoRecibo() {
               <span>Valor recebido</span>
               <InputNumber min={0} precision={2} style={{ width: 170 }} value={recebido} disabled={!facturas.length} onChange={(v) => setRecebido(v)} />
               <Button disabled={!distribuicao} onClick={() => distribuicao && setAlocacoes(distribuicao.alocacoes)}>Distribuir</Button>
+              {retencao.aplicar && <Typography.Text type="secondary">Valor bruto das facturas; entra em caixa/banco o líquido: {formatarKz(resumo.liquido)} Kz</Typography.Text>}
             </Space>
           }
         >
@@ -324,12 +335,10 @@ export function NovoRecibo() {
               },
             ]}
           />
-          <Flex justify="end" style={{ marginTop: 16 }}>
-            <Statistic title="Total do recibo (Kz)" value={formatarKz(total)} />
-          </Flex>
         </Card>}
+        <BlocoRetencao total={brutoRecibo} valor={retencao} aoMudar={setRetencao} podeConfigurar={pode('vendas_config')} />
         <Space wrap>
-          <Button type="primary" htmlType="submit" loading={emitir.isPending} disabled={adiantamento ? !(Number(montanteAdiantamento) > 0) : total <= 0}>
+          <Button type="primary" htmlType="submit" loading={emitir.isPending} disabled={(adiantamento ? !(Number(montanteAdiantamento) > 0) : total <= 0) || !!resumo.erro}>
             {adiantamento ? 'Emitir recibo de adiantamento' : 'Emitir recibo'}
           </Button>
           <Button onClick={() => navegar('..')}>Cancelar</Button>
@@ -389,6 +398,10 @@ function DetalheRecibo() {
           <Descriptions.Item label="Data">{formatarData(r.data)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={r.estado} /></Descriptions.Item>
           <Descriptions.Item label="Montante">{formatarKz(r.montante_total, true)}</Descriptions.Item>
+          {r.retencao && <Descriptions.Item label="Retenção na fonte">{textoRetencao(r.retencao.percentagem, r.retencao.valor_retido)} · {r.retencao.descricao_tipo}</Descriptions.Item>}
+          {r.retencao && <Descriptions.Item label="Base de incidência">{formatarKz(r.retencao.base_incidencia, true)}</Descriptions.Item>}
+          {r.retencao && <Descriptions.Item label="Valor recebido (líquido)">{formatarKz(r.valor_liquido ?? r.montante_total, true)}</Descriptions.Item>}
+          {r.retencao && (r.retencao.referencia_comprovativo || r.retencao.data_comprovativo) && <Descriptions.Item label="Comprovativo da retenção">{[r.retencao.referencia_comprovativo, r.retencao.data_comprovativo && formatarData(r.retencao.data_comprovativo)].filter(Boolean).join(' · ')}</Descriptions.Item>}
           {r.tipo_recibo === 'ADIANTAMENTO' && (
             <Descriptions.Item label="Adiantamento"><Tag color="purple">Saldo por alocar: {formatarKz(r.saldo_adiantamento ?? 0)} Kz</Tag></Descriptions.Item>
           )}

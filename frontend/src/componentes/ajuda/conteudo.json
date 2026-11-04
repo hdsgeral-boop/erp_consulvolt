@@ -512,7 +512,9 @@
     "Emita e, se necessário, integre na contabilidade."
    ],
    "dicas": [
-    "Orçamentos e proformas não são documentos contabilísticos."
+    "Orçamentos e proformas não são documentos contabilísticos.",
+    "Recibos: «Liquidar» numa factura abre o recibo com o cliente e a factura já escolhidos. Se o cliente reteve imposto na fonte, ligue «Aplicar retenção na fonte» no recibo: as facturas ficam saldadas pelo valor bruto e só entra em caixa/banco o valor líquido.",
+    "Os tipos de retenção (por omissão, Imposto Industrial 6,5 % em serviços) e a conta do imposto retido (por omissão 34.1) editam-se em Recibos › «Tipos de retenção na fonte» e nas Contas de vendas; confirme-os com o seu contabilista."
    ]
   },
   "vendas_relatorios": {
