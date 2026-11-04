@@ -247,10 +247,17 @@ return [
         // Domínio base dos clientes: <slug>.<base> = cliente; admin.erp.<base> = área da plataforma;
         // portal.<base> = portal autónomo do colaborador (partilhado por todos os clientes). Vazio = sem restrição.
         'base' => env('DOMINIO_BASE', ''),
-        // Tenant que opera a plataforma (acesso à área admin.erp.<base>).
+        // Tenant que opera a plataforma (acesso à área <prefixo_plataforma>.<base>).
         'plataforma_tenant_id' => (int) env('PLATAFORMA_TENANT_ID', 1),
+        // Subdomínio da área da plataforma SaaS: <prefixo>.<base>. Configurável por DOMINIO_PLATAFORMA (ex.: gestao-admin).
+        'prefixo_plataforma' => env('DOMINIO_PLATAFORMA', 'admin.erp'),
         // Subdomínios que não podem ser slugs de clientes («portal» tem área própria em DominioPedido; mantido aqui
         // também, em segunda linha de defesa, para nenhum cliente o poder reclamar como slug).
-        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste', 'portal'],
+        'slugs_reservados' => array_values(array_unique(array_merge(
+            ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste', 'portal'],
+            [env('DOMINIO_PLATAFORMA', 'admin.erp')],
+        ))),
+        // Segredo opcional do primeiro acesso da plataforma (cabeçalho X-Setup-Token). Vazio = só o host da plataforma protege.
+        'plataforma_setup_token' => env('PLATAFORMA_SETUP_TOKEN', ''),
     ],
 ];

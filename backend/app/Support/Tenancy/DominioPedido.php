@@ -39,6 +39,7 @@ final class DominioPedido
 
     public const DESCONHECIDA = 'desconhecida';
 
+    /** Prefixo da área da plataforma quando `erp.dominio.prefixo_plataforma` (DOMINIO_PLATAFORMA) não está definido. */
     private const PREFIXO_PLATAFORMA = 'admin.erp';
 
     private const PREFIXO_PORTAL = 'portal';
@@ -62,7 +63,7 @@ final class DominioPedido
 
         $prefixo = substr($host, 0, -strlen('.'.$base));
 
-        if ($prefixo === self::PREFIXO_PLATAFORMA) {
+        if ($prefixo === self::prefixoPlataforma()) {
             return new self(self::PLATAFORMA);
         }
         if ($prefixo === self::PREFIXO_PORTAL) {
@@ -73,6 +74,12 @@ final class DominioPedido
         }
 
         return new self(self::CLIENTE, $prefixo);
+    }
+
+    /** Prefixo da área da plataforma (DOMINIO_PLATAFORMA; omissão `admin.erp`). */
+    public static function prefixoPlataforma(): string
+    {
+        return strtolower(trim((string) config('erp.dominio.prefixo_plataforma', self::PREFIXO_PLATAFORMA))) ?: self::PREFIXO_PLATAFORMA;
     }
 
     /** Cliente indicado pelo endereço (null se o pedido não for de um cliente ou se o cliente não existir). */
