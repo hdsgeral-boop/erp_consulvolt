@@ -1,12 +1,11 @@
 import { Skeleton, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { obter } from '@/api/cliente';
 import {
   DetalheEtapa,
   DiagramaFluxo,
-  IconeFa,
   MiniProgresso,
   NarrativaEtapa,
   PillEstado,
@@ -16,6 +15,7 @@ import {
 } from '@/componentes/fluxos';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { formatarPorFormato, useRotaDaVista } from '../comum/componentes';
+import { PilulasSeparadores } from '../comum/PilulasSeparadores';
 import { dataCurta, etapaInicial, tituloDiagrama, type LinhaProcesso } from './logica';
 import './fluxo.css';
 
@@ -46,25 +46,9 @@ export function CabecalhoFluxo({ subtitulo, accoes }: { subtitulo?: ReactNode; a
   );
 }
 
-/** Separadores dos fluxos: sublinhado azul no activo, ícone à esquerda, quebram em várias linhas (fluxo-tabs). */
+/** Separadores dos fluxos: as mesmas pílulas do Dashboard Global (ícone e cor por tipo de fluxo), em várias linhas. */
 export function SeparadoresFluxo({ fluxos, activo, aoEscolher }: { fluxos: FluxoSeparador[]; activo: string; aoEscolher: (id: string) => void }) {
-  const teclas = (ev: KeyboardEvent<HTMLDivElement>) => {
-    const i = fluxos.findIndex((f) => f.id === activo);
-    const alvo = ev.key === 'ArrowRight' ? i + 1 : ev.key === 'ArrowLeft' ? i - 1 : ev.key === 'Home' ? 0 : ev.key === 'End' ? fluxos.length - 1 : null;
-    if (alvo === null || alvo < 0 || alvo >= fluxos.length) return;
-    ev.preventDefault();
-    aoEscolher(fluxos[alvo].id);
-    (ev.currentTarget.querySelectorAll('button')[alvo] as HTMLButtonElement | undefined)?.focus();
-  };
-  return (
-    <div className="fluxo-tabs" role="tablist" aria-label="Processos" onKeyDown={teclas}>
-      {fluxos.map((f) => (
-        <button key={f.id} type="button" role="tab" className="fluxo-tab" aria-selected={f.id === activo} tabIndex={f.id === activo ? 0 : -1} onClick={() => aoEscolher(f.id)}>
-          <IconeFa nome={f.icone} /> {f.nome}
-        </button>
-      ))}
-    </div>
-  );
+  return <PilulasSeparadores papel="separadores" rotulo="Processos" itens={fluxos.map((f) => ({ id: f.id, nome: f.nome, icone: f.icone }))} activo={activo} aoEscolher={aoEscolher} />;
 }
 
 const kz = (v: string | null | undefined) => (v && Number(v) !== 0 ? `${formatarKz(v)} Kz` : null);

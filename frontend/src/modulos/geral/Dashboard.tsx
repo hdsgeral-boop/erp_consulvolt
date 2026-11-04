@@ -2,7 +2,7 @@ import { Alert, Button, Card, Empty, Flex, Form, Popover, Select, Skeleton, Spac
 import { FilterOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useRef, useState, type CSSProperties } from 'react';
+import { useRef, useState } from 'react';
 import { BotoesExportar, clonarParaImpressao } from '@/componentes/impressao';
 import { useNavigate, useSearchParams } from 'react-router';
 import { obter } from '@/api/cliente';
@@ -14,6 +14,7 @@ import type { GraficoApi } from '@/componentes/graficos/Graficos';
 import { IconeFa } from '@/componentes/fluxos';
 import { GraficoPainel } from './comum/GraficoPainel';
 import { estiloKpi, estiloPainel } from './comum/estiloPainel';
+import { PilulasSeparadores } from './comum/PilulasSeparadores';
 import './comum/painel.css';
 import { CartaoKpi, TabelaGestao, tabelaGestaoHtml, useRotaDaVista, type TabelaApiGestao } from './comum/componentes';
 import { AnaliseDinamica } from './comum/AnaliseDinamica';
@@ -162,25 +163,7 @@ export default function Dashboard() {
         <Empty description="Não tem acesso a nenhum painel nesta empresa." />
       ) : (
         <>
-          <nav className="painel-modulos" aria-label="Módulos do dashboard">
-            {separadores.map((p) => {
-              const e = estiloPainel(p.id);
-              const eActivo = p.id === activo.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`painel-modulo-btn${eActivo ? ' activo' : ''}`}
-                  style={{ '--painel-cor': e.cor } as CSSProperties}
-                  aria-pressed={eActivo}
-                  onClick={() => escolher(p.id)}
-                >
-                  <IconeFa nome={e.icone} className="painel-modulo-icone" />
-                  <span>{p.nome}</span>
-                </button>
-              );
-            })}
-          </nav>
+          <PilulasSeparadores itens={separadores} activo={activo.id} aoEscolher={escolher} rotulo="Módulos do dashboard" />
           <div key={activo.id}>
             {activo.tipo === 'CUBO' ? (
               <Cubo />

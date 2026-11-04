@@ -98,7 +98,7 @@ describe('Fluxo de Processos — disposição do legado', () => {
     expect(filhos[1]).toContain('fluxo-cabecalho-accoes');
   });
 
-  it('separadores sublinhados com ícone; clique e setas mudam de fluxo', () => {
+  it('separadores em pílula (as do Dashboard) com ícone; clique e setas mudam de fluxo', () => {
     const aoEscolher = vi.fn();
     const { container } = render(
       <SeparadoresFluxo
@@ -110,7 +110,7 @@ describe('Fluxo de Processos — disposição do legado', () => {
         aoEscolher={aoEscolher}
       />,
     );
-    expect(container.querySelector('.fluxo-tabs')).not.toBeNull();
+    expect(container.querySelector('.painel-modulos')).not.toBeNull();
     const tabs = screen.getAllByRole('tab');
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
     expect(tabs[1]).toHaveTextContent('Bancos (43)');

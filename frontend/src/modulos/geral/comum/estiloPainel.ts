@@ -27,6 +27,15 @@ export const ESTILO_PAINEIS: Record<string, EstiloVisual> = {
   cubo: { icone: 'cube', cor: '#0f766e' },
   grupo: { icone: 'sitemap', cor: '#7c3aed' },
   __comparacao: { icone: 'balance-scale', cor: '#7c3aed' },
+  // tipos de fluxo de processos sem painel com o mesmo id (os restantes — rh, vendas, compras, projetos, orcamento, crm,
+  // acrescimos — partilham a cor do painel); ícones do CatalogoFluxos
+  ferias: { icone: 'umbrella-beach', cor: '#0ea5e9' },
+  avaliacao: { icone: 'star-half-alt', cor: '#a855f7' },
+  pos: { icone: 'cash-register', cor: '#16a34a' },
+  lavandaria: { icone: 'tshirt', cor: '#06b6d4' },
+  imobilizado: { icone: 'couch', cor: '#db2777' }, // = Ativos Fixos
+  bancos: { icone: 'university', cor: '#0369a1' },
+  caixa: { icone: 'cash-register', cor: '#65a30d' },
 };
 
 const NEUTRO: EstiloVisual = { icone: 'chart-line', cor: '#64748b' };
