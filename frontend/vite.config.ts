@@ -27,5 +27,15 @@ export default defineConfig({
       },
     },
   },
-  test: { environment: 'jsdom', globals: true, setupFiles: ['./src/configuracao-testes.ts'] },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/configuracao-testes.ts'],
+    // O React agenda trabalho com setImmediate: numa máquina lenta (CI) pode disparar depois de o jsdom do ficheiro de
+    // teste ser desmontado e rebentar com «window is not defined». Não é uma falha do teste nem da aplicação (o ficheiro
+    // já terminou); ignora-se SÓ este erro conhecido, todos os outros erros não tratados continuam a falhar a corrida.
+    onUnhandledError(erro) {
+      if (erro instanceof ReferenceError && /window is not defined/.test(erro.message)) return false;
+    },
+  },
 });

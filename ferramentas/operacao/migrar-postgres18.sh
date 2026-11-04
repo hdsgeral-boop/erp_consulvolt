@@ -29,7 +29,7 @@ ENV_FICHEIRO="${ERP_ENV_FICHEIRO:-$RAIZ/.env.prod}"
 [ -f "$ENV_FICHEIRO" ] || falhar "$ENV_FICHEIRO não existe."
 ler() { sed -n "s/^$1=//p" "$ENV_FICHEIRO" | tail -1 | sed 's/^"\(.*\)"$/\1/'; }
 BASE=$(ler POSTGRES_DB); UTILIZADOR=$(ler POSTGRES_USER)
-[ -n "$BASE" ] && [ -n "$UTILIZADOR" ] || falhar "POSTGRES_DB/POSTGRES_USER não definidos em $ENV_FICHEIRO."
+if [ -z "$BASE" ] || [ -z "$UTILIZADOR" ]; then falhar "POSTGRES_DB/POSTGRES_USER não definidos em $ENV_FICHEIRO."; fi
 PASTA="$(ler ERP_PASTA_COPIAS)"; PASTA="${PASTA:-$RAIZ/copias}/pg18"
 mkdir -p "$PASTA" && chmod 700 "$PASTA"
 DUMP="$PASTA/base_${BASE}_pg16_$(date '+%Y%m%d-%H%M%S').dump"
