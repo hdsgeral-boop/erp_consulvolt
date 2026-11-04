@@ -9,6 +9,7 @@ import {
   CustomerServiceOutlined,
   DownloadOutlined,
   ExclamationCircleFilled,
+  PlusOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
   UserOutlined,
@@ -18,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { GraficosPainel, type SeriesPainel } from './GraficosPainel';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
 
@@ -28,7 +30,7 @@ interface UltimoCliente {
   criado_em: string;
 }
 
-interface Indicadores {
+interface Indicadores extends SeriesPainel {
   mrr: number;
   arr: number;
   receita_recebida_mes: number;
@@ -195,11 +197,14 @@ export function PlataformaDashboardExecutivo() {
         </Col>
       </Row>
 
+      <GraficosPainel series={p.indicadores} />
+
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={14}>
           <Card title="Acções rápidas" styles={{ body: { padding: 12 } }}>
             <Row gutter={[12, 12]}>
               {[
+                { to: '/admin/clientes?novo=1', icone: <PlusOutlined />, titulo: 'Novo cliente', desc: 'Criar uma conta SaaS com administrador e empresa' },
                 { to: '/admin/clientes', icone: <TeamOutlined />, titulo: 'Gerir clientes', desc: 'Criar, suspender ou arquivar contas SaaS' },
                 { to: '/admin/planos', icone: <CreditCardOutlined />, titulo: 'Planos & versões', desc: 'Preços, limites e módulos incluídos' },
                 { to: '/admin/saas', icone: <CloudServerOutlined />, titulo: 'Activação SaaS', desc: 'Licenciamento, isolamento e período de teste' },
@@ -267,7 +272,7 @@ export function PlataformaDashboardExecutivo() {
                   <List.Item>
                     <List.Item.Meta
                       avatar={<Avatar style={{ background: '#1947b3' }}>{c.nome.slice(0, 2).toUpperCase()}</Avatar>}
-                      title={c.nome}
+                      title={<Link to={`/admin/clientes?q=${encodeURIComponent(c.slug)}`}>{c.nome}</Link>}
                       description={<Tag style={{ marginTop: 2 }}>{c.slug}</Tag>}
                     />
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>

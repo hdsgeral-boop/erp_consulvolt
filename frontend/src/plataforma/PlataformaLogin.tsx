@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { obter } from '@/api/cliente';
+import { http, obter } from '@/api/cliente';
+import { LogotipoDoSistema } from '@/componentes/LogotipoSistema';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
 
@@ -16,7 +17,14 @@ export function PlataformaLogin() {
   const navigate = useNavigate();
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
-  const logotipo = useQuery({ queryKey: ['logotipo-login'], queryFn: () => obter<{ logotipo: string | null }>('/sistema/logotipo-login'), retry: false });
+  const [criado, setCriado] = useState<string | null>(null);
+  // primeiro acesso: enquanto a plataforma não tem administrador, o servidor (só neste host) permite criar o primeiro
+  const inicial = useQuery({
+    queryKey: ['plataforma-inicial-estado'],
+    queryFn: () => obter<{ precisa_criar_admin: boolean; exige_segredo: boolean }>('/plataforma-inicial/estado'),
+    retry: false,
+  });
+  const precisaCriarAdmin = inicial.data?.precisa_criar_admin === true && criado === null;
 
   // Se já tem sessão aberta com acesso ao backoffice, encaminha directo para a sua área
   if (utilizador?.papel === 'SUPER_ADMINISTRADOR') {
@@ -45,17 +53,55 @@ export function PlataformaLogin() {
     }
   };
 
+  /** A palavra-passe provisória é gerada pelo servidor e enviada para o e-mail indicado; a troca é obrigatória no primeiro acesso. */
+  const criarAdmin = async (v: { nome_completo: string; nome_utilizador: string; email: string; segredo?: string }) => {
+    setErro(null);
+    setAEntrar(true);
+    try {
+      const { segredo, ...corpo } = v;
+      const r = await http.post<{ mensagem?: string }>('/plataforma-inicial/criar-admin', corpo, segredo ? { headers: { 'X-Setup-Token': segredo } } : undefined);
+      setCriado(r.data?.mensagem || 'Administrador criado. A palavra-passe provisória foi enviada para o e-mail indicado.');
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível criar o administrador.');
+    } finally {
+      setAEntrar(false);
+    }
+  };
+
   return (
     <main className="erp-pagina-entrada erp-fundo-entrada">
       <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
-          {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 90, maxWidth: 'min(220px, 100%)', objectFit: 'contain', marginBottom: 8 }} /> : null}
+          <LogotipoDoSistema tamanho={72} />
           <h1 className="erp-entrada-titulo">Central de Backoffice</h1>
-          <Typography.Text type="secondary">Acesso restrito a pessoal autorizado</Typography.Text>
+          <Typography.Text type="secondary">{precisaCriarAdmin ? 'Criar o administrador da plataforma' : 'Acesso restrito a pessoal autorizado'}</Typography.Text>
         </Flex>
 
         {erro && <Alert type="error" showIcon title={erro} style={{ marginBottom: 16 }} />}
+        {criado && <Alert type="success" showIcon title={criado} style={{ marginBottom: 16 }} />}
 
+        {precisaCriarAdmin ? (
+          <Form layout="vertical" onFinish={criarAdmin} requiredMark={false}>
+            <Alert type="info" showIcon title="A plataforma ainda não tem administrador. Crie o primeiro: a palavra-passe provisória é enviada para o e-mail indicado e tem de ser trocada no primeiro acesso." style={{ marginBottom: 16 }} />
+            <Form.Item name="nome_completo" label="Nome completo" rules={[{ required: true, message: 'Indique o nome completo.' }]}>
+              <Input size="large" prefix={<UserOutlined />} autoComplete="name" maxLength={200} autoFocus />
+            </Form.Item>
+            <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
+              <Input size="large" prefix={<UserOutlined />} autoComplete="username" maxLength={100} />
+            </Form.Item>
+            <Form.Item name="email" label="E-mail" rules={[{ required: true, message: 'Indique o e-mail.' }, { type: 'email', message: 'E-mail inválido.' }]}>
+              <Input size="large" prefix={<MailOutlined />} autoComplete="email" maxLength={200} />
+            </Form.Item>
+            {inicial.data?.exige_segredo && (
+              <Form.Item name="segredo" label="Código de instalação" rules={[{ required: true, message: 'Indique o código de instalação.' }]}>
+                <Input.Password size="large" autoComplete="off" />
+              </Form.Item>
+            )}
+            <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ marginTop: 8, fontWeight: 700 }}>
+              Criar administrador
+            </Button>
+          </Form>
+        ) : (
         <Form layout="vertical" onFinish={submeter} requiredMark={false}>
           <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
             <Input size="large" prefix={<UserOutlined />} autoComplete="username" autoFocus />
@@ -67,6 +113,7 @@ export function PlataformaLogin() {
             Entrar
           </Button>
         </Form>
+        )}
 
         <Divider style={{ margin: '20px 0 16px' }} />
 
