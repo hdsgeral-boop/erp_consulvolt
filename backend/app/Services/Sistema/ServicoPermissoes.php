@@ -78,6 +78,13 @@ final class ServicoPermissoes
      */
     private const ECRAS_SO_SUPER_ADMINISTRADOR = ['config_logs'];
 
+    /**
+     * Ecrãs do catálogo que existem só para transportar permissões (editor de perfis, Gate) e NUNCA são um ecrã de
+     * menu: `ia_chat` leva `ia_chat_view`/`ia_chat_regras` do chat flutuante do assistente de IA. Saem do menu
+     * (e, por isso, da pesquisa e da guarda /m/:modulo/:ecra do frontend); as permissões continuam intactas.
+     */
+    public const ECRAS_SEM_MENU = ['ia_chat'];
+
     /** Módulos do catálogo disponíveis numa holding (inteiros). */
     public const MODULOS_HOLDING = ['contab'];
 
@@ -293,6 +300,9 @@ final class ServicoPermissoes
                     continue;
                 }
                 if (! $utilizador->eSuperAdministrador() && in_array($e['id'], self::ECRAS_SO_SUPER_ADMINISTRADOR, true)) {
+                    continue;
+                }
+                if (in_array($e['id'], self::ECRAS_SEM_MENU, true)) {
                     continue;
                 }
                 if ($this->ecraVisivel($utilizador, $e, $empresaId)) {
