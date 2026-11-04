@@ -14,9 +14,14 @@ use Illuminate\Support\Facades\DB;
  */
 class PlanosComerciaisSeeder extends Seeder
 {
-    public function run(): void
+    /**
+     * Definição dos planos comerciais iniciais (também usada por `erp:licencas:planos-iniciais`, que só cria os que faltam).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function planos(): array
     {
-        $planos = [
+        return [
             [
                 'codigo' => 'basico',
                 'nome' => 'Plano Básico',
@@ -54,6 +59,11 @@ class PlanosComerciaisSeeder extends Seeder
                 'modulos' => ['vendas', 'pos', 'compras', 'stock', 'teso', 'contab', 'acrescimos', 'rh', 'estrutura', 'metodo', 'activos', 'crm', 'projectos', 'orcamento'],
             ],
         ];
+    }
+
+    public function run(): void
+    {
+        $planos = self::planos();
 
         DB::transaction(function () use ($planos) {
             foreach ($planos as $dados) {
