@@ -33,6 +33,7 @@ Route::prefix('rh')->name('rh.')->group(function () {
     Route::get('importacoes/modelos/{entidade}', [ImportacaoRHController::class, 'modelo'])->where('entidade', '[a-z_]+')->name('importacoes.modelo');
     Route::post('importacoes/colaboradores', [ImportacaoRHController::class, 'colaboradores'])->middleware('throttle:pesado')->name('importacoes.colaboradores');
     Route::post('importacoes/contratos', [ImportacaoRHController::class, 'contratos'])->middleware('throttle:pesado')->name('importacoes.contratos');
+    Route::post('produtividade/elegibilidade/importar', [ImportacaoRHController::class, 'elegibilidade'])->middleware('throttle:pesado')->name('produtividade.elegibilidade.importar');
     Route::post('produtividade/periodos/{periodo}/importar', [ImportacaoRHController::class, 'produtividade'])->whereNumber('periodo')->name('produtividade.importar');
     Route::get('avaliacao/equipa', [AvaliacaoEquipaController::class, 'equipa'])->name('avaliacao.equipa');
     Route::get('avaliacao/autoavaliacoes', [AvaliacaoEquipaController::class, 'autoavaliacoes'])->name('avaliacao.autoavaliacoes');

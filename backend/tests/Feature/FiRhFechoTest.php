@@ -6,6 +6,7 @@ use App\Models\CargoFuncao;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
 use App\Models\EfectividadeAssiduidade;
+use App\Models\ElegibilidadeProdutividadeRH;
 use App\Models\Empresa;
 use App\Models\InfotipoSalarial;
 use App\Models\ItemProdutividadeRH;
@@ -179,8 +180,8 @@ final class FiRhFechoTest extends TestCase
         $this->assertStringContainsString('(120 ÷ 100)', $exp['conta']);
         $this->assertCount(1, $exp['cortes']);
 
-        // no registo do período: o colaborador tem o item no contrato
-        $this->em(fn () => ContratoTrabalho::query()->whereKey($this->ids['ct_ana'])->update(['produtividade' => [['item_id' => $this->ids['obj'], 'preco_unitario' => null]]]));
+        // no registo do período: o colaborador tem o item na elegibilidade
+        $this->em(fn () => ElegibilidadeProdutividadeRH::create(['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $this->ids['obj'], 'ativo' => true, 'origem' => 'MANUAL']));
         $p = $this->postJson('/api/rh/produtividade/periodos', ['mes' => '2025-09', 'data_inicio' => '2025-09-01', 'data_fim' => '2025-09-30'], $this->s['rh'])->assertCreated()->json('dados.id');
         $this->postJson("/api/rh/produtividade/periodos/{$p}/registos", ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $this->ids['obj'], 'quantidade' => 95,
             'data' => '2025-09-30'], $this->s['rh'])->assertCreated()->assertJsonPath('dados.valor', '47500.00');
@@ -192,44 +193,81 @@ final class FiRhFechoTest extends TestCase
         $this->getJson('/api/rh/produtividade/metricas', $this->s['ver'])->assertOk()->assertJsonPath('dados.metricas.OBJECTIVO.base_premio', true);
     }
 
-    // ───────────── #13 Produtividade em massa ─────────────
+    // ───────────── #13 Elegibilidade de produtividade em massa ─────────────
+
+    /** @return array<int, array{origem: string, ativo: bool, preco: ?float}> linhas de elegibilidade do colaborador, por item */
+    private function elegibilidade(int $colaborador): array
+    {
+        return $this->em(fn () => ElegibilidadeProdutividadeRH::query()->where('colaborador_id', $colaborador)->orderBy('item_produtividade_id')->get()
+            ->mapWithKeys(fn ($e) => [(int) $e->item_produtividade_id => ['origem' => $e->origem, 'ativo' => (bool) $e->ativo, 'preco' => $e->preco_unitario !== null ? (float) $e->preco_unitario : null]])->all());
+    }
 
     #[Test]
-    public function produtividade_em_massa_acrescentar_substituir_e_retirar(): void
+    public function elegibilidade_em_massa_acrescentar_substituir_e_retirar(): void
     {
-        $url = '/api/rh/contratos/produtividade-massa';
+        $url = '/api/rh/produtividade/elegibilidade/massa';
         // sem permissão: 403 antes de validar (corpo vazio)
         $this->postJson($url, [], $this->s['ver'])->assertForbidden();
         // isolamento: colaborador de outra empresa é recusado
         $this->postJson($url, ['colaboradores' => [$this->ids['outro_colab']], 'itens' => [['item_id' => $this->ids['pec']]], 'modo' => 'ACRESCENTAR'], $this->s['rh'])->assertStatus(422);
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana']], 'itens' => [['item_id' => $this->ids['velho']]], 'modo' => 'ACRESCENTAR'], $this->s['rh'])
+        // item repetido na selecção, item inactivo e modo inválido
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['pec']], ['item_id' => $this->ids['pec']]], 'modo' => 'ACRESCENTAR'], $this->s['rh'])->assertStatus(422);
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['velho']]], 'modo' => 'ACRESCENTAR'], $this->s['rh'])
             ->assertStatus(422)->assertJsonPath('codigo', 'ITEM_PRODUTIVIDADE_INACTIVO');
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['pec']]], 'modo' => 'XPTO'], $this->s['rh'])->assertStatus(422);
 
+        // pré-visualização: o plano sem gravar; o inactivo fica de fora
         $sim = $this->postJson($url, ['colaboradores' => [$this->ids['ana'], $this->ids['rui'], $this->ids['eva'], $this->ids['ze']], 'itens' => [['item_id' => $this->ids['pec']]],
             'modo' => 'ACRESCENTAR', 'simular' => true], $this->s['rh'])->assertOk()->json('dados');
-        $this->assertSame(['Ana Fictícia', 'Rui Fictício'], $sim['actualizados']);
-        $this->assertSame(['Eva Fictícia'], $sim['sem_contrato']);
+        $this->assertSame(['Ana Fictícia', 'Eva Fictícia', 'Rui Fictício'], $sim['actualizados']);
         $this->assertSame(['Zé Inactivo'], $sim['inactivos']);
-        $this->assertNull($this->em(fn () => ContratoTrabalho::query()->find($this->ids['ct_ana'])->produtividade));   // a simulação não grava
+        $this->assertSame(3, $sim['acrescentadas']);
+        $this->assertTrue($sim['simulacao']);
+        $this->assertSame([], $this->elegibilidade($this->ids['ana']));   // a simulação não grava
 
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana'], $this->ids['ct_rui'], $this->ids['ct_ze']], 'itens' => [['item_id' => $this->ids['pec']]], 'modo' => 'ACRESCENTAR'],
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana'], $this->ids['rui'], $this->ids['eva'], $this->ids['ze']], 'itens' => [['item_id' => $this->ids['pec']]], 'modo' => 'ACRESCENTAR'],
             $this->s['rh'])->assertOk()->assertJsonPath('dados.inactivos', ['Zé Inactivo']);
-        // acrescentar com preço próprio e «manter» o preço dos que já o têm
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana']], 'itens' => [['item_id' => $this->ids['pec'], 'preco_unitario' => 150], ['item_id' => $this->ids['obj']]],
-            'modo' => 'ACRESCENTAR', 'preco_existente' => 'MANTER'], $this->s['rh'])->assertOk();
-        $this->assertSame([['item_id' => $this->ids['pec'], 'preco_unitario' => null], ['item_id' => $this->ids['obj'], 'preco_unitario' => null]],
-            $this->em(fn () => ContratoTrabalho::query()->find($this->ids['ct_ana'])->produtividade));
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana']], 'itens' => [['item_id' => $this->ids['pec'], 'preco_unitario' => 150]], 'modo' => 'ACRESCENTAR'], $this->s['rh'])->assertOk();
-        $this->assertEquals(150, $this->em(fn () => ContratoTrabalho::query()->find($this->ids['ct_ana'])->produtividade[0]['preco_unitario']));
-        // substituir a lista
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana']], 'itens' => [['item_id' => $this->ids['obj']]], 'modo' => 'SUBSTITUIR'], $this->s['rh'])->assertOk();
-        $this->assertSame([['item_id' => $this->ids['obj'], 'preco_unitario' => null]], $this->em(fn () => ContratoTrabalho::query()->find($this->ids['ct_ana'])->produtividade));
+        $this->assertSame([$this->ids['pec'] => ['origem' => 'MANUAL', 'ativo' => true, 'preco' => null]], $this->elegibilidade($this->ids['ana']));
+        $this->assertSame([], $this->elegibilidade($this->ids['ze']));
+
+        // acrescentar com preço próprio e «manter» o preço de quem já tem o item
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['pec'], 'preco_unitario' => 150], ['item_id' => $this->ids['obj']]],
+            'modo' => 'ACRESCENTAR', 'preco_existente' => 'MANTER'], $this->s['rh'])->assertOk()->assertJsonPath('dados.acrescentadas', 1)->assertJsonPath('dados.alteradas', 0);
+        $ana = $this->elegibilidade($this->ids['ana']);
+        $this->assertCount(2, $ana);
+        $this->assertNull($ana[$this->ids['pec']]['preco']);
+        // ... e «substituir» o preço (duplicado: não cria outra linha)
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['pec'], 'preco_unitario' => 150]], 'modo' => 'ACRESCENTAR'], $this->s['rh'])
+            ->assertOk()->assertJsonPath('dados.acrescentadas', 0)->assertJsonPath('dados.alteradas', 1);
+        $this->assertSame(150.0, $this->elegibilidade($this->ids['ana'])[$this->ids['pec']]['preco']);
+        $this->assertCount(2, $this->elegibilidade($this->ids['ana']));
+        // uma linha de origem ENTREGAVEL sobrevive ao «substituir»; as outras trocam
+        $this->em(fn () => ElegibilidadeProdutividadeRH::query()->where('colaborador_id', $this->ids['ana'])->where('item_produtividade_id', $this->ids['obj'])->update(['origem' => 'ENTREGAVEL']));
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana'], $this->ids['rui']], 'itens' => [['item_id' => $this->ids['obj'], 'preco_unitario' => 70000]], 'modo' => 'SUBSTITUIR'], $this->s['rh'])->assertOk()
+            ->assertJsonPath('dados.retiradas', 2);
+        $this->assertSame([$this->ids['obj'] => ['origem' => 'ENTREGAVEL', 'ativo' => true, 'preco' => 70000.0]], $this->elegibilidade($this->ids['ana']));
+        $this->assertSame([$this->ids['obj'] => ['origem' => 'MANUAL', 'ativo' => true, 'preco' => 70000.0]], $this->elegibilidade($this->ids['rui']));
         // retirar (o mesmo pedido outra vez fica «sem alteração»)
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana']], 'itens' => [['item_id' => $this->ids['obj']]], 'modo' => 'RETIRAR'], $this->s['rh'])->assertOk()
-            ->assertJsonPath('dados.actualizados', ['Ana Fictícia']);
-        $this->postJson($url, ['contratos' => [$this->ids['ct_ana']], 'itens' => [['item_id' => $this->ids['obj']]], 'modo' => 'RETIRAR'], $this->s['rh'])->assertOk()
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['obj']]], 'modo' => 'RETIRAR'], $this->s['rh'])->assertOk()
+            ->assertJsonPath('dados.actualizados', ['Ana Fictícia'])->assertJsonPath('dados.retiradas', 1);
+        $this->postJson($url, ['colaboradores' => [$this->ids['ana']], 'itens' => [['item_id' => $this->ids['obj']]], 'modo' => 'RETIRAR'], $this->s['rh'])->assertOk()
             ->assertJsonPath('dados.sem_alteracao', ['Ana Fictícia']);
-        $this->assertDatabaseHas('logs_auditoria', ['acao' => 'Aplicar produtividade em massa', 'empresa_id' => $this->empresa->id]);
+        $this->assertDatabaseHas('logs_auditoria', ['acao' => 'Atribuir elegibilidade de produtividade em massa', 'empresa_id' => $this->empresa->id]);
+    }
+
+    #[Test]
+    public function elegibilidade_em_massa_e_tudo_ou_nada_e_o_contrato_ja_nao_aceita_itens(): void
+    {
+        // um item inexistente a meio do pedido não deixa nada gravado
+        $this->postJson('/api/rh/produtividade/elegibilidade/massa', ['colaboradores' => [$this->ids['ana'], $this->ids['rui']], 'itens' => [['item_id' => $this->ids['pec']], ['item_id' => 99999999]],
+            'modo' => 'ACRESCENTAR'], $this->s['rh'])->assertStatus(422);
+        $this->assertSame([], $this->elegibilidade($this->ids['ana']));
+        // o endpoint antigo já não existe e o contrato ignora `produtividade`
+        $this->postJson('/api/rh/contratos/produtividade-massa', [], $this->s['rh'])->assertStatus(404);
+        $c = $this->postJson('/api/rh/contratos', ['colaborador_id' => $this->ids['eva'], 'data_inicio' => '2025-01-01', 'produtividade' => [['item_id' => $this->ids['pec']]],
+            'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 100000]]], $this->s['rh'])->assertCreated()->json('dados');
+        $this->assertArrayNotHasKey('produtividade', $c);
+        $this->assertSame([], $this->elegibilidade($this->ids['eva']));
     }
 
     // ───────────── #4 Modelo da efectividade e faltas do ano ─────────────

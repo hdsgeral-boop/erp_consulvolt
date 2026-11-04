@@ -7,7 +7,7 @@ import { parametrosSimulacao, textoExplicacao } from './produtividade/regrasProd
 /** Fecho da Versão Actual — RH (#7, #8, #11): minuta pela Lei 12/23, base «prémio» e contrato vigente. Dados fictícios. */
 const contrato = (x: Partial<ContratoTrabalho> = {}): ContratoTrabalho => ({
   id: 1, colaborador_id: 1, remuneracoes: [], dias_contrato_mes: 22, data_inicio: '2026-01-01', data_fim: null, estado: 'ACTIVO', horas_por_dia: '8',
-  codigo_moeda: 'AOA', produtividade: null, ...x,
+  codigo_moeda: 'AOA', ...x,
 });
 
 describe('#8 — minuta do contrato (Lei n.º 12/23)', () => {

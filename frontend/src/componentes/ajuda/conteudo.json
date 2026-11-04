@@ -1164,13 +1164,13 @@
    "passos": [
     "Crie o período de cálculo (mês e janela de medição) e registe os valores, à mão, por Excel ou a partir dos projectos.",
     "Em «Entregáveis das unidades» escolha o período aberto, analise e converta as entregas validadas dos entregáveis das unidades orgânicas; «Anular conversão» desfaz.",
-    "Em «Elegibilidade» veja quem pode ter registos: itens do contrato (só leitura) mais as linhas acrescentadas aqui ou ganhas por entregáveis.",
+    "Em «Elegibilidade» veja e defina quem pode ter registos (colaborador × item, com preço próprio opcional). «Atribuir em massa» aplica vários itens a vários colaboradores de uma vez — na grelha, em linhas, colando do Excel ou importando o modelo .xlsx — a acrescentar, substituir ou retirar, com pré-visualização antes de gravar.",
     "Feche o período para o importar no cálculo salarial."
    ],
    "dicas": [
     "A conversão é idempotente: repetir soma ao registo existente em vez de duplicar.",
     "Grupos não validados, sem item de produtividade, já convertidos ou entregues fora do prazo (quando o entregável não paga fora de prazo) ficam listados com o motivo.",
-    "Quem executa um entregável passa a elegível para o item ao converter — sem tocar no contrato."
+    "Os itens de produtividade já não se associam ao contrato de trabalho: a elegibilidade é só desta tabela. Quem executa um entregável passa a elegível para o item ao converter."
    ]
   },
   "rh_portal": {

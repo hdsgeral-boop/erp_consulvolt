@@ -91,7 +91,7 @@ export function PortalContrato() {
         <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>Base para faltas e horas extra: {formatarKz(c.valor_dia, true)} por dia · {formatarKz(c.valor_hora, true)} por hora.</Typography.Paragraph>
       </Card>
       {c.produtividade.length > 0 && (
-        <Card title="Itens de produtividade">
+        <Card title="Itens de produtividade a que é elegível" extra={<Typography.Text type="secondary">só leitura (definidos pelo RH)</Typography.Text>}>
           <Table size="small" rowKey="item_id" pagination={false} dataSource={c.produtividade} columns={[
             { title: 'Item', render: (_, p) => `${p.codigo ?? ''} — ${p.descricao ?? `Item #${p.item_id}`}` },
             { title: 'Unidade', dataIndex: 'unidade' },

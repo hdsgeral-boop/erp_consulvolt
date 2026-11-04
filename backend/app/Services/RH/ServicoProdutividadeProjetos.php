@@ -205,7 +205,7 @@ final class ServicoProdutividadeProjetos
             $erro = match (true) {
                 $item->metrica !== self::TIPOS[$l['tipo']]['metrica'] => "O item {$item->codigo} mede ".mb_strtolower((string) $item->metrica).', não '.mb_strtolower(self::TIPOS[$l['tipo']]['nome']).'.',
                 ! ($item->ativo ?? true) => "O item {$item->codigo} está inactivo.",
-                ! isset($eleg[$l['colaborador_id']]) => 'O colaborador não é elegível: tem de estar ACTIVO e ter o item no contrato.',
+                ! isset($eleg[$l['colaborador_id']]) => 'O colaborador não é elegível: tem de estar ACTIVO e ter o item na elegibilidade.',
                 ! isset($eleg[$l['colaborador_id']]['itens'][$item->id]) => "O item {$item->codigo} não está no contrato do colaborador.",
                 $item->metrica === 'OBJECTIVO' && $l['quantidade'] > 1000, $l['quantidade'] < 0 => 'Quantidade inválida.',
                 ! $existente && $actuais->contains(fn ($r) => (int) $r->colaborador_id === (int) $l['colaborador_id'] && (int) $r->item_produtividade_id === $item->id

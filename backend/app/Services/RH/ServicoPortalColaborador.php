@@ -8,6 +8,7 @@ use App\Models\AutoavaliacaoColaborador;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
 use App\Models\DependenteColaborador;
+use App\Models\ElegibilidadeProdutividadeRH;
 use App\Models\EmprestimoColaborador;
 use App\Models\EscalaTrabalho;
 use App\Models\InfotipoSalarial;
@@ -745,7 +746,7 @@ final class ServicoPortalColaborador
 
     /**
      * O meu contrato (desenharContrato, portal_ui.js:551): o VIGENTE (regras_salariais.js:107), mesmo suspenso ou cessado,
-     * só para consulta; com as remunerações, a base para faltas e horas extra e os itens de produtividade.
+     * só para consulta; com as remunerações, a base para faltas e horas extra e, só para leitura, os itens de produtividade da elegibilidade do colaborador.
      */
     public function meuContrato(): array
     {
@@ -761,7 +762,9 @@ final class ServicoPortalColaborador
         $total = RegrasContrato::salarioBase($ct);
         $dias = (float) MotorSalarial::diasContrato($ctr);
         $horasDia = (float) $ct->horas_por_dia > 0 ? (float) $ct->horas_por_dia : 8.0;
-        $itens = ItemProdutividadeRH::query()->whereKey(array_column((array) ($ct->produtividade ?? []), 'item_id'))->get()->keyBy('id');
+        // os itens de produtividade já não vivem no contrato: lêem-se da elegibilidade do colaborador (só leitura)
+        $eleg = ElegibilidadeProdutividadeRH::query()->where('colaborador_id', $c->id)->where('ativo', true)->orderBy('item_produtividade_id')->get();
+        $itens = ItemProdutividadeRH::query()->whereKey($eleg->pluck('item_produtividade_id')->all())->get()->keyBy('id');
         $horario = RegrasContrato::horario($ct->horario);
 
         return ['contrato' => ['id' => $ct->id, 'estado' => $ct->estado, 'data_inicio' => $ct->data_inicio?->toDateString(),
@@ -772,10 +775,10 @@ final class ServicoPortalColaborador
             'horario' => $horario ? $horario + ['horas_previstas' => RegrasContrato::horasPrevistas($horario)] : null,
             'remuneracoes' => $rem, 'total_mensal' => $total,
             'valor_dia' => bcdiv($total, (string) max(1, $dias), 2), 'valor_hora' => bcdiv($total, (string) max(0.01, $dias * $horasDia), 2),
-            'produtividade' => array_map(fn ($p) => ['item_id' => (int) $p['item_id'], 'codigo' => $itens[$p['item_id']]->codigo ?? null,
-                'descricao' => $itens[$p['item_id']]->descricao ?? null, 'unidade' => $itens[$p['item_id']]->unidade ?? null,
-                'preco_unitario' => isset($p['preco_unitario']) && (float) $p['preco_unitario'] > 0 ? (string) $p['preco_unitario'] : (string) ($itens[$p['item_id']]->preco_unitario ?? '0'),
-                'preco_proprio' => isset($p['preco_unitario']) && (float) $p['preco_unitario'] > 0], array_values((array) ($ct->produtividade ?? [])))]];
+            'produtividade' => $eleg->filter(fn ($e) => isset($itens[$e->item_produtividade_id]))->map(fn ($e) => ['item_id' => (int) $e->item_produtividade_id, 'codigo' => $itens[$e->item_produtividade_id]->codigo,
+                'descricao' => $itens[$e->item_produtividade_id]->descricao, 'unidade' => $itens[$e->item_produtividade_id]->unidade,
+                'preco_unitario' => (float) $e->preco_unitario > 0 ? (string) $e->preco_unitario : (string) $itens[$e->item_produtividade_id]->preco_unitario,
+                'preco_proprio' => (float) $e->preco_unitario > 0])->values()->all()]];
     }
 
     /** Os meus empréstimos (desenharEmprestimos, portal_ui.js:398): limites para pedir e cada empréstimo com o plano. */

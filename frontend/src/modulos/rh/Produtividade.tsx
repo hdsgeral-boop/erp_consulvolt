@@ -470,7 +470,7 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
         <Card title={<Space><IconeFa nome="file-excel" />Importar Excel — {mesPorExtenso(p.mes)}</Space>}>
           <Typography.Paragraph type="secondary">
             Folha «Produtividade»: NIF, código do item, quantidade, data (opcional, dentro da janela {formatarData(p.data_inicio)} a {formatarData(p.data_fim)}) e observações.
-            O colaborador tem de ter o item no contrato activo; o mesmo NIF + item + data nunca se duplica.
+            O colaborador tem de ter o item na elegibilidade; o mesmo NIF + item + data nunca se duplica.
           </Typography.Paragraph>
           {registar
             ? <Button type="primary" icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar Excel</Button>
@@ -481,7 +481,7 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
       {separador === 'elegiveis' && <Elegiveis periodo={p} />}
 
       <ImportarExcel aberto={importar} titulo={`Importar produtividade — ${mesPorExtenso(p.mes)}`} url={`/rh/produtividade/periodos/${id}/importar`} modelo="produtividade" comDecisao="IGNORAR"
-        ajuda="Folha «Produtividade»: NIF, código do item, quantidade, data (opcional, dentro da janela) e observações. O colaborador tem de ter o item no contrato activo; o mesmo NIF + item + data nunca se duplica."
+        ajuda="Folha «Produtividade»: NIF, código do item, quantidade, data (opcional, dentro da janela) e observações. O colaborador tem de ter o item na elegibilidade; o mesmo NIF + item + data nunca se duplica."
         aoFechar={() => setImportar(false)} />
       <ModalFormulario chave="rh.produtividade.registos" titulo={edicao === 'novo' ? 'Novo registo' : 'Editar registo'} aberto={edicao !== null} aoFechar={() => setEdicao(null)}
         criacao={edicao === 'novo'} form={form} campos={camposLinhas} nomeRegistos="registos de produtividade" invalidar={[['rh', 'produtividade']]}

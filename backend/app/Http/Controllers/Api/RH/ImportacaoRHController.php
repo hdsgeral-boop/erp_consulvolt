@@ -26,7 +26,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 final class ImportacaoRHController extends Controller
 {
     private const PERMISSOES = ['calculo' => ['calcular_lancar', 'calcular_bulk'], 'colaboradores' => ['colaboradores_import'], 'contratos' => ['contratos_import'],
-        'produtividade' => ['rh_prod_registar']];
+        'produtividade' => ['rh_prod_registar'], 'elegibilidade' => ['rh_prod_config']];
 
     public function __construct(private readonly ServicoImportacaoRH $importacao) {}
 
@@ -39,7 +39,7 @@ final class ImportacaoRHController extends Controller
         File::ensureDirectoryExists($pasta);
         $caminho = $pasta.'/modelo_rh_'.Str::random(12).'.xlsx';
         $this->importacao->modeloExcel($entidade, $caminho);
-        $nomes = ['calculo' => 'Template_Calculo', 'colaboradores' => 'Template_Colaboradores', 'contratos' => 'Template_Contratos_Vertical', 'produtividade' => 'Template_Produtividade'];
+        $nomes = ['calculo' => 'Template_Calculo', 'colaboradores' => 'Template_Colaboradores', 'contratos' => 'Template_Contratos_Vertical', 'produtividade' => 'Template_Produtividade', 'elegibilidade' => 'Template_Elegibilidade'];
 
         return response()->download($caminho, $nomes[$entidade].'.xlsx')->deleteFileAfterSend();
     }
@@ -81,6 +81,16 @@ final class ImportacaoRHController extends Controller
         $d = $this->validar($r, ['decisao' => ['nullable', Rule::in(['IGNORAR', 'ACTUALIZAR'])]]);
         $res = $this->importacao->importarProdutividade(PeriodoProdutividadeRH::query()->findOrFail($periodo), $folha->linhas($r->file('ficheiro'), 'Produtividade'),
             $d['decisao'] ?? 'IGNORAR', (bool) ($d['simular'] ?? false));
+
+        return RespostaApi::sucesso($res, $this->mensagem($res));
+    }
+
+    /** POST /rh/produtividade/elegibilidade/importar — atribuição em massa a partir de Excel (NIF | Código do item | Preço próprio). */
+    public function elegibilidade(Request $r, ServicoLeituraFolha $folha): JsonResponse
+    {
+        $this->exigir('rh_prod_config');
+        $d = $this->validar($r, ['decisao' => ['nullable', Rule::in(['IGNORAR', 'ACTUALIZAR'])]]);
+        $res = $this->importacao->importarElegibilidade($folha->linhas($r->file('ficheiro'), 'Elegibilidade'), $d['decisao'] ?? 'IGNORAR', (bool) ($d['simular'] ?? false));
 
         return RespostaApi::sucesso($res, $this->mensagem($res));
     }

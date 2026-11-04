@@ -47,11 +47,12 @@ final class FjEntregaveisProdutividadeTest extends TestCase
             $prod = InfotipoSalarial::create(['tipo' => 'VENCIMENTO', 'nome' => 'Subsídio de produtividade', 'sujeito_inss' => true, 'irt' => 'true'])->id;
             $item = ItemProdutividadeRH::create(['codigo' => 'REL', 'descricao' => 'Relatórios', 'metrica' => 'QUANTIDADE', 'unidade' => 'un', 'preco_unitario' => 1000, 'infotipo_salarial_id' => $prod, 'ativo' => true])->id;
             $outro = ItemProdutividadeRH::create(['codigo' => 'OUT', 'descricao' => 'Outro', 'metrica' => 'QUANTIDADE', 'unidade' => 'un', 'preco_unitario' => 10, 'infotipo_salarial_id' => $prod, 'ativo' => true])->id;
-            // só o Rui tem o item REL no contrato (ao preço de 1500); a Ana ganha a elegibilidade por executar o entregável
-            foreach (['ana' => [], 'rui' => [['item_id' => $item, 'preco_unitario' => 1500]]] as $k => $p) {
+            // só o Rui tem o item REL na elegibilidade (migrada do contrato, origem CONTRATO, a 1500); a Ana ganha a elegibilidade por executar o entregável
+            foreach (['ana', 'rui'] as $k) {
                 ContratoTrabalho::create(['colaborador_id' => $this->ids[$k], 'estado' => 'ACTIVO', 'dias_contrato_mes' => 22, 'horas_por_dia' => 8, 'data_inicio' => '2020-01-06',
-                    'remuneracoes' => [['infotipo_id' => $base, 'valor_mes' => 100000]], 'produtividade' => $p]);
+                    'remuneracoes' => [['infotipo_id' => $base, 'valor_mes' => 100000]]]);
             }
+            ElegibilidadeProdutividadeRH::create(['colaborador_id' => $this->ids['rui'], 'item_produtividade_id' => $item, 'ativo' => true, 'origem' => 'CONTRATO', 'preco_unitario' => 1500]);
             $t = TarefaUnidadeOrganica::create(['unidade_organica_id' => $dep->id, 'nome' => 'Relatórios', 'periodicidade' => 'MENSAL', 'ativo' => true]);
             $e = EntregavelTarefaUnidade::create(['tarefa_unidade_id' => $t->id, 'nome' => 'Relatório', 'metrica' => 'QUANTIDADE', 'unidade' => 'unidades', 'meta' => 2, 'item_produtividade_id' => $item,
                 'prazo_dia' => 5, 'prazo_mes' => 2, 'paga_fora_prazo' => false, 'ativo' => true]);
@@ -155,14 +156,14 @@ final class FjEntregaveisProdutividadeTest extends TestCase
         $this->assertSame([1500.0, 'CONTRATO'], [(float) $e[$this->ids['rui']]['itens'][$this->ids['item']]['preco'], $e[$this->ids['rui']]['itens'][$this->ids['item']]['origem']]);
         // idempotente: repetir reactiva/actualiza em vez de duplicar; desactivar retira
         $this->postJson('/api/rh/produtividade/elegibilidade', ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $this->ids['outro'], 'ativo' => false], $this->s)->assertOk()->assertJsonPath('dados.ativo', false);
-        $this->assertSame(2, $this->em(fn () => ElegibilidadeProdutividadeRH::query()->count()));
+        $this->assertSame(3, $this->em(fn () => ElegibilidadeProdutividadeRH::query()->count()));
         $this->assertArrayNotHasKey($this->ids['outro'], $elegiveis()[$this->ids['ana']]['itens']);
         // registo manual de produtividade para a Ana passa a ser aceite (elegível pela tabela)
         $this->postJson("/api/rh/produtividade/periodos/{$p}/registos", ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $this->ids['item'], 'quantidade' => 2, 'data' => '2026-02-10'], $this->s)
             ->assertCreated()->assertJsonPath('dados.preco_unitario', '1200.0000');
         $lista = $this->getJson("/api/rh/produtividade/elegibilidade?colaborador_id={$this->ids['rui']}", $this->s)->assertOk()->json('dados');
-        $this->assertSame([0, 1], [count($lista['linhas']), count($lista['contrato'])]);
-        $this->assertSame('CONTRATO', $lista['contrato'][0]['origem']);
+        $this->assertSame([1, 'CONTRATO'], [count($lista['linhas']), $lista['linhas'][0]['origem']]);
+        $this->assertArrayNotHasKey('contrato', $lista);
         $linha = $this->em(fn () => ElegibilidadeProdutividadeRH::query()->where('item_produtividade_id', $this->ids['outro'])->value('id'));
         $this->deleteJson("/api/rh/produtividade/elegibilidade/{$linha}", [], $this->s)->assertOk();
         $this->postJson('/api/rh/produtividade/elegibilidade', ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $this->ids['outro']], $this->sessao(['rh_produtividade_view']))->assertForbidden();

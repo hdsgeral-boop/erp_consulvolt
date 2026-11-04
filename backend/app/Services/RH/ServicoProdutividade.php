@@ -4,7 +4,6 @@ namespace App\Services\RH;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Colaborador;
-use App\Models\ContratoTrabalho;
 use App\Models\ElegibilidadeProdutividadeRH;
 use App\Models\InfotipoSalarial;
 use App\Models\ItemProdutividadeRH;
@@ -12,21 +11,21 @@ use App\Models\LinhaFolhaSalarial;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PeriodoProdutividadeRH;
 use App\Models\RegistoProdutividadeRH;
+use App\Services\Sistema\ServicoAuditoria;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Subsídio de produtividade (js/modules/rh/produtividade.js). Paridade: catálogo de itens (código único, métrica,
  * preço > 0, rubrica de VENCIMENTO, mínimo/máximo), períodos de medição por mês (janela ≤ 93 dias, sem
- * sobreposição, fechar/reabrir com motivo), registos só de colaboradores com o item no contrato, preço do contrato
+ * sobreposição, fechar/reabrir com motivo), registos só de colaboradores com o item na elegibilidade (tabela, não o contrato), preço da elegibilidade
  * (se > 0) ou do item fixado na data do registo, lançamento no processamento (período de produtividade FECHADO,
  * processamento ABERTO), item em uso não se elimina (desactiva-se).
  * Correcções (ADR-039):
  *   - o mínimo e o máximo aplicam-se ao TOTAL do colaborador no item e no período (o legado aplicava-os a cada
  *     registo: dividir a quantidade em registos diários contornava o tecto e mudava o efeito do mínimo);
  *   - um registo por (colaborador, item, data) também na introdução manual (só a importação verificava);
- *   - elegibilidade: colaborador ACTIVO com contrato válido na janela do período (o legado usava o primeiro contrato
- *     ACTIVO, sem datas, e ignorava o estado do colaborador);
+ *   - elegibilidade: colaborador ACTIVO com o item na tabela de elegibilidade (o legado ligava os itens ao contrato; deixou de ser assim);
  *   - relançar retira os lançamentos de produtividade que deixaram de ter valor (o legado deixava-os ficar).
  * Fecho da Versão Actual (#11, produtividade.js:36-160): base de cálculo por item — UNITARIO (quantidade considerada × preço,
  * a regra de sempre; os itens sem base valem como UNITARIO) ou PREMIO, só na métrica OBJECTIVO (prémio a 100 % × % considerada
@@ -34,6 +33,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class ServicoProdutividade
 {
+    /** Modos da elegibilidade em massa: acrescentar, substituir a lista toda, retirar. */
+    public const MODOS_MASSA = ['ACRESCENTAR', 'SUBSTITUIR', 'RETIRAR'];
+
     public const METRICAS = ['QUANTIDADE', 'HORAS', 'OBJECTIVO', 'PONTOS', 'TAREFAS'];
 
     public const BASES = ['UNITARIO', 'PREMIO'];
@@ -221,11 +223,10 @@ final class ServicoProdutividade
     public function eliminarItem(ItemProdutividadeRH $i): void
     {
         $registos = RegistoProdutividadeRH::query()->where('item_produtividade_id', $i->id)->exists();
-        $contratos = ContratoTrabalho::query()->whereRaw("EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(produtividade, '[]'::jsonb)) x WHERE (x->>'item_id')::bigint = ?)", [$i->id])->exists();
         $elegibilidade = ElegibilidadeProdutividadeRH::query()->where('item_produtividade_id', $i->id)->exists();
         $entregaveis = DB::table('entregaveis_tarefa_unidade')->where('item_produtividade_id', $i->id)->exists();
-        if ($registos || $contratos || $elegibilidade || $entregaveis) {
-            $onde = $registos ? 'registos' : ($contratos ? 'contratos' : ($elegibilidade ? 'elegibilidade' : 'entregáveis das unidades'));
+        if ($registos || $elegibilidade || $entregaveis) {
+            $onde = $registos ? 'registos' : ($elegibilidade ? 'elegibilidade' : 'entregáveis das unidades');
             throw new ErroNegocio("O item {$i->codigo} está em uso ({$onde}): desactive-o em vez de o eliminar.", 'REGISTO_EM_USO', 422);
         }
         $i->delete();
@@ -299,9 +300,8 @@ final class ServicoProdutividade
     // ───────────── Registos ─────────────
 
     /**
-     * Colaboradores ACTIVOS com o item: pelo contrato válido na janela (preço do contrato, se > 0, senão o do item) e — Fase J
-     * (ADR-078) — pela tabela `elegibilidade_produtividade_rh` (linhas activas, origem MANUAL ou ENTREGAVEL; preço da linha se
-     * > 0, senão o do item). A UNIÃO das duas fontes é a elegibilidade; o contrato prevalece no preço quando o item vem dos dois.
+     * Colaboradores ACTIVOS com o item, SÓ pela tabela `elegibilidade_produtividade_rh` (linhas activas de qualquer origem;
+     * preço da linha se > 0, senão o do item). Os itens deixaram de pertencer ao contrato de trabalho.
      */
     public function elegiveis(PeriodoProdutividadeRH $p): array
     {
@@ -309,20 +309,10 @@ final class ServicoProdutividade
         $tabela = ElegibilidadeProdutividadeRH::query()->where('ativo', true)->get()->groupBy('colaborador_id');
         $saida = [];
         foreach (Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get() as $c) {
-            $contrato = ContratoTrabalho::query()->where('colaborador_id', $c->id)->where('estado', 'ACTIVO')
-                ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $p->data_fim))
-                ->where(fn ($q) => $q->whereNull('data_fim')->orWhere('data_fim', '>=', $p->data_inicio))->orderBy('id')->first();
             $meus = [];
-            foreach ((array) ($contrato?->produtividade ?? []) as $x) {
-                $item = $itens[(int) ($x['item_id'] ?? 0)] ?? null;
-                if ($item) {
-                    $meus[$item->id] = ['item_id' => $item->id, 'codigo' => $item->codigo, 'preco' => (float) ($x['preco_unitario'] ?? 0) > 0 ? (string) $x['preco_unitario'] : (string) $item->preco_unitario,
-                        'origem' => 'CONTRATO'];
-                }
-            }
             foreach ($tabela[$c->id] ?? [] as $e) {
                 $item = $itens[(int) $e->item_produtividade_id] ?? null;
-                if ($item && ! isset($meus[$item->id])) {
+                if ($item) {
                     $meus[$item->id] = ['item_id' => $item->id, 'codigo' => $item->codigo, 'preco' => (float) $e->preco_unitario > 0 ? (string) $e->preco_unitario : (string) $item->preco_unitario,
                         'origem' => $e->origem];
                 }
@@ -372,9 +362,9 @@ final class ServicoProdutividade
     }
 
     /**
-     * Linhas de elegibilidade (tabela) e, só para leitura, os itens que vêm do contrato activo de cada colaborador (origem CONTRATO).
+     * Linhas de elegibilidade (tabela).
      *
-     * @return array{linhas: list<array<string, mixed>>, contrato: list<array<string, mixed>>}
+     * @return array{linhas: list<array<string, mixed>>}
      */
     public function elegibilidade(?int $colaborador = null, ?int $item = null): array
     {
@@ -384,19 +374,152 @@ final class ServicoProdutividade
             ->orderBy('colaborador_id')->orderBy('item_produtividade_id')->get()
             ->map(fn ($e) => $e->toArray() + ['colaborador_nome' => $nomes[$e->colaborador_id] ?? null, 'item_codigo' => $itens[$e->item_produtividade_id]->codigo ?? null,
                 'item_descricao' => $itens[$e->item_produtividade_id]->descricao ?? null, 'preco_aplicado' => (float) $e->preco_unitario > 0 ? (string) $e->preco_unitario : (string) ($itens[$e->item_produtividade_id]->preco_unitario ?? '0')])->values()->all();
-        $contrato = [];
-        foreach (ContratoTrabalho::query()->where('estado', 'ACTIVO')->when($colaborador, fn ($q, $c) => $q->where('colaborador_id', $c))->orderBy('colaborador_id')->get() as $ct) {
-            foreach ((array) ($ct->produtividade ?? []) as $x) {
-                $i = $itens[(int) ($x['item_id'] ?? 0)] ?? null;
-                if ($i && (! $item || $i->id === $item)) {
-                    $contrato[] = ['colaborador_id' => (int) $ct->colaborador_id, 'colaborador_nome' => $nomes[$ct->colaborador_id] ?? null, 'item_produtividade_id' => $i->id, 'item_codigo' => $i->codigo,
-                        'item_descricao' => $i->descricao, 'origem' => 'CONTRATO', 'ativo' => (bool) $i->ativo, 'contrato_id' => $ct->id,
-                        'preco_aplicado' => (float) ($x['preco_unitario'] ?? 0) > 0 ? (string) $x['preco_unitario'] : (string) $i->preco_unitario];
+
+        return ['linhas' => $linhas];
+    }
+
+    /**
+     * Elegibilidade em massa (#13/#26 do legado, agora sobre `elegibilidade_produtividade_rh`): os mesmos modos do ecrã individual.
+     *   - ACRESCENTAR: junta os itens aos que o colaborador já tem; se o item já lá estiver, SUBSTITUIR o preço próprio ou MANTER o actual
+     *     (uma linha inactiva reactiva-se);
+     *   - SUBSTITUIR: o colaborador fica só com estes itens (as linhas de outros itens retiram-se, menos as de origem ENTREGAVEL,
+     *     que se ganham por executar e validar);
+     *   - RETIRAR: tira estes itens da elegibilidade (qualquer origem);
+     *   - preço próprio (> 0) ou nulo (= preço do item, lido ao registar a produtividade);
+     *   - colaboradores não ACTIVOS ficam de fora (listados no resultado), excepto para RETIRAR;
+     *   - tudo numa transacção (tudo-ou-nada), com auditoria; `simular` devolve o plano sem gravar.
+     *
+     * A selecção vem de `colaboradores` × `itens` (grelha) ou, em alternativa, de `linhas` [{colaborador_id, item_id, preco_unitario?}] (cada
+     * colaborador fica com os itens das suas linhas: Excel e vista Linhas).
+     *
+     * @param  list<int>  $colaboradores
+     * @param  list<array{item_id: int, preco_unitario?: mixed}>  $itens
+     * @param  list<array{colaborador_id: int, item_id: int, preco_unitario?: mixed}>  $linhas
+     * @return array{actualizados: list<string>, sem_alteracao: list<string>, inactivos: list<string>, acrescentadas: int, alteradas: int, retiradas: int, detalhe: list<array<string, mixed>>, simulacao: bool}
+     */
+    public function aplicarElegibilidadeEmMassa(array $colaboradores, array $itens, string $modo, string $precoExistente, bool $simular, array $linhas = []): array
+    {
+        $modo = $modo === 'SUBSTITUIR_LISTA' ? 'SUBSTITUIR' : $modo;
+        if (! in_array($modo, self::MODOS_MASSA, true)) {
+            throw new ErroNegocio('Modo inválido: use ACRESCENTAR, SUBSTITUIR ou RETIRAR.', 'DADOS_INVALIDOS', 422);
+        }
+        // plano por colaborador: itens × colaboradores (grelha) ou uma linha por colaborador/item com o seu preço (linhas, Excel)
+        $planos = [];
+        $norm = fn (array $i) => ['item_id' => (int) $i['item_id'], 'preco_unitario' => isset($i['preco_unitario']) && $i['preco_unitario'] !== '' && (float) $i['preco_unitario'] > 0 ? round((float) $i['preco_unitario'], 4) : null];
+        if ($linhas !== []) {
+            foreach ($linhas as $l) {
+                $x = $norm($l);
+                $c = (int) $l['colaborador_id'];
+                if (isset($planos[$c][$x['item_id']])) {
+                    throw new ErroNegocio('Há linhas repetidas (o mesmo colaborador e item) na selecção.', 'LINHAS_REPETIDAS', 422);
                 }
+                $planos[$c][$x['item_id']] = $x;
+            }
+        } else {
+            $its = [];
+            foreach ($itens as $i) {
+                $x = $norm($i);
+                if (isset($its[$x['item_id']])) {
+                    throw new ErroNegocio('Há itens de produtividade repetidos na selecção.', 'ITEM_PRODUTIVIDADE_INVALIDO', 422);
+                }
+                $its[$x['item_id']] = $x;
+            }
+            foreach (array_unique(array_map('intval', $colaboradores)) as $c) {
+                $planos[$c] = $its;
             }
         }
+        if ($planos === [] || in_array([], $planos, true)) {
+            throw new ErroNegocio('Escolha pelo menos um colaborador e um item de produtividade.', 'DADOS_INVALIDOS', 422);
+        }
+        $idsItens = array_values(array_unique(array_merge(...array_map('array_keys', array_values($planos)))));
+        $catalogo = ItemProdutividadeRH::query()->whereKey($idsItens)->get()->keyBy('id');
+        if ($catalogo->count() !== count($idsItens)) {
+            throw new ErroNegocio('Há itens de produtividade inexistentes na selecção.', 'ITEM_PRODUTIVIDADE_INVALIDO', 422);
+        }
+        if ($modo !== 'RETIRAR' && ($inactivo = $catalogo->first(fn ($i) => ! $i->ativo))) {
+            throw new ErroNegocio("O item {$inactivo->codigo} está inactivo: active-o antes de o atribuir.", 'ITEM_PRODUTIVIDADE_INACTIVO', 422);
+        }
+        $pessoas = Colaborador::query()->whereKey(array_keys($planos))->ordenarPorNome('nome_completo')->get();
+        if ($pessoas->count() !== count($planos)) {
+            throw new ErroNegocio('Há colaboradores inexistentes na selecção.', 'DADOS_INVALIDOS', 422);
+        }
+        $user = Auth::user()?->nome_utilizador;
+        $res = ['actualizados' => [], 'sem_alteracao' => [], 'inactivos' => [], 'acrescentadas' => 0, 'alteradas' => 0, 'retiradas' => 0, 'detalhe' => [], 'simulacao' => $simular];
 
-        return ['linhas' => $linhas, 'contrato' => $contrato];
+        DB::beginTransaction();
+        try {
+            foreach ($pessoas as $p) {
+                $its = $planos[$p->id];
+                if ($p->estado !== 'ACTIVO' && $modo !== 'RETIRAR') {
+                    $res['inactivos'][] = $p->nome_completo;
+
+                    continue;
+                }
+                $linhas = ElegibilidadeProdutividadeRH::query()->where('colaborador_id', $p->id)->lockForUpdate()->get()->keyBy('item_produtividade_id');
+                $acr = $alt = $ret = [];
+                if ($modo === 'RETIRAR') {
+                    foreach ($its as $id => $x) {
+                        if ($l = $linhas[$id] ?? null) {
+                            $l->delete();
+                            $ret[] = $catalogo[$id]->codigo;
+                        }
+                    }
+                } else {
+                    if ($modo === 'SUBSTITUIR') {
+                        foreach ($linhas as $id => $l) {
+                            if (! isset($its[$id]) && $l->origem !== 'ENTREGAVEL') {
+                                $l->delete();
+                                $ret[] = ItemProdutividadeRH::query()->whereKey($id)->value('codigo') ?? "#{$id}";
+                            }
+                        }
+                    }
+                    foreach ($its as $id => $x) {
+                        $l = $linhas[$id] ?? null;
+                        if (! $l) {
+                            ElegibilidadeProdutividadeRH::create(['colaborador_id' => $p->id, 'item_produtividade_id' => $id, 'ativo' => true, 'origem' => 'MANUAL',
+                                'preco_unitario' => $x['preco_unitario'], 'criado_por' => $user]);
+                            $acr[] = $catalogo[$id]->codigo;
+
+                            continue;
+                        }
+                        $dados = [];
+                        if (! $l->ativo) {
+                            $dados['ativo'] = true;
+                        }
+                        $actual = (float) $l->preco_unitario > 0 ? round((float) $l->preco_unitario, 4) : null;
+                        if (($modo === 'SUBSTITUIR' || $precoExistente === 'SUBSTITUIR') && $actual !== $x['preco_unitario']) {
+                            $dados['preco_unitario'] = $x['preco_unitario'];
+                        }
+                        if ($dados) {
+                            $l->update($dados + ['atualizado_por' => $user]);
+                            $alt[] = $catalogo[$id]->codigo;
+                        }
+                    }
+                }
+                if (! $acr && ! $alt && ! $ret) {
+                    $res['sem_alteracao'][] = $p->nome_completo;
+
+                    continue;
+                }
+                $res['actualizados'][] = $p->nome_completo;
+                $res['acrescentadas'] += count($acr);
+                $res['alteradas'] += count($alt);
+                $res['retiradas'] += count($ret);
+                $res['detalhe'][] = ['colaborador_id' => $p->id, 'colaborador' => $p->nome_completo, 'acrescentados' => $acr, 'alterados' => $alt, 'retirados' => $ret];
+            }
+            if ($simular) {
+                DB::rollBack();
+            } else {
+                app(ServicoAuditoria::class)->registar('RH', 'Atribuir elegibilidade de produtividade em massa', "{$modo} · ".count($res['actualizados']).' colaborador(es) · itens '
+                    .$catalogo->pluck('codigo')->implode(', '), 'elegibilidade_produtividade_rh');
+                DB::commit();
+            }
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $res;
     }
 
     /** @param  array<string, mixed>  $d  colaborador_id, item_produtividade_id, quantidade, data?, observacoes? */
@@ -407,8 +530,8 @@ final class ServicoProdutividade
             if ($p->estado !== 'ABERTO') {
                 throw new ErroNegocio('O período de produtividade está fechado.', 'PERIODO_FECHADO', 422);
             }
-            $el = $this->elegiveis($p)[(int) $d['colaborador_id']] ?? throw new ErroNegocio('O colaborador não é elegível: tem de estar ACTIVO e ter o item no contrato ou na elegibilidade de produtividade.', 'NAO_ELEGIVEL', 422);
-            $itemEl = $el['itens'][(int) $d['item_produtividade_id']] ?? throw new ErroNegocio('O item não está no contrato nem na elegibilidade do colaborador (ou está inactivo).', 'ITEM_FORA_DO_CONTRATO', 422);
+            $el = $this->elegiveis($p)[(int) $d['colaborador_id']] ?? throw new ErroNegocio('O colaborador não é elegível: tem de estar ACTIVO e ter o item na elegibilidade de produtividade.', 'NAO_ELEGIVEL', 422);
+            $itemEl = $el['itens'][(int) $d['item_produtividade_id']] ?? throw new ErroNegocio('O item não está na elegibilidade do colaborador (ou está inactivo).', 'ITEM_FORA_DO_CONTRATO', 422);
             $item = ItemProdutividadeRH::query()->findOrFail($itemEl['item_id']);
             $data = ! empty($d['data']) ? substr($d['data'], 0, 10) : null;
             if ($data && ($data < $p->data_inicio->toDateString() || $data > $p->data_fim->toDateString() || $data > now()->toDateString())) {

@@ -95,13 +95,14 @@ final class FeriasProdutividadeTest extends TestCase
         $this->postJson('/api/rh/produtividade/itens', ['codigo' => 'CFRS', 'descricao' => 'Outro', 'preco_unitario' => 1, 'infotipo_salarial_id' => $this->ids['prod']], $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'CODIGO_DUPLICADO');
 
-        // contratos: Ana ao preço do item; Rui a 150 (preço do contrato); Novo sem o item
-        $contrato = fn (int $c, array $prod) => $this->postJson('/api/rh/contratos', ['colaborador_id' => $c, 'data_inicio' => '2025-01-01', 'produtividade' => $prod,
+        // contratos sem itens de produtividade; elegibilidade: Ana ao preço do item; Rui a 150 (preço próprio); Novo sem o item
+        $contrato = fn (int $c) => $this->postJson('/api/rh/contratos', ['colaborador_id' => $c, 'data_inicio' => '2025-01-01',
             'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 100000]]], $this->s);
-        $contrato($this->ids['ana'], [['item_id' => 999999]])->assertStatus(422)->assertJsonPath('codigo', 'ITEM_PRODUTIVIDADE_INVALIDO');
-        $contrato($this->ids['ana'], [['item_id' => $item, 'preco_unitario' => null]])->assertCreated();
-        $contrato($this->ids['rui'], [['item_id' => $item, 'preco_unitario' => 150]])->assertCreated();
-        $contrato($this->ids['novo'], [])->assertCreated();
+        $contrato($this->ids['ana'])->assertCreated();
+        $contrato($this->ids['rui'])->assertCreated();
+        $contrato($this->ids['novo'])->assertCreated();
+        $this->postJson('/api/rh/produtividade/elegibilidade', ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $item], $this->s)->assertCreated();
+        $this->postJson('/api/rh/produtividade/elegibilidade', ['colaborador_id' => $this->ids['rui'], 'item_produtividade_id' => $item, 'preco_unitario' => 150], $this->s)->assertCreated();
 
         $per = ['mes' => '2025-08', 'data_inicio' => '2025-08-01', 'data_fim' => '2025-08-31'];
         $this->postJson('/api/rh/produtividade/periodos', ['mes' => '2025-08', 'data_inicio' => '2025-05-01', 'data_fim' => '2025-08-31'], $this->s)
@@ -157,8 +158,9 @@ final class FeriasProdutividadeTest extends TestCase
         // E-RH-1: tecto de 10 no total e três registos de 5 a 50 000 → 500 000 exactos (antes: 3 × 3,333 × 50 000 = 499 950)
         $item = $this->postJson('/api/rh/produtividade/itens', ['codigo' => 'MONT', 'descricao' => 'Montagem', 'preco_unitario' => 50000,
             'infotipo_salarial_id' => $this->ids['prod'], 'maximo' => 10], $this->s)->assertCreated()->json('dados.id');
-        $this->postJson('/api/rh/contratos', ['colaborador_id' => $this->ids['ana'], 'data_inicio' => '2025-01-01', 'produtividade' => [['item_id' => $item, 'preco_unitario' => null]],
+        $this->postJson('/api/rh/contratos', ['colaborador_id' => $this->ids['ana'], 'data_inicio' => '2025-01-01',
             'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 100000]]], $this->s)->assertCreated();
+        $this->postJson('/api/rh/produtividade/elegibilidade', ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $item], $this->s)->assertCreated();
         $p = $this->postJson('/api/rh/produtividade/periodos', ['mes' => '2025-08', 'data_inicio' => '2025-08-01', 'data_fim' => '2025-08-31'], $this->s)->assertCreated()->json('dados.id');
         foreach (['2025-08-04', '2025-08-05', '2025-08-06'] as $data) {
             $this->postJson("/api/rh/produtividade/periodos/{$p}/registos", ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $item, 'quantidade' => 5, 'data' => $data], $this->s)

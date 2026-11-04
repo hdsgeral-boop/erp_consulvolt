@@ -96,14 +96,15 @@ describe('Contratos › «Novo contrato»', () => {
 
   it('as colunas das rubricas passam a remunerações; a grade mantém a lista, o horário e a minuta', () => {
     const linha = dadosContrato({ colaborador_id: 1, rub_7: 300000, rub_8: null, dias_contrato_mes: 22, horas_por_dia: 8, data_inicio: '2026-01-01', data_fim: null, estado: 'ACTIVO', codigo_moeda: 'aoa' });
-    expect(linha).toMatchObject({ remuneracoes: [{ infotipo_salarial_id: 7, valor_mes: 300000 }], data_inicio: '2026-01-01', data_fim: null, codigo_moeda: 'AOA', horario: null, produtividade: [], motivo_termo: null });
+    expect(linha).toMatchObject({ remuneracoes: [{ infotipo_salarial_id: 7, valor_mes: 300000 }], data_inicio: '2026-01-01', data_fim: null, codigo_moeda: 'AOA', horario: null, motivo_termo: null });
     expect(linha).not.toHaveProperty('rub_7');
     const grade = dadosContrato({
       colaborador_id: 1, data_inicio: dayjs('2026-01-01'), data_fim: dayjs('2026-12-31'), dias_contrato_mes: 22, horas_por_dia: 8, estado: 'ACTIVO', codigo_moeda: 'AOA',
       remuneracoes: [{ infotipo_salarial_id: 7, valor_mes: 250000 }], produtividade: [{ item_id: 3 }], motivo_termo: ' Obra ', usar_horario: false, horario: { periodos: 1 },
     });
-    expect(grade).toMatchObject({ data_fim: '2026-12-31', motivo_termo: 'Obra', produtividade: [{ item_id: 3, preco_unitario: null }], remuneracoes: [{ infotipo_salarial_id: 7, valor_mes: 250000 }] });
+    expect(grade).toMatchObject({ data_fim: '2026-12-31', motivo_termo: 'Obra', remuneracoes: [{ infotipo_salarial_id: 7, valor_mes: 250000 }] });
     expect(grade).not.toHaveProperty('usar_horario');
+    expect(grade).not.toHaveProperty('produtividade');   // os itens de produtividade já não pertencem ao contrato
   });
 });
 

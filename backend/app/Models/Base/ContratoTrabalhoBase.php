@@ -21,7 +21,7 @@ abstract class ContratoTrabalhoBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'remuneracoes', 'dias_contrato_mes', 'data_inicio', 'data_fim', 'estado', 'horas_por_dia', 'codigo_moeda', 'produtividade', 'horario', 'suspensao', 'suspensoes', 'cessacao', 'cessacoes_anuladas', 'motivo_termo', 'periodo_experimental_dias',
+        'empresa_id', 'colaborador_id', 'remuneracoes', 'dias_contrato_mes', 'data_inicio', 'data_fim', 'estado', 'horas_por_dia', 'codigo_moeda', 'horario', 'suspensao', 'suspensoes', 'cessacao', 'cessacoes_anuladas', 'motivo_termo', 'periodo_experimental_dias',
     ];
 
     protected function casts(): array
@@ -34,7 +34,6 @@ abstract class ContratoTrabalhoBase extends ModeloBase
             'data_inicio' => 'date',
             'data_fim' => 'date',
             'horas_por_dia' => 'decimal:3',
-            'produtividade' => 'array',
             'horario' => 'array',
             'suspensao' => 'array',
             'suspensoes' => 'array',

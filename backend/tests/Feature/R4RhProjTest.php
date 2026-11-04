@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CentroCusto;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
+use App\Models\ElegibilidadeProdutividadeRH;
 use App\Models\Empresa;
 use App\Models\InfotipoSalarial;
 use App\Models\ItemProdutividadeRH;
@@ -130,7 +131,8 @@ final class R4RhProjTest extends TestCase
             $this->ids['ana'] = Colaborador::create(['nome_completo' => 'Ana Fictícia', 'nif' => '900000001LA001', 'estado' => 'ACTIVO', 'tipo_organizacao_id' => $org,
                 'dias_uteis_mes' => 22, 'data_admissao' => '2020-01-01'])->id;
             ContratoTrabalho::create(['colaborador_id' => $this->ids['ana'], 'estado' => 'ACTIVO', 'dias_contrato_mes' => 22, 'horas_por_dia' => 8, 'data_inicio' => '2020-01-01',
-                'remuneracoes' => [], 'produtividade' => [['item_id' => $this->ids['pec'], 'preco_unitario' => null]]]);
+                'remuneracoes' => []]);
+            ElegibilidadeProdutividadeRH::create(['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $this->ids['pec'], 'ativo' => true, 'origem' => 'MANUAL']);
         });
         $p = $this->postJson('/api/rh/produtividade/periodos', ['mes' => '2025-09', 'data_inicio' => '2025-09-01', 'data_fim' => '2025-09-30'], $s)->assertCreated()->json('dados.id');
         foreach (['2025-09-10' => 25, '2025-09-20' => 15] as $data => $q) {

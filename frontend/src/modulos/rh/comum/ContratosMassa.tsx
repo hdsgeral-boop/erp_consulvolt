@@ -1,8 +1,8 @@
-import { Alert, Button, Checkbox, Col, DatePicker, Form, InputNumber, Modal, Radio, Row, Segmented, Select, Space, Typography, message } from 'antd';
+import { Alert, Button, Checkbox, Col, DatePicker, Form, InputNumber, Modal, Radio, Row, Select, Space, Typography, message } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState, type ClipboardEvent } from 'react';
+import { useState, type ClipboardEvent } from 'react';
 import { enviar } from '@/api/cliente';
 import { ColarExcelBotao } from '@/componentes/formularios/ColarExcelBotao';
 import { colagemParaLinhas, pareceColagemDeGrade, posicaoColagem, type ResultadoColagemGrade } from '@/componentes/formularios/colagemGrade';
@@ -11,7 +11,6 @@ import { larguraModal } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
 import { useColaboradores, useInfotipos } from './consultas';
 import { SeletorColaborador } from './componentes';
-import { ProdutividadeMassa } from './ProdutividadeMassa';
 
 interface Valores {
   colaboradores: number[];
@@ -29,19 +28,15 @@ interface Resultado { actualizados: string[]; criados: string[]; sem_alteracao: 
  * Contratos › Aplicar rubricas em massa (contratosEmMassa, js/modules/rh/contratos_massa.js): uma ou mais rubricas com o
  * mesmo valor mensal para vários colaboradores — acrescenta ao contrato vigente (substituindo ou mantendo o valor) e,
  * opcionalmente, cria o contrato a quem não tem. Primeiro simula; depois aplica.
- * Versão Actual (#13/#26): opção «Itens de produtividade» (ProdutividadeMassa), a partir dos contratos marcados na lista.
+ * (Os itens de produtividade em massa passaram para Produtividade › Elegibilidade › «Atribuir em massa».)
  */
-export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial = 'RUBRICAS' }: {
+export function ContratosMassa({ aberto, aoFechar }: {
   aberto: boolean;
   aoFechar: () => void;
+  /** Mantido por compatibilidade com quem passa os contratos marcados na lista (já não é usado). */
   contratos?: number[];
-  /** Botão do antigo que abriu o assistente: «Aplicar em massa» (rubricas) ou «Produtividade em massa». */
-  tipoInicial?: 'RUBRICAS' | 'PRODUTIVIDADE';
+  tipoInicial?: 'RUBRICAS';
 }) {
-  const [tipo, setTipo] = useState<'RUBRICAS' | 'PRODUTIVIDADE'>(tipoInicial);
-  useEffect(() => {
-    if (aberto) setTipo(tipoInicial);
-  }, [aberto, tipoInicial]);
   const cliente = useQueryClient();
   const colaboradores = useColaboradores();
   const infotipos = useInfotipos();
@@ -110,17 +105,12 @@ export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial =
       setAEnviar(false);
     }
   };
-  const fechar = () => { setPlano(null); form.resetFields(); setTipo('RUBRICAS'); aoFechar(); };
+  const fechar = () => { setPlano(null); form.resetFields(); aoFechar(); };
 
   return (
-    <Modal title={tipo === 'RUBRICAS' ? 'Aplicar rubricas em massa' : 'Aplicar itens de produtividade em massa'} open={aberto} width={larguraModal(760)} onCancel={fechar} destroyOnHidden
-      footer={tipo === 'RUBRICAS'
-        ? <Space wrap><Button onClick={fechar}>Fechar</Button><Button loading={aEnviar} onClick={() => void executar(true)}>Simular</Button>
-          <Button type="primary" loading={aEnviar} disabled={!plano?.simulacao} onClick={() => void executar(false)}>Aplicar</Button></Space>
-        : <Button onClick={fechar}>Fechar</Button>}>
-      <Segmented block style={{ marginBottom: 12 }} value={tipo} onChange={(v) => setTipo(v as typeof tipo)}
-        options={[{ value: 'RUBRICAS', label: 'Rubricas de vencimento' }, { value: 'PRODUTIVIDADE', label: 'Itens de produtividade' }]} />
-      {tipo === 'PRODUTIVIDADE' ? <ProdutividadeMassa contratos={contratos} /> : <>
+    <Modal title="Aplicar rubricas em massa" open={aberto} width={larguraModal(760)} onCancel={fechar} destroyOnHidden
+      footer={<Space wrap><Button onClick={fechar}>Fechar</Button><Button loading={aEnviar} onClick={() => void executar(true)}>Simular</Button>
+        <Button type="primary" loading={aEnviar} disabled={!plano?.simulacao} onClick={() => void executar(false)}>Aplicar</Button></Space>}>
       <Typography.Paragraph type="secondary">Cada rubrica tem o mesmo valor mensal para todos os colaboradores escolhidos. Os contratos inactivos e os colaboradores não activos não são alterados.</Typography.Paragraph>
       <Form form={form} layout="vertical" initialValues={{ modo: 'SUBSTITUIR', criar: false, rubricas: [{}], dias_contrato_mes: 22, horas_por_dia: 8, data_inicio: dayjs().startOf('month') }}
         onValuesChange={() => setPlano(null)}>
@@ -164,7 +154,6 @@ export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial =
           description={`${plano.actualizados.length} contrato(s) a actualizar · ${plano.criados.length} a criar · ${plano.sem_alteracao.length} já com estes valores`
             + `${plano.inactivos.length ? ` · ${plano.inactivos.length} não activo(s)` : ''}${plano.sem_contrato.length ? ` · ${plano.sem_contrato.length} sem contrato ignorado(s)` : ''}.`} />
       )}
-      </>}
     </Modal>
   );
 }

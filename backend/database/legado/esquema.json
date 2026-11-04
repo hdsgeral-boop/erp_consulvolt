@@ -10193,15 +10193,6 @@
           "dominio": null
         },
         {
-          "coluna": "produtividade",
-          "legado": "produtividade",
-          "tipo": "jsonb",
-          "nulo": true,
-          "origem": "backup",
-          "fk": null,
-          "dominio": null
-        },
-        {
           "coluna": "horario",
           "legado": "horario",
           "tipo": "jsonb",

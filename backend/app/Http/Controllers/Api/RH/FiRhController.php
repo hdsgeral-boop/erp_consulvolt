@@ -8,7 +8,6 @@ use App\Models\PeriodoProdutividadeRH;
 use App\Models\RegistoProdutividadeRH;
 use App\Services\RH\ServicoAssiduidade;
 use App\Services\RH\ServicoCalendarioRH;
-use App\Services\RH\ServicoContratosTrabalho;
 use App\Services\RH\ServicoProdutividade;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -22,7 +21,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Fecho da Versão Actual — RH (ADR-071, caderno 04_rh_salarios.md):
- *   - #13/#26 itens de produtividade em massa nos contratos (contratos_produtividade.js);
+ *   - #13/#26 elegibilidade de produtividade em massa (antes nos contratos: contratos_produtividade.js);
  *   - #11 descrição das métricas/bases e explicação do cálculo da produtividade (produtividade.js:36-160);
  *   - #4 modelo Excel da efectividade já preenchido (assiduidade.js:618).
  * As permissões verificam-se SEMPRE antes da validação (OWASP A01); o isolamento por empresa vem dos models (PertenceEmpresa)
@@ -30,25 +29,30 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 final class FiRhController extends Controller
 {
-    /** POST /rh/contratos/produtividade-massa — contratos[] e/ou colaboradores[], itens[{item_id, preco_unitario?}], modo, preco_existente, simular. */
-    public function produtividadeMassa(Request $r, ServicoContratosTrabalho $contratos): JsonResponse
+    /**
+     * POST /rh/produtividade/elegibilidade/massa — colaboradores[] × itens[{item_id, preco_unitario?}] (ou linhas[{colaborador_id, item_id, preco_unitario?}]), modo (ACRESCENTAR|SUBSTITUIR|RETIRAR),
+     * preco_existente (SUBSTITUIR|MANTER), simular. Grava em `elegibilidade_produtividade_rh` (origem MANUAL), tudo-ou-nada; `simular` é a pré-visualização.
+     */
+    public function elegibilidadeMassa(Request $r, ServicoProdutividade $produtividade): JsonResponse
     {
-        $this->exigir('contratos_new');
+        $this->exigir('rh_prod_config');
         $empresa = app(ContextoEmpresa::class)->obrigatorio();
         $d = $r->validate([
-            'contratos' => ['nullable', 'array', 'max:2000'], 'contratos.*' => ['integer', Rule::exists('contratos_trabalho', 'id')->where('empresa_id', $empresa)],
-            'colaboradores' => ['nullable', 'array', 'max:2000'], 'colaboradores.*' => ['integer', Rule::exists('colaboradores', 'id')->where('empresa_id', $empresa)],
-            'itens' => ['required', 'array', 'min:1', 'max:50'],
+            'colaboradores' => ['required_without:linhas', 'array', 'min:1', 'max:2000'], 'colaboradores.*' => ['integer', 'distinct', Rule::exists('colaboradores', 'id')->where('empresa_id', $empresa)],
+            'itens' => ['required_without:linhas', 'array', 'min:1', 'max:50'],
             'itens.*.item_id' => ['required', 'integer', 'distinct', Rule::exists('itens_produtividade_rh', 'id')->where('empresa_id', $empresa)],
             'itens.*.preco_unitario' => ['nullable', 'numeric', 'min:0', 'max:99999999999'],
-            'modo' => ['required', Rule::in([...ServicoContratosTrabalho::MODOS_PRODUTIVIDADE, 'SUBSTITUIR_LISTA'])],
+            // alternativa à grelha (colaboradores × itens): uma linha por colaborador e item, com o seu preço próprio (Excel e vista Linhas)
+            'linhas' => ['nullable', 'array', 'min:1', 'max:5000'], 'linhas.*.colaborador_id' => ['required', 'integer', Rule::exists('colaboradores', 'id')->where('empresa_id', $empresa)],
+            'linhas.*.item_id' => ['required', 'integer', Rule::exists('itens_produtividade_rh', 'id')->where('empresa_id', $empresa)],
+            'linhas.*.preco_unitario' => ['nullable', 'numeric', 'min:0', 'max:99999999999'],
+            'modo' => ['required', Rule::in([...ServicoProdutividade::MODOS_MASSA, 'SUBSTITUIR_LISTA'])],
             'preco_existente' => ['nullable', Rule::in(['SUBSTITUIR', 'MANTER'])], 'simular' => ['nullable', 'boolean'],
-        ], [], ['itens' => 'itens de produtividade', 'contratos' => 'contratos', 'colaboradores' => 'colaboradores']);
-        $res = $contratos->aplicarProdutividadeEmMassa(array_map('intval', $d['contratos'] ?? []), array_map('intval', $d['colaboradores'] ?? []), $d['itens'], $d['modo'],
-            $d['preco_existente'] ?? 'SUBSTITUIR', (bool) ($d['simular'] ?? false));
+        ], [], ['itens' => 'itens de produtividade', 'colaboradores' => 'colaboradores']);
+        $res = $produtividade->aplicarElegibilidadeEmMassa(array_map('intval', $d['colaboradores'] ?? []), $d['itens'] ?? [], $d['modo'], $d['preco_existente'] ?? 'SUBSTITUIR', (bool) ($d['simular'] ?? false), $d['linhas'] ?? []);
 
-        return RespostaApi::sucesso($res, ($res['simulacao'] ? 'Simulação: ' : '').'produtividade aplicada a '.count($res['actualizados']).' contrato(s); '
-            .count($res['sem_alteracao']).' já estavam assim; '.(count($res['inactivos']) + count($res['sem_contrato'])).' ignorado(s).');
+        return RespostaApi::sucesso($res, ($res['simulacao'] ? 'Simulação: ' : '').'elegibilidade atribuída a '.count($res['actualizados']).' colaborador(es) ('
+            ."{$res['acrescentadas']} acrescentada(s), {$res['alteradas']} alterada(s), {$res['retiradas']} retirada(s)); ".count($res['sem_alteracao']).' já estavam assim; '.count($res['inactivos']).' ignorado(s).');
     }
 
     /** GET /rh/produtividade/metricas — rótulos, fórmula e exemplo de cada métrica e as bases de cálculo. */

@@ -24,8 +24,7 @@ const ANALISE: AnaliseEntregaveis = {
   convertidas: 0,
 };
 const ELEGIBILIDADE: Elegibilidade = {
-  contrato: [{ colaborador_id: 2, colaborador_nome: 'Rui Fictício', item_produtividade_id: 3, item_codigo: 'FECHO', item_descricao: 'Relatório de fecho', origem: 'CONTRATO', ativo: true, contrato_id: 1, preco_aplicado: '30000' }],
-  linhas: [{ id: 8, colaborador_id: 4, colaborador_nome: 'Zé Fictício', item_produtividade_id: 3, item_codigo: 'FECHO', item_descricao: 'Relatório de fecho', origem: 'ENTREGAVEL', ativo: true, preco_unitario: '25000', preco_aplicado: '25000', nota: 'Entrega validada' }],
+  linhas: [{ id: 7, colaborador_id: 2, colaborador_nome: 'Rui Fictício', item_produtividade_id: 3, item_codigo: 'FECHO', item_descricao: 'Relatório de fecho', origem: 'CONTRATO', ativo: true, preco_aplicado: '30000' }, { id: 8, colaborador_id: 4, colaborador_nome: 'Zé Fictício', item_produtividade_id: 3, item_codigo: 'FECHO', item_descricao: 'Relatório de fecho', origem: 'ENTREGAVEL', ativo: true, preco_unitario: '25000', preco_aplicado: '25000', nota: 'Entrega validada' }],
 };
 
 const obterMock = vi.fn();
@@ -72,7 +71,7 @@ describe('RH › Produtividade › Entregáveis das unidades (Fase J)', () => {
 });
 
 describe('RH › Produtividade › Elegibilidade (Fase J)', () => {
-  it('contrato (só leitura) e entregável, com o preço próprio e as acções só nas linhas da tabela', async () => {
+  it('contrato (migrada) e entregável, com o preço próprio e as acções em todas as linhas da tabela', async () => {
     const { Elegibilidade } = await import('./Elegibilidade');
     envolver(<Elegibilidade />);
     expect(await screen.findByText('Zé Fictício', undefined, { timeout: 60_000 })).toBeTruthy();
@@ -80,10 +79,11 @@ describe('RH › Produtividade › Elegibilidade (Fase J)', () => {
     expect(screen.getByText('entregável')).toBeTruthy();
     expect(screen.getByText('o do item')).toBeTruthy();
     expect(screen.getAllByText(/25\s?000,00/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'Desactivar' })).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: 'Retirar Rui Fictício' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Desactivar' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Retirar Rui Fictício' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Atribuir em massa/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Retirar Zé Fictício' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Desactivar' })[1]);
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('post', '/rh/produtividade/elegibilidade', { colaborador_id: 4, item_produtividade_id: 3, ativo: false, preco_unitario: 25000, nota: 'Entrega validada' }), { timeout: 30_000 });
     expect(screen.getByRole('button', { name: /Adicionar/ })).toBeTruthy();
   });

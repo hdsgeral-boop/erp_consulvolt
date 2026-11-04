@@ -9692,15 +9692,6 @@
           "notas": []
         },
         {
-          "legado": "produtividade",
-          "pt": "produtividade",
-          "tipo_pg": "jsonb",
-          "nulo": true,
-          "preenchimento": 0.2982,
-          "max_comprimento": 109,
-          "notas": []
-        },
-        {
           "legado": "horario",
           "pt": "horario",
           "tipo_pg": "jsonb",

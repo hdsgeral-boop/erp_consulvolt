@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CentroCusto;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
+use App\Models\ElegibilidadeProdutividadeRH;
 use App\Models\Empresa;
 use App\Models\FolhaHorasProjeto;
 use App\Models\InfotipoSalarial;
@@ -206,7 +207,9 @@ final class FeProjectosOrcamentoExecucaoTest extends TestCase
             $tarefas = ItemProdutividadeRH::create(['codigo' => 'TAR', 'descricao' => 'Tarefa concluída', 'metrica' => 'TAREFAS', 'unidade' => 'un', 'preco_unitario' => 1000,
                 'infotipo_salarial_id' => $inf, 'ativo' => true])->id;
             ContratoTrabalho::create(['colaborador_id' => $this->ids['ana'], 'estado' => 'ACTIVO', 'data_inicio' => '2020-01-01', 'dias_contrato_mes' => 22, 'horas_por_dia' => 8,
-                'codigo_moeda' => 'AOA', 'produtividade' => [['item_id' => $metros, 'preco_unitario' => null], ['item_id' => $tarefas, 'preco_unitario' => 1500]]]);
+                'codigo_moeda' => 'AOA']);
+            ElegibilidadeProdutividadeRH::create(['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $metros, 'ativo' => true, 'origem' => 'MANUAL']);
+            ElegibilidadeProdutividadeRH::create(['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $tarefas, 'ativo' => true, 'origem' => 'MANUAL', 'preco_unitario' => 1500]);
             $per = PeriodoProdutividadeRH::create(['mes' => '2026-09', 'data_inicio' => '2026-09-01', 'data_fim' => '2026-09-30', 'estado' => 'ABERTO'])->id;
 
             return compact('metros', 'tarefas', 'per');

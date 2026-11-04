@@ -1283,6 +1283,8 @@ Linhas reais: **202** · fictícias descartadas: 18
 
 Linhas reais: **114** · fictícias descartadas: 18
 
+> A coluna legada `produtividade` (itens de produtividade no contrato) foi eliminada pela migração `2026_11_20_090000_produtividade_sai_do_contrato`: a elegibilidade vive em `elegibilidade_produtividade_rh` (origem `CONTRATO` = itens migrados).
+
 | Coluna legado | Coluna PT | Tipo PG | Nulo | Preench. | FK | Notas |
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
@@ -1295,7 +1297,6 @@ Linhas reais: **114** · fictícias descartadas: 18
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `hours_per_day` | `horas_por_dia` | numeric(12,3) | sim | 100% |  | tipos mistos: inteiro=109, decimal=5 |
 | `currency` | `codigo_moeda` | varchar(10) | sim | 18% |  |  |
-| `produtividade` | `produtividade` | jsonb | sim | 30% |  |  |
 | `horario` | `horario` | jsonb | sim | 7% |  |  |
 
 ### `payroll_periods` → `periodos_processamento_salarial` (model `PeriodoProcessamentoSalarial`, `/api/rh/periodos`)

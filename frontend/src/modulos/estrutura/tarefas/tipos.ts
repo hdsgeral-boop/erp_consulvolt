@@ -376,9 +376,9 @@ export interface ResultadoConversao {
   total: Decimal;
 }
 
-/** Linha da elegibilidade (tabela própria) ou do contrato (sem `id`, só leitura). */
+/** Linha da elegibilidade (tabela `elegibilidade_produtividade_rh`; origem CONTRATO = migrada do antigo contrato). */
 export interface LinhaElegibilidade {
-  id?: number | null;
+  id: number;
   colaborador_id: number;
   colaborador_nome: string | null;
   item_produtividade_id: number;
@@ -389,12 +389,10 @@ export interface LinhaElegibilidade {
   preco_unitario?: Decimal | null;
   preco_aplicado?: Decimal | null;
   nota?: string | null;
-  contrato_id?: number;
 }
 
 export interface Elegibilidade {
   linhas: LinhaElegibilidade[];
-  contrato: LinhaElegibilidade[];
 }
 
 export interface DadosElegibilidade {

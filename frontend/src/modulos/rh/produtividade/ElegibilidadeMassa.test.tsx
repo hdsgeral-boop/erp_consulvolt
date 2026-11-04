@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ItemProdutividade } from '../api';
-import { ProdutividadeMassa } from './ProdutividadeMassa';
+import { corpoElegibilidadeMassa, GrelhaElegibilidadeMassa, resumoElegibilidadeMassa } from './ElegibilidadeMassa';
 
 const obter = vi.fn();
-vi.mock('@/api/cliente', () => ({
+vi.mock('@/api/cliente', async (original) => ({
+  ...(await original<object>()),
   obter: (...a: unknown[]) => obter(...a),
   enviar: vi.fn(() => Promise.resolve({ dados: {}, mensagem: 'ok' })),
   obterPagina: () => Promise.resolve({ itens: [], paginacao: { ultima_pagina: 1 } }),
@@ -19,7 +20,7 @@ const ITENS: ItemProdutividade[] = [
 function montar() {
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   obter.mockReset().mockImplementation((url: string) => (url === '/rh/produtividade/itens' ? Promise.resolve(ITENS) : Promise.resolve([])));
-  return render(<QueryClientProvider client={cliente}><ProdutividadeMassa /></QueryClientProvider>);
+  return render(<QueryClientProvider client={cliente}><GrelhaElegibilidadeMassa /></QueryClientProvider>);
 }
 
 /** Espera a lista de itens activos estar na cache antes de colar (abre e fecha o seletor do 1.º item). */
@@ -30,7 +31,7 @@ async function aguardarItensCarregados() {
   fireEvent.keyDown(campo, { key: 'Escape' });
 }
 
-describe('ProdutividadeMassa — Colar do Excel nos itens', () => {
+describe('GrelhaElegibilidadeMassa — Colar do Excel nos itens', () => {
   it('botão «Colar do Excel»: acrescenta itens no fim, lendo item (pelo código) e preço pela ordem das colunas', async () => {
     montar();
     await aguardarItensCarregados();
@@ -50,4 +51,18 @@ describe('ProdutividadeMassa — Colar do Excel nos itens', () => {
     fireEvent.paste(celulaItem, { clipboardData: { getData: () => 'PROD001\t200' } });
     await waitFor(() => expect((screen.getByRole('spinbutton') as HTMLInputElement).value).toBe('200,0000'));
   }, 60_000);
+});
+
+describe('Elegibilidade em massa — corpo e resumo', () => {
+  it('o corpo leva colaboradores, itens com preço próprio e o modo; em «Retirar» os preços vão a null', () => {
+    const v = { colaboradores: [1, 2], itens: [{ item_id: 5, preco_unitario: 150 }, { item_id: 6 }], modo: 'ACRESCENTAR' as const, preco_existente: 'MANTER' as const };
+    expect(corpoElegibilidadeMassa(v, true)).toEqual({ colaboradores: [1, 2], modo: 'ACRESCENTAR', preco_existente: 'MANTER', simular: true,
+      itens: [{ item_id: 5, preco_unitario: 150 }, { item_id: 6, preco_unitario: null }] });
+    expect(corpoElegibilidadeMassa({ ...v, modo: 'RETIRAR' }, false).itens).toEqual([{ item_id: 5, preco_unitario: null }, { item_id: 6, preco_unitario: null }]);
+  });
+
+  it('o resumo conta o que se acrescenta, altera e retira e quem fica de fora', () => {
+    expect(resumoElegibilidadeMassa({ actualizados: ['Ana', 'Rui'], sem_alteracao: ['Eva'], inactivos: ['Zé'], acrescentadas: 3, alteradas: 1, retiradas: 0, detalhe: [], simulacao: true }))
+      .toBe('2 colaborador(es) a alterar (3 acrescentada(s), 1 alterada(s), 0 retirada(s)) · 1 já assim · 1 não activo(s) ignorado(s).');
+  });
 });

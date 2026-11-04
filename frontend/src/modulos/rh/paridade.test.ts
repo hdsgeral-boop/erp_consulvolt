@@ -76,7 +76,7 @@ describe('6.3 — Processamentos e folhas separadas', () => {
 describe('6.5.1 — Contrato para assinatura', () => {
   it('escapa os dados vindos da base', () => {
     const html = contratoAssinaturaHtml({
-      contrato: { id: 1, colaborador_id: 1, remuneracoes: [], dias_contrato_mes: 22, data_inicio: '2026-01-01', data_fim: null, estado: 'ACTIVO', horas_por_dia: '8', codigo_moeda: 'AOA', produtividade: null },
+      contrato: { id: 1, colaborador_id: 1, remuneracoes: [], dias_contrato_mes: 22, data_inicio: '2026-01-01', data_fim: null, estado: 'ACTIVO', horas_por_dia: '8', codigo_moeda: 'AOA' },
       empresa: { nome: 'Empresa <b>Teste</b>' }, colaborador: { nome: 'Ana <script>' }, rubrica: () => 'Salário Base', hoje: '2026-10-09',
     });
     expect(html).toContain('Empresa &lt;b&gt;Teste&lt;/b&gt;');

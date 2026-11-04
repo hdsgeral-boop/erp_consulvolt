@@ -18,7 +18,7 @@ import { dataDe, numeroDe, opcoesColaboradores } from './comum/linhasRh';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { ESTADOS_COLABORADOR, ESTADOS_CONTRATO, type ConfiguracaoRH, type ContratoTrabalho, type ItemProdutividade } from './api';
+import { ESTADOS_COLABORADOR, ESTADOS_CONTRATO, type ConfiguracaoRH, type ContratoTrabalho } from './api';
 import { detalheEstadoContrato, LinhasRubricas } from './contratos/apresentacao';
 import { accoesEstadoContrato, ModaisEstadoContrato, type AccaoEstado } from './contratos/EstadoContrato';
 import { CamposHorario, horarioParaApi, horarioParaForm, type ValoresHorario } from './contratos/HorarioContrato';
@@ -38,7 +38,6 @@ interface ValoresContrato extends ValoresHorario {
   estado: string;
   codigo_moeda: string;
   remuneracoes: { infotipo_salarial_id: number; valor_mes: number }[];
-  produtividade?: { item_id: number; preco_unitario?: number | null }[];
   /** Minuta (Lei 12/23): razões do contrato a termo e período experimental. */
   motivo_termo?: string | null;
   periodo_experimental_dias?: number | null;
@@ -72,10 +71,10 @@ export function camposContrato(colaboradores: CampoFormulario['opcoes'], rubrica
 
 /**
  * Corpo do POST/PUT /rh/contratos — grade (remunerações em lista, horário, minuta) e linhas (uma coluna por rubrica;
- * sem horário nem itens de produtividade, que se acrescentam depois em «Editar»).
+ * sem horário, que se acrescenta depois em «Editar»).
  */
 export function dadosContrato(v: Record<string, unknown>) {
-  const { usar_horario: _usar, horario: _h, ...resto } = v;
+  const { usar_horario: _usar, horario: _h, produtividade: _p, ...resto } = v;
   const rubricas = Object.keys(v).filter((k) => k.startsWith(PREFIXO_RUBRICA));
   const remuneracoes = Array.isArray(v.remuneracoes)
     ? v.remuneracoes
@@ -93,18 +92,16 @@ export function dadosContrato(v: Record<string, unknown>) {
     horas_por_dia: numeroDe(v.horas_por_dia) ?? 8,
     estado: v.estado || 'ACTIVO',
     codigo_moeda: String(v.codigo_moeda || 'AOA').toUpperCase(),
-    produtividade: ((v.produtividade as ValoresContrato['produtividade']) ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario ?? null })),
     motivo_termo: fim ? String(v.motivo_termo ?? '').trim() || null : null,
     periodo_experimental_dias: numeroDe(v.periodo_experimental_dias),
   };
 }
 
-/** RH › Contratos (ecrã contratos): histórico de contratos por colaborador, com remunerações e itens de produtividade. */
+/** RH › Contratos (ecrã contratos): histórico de contratos por colaborador, com remunerações e horário (a elegibilidade de produtividade é em Produtividade › Elegibilidade). */
 export default function Contratos() {
   const { pode } = useSessao();
   const colaboradores = useColaboradores();
   const infotipos = useInfotipos();
-  const itensProd = useQuery({ queryKey: ['rh', 'produtividade', 'itens'], queryFn: () => obter<ItemProdutividade[]>('/rh/produtividade/itens'), staleTime: 300_000 });
   const [colaborador, setColaborador] = useState<number>();
   const [estado, setEstado] = useState<string>();
   const [termo, setTermo] = useState('');
@@ -113,7 +110,7 @@ export default function Contratos() {
   // Fase B (Versão Actual): suspender, reactivar, cessar, anular a cessação e ver o estado (contrato_estado_ui.js)
   const [accaoEstado, setAccaoEstado] = useState<{ tipo: AccaoEstado; contrato: ContratoTrabalho } | null>(null);
   const [importarCt, setImportarCt] = useState(false);
-  const [massa, setMassa] = useState<'RUBRICAS' | 'PRODUTIVIDADE' | null>(null);
+  const [massa, setMassa] = useState<'RUBRICAS' | null>(null);
   const [simular, setSimular] = useState(false);
   const [subsidios, setSubsidios] = useState(false);
   const [form] = Form.useForm<ValoresContrato>();
@@ -136,7 +133,7 @@ export default function Contratos() {
   const abrir = (c: ContratoTrabalho | 'novo') => {
     form.resetFields();
     if (c === 'novo') {
-      form.setFieldsValue({ colaborador_id: colaborador, data_inicio: dayjs(), dias_contrato_mes: 22, horas_por_dia: 8, estado: 'ACTIVO', codigo_moeda: 'AOA', remuneracoes: [{} as ValoresContrato['remuneracoes'][number]], produtividade: [], ...horarioParaForm(null) });
+      form.setFieldsValue({ colaborador_id: colaborador, data_inicio: dayjs(), dias_contrato_mes: 22, horas_por_dia: 8, estado: 'ACTIVO', codigo_moeda: 'AOA', remuneracoes: [{} as ValoresContrato['remuneracoes'][number]], ...horarioParaForm(null) });
     } else {
       form.setFieldsValue({
         colaborador_id: c.colaborador_id,
@@ -147,7 +144,6 @@ export default function Contratos() {
         estado: c.estado ?? 'ACTIVO',
         codigo_moeda: c.codigo_moeda ?? 'AOA',
         remuneracoes: normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22),
-        produtividade: (c.produtividade ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario })),
         motivo_termo: c.motivo_termo ?? '',
         periodo_experimental_dias: c.periodo_experimental_dias ?? null,
         ...horarioParaForm(c.horario),
@@ -288,7 +284,6 @@ export default function Contratos() {
             )}
             {pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo Contrato</Button>}
             {pode('contratos_new') && <Button type="primary" icon={<AppstoreAddOutlined />} title="Escolher rubricas com o mesmo valor mensal e aplicá-las a vários colaboradores (actualiza ou cria os contratos)" onClick={() => setMassa('RUBRICAS')}>Aplicar em massa</Button>}
-            {pode('contratos_new') && <Button type="primary" icon={<IconeFa nome="chart-line" />} title="Aplicar itens de produtividade a vários contratos de uma vez (parte dos contratos marcados na lista)" onClick={() => setMassa('PRODUTIVIDADE')}>Produtividade em massa</Button>}
             {pode('config_empresas_gerir', 'contratos_new') && <Button icon={<IconeFa nome="percent" />} title="Percentagens dos subsídios de férias e de Natal na minuta (mínimo legal 50 %)" onClick={() => setSubsidios(true)}>Subsídios na minuta</Button>}
             {pode('contratos_terminate') && (
               <>
@@ -336,7 +331,7 @@ export default function Contratos() {
 
       <ModalFormulario chave="rh.contratos" titulo={edicao === 'novo' ? 'Novo contrato' : 'Editar contrato'} aberto={edicao !== null} width={larguraModal(820)} aoFechar={() => setEdicao(null)}
         criacao={edicao === 'novo'} form={form} campos={camposLinhas} nomeRegistos="contratos" invalidar={[['rh']]}
-        nota="Uma linha por contrato (um contrato por colaborador). Indique o VALOR MENSAL de cada rubrica; valor dia e hora são apurados pelo sistema. O horário e os itens de produtividade acrescentam-se depois em «Editar»."
+        nota="Uma linha por contrato (um contrato por colaborador). Indique o VALOR MENSAL de cada rubrica; valor dia e hora são apurados pelo sistema. O horário acrescenta-se depois em «Editar»."
         gravarLinha={(r) => enviar('post', '/rh/contratos', dadosContrato(r))}
         okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={gravar}>
@@ -422,32 +417,6 @@ export default function Contratos() {
             )}
           </Form.List>
           </SeccaoFormulario>
-          {(itensProd.data ?? []).length > 0 && (
-            <SeccaoFormulario titulo="Itens de produtividade" recolhida={!contratoAberto?.produtividade?.length}>
-              <Form.List name="produtividade">
-                {(campos, { add, remove }) => (
-                  <>
-                    {campos.map(({ key, name }) => (
-                      <Row gutter={8} key={key} align="middle">
-                        <Col xs={24} sm="auto" flex="auto">
-                          <Form.Item name={[name, 'item_id']} rules={[{ required: true, message: 'Item.' }]}>
-                            <Select placeholder="Item" options={(itensProd.data ?? []).map((i) => ({ value: i.id, label: `${i.codigo} — ${i.descricao}${i.ativo ? '' : ' (inactivo)'}` }))} />
-                          </Form.Item>
-                        </Col>
-                        <Col xs={20} sm={8} style={{ maxWidth: 220 }}>
-                          <Form.Item name={[name, 'preco_unitario']} extra="Vazio = preço do item.">
-                            <InputNumber min={0} precision={4} decimalSeparator="," placeholder="Preço próprio" style={{ width: '100%' }} />
-                          </Form.Item>
-                        </Col>
-                        <Col><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Retirar" /></Form.Item></Col>
-                      </Row>
-                    ))}
-                    <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>Acrescentar item</Button>
-                  </>
-                )}
-              </Form.List>
-            </SeccaoFormulario>
-          )}
         </Form>
       </ModalFormulario>
 

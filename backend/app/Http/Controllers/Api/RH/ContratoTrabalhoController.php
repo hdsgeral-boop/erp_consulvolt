@@ -71,8 +71,6 @@ final class ContratoTrabalhoController extends Controller
             'estado' => ['sometimes', 'in:ACTIVO,INACTIVO,SUSPENSO,CESSADO'], 'codigo_moeda' => ['sometimes', 'string', 'size:3'],
             'remuneracoes' => ['required', 'array', 'min:1', 'max:50'], 'remuneracoes.*.infotipo_salarial_id' => ['required', 'integer'],
             'remuneracoes.*.valor_mes' => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
-            'produtividade' => ['sometimes', 'nullable', 'array'], 'produtividade.*.item_id' => ['required', 'integer'],
-            'produtividade.*.preco_unitario' => ['nullable', 'numeric', 'min:0'],
             // Fase B (Versão Actual, app_v2.js:4751): horário do contrato; as regras de coerência estão em RegrasContrato::validarHorario
             'horario' => ['sometimes', 'nullable', 'array'], 'horario.entrada' => ['nullable', 'date_format:H:i'], 'horario.saida' => ['nullable', 'date_format:H:i'],
             'horario.periodos' => ['nullable', 'integer', 'in:1,2'], 'horario.saida_intervalo' => ['nullable', 'date_format:H:i'],

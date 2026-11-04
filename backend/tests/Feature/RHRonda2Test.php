@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\ConfigAssiduidade;
 use App\Models\ContratoTrabalho;
 use App\Models\CoordenadaBancariaColaborador;
+use App\Models\ElegibilidadeProdutividadeRH;
 use App\Models\Empresa;
 use App\Models\InfotipoSalarial;
 use App\Models\LinhaFolhaSalarial;
@@ -334,7 +335,7 @@ final class RHRonda2Test extends TestCase
         $s = $this->sessao(['rh_produtividade_view', 'rh_prod_registar', 'rh_prod_periodo', 'rh_prod_config', 'contratos_new']);
         $item = $this->postJson('/api/rh/produtividade/itens', ['codigo' => 'P01', 'descricao' => 'Peças', 'unidade' => 'un', 'preco_unitario' => 100,
             'infotipo_salarial_id' => $this->ids['base']], $s)->assertCreated()->json('dados.id');
-        $this->em(fn () => ContratoTrabalho::query()->where('colaborador_id', $this->ids['ana'])->update(['produtividade' => [['item_id' => $item, 'preco_unitario' => null]]]));
+        $this->em(fn () => ElegibilidadeProdutividadeRH::create(['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $item, 'ativo' => true, 'origem' => 'MANUAL']));
         $mes = now()->subMonth();
         $p = $this->postJson('/api/rh/produtividade/periodos', ['mes' => $mes->format('Y-m'), 'data_inicio' => $mes->startOfMonth()->toDateString(),
             'data_fim' => $mes->copy()->endOfMonth()->toDateString()], $s)->assertCreated()->json('dados.id');

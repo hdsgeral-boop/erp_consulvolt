@@ -76,7 +76,7 @@ export function PonteProdutividade({ de, ate, projetos }: { de: string; ate: str
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {!r.linhas.length && !r.orfas.length ? <Empty description="Sem horas, medições nem tarefas concluídas no intervalo." /> : (
         <>
-          <Typography.Text type="secondary">Escolha o item de produtividade de cada grupo (sugerido: mesma métrica e unidade equivalente) e o período. Só entram colaboradores com o item no contrato activo.</Typography.Text>
+          <Typography.Text type="secondary">Escolha o item de produtividade de cada grupo (sugerido: mesma métrica e unidade equivalente) e o período. Só entram colaboradores com o item na elegibilidade.</Typography.Text>
           <Table size="small" rowKey="chave" pagination={false} dataSource={r.grupos} scroll={scrollTabela()}
             columns={[
               { title: 'Origem', dataIndex: 'tipo', render: (v) => TIPOS_PONTE[v] ?? v },

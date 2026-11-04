@@ -29,6 +29,7 @@ use Throwable;
  *   calculo       (importCalculoExcel, app_v2.js:10128)           NIF/Colaborador | Rubrica | Valor | Horas | Dias trabalhados
  *   colaboradores (modules/rh/importar_colaboradores.js)           folha «Colaboradores»: dados principais, ficha, UN/CC, banco/IBAN
  *   contratos     (importContractsExcel, Template_Contratos_Vertical) NIF Colaborador | Infotipo | Valor_Mensal | Dias_Mes | Horas_Dia | Data_Inicio | Data_Fim | Estado
+ *   elegibilidade (atribuição em massa, antes nos contratos)       NIF | Código do item | Preço próprio
  *   produtividade (prodImportar, produtividade_ui.js:241)          NIF | Código do item | Quantidade | Data | Observações
  * Regras comuns (iguais às do centro de migração): leitura no servidor (ServicoLeituraFolha), simulação com as mesmas
  * validações numa transacção desfeita, importação TUDO OU NADA (uma linha com erro e nada é gravado; o relatório indica
@@ -93,8 +94,13 @@ final class ServicoImportacaoRH
             ['Data_Fim', 'data_fim', false, 'Data de fim (vazio = sem fim)', '', ['data fim']],
             ['Estado', 'estado', false, 'ACTIVO (por omissão) ou SUSPENSO', 'ACTIVO', []],
         ]],
+        'elegibilidade' => ['rotulo' => 'Elegibilidade de produtividade', 'folha' => 'Elegibilidade', 'colunas' => [
+            ['NIF', 'nif', true, 'NIF do colaborador ACTIVO já registado', '000000000LA000', []],
+            ['Código do item', 'item', true, 'Código de um item de produtividade activo', 'P01', ['codigo do item', 'item']],
+            ['Preço próprio', 'preco', false, 'Opcional: vazio ou 0 = preço do item', '', ['preco proprio', 'preco unitario', 'preco']],
+        ]],
         'produtividade' => ['rotulo' => 'Registos de produtividade', 'folha' => 'Produtividade', 'colunas' => [
-            ['NIF', 'nif', true, 'NIF do colaborador (tem de ter o item no contrato activo)', '000000000LA000', []],
+            ['NIF', 'nif', true, 'NIF do colaborador (tem de ter o item na elegibilidade)', '000000000LA000', []],
             ['Código do item', 'item', true, 'Código do item de produtividade', 'P01', ['codigo do item', 'item']],
             ['Quantidade', 'quantidade', true, 'Quantidade medida na unidade do item (em % nos objectivos)', '10', []],
             ['Data', 'data', false, 'Opcional, dentro da janela de medição (sem data = total do período)', '', []],
@@ -131,7 +137,7 @@ final class ServicoImportacaoRH
         $ref = match ($entidade) {
             'calculo' => ['Rubricas', [['Rubrica', 'Tipo']], InfotipoSalarial::query()->ordenarPorNome()->get()->map(fn ($i) => [$i->nome, $i->tipo])->all()],
             'contratos' => ['Infotipos_Validos', [['Rubrica (vencimento)']], InfotipoSalarial::query()->where('tipo', 'VENCIMENTO')->ordenarPorNome()->pluck('nome')->map(fn ($n) => [$n])->all()],
-            'produtividade' => ['Itens', [['Código', 'Descrição', 'Unidade', 'Preço (Kz)']], ItemProdutividadeRH::query()->where('ativo', true)->orderBy('codigo')->get()
+            'produtividade', 'elegibilidade' => ['Itens', [['Código', 'Descrição', 'Unidade', 'Preço (Kz)']], ItemProdutividadeRH::query()->where('ativo', true)->orderBy('codigo')->get()
                 ->map(fn ($i) => [$i->codigo, $i->descricao, $i->unidade, (float) $i->preco_unitario])->all()],
             default => ['Listas', [['Funções', 'Tipos de órgão', 'Bancos']], $this->listasColaboradores()],
         };
@@ -331,6 +337,60 @@ final class ServicoImportacaoRH
 
             return $existente ? 'actualizados' : 'criados';
         });
+    }
+
+    // ───────────── Elegibilidade de produtividade (em massa) ─────────────
+
+    /**
+     * Atribui a elegibilidade a partir do Excel (NIF | Código do item | Preço próprio): acrescenta os itens a cada colaborador
+     * (`ACTUALIZAR` substitui o preço dos que já a têm, `IGNORAR` mantém-no). Uma linha com erro e nada é gravado.
+     *
+     * @param  list<array<string, mixed>>  $linhas
+     */
+    public function importarElegibilidade(array $linhas, string $decisao, bool $simular): array
+    {
+        $porNif = Colaborador::query()->get()->filter(fn ($c) => $c->nif)->keyBy(fn ($c) => ServicoColaboradores::normalizarNif((string) $c->nif));
+        $itens = ItemProdutividadeRH::query()->get()->keyBy(fn ($i) => self::chave($i->codigo));
+        $r = self::relatorio();
+        $pares = [];
+        foreach ($this->normalizar('elegibilidade', $linhas, $r) as [$n, $l]) {
+            $c = $porNif[ServicoColaboradores::normalizarNif((string) $l['nif'])] ?? null;
+            $i = $itens[self::chave($l['item'])] ?? null;
+            $preco = $l['preco'] !== '' ? self::numero($l['preco']) : null;
+            $erro = match (true) {
+                ! $c => "colaborador com o NIF {$l['nif']} não encontrado",
+                $c->estado !== 'ACTIVO' => "o colaborador {$c->nome_completo} não está activo",
+                ! $i => "item «{$l['item']}» não encontrado",
+                ! $i->ativo => "o item {$i->codigo} está inactivo",
+                $l['preco'] !== '' && ($preco === null || $preco < 0) => 'preço próprio inválido',
+                default => null,
+            };
+            if ($erro) {
+                $r['rejeitadas'][] = ['linha' => $n, 'motivo' => $erro];
+
+                continue;
+            }
+            $k = "{$c->id}|{$i->id}";
+            if (isset($pares[$k])) {
+                $r['repetidos']++;
+
+                continue;
+            }
+            $pares[$k] = ['colaborador_id' => $c->id, 'item_id' => $i->id, 'preco_unitario' => $preco];
+        }
+        if ($r['rejeitadas'] && ! $simular) {
+            throw new ErroNegocio('Nada foi importado: '.count($r['rejeitadas']).' linha(s) com erro. Corrija o ficheiro e importe de novo.', 'IMPORTACAO_COM_ERROS', 422, ['rejeitadas' => $r['rejeitadas']]);
+        }
+        if ($pares === []) {
+            return $r + ['simulacao' => $simular];
+        }
+        $res = $this->produtividade->aplicarElegibilidadeEmMassa([], [], 'ACRESCENTAR', $decisao === 'ACTUALIZAR' ? 'SUBSTITUIR' : 'MANTER', $simular, array_values($pares));
+        $r['criados'] = $res['acrescentadas'];
+        $r['actualizados'] = $res['alteradas'];
+        $r['ignorados'] = count($res['sem_alteracao']);
+        $r['novos'] = $res['acrescentadas'];
+
+        return $r + ['simulacao' => $simular, 'detalhe' => $res['detalhe']];
     }
 
     // ───────────── Auxiliares ─────────────

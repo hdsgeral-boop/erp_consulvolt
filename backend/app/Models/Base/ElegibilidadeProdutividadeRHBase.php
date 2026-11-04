@@ -10,8 +10,8 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela elegibilidade_produtividade_rh (módulo RH, Fase J). Legado: rh_prod_eligibility (origens MANUAL e ENTREGAVEL; a
- * origem CONTRATO continua no JSON `contratos_trabalho.produtividade`).
+ * Tabela elegibilidade_produtividade_rh (módulo RH, Fase J). Legado: rh_prod_eligibility (origens MANUAL e ENTREGAVEL; CONTRATO
+ * = itens migrados do antigo JSON `contratos_trabalho.produtividade`, que deixou de existir).
  * Escrita à mão no formato das classes geradas: o código de negócio vai em App\Models\ElegibilidadeProdutividadeRH.
  */
 abstract class ElegibilidadeProdutividadeRHBase extends ModeloBase

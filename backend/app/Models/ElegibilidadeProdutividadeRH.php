@@ -10,5 +10,6 @@ use App\Models\Base\ElegibilidadeProdutividadeRHBase;
  */
 class ElegibilidadeProdutividadeRH extends ElegibilidadeProdutividadeRHBase
 {
-    public const ORIGENS = ['MANUAL', 'ENTREGAVEL'];
+    /** CONTRATO: migrada do antigo JSON do contrato (migração 2026_11_20_090000); MANUAL e ENTREGAVEL são as da Fase J. */
+    public const ORIGENS = ['MANUAL', 'ENTREGAVEL', 'CONTRATO'];
 }

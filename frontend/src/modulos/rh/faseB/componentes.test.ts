@@ -6,7 +6,7 @@ import { autorizacaoDescontoHtml } from '../Emprestimos';
 import type { Emprestimo } from './tipos';
 
 const contrato = (estado: ContratoTrabalho['estado'], extra: Partial<ContratoTrabalho> = {}): ContratoTrabalho => ({
-  id: 1, colaborador_id: 9, remuneracoes: [], dias_contrato_mes: 22, data_inicio: '2020-01-01', data_fim: null, estado, horas_por_dia: '8', codigo_moeda: 'AOA', produtividade: [], ...extra,
+  id: 1, colaborador_id: 9, remuneracoes: [], dias_contrato_mes: 22, data_inicio: '2020-01-01', data_fim: null, estado, horas_por_dia: '8', codigo_moeda: 'AOA', ...extra,
 });
 
 const titulos = (c: ContratoTrabalho, perms: string[]) => accoesEstadoContrato(c, (p) => perms.includes(p), () => undefined).filter(Boolean).map((a) => (a as { titulo: string }).titulo);
