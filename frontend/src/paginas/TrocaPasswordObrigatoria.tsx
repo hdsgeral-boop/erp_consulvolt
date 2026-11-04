@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-
-const MINIMO_PALAVRA_PASSE = 8;
+import { MINIMO_PALAVRA_PASSE, problemaPalavraPasse } from '@/utilitarios/palavraPasse';
 
 interface Valores {
   palavra_passe_actual: string;
@@ -60,6 +59,7 @@ export function TrocaPasswordObrigatoria() {
             rules={[
               { required: true, message: 'Indique a nova password.' },
               { min: MINIMO_PALAVRA_PASSE, message: `Pelo menos ${MINIMO_PALAVRA_PASSE} caracteres.` },
+              { validator: (_, v?: string) => { const p = v ? problemaPalavraPasse(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } },
               ({ getFieldValue }) => ({
                 validator: (_, v) => (v && v === getFieldValue('palavra_passe_actual') ? Promise.reject(new Error('Tem de ser diferente da actual.')) : Promise.resolve()),
               }),

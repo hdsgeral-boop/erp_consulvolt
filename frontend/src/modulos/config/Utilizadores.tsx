@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -11,6 +11,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { larguraModal } from '@/componentes/responsivo';
+import { ErroApi } from '@/api/tipos';
+import { sugerirNomeUtilizador } from '@/utilitarios/palavraPasse';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 
@@ -206,11 +208,29 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
   const souSuper = eu?.papel === 'SUPER_ADMINISTRADOR';
   const escolhidas = Form.useWatch('empresas', form) ?? [];
   const todas = Form.useWatch('acesso_todas_empresas', form);
-  const accao = useAccao({ invalidar: [CHAVE], aoSucesso: () => aoFechar() });
+  // o utilizador escreveu o nome de utilizador à mão: deixa de o sugerir a partir do nome completo
+  const nomeEditado = useRef(false);
+  const accao = useAccao({
+    invalidar: [CHAVE],
+    aoSucesso: () => aoFechar(),
+    // o nome é de um utilizador eliminado deste cliente (a eliminação guarda a conta): oferece reactivá-la com estes dados
+    aoErro: (e, pedido) => {
+      if (!(e instanceof ErroApi) || e.codigo !== 'UTILIZADOR_ELIMINADO' || pedido.metodo !== 'post') return false;
+      Modal.confirm({
+        title: 'Reactivar o utilizador eliminado?',
+        content: `${e.message} A conta volta a ficar activa, com o perfil e as empresas indicados; é gerada uma nova palavra-passe provisória, enviada por email.`,
+        okText: 'Reactivar',
+        cancelText: 'Cancelar',
+        onOk: () => accao.mutateAsync({ ...pedido, dados: { ...(pedido.dados as Record<string, unknown>), reactivar: true } }),
+      });
+      return true;
+    },
+  });
 
   useEffect(() => {
     if (!utilizador) return;
     form.resetFields();
+    nomeEditado.current = false;
     if (u)
       form.setFieldsValue({
         nome_utilizador: u.nome_utilizador,
@@ -234,7 +254,10 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
 
   const submeter = (v: FormUtilizador) => {
     const anteriores = new Map((u?.empresas ?? []).map((e) => [e.empresa_id, e.colaborador_id]));
-    const lista = v.empresas.map((id) => ({ empresa_id: id, colaborador_id: id === empresa?.id ? (v.colaborador_id ?? null) : (anteriores.get(id) ?? null) }));
+    // com «Acesso a todas as empresas» o campo Empresas não é mostrado e não vem em `v`: sem isto o .map rebentava e o
+    // «Gravar» não fazia nada. Usa o valor guardado no formulário, as empresas que o utilizador já tinha ou a activa.
+    const ids: number[] = v.empresas ?? form.getFieldValue('empresas') ?? u?.empresas.map((e) => e.empresa_id) ?? (empresa ? [empresa.id] : []);
+    const lista = ids.map((id) => ({ empresa_id: id, colaborador_id: id === empresa?.id ? (v.colaborador_id ?? null) : (anteriores.get(id) ?? null) }));
     accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/sistema/utilizadores' : `/sistema/utilizadores/${u!.id}`, dados: dadosUtilizador(v, lista, souSuper) });
   };
 
@@ -274,13 +297,14 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
         <SeccaoFormulario titulo="Conta">
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
-              <Input maxLength={100} autoComplete="off" />
+            <Form.Item name="nome_completo" label="Nome completo">
+              {/* numa conta nova, o nome de utilizador acompanha o nome completo (ana.silva) até ser editado à mão */}
+              <Input maxLength={200} onChange={(e) => novo && !nomeEditado.current && form.setFieldValue('nome_utilizador', sugerirNomeUtilizador(e.target.value))} />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="nome_completo" label="Nome completo">
-              <Input maxLength={200} />
+            <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
+              <Input maxLength={100} autoComplete="off" onChange={() => (nomeEditado.current = true)} />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
