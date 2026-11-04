@@ -3,6 +3,7 @@ import { useIdentidade } from '@/sessao/identidade';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import type { RelatorioX, SessaoPOS, VendaEmitida } from './tipos';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Preferências de impressão do POS. No legado viviam no localStorage por empresa (pos_print_format_<empresa>, …);
@@ -28,7 +29,7 @@ export const PREFERENCIAS_PADRAO: PreferenciasImpressao = {
   rodape: 'Obrigado pela preferência!', // por omissão do legado (ui_sales.js:9833)
 };
 
-const chave = (empresaId: number | null | undefined) => `erp.pos.impressao.${empresaId ?? 0}`;
+const chave = (empresaId: number | null | undefined) => `erp.pos.impressao.${idOpaco(empresaId ?? 0)}`;
 
 export function lerPreferencias(empresaId: number | null | undefined): PreferenciasImpressao {
   try {

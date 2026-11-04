@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import type { ProdutoPOS } from './tipos';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Apoio da frente de caixa imersiva (paridade com renderPOSTab/renderPOSProductsGrid, js/ui_sales.js:6350-7044):
@@ -129,7 +130,7 @@ export interface PreferenciasFrente {
 
 export const PREFERENCIAS_FRENTE_PADRAO: PreferenciasFrente = { dispositivo: 'pc', disposicao: 'grid', ocultarImagens: false, filtroStock: 'all' };
 
-const chavePref = (utilizador: number | null | undefined) => `erp.pos.frente.${utilizador ?? 0}`;
+const chavePref = (utilizador: number | null | undefined) => `erp.pos.frente.${idOpaco(utilizador ?? 0)}`;
 
 export function lerPreferenciasFrente(utilizador: number | null | undefined): PreferenciasFrente {
   try {

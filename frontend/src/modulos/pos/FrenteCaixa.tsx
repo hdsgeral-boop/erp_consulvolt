@@ -14,8 +14,9 @@ import { ModoImersivo, pedirEcraInteiro } from './frente/ModoImersivo';
 import { PainelVenda } from './frente/PainelVenda';
 import { FrenteLavandaria } from './lavandaria/FrenteLavandaria';
 import { RelatorioXModal } from './frente/RelatorioXModal';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
-const chaveTerminal = (empresa: number | undefined) => `erp.pos.terminal.${empresa ?? 0}`;
+const chaveTerminal = (empresa: number | undefined) => `erp.pos.terminal.${idOpaco(empresa ?? 0)}`;
 
 function lerTerminalGuardado(empresa: number | undefined): number | null {
   try {

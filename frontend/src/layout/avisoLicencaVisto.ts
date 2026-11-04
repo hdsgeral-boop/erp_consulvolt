@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { identificadorSessao } from '@/api/cliente';
+import { hashCurto, idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Dispensa do pop-up de aviso de licença, por utilizador e por login: a chave guarda o identificador da sessão em
@@ -7,7 +8,7 @@ import { identificadorSessao } from '@/api/cliente';
  * (SessaoContexto.entrar) gera um identificador diferente, por isso o pop-up volta a aparecer; um simples
  * recarregar da página reaproveita o mesmo (SessaoContexto, arranque) e não o reabre.
  */
-const chaveLocal = (utilizador?: number | string | null) => `erp.licenca.avisoVisto.${utilizador ?? 'anonimo'}`;
+const chaveLocal = (utilizador?: number | string | null) => `erp.licenca.avisoVisto.${idOpaco(utilizador)}`;
 
 function lerVisto(utilizador?: number | string | null): string | null {
   try {
@@ -26,7 +27,9 @@ function gravarVisto(utilizador: number | string | null | undefined, token: stri
 }
 
 export function useAvisoLicencaVisto(utilizador?: number | string | null): { visto: boolean; dispensar: () => void } {
-  const token = identificadorSessao();
+  // só o HASH do identificador da sessão fica guardado: o valor do cookie CSRF nunca vai para o localStorage
+  const identificador = identificadorSessao();
+  const token = identificador ? hashCurto(identificador) : null;
   const [vistoToken, setVistoToken] = useState<string | null>(() => lerVisto(utilizador));
 
   const dispensar = useCallback(() => {

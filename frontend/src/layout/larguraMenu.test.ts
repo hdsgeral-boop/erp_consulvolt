@@ -9,6 +9,7 @@ import {
   limitarLargura,
   useLarguraMenu,
 } from './larguraMenu';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 afterEach(() => localStorage.clear());
 
@@ -48,7 +49,7 @@ describe('largura do menu lateral (legado: .sidebar-resizer)', () => {
     expect(result.current.largura).toBe(280);
     act(() => result.current.definir(512));
     expect(result.current.largura).toBe(512);
-    expect(localStorage.getItem('erp.menu.largura.3')).toBe('512');
+    expect(localStorage.getItem(`erp.menu.largura.${idOpaco(3)}`)).toBe('512');
     const tecla = (key: string, shiftKey = false) => {
       const ev = { key, shiftKey, preventDefault: vi.fn() };
       act(() => result.current.puxador.onKeyDown(ev as never));
@@ -61,6 +62,6 @@ describe('largura do menu lateral (legado: .sidebar-resizer)', () => {
     expect(tecla('Tab')).not.toHaveBeenCalled();
     act(() => result.current.puxador.onDoubleClick());
     expect(result.current.largura).toBe(280);
-    expect(localStorage.getItem('erp.menu.largura.3')).toBeNull();
+    expect(localStorage.getItem(`erp.menu.largura.${idOpaco(3)}`)).toBeNull();
   });
 });

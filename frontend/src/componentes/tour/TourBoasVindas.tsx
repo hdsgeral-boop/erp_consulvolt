@@ -5,6 +5,7 @@ import { CompassOutlined, LeftOutlined, RightOutlined, RocketOutlined } from '@a
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useEstadoLicenca } from '@/modulos/config/estadoLicenca';
 import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Sessão (sessionStorage) definida pelo registo de empresa (RegistarEmpresa.tsx) para o tour arrancar de imediato,
@@ -103,7 +104,7 @@ function medirAlvo(seletor: string): Retangulo | null {
  */
 export function TourBoasVindas() {
   const { estado, utilizador, empresa } = useSessao();
-  const chaveLocal = `${CHAVE_LOCAL_VISTO}:${utilizador?.id ?? ''}`;
+  const chaveLocal = `${CHAVE_LOCAL_VISTO}:${idOpaco(utilizador?.id)}`;
   const { data: licenca } = useEstadoLicenca(!!empresa);
   const [visto, definirVisto, aCarregarPref] = usePreferencia<boolean>('interface', 'tour_boas_vindas_v1', false);
   const [fase, setFase] = useState<'oculto' | 'boas_vindas' | 'passo'>('oculto');

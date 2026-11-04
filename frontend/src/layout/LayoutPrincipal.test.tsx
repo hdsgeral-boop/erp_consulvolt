@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import type { ModuloMenu } from '@/api/tipos';
 import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 import { achatarGrupoNaBarra, LayoutPrincipal } from './LayoutPrincipal';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 // o Ant Design (Menu, Drawer) é lento em jsdom quando a suíte inteira corre em paralelo
 vi.setConfig({ testTimeout: 120_000 });   // AntD no jsdom é lento com a suite toda a correr em paralelo
@@ -311,7 +312,7 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     await waitFor(() =>
       expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/interface/aspecto_nucleo', { valor: { tema: 'escuro', menu: 'completo' } }),
     );
-    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'escuro', menu: 'completo' });
+    expect(JSON.parse(localStorage.getItem(`erp.aspecto.${idOpaco(1)}`) ?? '{}')).toEqual({ tema: 'escuro', menu: 'completo' });
     fireEvent.keyDown(window, { key: 'N', ctrlKey: true, shiftKey: true });
     await waitFor(() => expect(document.documentElement).not.toHaveClass('erp-tela-nocturna'));
   });
@@ -331,7 +332,7 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
   });
 
   it('aspecto do menu do utilizador: «só nomes» retira os símbolos e «só símbolos» recolhe o menu', () => {
-    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'nomes' }));
+    localStorage.setItem(`erp.aspecto.${idOpaco(1)}`, JSON.stringify({ tema: 'claro', menu: 'nomes' }));
     const { container, unmount } = montar('/');
     let lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     const geral = within(lateral).getByText('Menu Geral').closest('.ant-menu-submenu-title') as HTMLElement;
@@ -339,7 +340,7 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
     unmount();
 
-    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones' }));
+    localStorage.setItem(`erp.aspecto.${idOpaco(1)}`, JSON.stringify({ tema: 'claro', menu: 'icones' }));
     const segundo = montar('/');
     lateral = segundo.container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
@@ -413,7 +414,7 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     await waitFor(() => expect(friso).toHaveAttribute('aria-valuenow', '380'));
     expect(friso).not.toHaveClass('a-arrastar');
     expect(document.body.style.cursor).toBe('');
-    expect(localStorage.getItem('erp.menu.largura.1')).toBe('380');
+    expect(localStorage.getItem(`erp.menu.largura.${idOpaco(1)}`)).toBe('380');
 
     // depois de largar, o rato já não mexe na largura
     fireEvent.mouseMove(document, { clientX: 600 });
@@ -421,11 +422,11 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
 
     fireEvent.doubleClick(friso);
     expect(friso).toHaveAttribute('aria-valuenow', '280');
-    expect(localStorage.getItem('erp.menu.largura.1')).toBeNull();
+    expect(localStorage.getItem(`erp.menu.largura.${idOpaco(1)}`)).toBeNull();
   });
 
   it('o friso é acessível pelo teclado e a largura guardada é lida ao entrar', () => {
-    localStorage.setItem('erp.menu.largura.1', '500');
+    localStorage.setItem(`erp.menu.largura.${idOpaco(1)}`, '500');
     const { container } = montar('/');
     const friso = within(lateralDe(container)).getByRole('separator', { name: 'Largura do menu' });
     expect(friso).toHaveAttribute('aria-valuenow', '500');
@@ -438,13 +439,13 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     expect(friso).toHaveAttribute('aria-valuenow', '220');
     fireEvent.keyDown(friso, { key: 'End' });
     expect(friso).toHaveAttribute('aria-valuenow', '800');
-    expect(localStorage.getItem('erp.menu.largura.1')).toBe('800');
+    expect(localStorage.getItem(`erp.menu.largura.${idOpaco(1)}`)).toBe('800');
     fireEvent.keyDown(friso, { key: 'Enter' });
     expect(friso).toHaveAttribute('aria-valuenow', '280');
   });
 
   it('o botão a meio do bordo recolhe o menu a 64 px só com ícones (sem friso) e expande-o para a largura escolhida', () => {
-    localStorage.setItem('erp.menu.largura.1', '450');
+    localStorage.setItem(`erp.menu.largura.${idOpaco(1)}`, '450');
     const { container } = montar('/');
     const lateral = lateralDe(container);
     const recolher = within(lateral).getByRole('button', { name: 'Recolher menu' });
@@ -457,14 +458,14 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     const expandir = within(lateral).getByRole('button', { name: 'Expandir menu' });
     expect(expandir).toHaveAttribute('aria-expanded', 'false');
     // estado recolhido guardado por utilizador
-    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toMatchObject({ menu: 'icones' });
+    expect(JSON.parse(localStorage.getItem(`erp.aspecto.${idOpaco(1)}`) ?? '{}')).toMatchObject({ menu: 'icones' });
     fireEvent.click(expandir);
     expect(lateral.style.width).toBe('450px');
     expect(within(lateral).getByRole('separator', { name: 'Largura do menu' })).toHaveAttribute('aria-valuenow', '450');
   });
 
   it('recolhido: cada item de 1.º nível mostra só o ícone e o nome aparece na dica ao passar o rato', async () => {
-    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones' }));
+    localStorage.setItem(`erp.aspecto.${idOpaco(1)}`, JSON.stringify({ tema: 'claro', menu: 'icones' }));
     const { container } = montar('/');
     const lateral = lateralDe(container);
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
@@ -502,11 +503,11 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     expect(within(barra).getByText('Vendas')).toBeInTheDocument();
     // «Favoritos» continua como o seu próprio dropdown (a lógica de achatar só mexe no grupo «Menu Geral» — ver achatarGrupoNaBarra.test)
     expect(await within(barra).findByText('Favoritos')).toBeInTheDocument();
-    expect(localStorage.getItem('erp.menu.modo.1')).toBe('topo');
+    expect(localStorage.getItem(`erp.menu.modo.${idOpaco(1)}`)).toBe('topo');
 
     fireEvent.click(screen.getByRole('button', { name: 'Mudar para menu ao lado' }));
     await waitFor(() => expect(container.querySelector('.erp-sider')).not.toBeNull());
-    expect(localStorage.getItem('erp.menu.modo.1')).toBeNull();
+    expect(localStorage.getItem(`erp.menu.modo.${idOpaco(1)}`)).toBeNull();
   });
 
   it('a gaveta dos ecrãs pequenos não tem friso nem botões do aspecto', async () => {

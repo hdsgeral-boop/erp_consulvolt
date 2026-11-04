@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /** Modo do menu da Central de Backoffice: barra lateral (por omissão) ou barra no topo. Guardado no navegador por utilizador. */
 export type ModoMenuPlataforma = 'lateral' | 'topo';
 
-export const chaveLocalModoMenu = (utilizador?: number | string | null) => `erp.plataforma.menu.modo.${utilizador ?? 'anonimo'}`;
+export const chaveLocalModoMenu = (utilizador?: number | string | null) => `erp.plataforma.menu.modo.${idOpaco(utilizador)}`;
 
 function lerModoLocal(utilizador?: number | string | null): ModoMenuPlataforma {
   try {

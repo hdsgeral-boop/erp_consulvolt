@@ -11,6 +11,9 @@ import { armazenamento } from '@/sessao/armazenamento';
 export const http = axios.create({ baseURL: '/api', headers: { Accept: 'application/json' }, timeout: 120_000, withCredentials: true });
 
 const METODOS_MUTAVEIS = new Set(['post', 'put', 'patch', 'delete']);
+/** Cookie CSRF (o único legível por JavaScript): em HTTPS o servidor usa o prefixo `__Host-` (ADR-082). Nunca tem o token da sessão. */
+const NOME_CSRF = 'XSRF-TOKEN';
+const NOME_CSRF_SEGURO = `__Host-${NOME_CSRF}`;
 
 /** Lê um cookie legível por JavaScript (não-HttpOnly) pelo nome — usado só para o duplo-submit do CSRF. */
 function lerCookie(nome: string): string | null {
@@ -29,7 +32,7 @@ function lerCookie(nome: string): string | null {
  * recarregar da página (avisoLicencaVisto), nulo quando não há sessão nenhuma (SessaoContexto, arranque).
  */
 export function identificadorSessao(): string | null {
-  return lerCookie('XSRF-TOKEN');
+  return lerCookie(NOME_CSRF_SEGURO) ?? lerCookie(NOME_CSRF);
 }
 
 export function possivelSessaoActiva(): boolean {
@@ -70,7 +73,7 @@ http.interceptors.request.use((config) => {
   if (empresa && !config.headers.has('X-Empresa-Id')) config.headers.set('X-Empresa-Id', String(empresa));
   const metodo = (config.method ?? 'get').toLowerCase();
   if (METODOS_MUTAVEIS.has(metodo)) {
-    const csrf = lerCookie('XSRF-TOKEN');
+    const csrf = identificadorSessao();
     if (csrf) config.headers.set('X-XSRF-TOKEN', csrf);
   }
   return config;

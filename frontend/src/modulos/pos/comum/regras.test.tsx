@@ -22,6 +22,7 @@ import {
   podeAnularLiquidacao,
 } from './regras';
 import type { MeioPagamento, SessaoPOS } from './tipos';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 const tudo = () => true;
 const nada = () => false;
@@ -198,7 +199,7 @@ describe('impressão', () => {
     gravarPreferencias(18, { ...PREFERENCIAS_PADRAO, formato: 'A4', largura: 58, automatico: false });
     expect(lerPreferencias(18)).toMatchObject({ formato: 'A4', largura: 58, automatico: false });
     expect(lerPreferencias(3)).toEqual(PREFERENCIAS_PADRAO);
-    window.localStorage.setItem('erp.pos.impressao.5', '{"formato":"X","largura":99}');
+    window.localStorage.setItem(`erp.pos.impressao.${idOpaco(5)}`, '{"formato":"X","largura":99}');
     expect(lerPreferencias(5)).toMatchObject({ formato: 'TERMICO', largura: 80 });
   });
 

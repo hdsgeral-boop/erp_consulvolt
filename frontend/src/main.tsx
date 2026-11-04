@@ -6,6 +6,8 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessaoProvider } from '@/sessao/SessaoContexto';
+import { limparChavesAntigas } from '@/sessao/armazenamento';
+import { idOpaco } from '@/sessao/chaveOpaca';
 import { App } from '@/App';
 import { TEMA } from '@/estilos/tema';
 // Fonte Inter alojada no próprio servidor (o legado carregava-a do Google Fonts; a CSP só permite font-src 'self').
@@ -27,6 +29,10 @@ try {
 } catch {
   /* armazenamento indisponível */
 }
+
+// ADR-082: apaga o que versões anteriores deixaram no navegador (identificador do dispositivo, empresa activa, empresas
+// recentes) e converte as chaves de interface com o id do utilizador legível em chaves opacas.
+limparChavesAntigas(idOpaco);
 
 // Depois de uma nova publicação os fragmentos antigos deixam de existir: recarrega uma vez para obter o index.html novo
 // (sem isto o ecrã fica em branco). A marca na sessionStorage evita um ciclo de recargas se o fragmento faltar mesmo.

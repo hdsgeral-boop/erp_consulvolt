@@ -5,6 +5,7 @@ import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { MinhasSessoes } from './MinhasSessoes';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
 import { problemaPalavraPasse } from '@/utilitarios/palavraPasse';
@@ -142,6 +143,9 @@ export function DadosPessoais() {
                 </Button>
               </Form>
             </Card>
+          </Col>
+          <Col xs={24}>
+            <MinhasSessoes />
           </Col>
         </Row>
       )}

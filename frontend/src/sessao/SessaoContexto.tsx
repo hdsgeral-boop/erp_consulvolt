@@ -8,6 +8,10 @@ interface DadosSessao {
   utilizador: Utilizador;
   empresas: Empresa[];
   permissoes: string[];
+  /** Empresa activa da SESSÃO, guardada no servidor (ADR-082): é daqui que a sessão se reconstrói, nunca do navegador. */
+  empresa_ativa_id?: number | null;
+  /** Última empresa escolhida (só para ordenar o ecrã de escolha). */
+  ultima_empresa_id?: number | null;
 }
 
 interface Sessao {
@@ -15,6 +19,7 @@ interface Sessao {
   utilizador: Utilizador | null;
   empresas: Empresa[];
   empresa: Empresa | null;
+  ultimaEmpresaId: number | null;
   menu: ModuloMenu[];
   permissoes: string[];
   motivoSaida: string | null;
@@ -43,7 +48,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const cliente = useQueryClient();
   const [estado, setEstado] = useState<Sessao['estado']>('a_carregar');
   const [dados, setDados] = useState<DadosSessao | null>(null);
-  const [empresaId, setEmpresaId] = useState<number | null>(armazenamento.empresaId());
+  const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [menu, setMenu] = useState<ModuloMenu[]>([]);
   const [permissoesEmpresa, setPermissoesEmpresa] = useState<string[] | null>(null);
   const [motivoSaida, setMotivoSaida] = useState<string | null>(null);
@@ -81,9 +86,13 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     obter<DadosSessao>('/autenticacao/eu')
       .then(async (d) => {
         setDados(d);
-        const guardada = armazenamento.empresaId();
-        if (guardada && d.empresas.some((e) => e.id === guardada)) await carregarMenu().catch(() => undefined);
-        else {
+        // a empresa activa vem do servidor (estado da sessão), não do navegador
+        const activa = d.empresa_ativa_id ?? null;
+        if (activa && d.empresas.some((e) => e.id === activa)) {
+          armazenamento.definirEmpresa(activa);
+          setEmpresaId(activa);
+          await carregarMenu().catch(() => undefined);
+        } else {
           armazenamento.definirEmpresa(null);
           setEmpresaId(null);
         }
@@ -91,12 +100,6 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => limparSessao(null));
   }, [carregarMenu, limparSessao]);
-
-  // empresa em uso (escolhida agora ou reaberta do armazenamento): fica no topo da próxima escolha
-  const utilizadorId = dados?.utilizador.id;
-  useEffect(() => {
-    if (utilizadorId != null && empresaId != null) armazenamento.registarEmpresaRecente(utilizadorId, empresaId);
-  }, [utilizadorId, empresaId]);
 
   // inactividade (o servidor também termina a sessão ao fim de N minutos sem pedidos)
   useEffect(() => {
@@ -122,11 +125,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     const { dados: r } = await enviar<DadosSessao & { inatividade_minutos?: number }>('post', '/autenticacao/entrar', {
       nome_utilizador: nomeUtilizador,
       palavra_passe: palavraPasse,
-      dispositivo: armazenamento.idDispositivo(),
     });
     armazenamento.definirEmpresa(null);
     inatividade.current = r.inatividade_minutos ?? INATIVIDADE_PADRAO_MIN;
-    setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes });
+    setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes, ultima_empresa_id: r.ultima_empresa_id ?? null });
     setEmpresaId(null);
     setMotivoSaida(null);
     setEstado('autenticado');
@@ -143,8 +145,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
   const escolherEmpresa = useCallback(
     async (id: number) => {
+      await enviar('put', '/autenticacao/empresa-activa', { empresa_id: id });   // estado da sessão no servidor
       armazenamento.definirEmpresa(id);
       setEmpresaId(id);
+      setDados((d) => (d ? { ...d, ultima_empresa_id: id } : d));
       cliente.clear();   // os dados em cache são da empresa anterior
       await carregarMenu();
     },
@@ -157,6 +161,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setMenu([]);
     setPermissoesEmpresa(null);
     cliente.clear();   // os dados em cache são da empresa que se larga
+    void enviar('put', '/autenticacao/empresa-activa', { empresa_id: null }).catch(() => undefined);
   }, [cliente]);
 
   const recarregarEmpresas = useCallback(async () => {
@@ -170,6 +175,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
   const autenticarAposRegisto = useCallback(
     async (novaEmpresaId: number) => {
+      await enviar('put', '/autenticacao/empresa-activa', { empresa_id: novaEmpresaId });
       armazenamento.definirEmpresa(novaEmpresaId);
       const d = await obter<DadosSessao>('/autenticacao/eu');
       setDados(d);
@@ -189,6 +195,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       utilizador: dados?.utilizador ?? null,
       empresas: dados?.empresas ?? [],
       empresa: dados?.empresas.find((e) => e.id === empresaId) ?? null,
+      ultimaEmpresaId: dados?.ultima_empresa_id ?? null,
       menu,
       permissoes,
       motivoSaida,

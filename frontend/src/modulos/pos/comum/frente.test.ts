@@ -15,6 +15,7 @@ import {
   urlImagemSegura,
 } from './frente';
 import type { ProdutoPOS } from './tipos';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 const produto = (id: number, extra: Partial<ProdutoPOS> = {}): ProdutoPOS => ({
   id,
@@ -85,7 +86,7 @@ describe('preferências do posto (dispositivo, grelha/lista, Ocultar Imagens, fi
     gravarPreferenciasFrente(7, { dispositivo: 'tablet', disposicao: 'list', ocultarImagens: true, filtroStock: 'in' });
     expect(lerPreferenciasFrente(7)).toEqual({ dispositivo: 'tablet', disposicao: 'list', ocultarImagens: true, filtroStock: 'in' });
     expect(lerPreferenciasFrente(8).dispositivo).toBe('pc');
-    window.localStorage.setItem('erp.pos.frente.9', JSON.stringify({ dispositivo: 'tv', disposicao: 'x', filtroStock: 'y' }));
+    window.localStorage.setItem(`erp.pos.frente.${idOpaco(9)}`, JSON.stringify({ dispositivo: 'tv', disposicao: 'x', filtroStock: 'y' }));
     expect(lerPreferenciasFrente(9)).toEqual({ dispositivo: 'pc', disposicao: 'grid', ocultarImagens: false, filtroStock: 'all' });
   });
 });

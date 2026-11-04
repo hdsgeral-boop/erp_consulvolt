@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import type { Empresa } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { armazenamento } from '@/sessao/armazenamento';
 import { iniciais } from '@/layout/marca';
 import { notificarErro } from '@/utilitarios/erros';
 import { naRotaPortal } from '@/portal/rota';
@@ -62,11 +61,11 @@ function LogotipoEmpresa({ empresa }: { empresa: Empresa }) {
  * (a página não cresce — só a lista desloca), sobre o fundo da entrada. Responsiva.
  */
 export function EscolherEmpresa() {
-  const { empresas, escolherEmpresa, sair, utilizador } = useSessao();
+  const { empresas, escolherEmpresa, sair, utilizador, ultimaEmpresaId } = useSessao();
   const [aEscolher, setAEscolher] = useState<number | null>(null);
   const [pesquisa, setPesquisa] = useState('');
   // lidas uma vez ao abrir: a ordem não muda enquanto se escolhe
-  const [recentes] = useState(() => (utilizador ? armazenamento.empresasRecentes(utilizador.id) : []));
+  const [recentes] = useState<number[]>(() => (ultimaEmpresaId != null ? [ultimaEmpresaId] : []));
   const ordenadas = useMemo(() => ordenarPorRecentes(empresas, recentes), [empresas, recentes]);
   const visiveis = useMemo(() => filtrarEmpresas(ordenadas, pesquisa), [ordenadas, pesquisa]);
   const ultimaUsada = recentes.find((id) => empresas.some((e) => e.id === id));

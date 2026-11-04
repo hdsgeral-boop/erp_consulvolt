@@ -43,7 +43,8 @@ test.describe('Autenticação, empresa activa e menu por permissões', () => {
     await page.getByRole('button', { name: 'Empresa activa' }).click();
     await page.locator('.ant-dropdown-menu-item').filter({ hasText: EMPRESA_VAZIA }).click();
     await expect(nomeEmpresa).toHaveText(EMPRESA_VAZIA);
-    expect(await page.evaluate(() => window.localStorage.getItem('erp.empresa'))).not.toBeNull();
+    // a empresa activa é estado da sessão no servidor: nada de empresa nem de token no armazenamento do navegador
+    expect(await page.evaluate(() => Object.keys(window.localStorage).filter((k) => /empresa|token|dispositivo/.test(k)))).toEqual([]);
 
     // «Trocar empresa» volta à escolha de empresa (como no legado)
     await page.getByRole('button', { name: 'Trocar empresa' }).click();
@@ -86,9 +87,7 @@ test.describe('Autenticação, empresa activa e menu por permissões', () => {
     await expect(page.getByText('Sem acesso')).toBeVisible();
 
     // e a API também recusa (403), independentemente do menu
-    const token = await page.evaluate(() => window.localStorage.getItem('erp.token'));
-    const empresa = await page.evaluate(() => window.localStorage.getItem('erp.empresa'));
-    const r = await page.request.get('/api/rh/colaboradores', { headers: { Authorization: `Bearer ${token}`, 'X-Empresa-Id': String(empresa), Accept: 'application/json' } });
+    const r = await page.request.get('/api/rh/colaboradores', { headers: { Accept: 'application/json' } });   // cookie + empresa activa da sessão
     expect(r.status()).toBe(403);
     expect(erros).toEqual([]);
   });

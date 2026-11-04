@@ -39,7 +39,7 @@ export function PortalAutonomo() {
   const { empresa, empresas, utilizador, largarEmpresa, sair, menu } = useSessao();
   const ecra = useEcra();
   const navegar = useNavigate();
-  const { aspecto, definir } = useAspecto(utilizador?.id ?? utilizador?.nome_utilizador ?? null);
+  const { aspecto, definir } = useAspecto(utilizador?.id ?? null);
   const escuro = aspecto.tema === 'escuro';
   const alternarTema = () => definir({ tema: escuro ? 'claro' : 'escuro' });
   const textoTema = escuro ? 'Desligar a tela nocturna' : 'Tela nocturna';

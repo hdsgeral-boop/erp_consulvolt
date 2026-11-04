@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePreferencias } from '@/componentes/preferencias/usePreferencias';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Aspecto da interface por utilizador (Versão Actual: js/tela_noturna.js e js/aspecto_menu.js):
@@ -22,7 +23,7 @@ export const NOME_PREFERENCIA_ASPECTO = 'aspecto_nucleo';
 export const ASPECTO_PADRAO: AspectoInterface = { tema: 'claro', menu: 'completo' };
 export const CLASSE_TELA_NOCTURNA = 'erp-tela-nocturna';
 
-export const chaveLocalAspecto = (utilizador?: number | string | null) => `erp.aspecto.${utilizador ?? 'anonimo'}`;
+export const chaveLocalAspecto = (utilizador?: number | string | null) => `erp.aspecto.${idOpaco(utilizador)}`;
 
 /** Valida um valor lido (servidor ou navegador): o que não for conhecido fica com o valor por omissão. */
 export function normalizarAspecto(v: unknown): AspectoInterface {

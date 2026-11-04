@@ -5,6 +5,7 @@ import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useTerminais } from './dados';
 import { SeletorTerminal } from './Filtros';
 import type { Terminal, TipoTerminal } from './tipos';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Terminal de trabalho de um ecrã de caixa (lavandaria, hotelaria): as operações com dinheiro correm na sessão aberta
@@ -13,7 +14,7 @@ import type { Terminal, TipoTerminal } from './tipos';
 export function useTerminalDeTrabalho(tipo: TipoTerminal) {
   const { empresa } = useSessao();
   const terminais = useTerminais();
-  const chave = `erp.pos.terminal.${tipo}.${empresa?.id ?? 0}`;
+  const chave = `erp.pos.terminal.${tipo}.${idOpaco(empresa?.id ?? 0)}`;
   const [id, setId] = useState<number | undefined>(() => {
     try {
       return Number(window.localStorage.getItem(chave)) || undefined;

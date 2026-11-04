@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as EventoPonteiro } from 'react';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Posição (x, y) de um painel flutuante arrastável, no mesmo padrão do friso do menu (ver larguraMenu.ts):
@@ -6,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as EventoPo
  * Duplo clique na pega repõe a posição por omissão (o painel volta a ficar ancorado perto do gatilho). A posição
  * fica dentro do viewport (clamp) e é guardada no navegador por utilizador.
  */
-export const chaveLocalPosicao = (chave: string, utilizador?: number | string | null) => `erp.${chave}.posicao.${utilizador ?? 'anonimo'}`;
+export const chaveLocalPosicao = (chave: string, utilizador?: number | string | null) => `erp.${chave}.posicao.${idOpaco(utilizador)}`;
 
 export interface Posicao {
   x: number;

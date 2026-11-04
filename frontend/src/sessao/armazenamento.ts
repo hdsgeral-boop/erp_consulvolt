@@ -1,68 +1,67 @@
 /**
- * Persistência mínima da sessão no navegador: só a empresa activa (o resto vem de /autenticacao/eu).
- * As empresas usadas recentemente ficam por utilizador e sobrevivem ao «Sair», para a escolha as mostrar no topo.
- * Fase D: o token deixou de passar por aqui — vai num cookie HttpOnly (nunca acessível a JavaScript),
- * definido pelo servidor no login e enviado automaticamente pelo browser em cada pedido (cliente.ts).
+ * Estado da sessão no navegador — ADR-082: NADA de autenticação em armazenamento do navegador.
+ *
+ *  - o token vai num cookie HttpOnly emitido pelo servidor (invisível a JavaScript);
+ *  - o identificador do dispositivo é outro cookie HttpOnly, também emitido e assinado pelo servidor;
+ *  - a empresa activa é estado da SESSÃO no servidor (PUT /autenticacao/empresa-activa; GET /autenticacao/eu devolve-a):
+ *    aqui só existe em memória (por separador), para ser enviada em X-Empresa-Id e não depender de um pedido por consulta;
+ *  - a ordem «última empresa usada» vem do servidor (`ultima_empresa_id` em /eu).
+ *
+ * Por isso este módulo NÃO escreve em localStorage/sessionStorage/IndexedDB. Só apaga chaves que versões anteriores
+ * deixaram no navegador (`erp.dispositivo`, `erp.empresa`, `erp.empresas_recentes.*`), e converte as chaves de interface
+ * antigas (com o id do utilizador legível) para chaves opacas (ver chaveOpaca.ts).
  */
-const CHAVE_EMPRESA = 'erp.empresa';
-const CHAVE_DISPOSITIVO = 'erp.dispositivo';
-const CHAVE_RECENTES = 'erp.empresas_recentes.';
-const MAX_RECENTES = 5;
+let empresaActiva: number | null = null;
 
-function ler(chave: string): string | null {
+const CHAVES_SESSAO_ANTIGAS = [/^erp\.dispositivo$/, /^erp\.empresa$/, /^erp\.empresas_recentes\./];
+
+/** Prefixos de preferências de interface cuja chave antiga terminava no id numérico do utilizador/empresa. */
+const PADROES_A_CONVERTER: RegExp[] = [
+  /^(erp\.aspecto\.)(\d+)$/,
+  /^(erp\.menu\.largura\.)(\d+)$/,
+  /^(erp\.menu\.modo\.)(\d+)$/,
+  /^(erp\.plataforma\.menu\.modo\.)(\d+)$/,
+  /^(erp\.licenca\.avisoVisto\.)(\d+)$/,
+  /^(erp\.[A-Za-z_]+\.posicao\.)(\d+)$/,
+  /^(erp\.pos\.frente\.)(\d+)$/,
+  /^(erp\.pos\.impressao\.)(\d+)$/,
+  /^(erp\.pos\.terminal\.(?:[a-z_]+\.)?)(\d+)$/,
+  /^(erp\.tour_boas_vindas_v1:)(\d+)$/,
+];
+
+export function limparChavesAntigas(converter: (id: string) => string): void {
   try {
-    return window.localStorage.getItem(chave);
+    const chaves: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const c = window.localStorage.key(i);
+      if (c) chaves.push(c);
+    }
+    for (const chave of chaves) {
+      if (CHAVES_SESSAO_ANTIGAS.some((r) => r.test(chave))) {
+        window.localStorage.removeItem(chave);
+        continue;
+      }
+      for (const padrao of PADROES_A_CONVERTER) {
+        const m = padrao.exec(chave);
+        if (!m) continue;
+        const nova = `${m[1]}${converter(m[2])}`;
+        const valor = window.localStorage.getItem(chave);
+        if (valor !== null && window.localStorage.getItem(nova) === null) window.localStorage.setItem(nova, valor);
+        window.localStorage.removeItem(chave);
+        break;
+      }
+    }
   } catch {
-    return null;
+    /* armazenamento bloqueado: nada a limpar */
   }
-}
-
-function escrever(chave: string, valor: string | null): void {
-  try {
-    if (valor === null) window.localStorage.removeItem(chave);
-    else window.localStorage.setItem(chave, valor);
-  } catch {
-    /* modo privado ou armazenamento bloqueado: a sessão fica só em memória */
-  }
-}
-
-/**
- * Identificador deste browser (não desta sessão: sobrevive ao logout), gerado uma só vez e reutilizado em todos os
- * logins futuros — é o «dispositivo» que o backend usa para saber qual sessão completa anterior substituir
- * (ServicoAutenticacao::emitirTokenCompleto, Fase D). Sem isto, todos os browsers enviariam o mesmo valor fixo e um
- * login num computador diferente apagaria, por engano, a sessão de outro computador do mesmo utilizador. O prefixo
- * «web-» mantém o valor legível no ecrã «Sessões» da Plataforma (SessoesController lê esta coluna como "dispositivo").
- */
-function idDispositivo(): string {
-  const actual = ler(CHAVE_DISPOSITIVO);
-  if (actual) return actual;
-  const sufixo = typeof crypto?.randomUUID === 'function' ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
-  const novo = `web-${sufixo}`;
-  escrever(CHAVE_DISPOSITIVO, novo);
-  return novo;
 }
 
 export const armazenamento = {
-  empresaId: (): number | null => {
-    const v = ler(CHAVE_EMPRESA);
-    return v ? Number(v) : null;
+  empresaId: (): number | null => empresaActiva,
+  definirEmpresa: (id: number | null): void => {
+    empresaActiva = id;
   },
-  definirEmpresa: (id: number | null) => escrever(CHAVE_EMPRESA, id === null ? null : String(id)),
-  idDispositivo,
-  /** Ids das empresas usadas pelo utilizador, da mais recente para a mais antiga. */
-  empresasRecentes: (utilizadorId: number): number[] => {
-    try {
-      const v: unknown = JSON.parse(ler(CHAVE_RECENTES + utilizadorId) ?? '[]');
-      return Array.isArray(v) ? v.filter((id): id is number => Number.isInteger(id)) : [];
-    } catch {
-      return [];
-    }
-  },
-  registarEmpresaRecente: (utilizadorId: number, empresaId: number) => {
-    const lista = [empresaId, ...armazenamento.empresasRecentes(utilizadorId).filter((id) => id !== empresaId)].slice(0, MAX_RECENTES);
-    escrever(CHAVE_RECENTES + utilizadorId, JSON.stringify(lista));
-  },
-  limpar: () => {
-    escrever(CHAVE_EMPRESA, null);
+  limpar: (): void => {
+    empresaActiva = null;
   },
 };

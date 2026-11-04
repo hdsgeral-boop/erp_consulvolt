@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { armazenamento } from '@/sessao/armazenamento';
 import { filtrarEmpresas, normalizarPesquisa, ordenarPorRecentes } from './EscolherEmpresa';
 
 const empresas = [
@@ -34,12 +33,5 @@ describe('escolher empresa — empresas recentes primeiro', () => {
     expect(ordenarPorRecentes(empresas as never, [3, 1]).map((e) => e.id)).toEqual([3, 1, 2]);
     expect(ordenarPorRecentes(empresas as never, []).map((e) => e.id)).toEqual([1, 2, 3]);
     expect(ordenarPorRecentes(empresas as never, [99, 2]).map((e) => e.id)).toEqual([2, 1, 3]);
-  });
-
-  it('o armazenamento guarda até 5 empresas por utilizador, sem repetir, da mais recente para a mais antiga', () => {
-    localStorage.clear();
-    for (const id of [1, 2, 3, 4, 5, 6, 3]) armazenamento.registarEmpresaRecente(10, id);
-    expect(armazenamento.empresasRecentes(10)).toEqual([3, 6, 5, 4, 2]);
-    expect(armazenamento.empresasRecentes(11)).toEqual([]);
   });
 });

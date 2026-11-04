@@ -30,15 +30,19 @@ export interface Api {
 
 export async function api(utilizador: string, empresa = EMPRESA_DEMO): Promise<Api> {
   const ctx: APIRequestContext = await pedidoApi.newContext({ baseURL: URL_BASE, extraHTTPHeaders: { Accept: 'application/json' } });
-  const r = await ctx.post('/api/autenticacao/entrar', { data: { nome_utilizador: utilizador, palavra_passe: PALAVRA_PASSE, dispositivo: 'e2e' } });
+  const r = await ctx.post('/api/autenticacao/entrar', { data: { nome_utilizador: utilizador, palavra_passe: PALAVRA_PASSE } });
   expect(r.ok(), `login API de ${utilizador}`).toBeTruthy();
-  const dados = (await r.json()).dados as { token: string; empresas: { id: number; nome: string }[] };
+  const dados = (await r.json()).dados as { empresas: { id: number; nome: string }[] };
+  // O token já não vem no corpo (ADR-082): só no cookie HttpOnly. Estes clientes de API usam-no como Bearer (sem CSRF, sem rotação).
+  const cookies = (await ctx.storageState()).cookies;
+  const bruto = cookies.find((c) => c.name.endsWith('erp_token'))?.value ?? '';
+  const token = decodeURIComponent(bruto);
   const empresaId = dados.empresas.find((e) => e.nome === empresa)?.id;
   if (!empresaId) throw new Error(`${utilizador} não tem acesso a ${empresa}`);
-  const cab = { Authorization: `Bearer ${dados.token}`, 'X-Empresa-Id': String(empresaId) };
+  const cab = { Authorization: `Bearer ${token}`, 'X-Empresa-Id': String(empresaId) };
   return {
     empresaId,
-    token: dados.token,
+    token,
     get: async (url, params) => {
       const g = await ctx.get(`/api${url}`, { headers: cab, params });
       const corpo = await g.json();
@@ -82,16 +86,17 @@ export async function escolherEmpresa(page: Page, empresa = EMPRESA_DEMO): Promi
 }
 
 /**
- * Atalho para os fluxos de negócio: sessão obtida pela API e guardada no armazenamento do navegador (as mesmas chaves
- * que a aplicação usa), com a empresa já escolhida. O login pelo formulário tem o seu próprio teste.
+ * Atalho para os fluxos de negócio: o login pela API do próprio navegador (page.request partilha os cookies com a página:
+ * token e dispositivo HttpOnly) e a empresa activa definida na SESSÃO do servidor (PUT /autenticacao/empresa-activa) —
+ * nada é escrito no armazenamento do navegador (ADR-082). O login pelo formulário tem o seu próprio teste.
  */
 export async function entrarComo(page: Page, utilizador: string, empresa = EMPRESA_DEMO): Promise<Api> {
   const a = await api(utilizador, empresa);
-  await page.goto('/');
-  await page.evaluate(([t, e]) => {
-    window.localStorage.setItem('erp.token', t);
-    window.localStorage.setItem('erp.empresa', e);
-  }, [a.token, String(a.empresaId)]);
+  const r = await page.request.post('/api/autenticacao/entrar', { data: { nome_utilizador: utilizador, palavra_passe: PALAVRA_PASSE }, headers: { Accept: 'application/json' } });
+  expect(r.ok(), `login no navegador de ${utilizador}`).toBeTruthy();
+  const csrf = (await page.context().cookies()).find((c) => c.name.endsWith('XSRF-TOKEN'))?.value ?? '';
+  const e = await page.request.put('/api/autenticacao/empresa-activa', { data: { empresa_id: a.empresaId }, headers: { Accept: 'application/json', 'X-XSRF-TOKEN': csrf } });
+  expect(e.ok(), 'empresa activa da sessão').toBeTruthy();
   await page.goto('/');
   // a barra superior existe em todas as larguras (em telemóvel o menu lateral passa a gaveta)
   await expect(page.locator('.ant-layout-header')).toBeVisible();

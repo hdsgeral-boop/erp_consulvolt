@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as EventoTeclado, type MouseEvent as EventoRato, type PointerEvent as EventoPonteiro } from 'react';
+import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
  * Largura do menu lateral ajustável à mão (Versão Actual: app_v2.js «Sidebar Resizer Logic» + styles.css .sidebar-resizer):
@@ -6,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as EventoT
  *  - duplo clique no friso repõe a largura de origem (280 px) e apaga a preferência;
  *  - teclado (acessibilidade, não existia no legado): o friso é um `role="separator"` focável; ← → mudam 10 px
  *    (Shift: 50 px), Home/End vão ao mínimo/máximo e Enter/Delete repõem;
- *  - a largura fica guardada no navegador por utilizador (`erp.menu.largura.<id>`; no legado era `sidebar-width`, sem
+ *  - a largura fica guardada no navegador por utilizador (`erp.menu.largura.<id opaco>`; no legado era `sidebar-width`, sem
  *    utilizador) e não se aplica ao menu recolhido (só ícones, 64 px) nem à gaveta dos ecrãs pequenos.
  */
 export const LARGURA_MENU_PADRAO = 280;
@@ -17,7 +18,7 @@ export const LARGURA_MENU_RECOLHIDO = 64;
 export const PASSO_TECLADO = 10;
 export const PASSO_TECLADO_GRANDE = 50;
 
-export const chaveLocalLargura = (utilizador?: number | string | null) => `erp.menu.largura.${utilizador ?? 'anonimo'}`;
+export const chaveLocalLargura = (utilizador?: number | string | null) => `erp.menu.largura.${idOpaco(utilizador)}`;
 
 /** Arredonda e prende a largura aos limites do legado; valores inválidos → largura de origem. */
 export function limitarLargura(v: unknown): number {
