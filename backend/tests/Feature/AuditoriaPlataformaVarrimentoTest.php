@@ -55,4 +55,31 @@ final class AuditoriaPlataformaVarrimentoTest extends TestCase
         }
         $this->assertSame([], $abertas, 'Rotas da plataforma abertas a um operador sem chaves');
     }
+
+    #[Test]
+    public function operador_com_so_a_chave_de_clientes_nao_ganha_o_resto_e_cliente_com_acesso_total_nao_entra(): void
+    {
+        config(['erp.api.pedidos_por_minuto' => 100000, 'erp.saas.ativo' => true]);
+        app(ContextoTenant::class)->definir(1);
+        $perfil = PerfilUtilizador::create(['nome' => 'Operador clientes', 'permissoes' => ['_v2' => true, 'plataforma_clientes_gerir' => true], 'restrito_plataforma' => true]);
+        $op = $this->criarUtilizador(['papel' => Utilizador::PAPEL_OPERADOR_PLATAFORMA, 'perfil_utilizador_id' => $perfil->id]);
+        $h = $this->entrar($op);
+        $proibidas = [
+            ['POST', '/api/plataforma/planos'], ['PUT', '/api/plataforma/definicoes'], ['PUT', '/api/plataforma/saas/geral'],
+            ['POST', '/api/plataforma/administradores'], ['POST', '/api/plataforma/operadores-plataforma'], ['POST', '/api/plataforma/agentes-suporte'],
+            ['PUT', '/api/plataforma/ia/atribuicoes/1'], ['PUT', '/api/plataforma/ia/fornecedores/openai'], ['GET', '/api/plataforma/ia/consumo'],
+            ['DELETE', '/api/plataforma/sessoes/1'], ['POST', '/api/plataforma/transferencias/1/confirmar'], ['GET', '/api/plataforma/administradores'],
+        ];
+        foreach ($proibidas as [$m, $u]) {
+            $this->json($m, $u, [], $h)->assertForbidden();
+        }
+
+        // cliente com perfil de acesso total (all): nunca entra na área da plataforma nem no suporte
+        $tot = PerfilUtilizador::create(['nome' => 'Total cliente', 'permissoes' => ['all' => true, '_v2' => true]]);
+        $c = $this->criarUtilizador(['perfil_utilizador_id' => $tot->id]);
+        $hc = $this->entrar($c);
+        foreach (['/api/plataforma/clientes', '/api/plataforma/painel', '/api/plataforma/administradores', '/api/suporte/tickets'] as $u) {
+            $this->getJson($u, $hc)->assertForbidden();
+        }
+    }
 }
