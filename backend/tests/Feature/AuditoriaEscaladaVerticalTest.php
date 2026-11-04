@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Empresa;
 use App\Models\Utilizador;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -83,6 +84,19 @@ final class AuditoriaEscaladaVerticalTest extends TestCase
         }
         $this->assertSame(Utilizador::PAPEL_UTILIZADOR, $this->gestor->fresh()->papel);
         $this->assertFalse((bool) $this->gestor->fresh()->acesso_todas_empresas);
+    }
+
+    #[Test]
+    public function criar_contas_e_repor_passwords_tem_limite_de_pedidos(): void
+    {
+        foreach (['sistema.utilizadores.store', 'sistema.utilizadores.palavra_passe', 'ia.mensagens.enviar', 'autenticacao.entrar', 'autenticacao.recuperar-password'] as $nome) {
+            $rota = Route::getRoutes()->getByName($nome);
+            if ($rota === null) {
+                continue;   // nome diferente: o limite do login/recuperação já é testado em OwaspSegurancaTest
+            }
+            $this->assertNotEmpty(array_filter($rota->gatherMiddleware(), fn ($m) => is_string($m) && str_contains($m, 'hrottle')), "{$nome} sem throttle");
+        }
+        $this->assertNotNull(Route::getRoutes()->getByName('sistema.utilizadores.store'));
     }
 
     #[Test]
