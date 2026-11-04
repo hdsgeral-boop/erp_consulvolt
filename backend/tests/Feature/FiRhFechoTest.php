@@ -231,11 +231,69 @@ final class FiRhFechoTest extends TestCase
     // ───────────── #4 Modelo da efectividade e faltas do ano ─────────────
 
     #[Test]
-    public function modelo_da_efectividade_pre_preenchido_com_nif_em_texto(): void
+    public function modelo_da_efectividade_no_layout_do_picometro(): void
     {
         $this->get('/api/rh/assiduidade/modelo?mes=2025-09', $this->s['ver'])->assertForbidden();
         $this->get('/api/rh/assiduidade/modelo?mes=xx', $this->s['rh'] + ['Accept' => 'application/json'])->assertStatus(422);
+        $this->get('/api/rh/assiduidade/modelo?mes=2025-09&formato=outro', $this->s['rh'] + ['Accept' => 'application/json'])->assertStatus(422);
         $r = $this->get('/api/rh/assiduidade/modelo?mes=09/2025', $this->s['rh'])->assertOk();
+        $livro = IOFactory::load($r->baseResponse->getFile()->getPathname());
+        $this->assertSame(['Efectividade', 'Colaboradores', 'Instruções'], $livro->getSheetNames());
+        $folha = $livro->getSheet(0);
+        $linhas = $folha->toArray(null, false, false, false);
+        // layout do picómetro: «Attendance Record», cabeçalho na linha 4 (Employee ID | Card No. | Name | Department | AAAA/MM/DD…), «SW - EW» na 5
+        $this->assertSame('Attendance Record', $linhas[0][0]);
+        $this->assertSame(['Employee ID', 'Card No.', 'Name', 'Department', '2025/09/01', '2025/09/02'], array_slice($linhas[3], 0, 6));
+        $this->assertSame('2025/09/30', $linhas[3][4 + 29]);
+        $this->assertSame('SW - EW', $linhas[4][4]);
+        $ana = array_values(array_filter($linhas, fn ($l) => ($l[2] ?? null) === 'Ana Fictícia'));
+        $this->assertCount(1, $ana);   // uma linha por colaborador
+        $this->assertSame("08:00 12:00\n13:00 17:00\n--:-- --:--\n--:-- --:--", $ana[0][4]);   // 2025-09-01 (segunda): dois períodos
+        $this->assertSame(implode("\n", array_fill(0, 4, '--:-- --:--')), $ana[0][4 + 5]);   // 2025-09-06 (sábado): folga
+        $this->assertEmpty(array_filter($linhas, fn ($l) => ($l[2] ?? null) === 'Zé Inactivo'));
+        $this->assertSame(4, $livro->getSheet(1)->getHighestRow());   // cabeçalho + 3 activos
+    }
+
+    #[Test]
+    public function importacao_aceita_o_relatorio_do_picometro_e_o_proprio_modelo_preenchido(): void
+    {
+        // o modelo gerado pelo ERP volta a ser importável tal como está (as picagens previstas passam a registos)
+        $modelo = $this->get('/api/rh/assiduidade/modelo?mes=2025-09', $this->s['rh'])->assertOk()->baseResponse->getFile()->getPathname();
+        $ficheiro = new UploadedFile($modelo, 'modelo.xlsx', null, null, true);
+        $this->post('/api/rh/assiduidade/registos/importar', ['ficheiro' => $ficheiro], $this->s['rh'] + ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonPath('dados.gravados', 22)->assertJsonCount(0, 'dados.erros');
+        $this->assertSame(22, $this->em(fn () => EfectividadeAssiduidade::query()->where('colaborador_id', $this->ids['ana'])->count()));
+
+        // relatório do relógio: nomes com espaços repetidos casam com o colaborador; duas fichas do mesmo nome fundem-se no dia
+        $livro = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $f = $livro->getActiveSheet();
+        $f->setCellValue('A1', 'Attendance Record');
+        foreach (['Employee ID', 'Card No.', 'Name', 'Department', '2025/10/01'] as $i => $t) {
+            $f->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1).'4', $t, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        }
+        $f->setCellValueExplicit('C5', 'Rui   Fictício', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $f->setCellValueExplicit('E5', "09:00 18:00\n--:-- --:--\n--:-- --:--\n--:-- --:--", \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $f->setCellValueExplicit('C6', 'Rui Fictício', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $f->setCellValueExplicit('E6', "08:30 12:00\n13:00 17:00\n--:-- --:--\n--:-- --:--", \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $f->setCellValueExplicit('C7', 'Eva Fictícia', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $f->setCellValueExplicit('E7', implode("\n", array_fill(0, 4, '--:-- --:--')), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $caminho = tempnam(sys_get_temp_dir(), 'pic').'.xlsx';
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($livro))->save($caminho);
+
+        $this->post('/api/rh/assiduidade/registos/importar', ['ficheiro' => new UploadedFile($caminho, 'picometro.xlsx', null, null, true)], $this->s['rh'] + ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('dados.gravados', 1)->assertJsonCount(0, 'dados.erros');
+        $reg = $this->em(fn () => EfectividadeAssiduidade::query()->where('colaborador_id', $this->ids['rui'])->where('data', '2025-10-01')->first());
+        $this->assertNotNull($reg);
+        $this->assertSame('08:30', substr((string) $reg->entrada, 0, 5), 'a ficha repetida funde-se: primeira entrada e última saída do dia');
+        $this->assertSame('18:00', substr((string) $reg->saida, 0, 5));
+        $this->assertSame(0, $this->em(fn () => EfectividadeAssiduidade::query()->where('colaborador_id', $this->ids['eva'])->count()), 'um dia sem picagens é ignorado');
+        @unlink($caminho);
+    }
+
+    #[Test]
+    public function modelo_da_efectividade_por_linhas_com_nif_em_texto(): void
+    {
+        $r = $this->get('/api/rh/assiduidade/modelo?mes=09/2025&formato=linhas', $this->s['rh'])->assertOk();
         $livro = IOFactory::load($r->baseResponse->getFile()->getPathname());
         $this->assertSame(['Efectividade', 'Colaboradores', 'Instruções'], $livro->getSheetNames());
         $folha = $livro->getSheet(0);

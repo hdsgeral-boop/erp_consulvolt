@@ -124,16 +124,20 @@ final class FiRhController extends Controller
         return RespostaApi::sucesso($saida, 'Explicação do cálculo do período.');
     }
 
-    /** GET /rh/assiduidade/modelo?mes=AAAA-MM — modelo Excel pré-preenchido (uma linha por colaborador activo e dia de trabalho). */
+    /**
+     * GET /rh/assiduidade/modelo?mes=AAAA-MM[&formato=picometro|linhas] — modelo Excel pré-preenchido. Por omissão no layout do
+     * relatório «Attendance Record» do picómetro (um colaborador por linha, um dia por coluna); `formato=linhas` dá uma linha por
+     * colaborador e dia de trabalho (NIF, data, horas, autorizado).
+     */
     public function modeloEfectividade(Request $r, ServicoAssiduidade $assiduidade): BinaryFileResponse
     {
         $this->exigir('rh_assid_registar');
-        $d = $r->validate(['mes' => ['required', 'string', 'regex:/^(\d{4}-(0[1-9]|1[0-2])|(0[1-9]|1[0-2])\/\d{4})$/']]);
+        $d = $r->validate(['mes' => ['required', 'string', 'regex:/^(\d{4}-(0[1-9]|1[0-2])|(0[1-9]|1[0-2])\/\d{4})$/'], 'formato' => ['sometimes', 'in:picometro,linhas']]);
         $mes = ServicoCalendarioRH::mes($d['mes']);
         $pasta = storage_path('app/tmp');
         File::ensureDirectoryExists($pasta);
         $caminho = $pasta.'/modelo_efectividade_'.Str::random(12).'.xlsx';
-        $res = $assiduidade->modelo($mes, $caminho);
+        $res = $assiduidade->modelo($mes, $caminho, $d['formato'] ?? 'picometro');
 
         return response()->download($caminho, "Modelo_Efectividade_{$mes}.xlsx", ['X-Linhas-Modelo' => (string) $res['linhas'],
             'X-Sem-Nif' => (string) count($res['sem_nif'])])->deleteFileAfterSend();
