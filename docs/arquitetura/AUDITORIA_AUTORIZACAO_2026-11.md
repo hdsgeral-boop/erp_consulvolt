@@ -65,9 +65,9 @@
 
 ## 5. Riscos residuais e observações
 
-1. **Recuperação de password reinicia a conta do alvo** (`/autenticacao/recuperar-password`): quem conhece um utilizador pode forçar a troca da sua password por uma gerada (e enviada por email) — negação de serviço contra uma conta, limitada a 6/min por IP. A solução (ligação com token de uso único em vez de reposição imediata) toca na emissão de credenciais/sessão e fica para a tarefa seguinte.
+1. **[Mitigado em ADR-082, 2026-11-19: limite por conta e intervalo mínimo, resposta de tempo uniforme, a palavra-passe actual só muda depois de a nova ser entregue, aviso ao titular com hora/IP/dispositivo; a alternativa por ligação de uso único não foi implementada — ver `DECISOES.md`]** Recuperação de password reinicia a conta do alvo (`/autenticacao/recuperar-password`): quem conhece um utilizador pode forçar a troca da sua password por uma gerada (e enviada por email) — negação de serviço contra uma conta, limitada a 6/min por IP. A solução (ligação com token de uso único em vez de reposição imediata) toca na emissão de credenciais/sessão e fica para a tarefa seguinte.
 2. Um operador da plataforma com `plataforma_sessoes_gerir` pode terminar a sessão de um super-administrador; aceite (acção de moderação), mas convém registar em auditoria.
 3. `GET /plataforma/clientes`, `/empresas` e as listas de suporte ficam abertas a qualquer operador por desenho (lista filtrada pelas categorias do perfil no suporte).
 4. O frontend mostra «Sem acesso» enquanto o menu ainda não carregou (instante de arranque); sem impacto de segurança.
 5. Operadores de plataforma entram pelo servidor mas o frontend só abre `/admin` a super-administradores (UX mais restritiva do que o servidor, no sentido seguro).
-6. Notas para a tarefa seguinte (tokens/sessões): não foram tocados `sessao/armazenamento.ts`, `api/cliente.ts`, cookies, emissão/rotação de tokens, multi-sessão.
+6. [Tratado em `SESSOES_E_COOKIES.md`/ADR-082] Notas para a tarefa seguinte (tokens/sessões): não foram tocados `sessao/armazenamento.ts`, `api/cliente.ts`, cookies, emissão/rotação de tokens, multi-sessão.

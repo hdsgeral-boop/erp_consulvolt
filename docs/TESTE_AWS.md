@@ -116,3 +116,18 @@ próprio, acrescentá-lo lá.
 Build cache do Docker (4,3 GB), imagens e volumes sem uso apagados; ficheiros do legado (`wstb_payroll_backup_*.json`,
 `esquema.json`) comprimidos em `/srv/erp/legado` (root, 640); nginx do host com `proxy_http_version 1.1` (sem isto o
 contentor não comprimia: 2,1 MB de JS passaram a ~660 KB); `PermitRootLogin no`; pacotes do Ubuntu actualizados.
+
+## Sessões e cookies (ADR-082, 2026-11-19)
+
+O deploy que traz o ADR-082 **muda os cookies** (em HTTPS passam a `__Host-erp_token`, `__Host-erp_dev`, `__Host-XSRF-TOKEN`; o identificador do dispositivo
+deixa de estar no `localStorage`): **todos os utilizadores têm de voltar a entrar uma vez** após a actualização. As chaves antigas do navegador
+(`erp.dispositivo`, `erp.empresa`, `erp.empresas_recentes.*`) são apagadas no primeiro arranque. A migração é aditiva (`2026_11_19_090000` e `2026_11_19_091000`):
+correr `php artisan migrate --force` como habitualmente.
+
+Variáveis novas (todas opcionais; valores por omissão sensatos — ver `docs/arquitetura/SESSOES_E_COOKIES.md` §9): `ERP_COOKIE_SECURE`, `ERP_COOKIE_SAMESITE`,
+`ERP_SESSAO_ROTACAO_MINUTOS`, `ERP_SESSAO_ROTACAO_TOLERANCIA_SEGUNDOS`, `ERP_SESSAO_MAX_POR_UTILIZADOR`, `ERP_SESSAO_VINCULAR_AGENTE`, `ERP_SESSAO_DISPOSITIVO_DIAS`,
+`ERP_SESSAO_VERIFICAR_ORIGEM`, `ERP_SESSAO_ORIGENS_PERMITIDAS`, `ERP_RECUPERACAO_MAX_POR_HORA`, `ERP_RECUPERACAO_INTERVALO_SEGUNDOS`, `ERP_RECUPERACAO_TEMPO_MINIMO_MS`.
+
+Requisitos do proxy do anfitrião: preservar `Host` (`proxy_set_header Host $host;`) — a verificação de `Origin` compara-o com o anfitrião do pedido — e enviar
+`X-Forwarded-Proto: https` (já necessário). O servidor de teste está atrás de HTTPS, por isso os cookies saem `Secure` e com prefixo `__Host-`. A recuperação de
+palavra-passe envia agora o e-mail de forma síncrona (o SMTP tem de estar operacional; se falhar, a palavra-passe do utilizador não muda).
