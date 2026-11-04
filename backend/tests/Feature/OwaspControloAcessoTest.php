@@ -105,7 +105,7 @@ final class OwaspControloAcessoTest extends TestCase
             if (! in_array('empresa', $mw, true) || ! str_starts_with($r->uri(), 'api/')) {
                 continue;
             }
-            foreach (array_diff($r->methods(), ['HEAD', 'OPTIONS', 'PATCH']) as $metodo) {
+            foreach (array_diff($r->methods(), ['HEAD', 'OPTIONS']) as $metodo) {
                 [$uri, $saltar] = $this->concretizar($r);
                 $id = "{$metodo} {$r->uri()}";
                 if ($saltar !== null || isset(self::SEM_PERMISSAO_POR_DESENHO[$id])) {
@@ -126,5 +126,77 @@ final class OwaspControloAcessoTest extends TestCase
 
         $this->assertGreaterThan(300, $total, 'o varrimento tem de cobrir as rotas da API');
         $this->assertSame([], $abertas, 'Rotas que não recusam um utilizador sem permissões (falta $this->exigir(...) antes da validação?)');
+    }
+
+    /**
+     * Rotas SEM autenticação, por desenho — lista branca explícita e justificada. Uma rota pública nova só entra aqui com
+     * motivo escrito (e revisão): é isto que faz o varrimento falhar quando alguém abre uma rota por engano.
+     */
+    private const PUBLICAS = [
+        'POST api/autenticacao/entrar' => 'início de sessão (limite «entrar» por utilizador e por IP)',
+        'POST api/autenticacao/recuperar-password' => 'recuperação de password (6/min; resposta neutra, não enumera contas)',
+        'POST api/autenticacao/registar-empresa' => 'registo de um novo cliente (6/min)',
+        'POST api/plataforma-inicial/criar-admin' => 'primeiro acesso: só funciona enquanto não existe administrador da plataforma',
+        'GET api/plataforma-inicial/estado' => 'diz se o primeiro acesso ainda está disponível',
+        'GET api/saude' => 'sonda de saúde (sem dados)',
+        'GET api/sistema/definicoes-publicas' => 'nome e marca da plataforma para o ecrã de entrada',
+        'GET api/sistema/dominio-permitido' => 'o domínio actual pode usar o sistema? (ecrã de entrada)',
+        'GET api/sistema/logotipo-login' => 'logotipo do ecrã de entrada',
+        'GET api/sistema/planos-publicos' => 'planos publicados na página de preços',
+        'POST api/agt/webhook/{token}' => 'webhook da AGT: token secreto no caminho (60/min)',
+        'POST api/pagamentos/webhook/{gateway}' => 'webhook de pagamentos: assinatura do corpo validada pelo processador',
+        'GET api/bi/odata/{conjunto?}' => 'feed Power BI: token de leitura próprio (tokens_bi), 120 pedidos/min por token',
+        'GET auth/google/redirecionar' => 'início do login com Google (6/min)',
+        'GET auth/google/callback' => 'regresso do login com Google (6/min; estado validado)',
+        'GET sanctum/csrf-cookie' => 'cookie CSRF do Sanctum',
+        'GET up' => 'sonda de saúde do Laravel',
+    ];
+
+    /** Autenticadas, mas SEM empresa activa por desenho (dados da própria sessão/conta). "MÉTODO uri" => motivo */
+    private const SO_AUTENTICADAS = [
+        'GET api/autenticacao/eu' => 'o próprio utilizador e as suas empresas',
+        'GET api/autenticacao/dados-pessoais' => 'dados do próprio',
+        'PUT api/autenticacao/dados-pessoais' => 'dados do próprio (validados; sem papel/perfil)',
+        'PUT api/autenticacao/palavra-passe' => 'password do próprio (exige a actual; limite «palavra-passe»)',
+        'POST api/autenticacao/sair' => 'terminar a própria sessão',
+        'POST api/autenticacao/mfa/iniciar' => 'MFA do próprio',
+        'POST api/autenticacao/mfa/confirmar' => 'MFA do próprio',
+        'POST api/autenticacao/mfa/desactivar' => 'MFA do próprio',
+        'POST api/autenticacao/mfa/verificar' => 'MFA do próprio (limite «entrar»)',
+        'GET api/sistema/empresas' => 'selector: só as empresas acessíveis ao utilizador (ServicoEmpresas::acessiveis)',
+        'GET api/sistema/empresas/{empresa}' => 'selector: 404 sem acesso (podeAceder)',
+    ];
+
+    /** Middlewares de área que, por si, restringem a rota (negar por omissão). */
+    private const AREAS = ['plataforma', 'suporte', 'admin_cliente'];
+
+    #[Test]
+    public function toda_a_rota_esta_classificada_publica_so_autenticada_de_area_ou_com_empresa(): void
+    {
+        $todas = [];
+        $erros = [];
+        foreach (Rotas::getRoutes()->getRoutes() as $r) {
+            $mw = $r->gatherMiddleware();
+            $autenticada = (bool) array_filter($mw, fn ($m) => is_string($m) && (str_contains($m, 'Authenticate') || str_starts_with($m, 'auth')));
+            $comEmpresa = in_array('empresa', $mw, true);
+            $deArea = array_intersect(self::AREAS, $mw) !== [] || (bool) array_filter($mw, fn ($m) => is_string($m) && preg_match('/Exigir(Plataforma|Suporte|AdministradorCliente)$/', $m));
+            foreach (array_diff($r->methods(), ['HEAD', 'OPTIONS']) as $metodo) {
+                $id = "{$metodo} {$r->uri()}";
+                $todas[$id] = true;
+                if (! $autenticada) {
+                    if (! isset(self::PUBLICAS[$id])) {
+                        $erros[] = "{$id}: rota SEM autenticação fora da lista PUBLICAS";
+                    }
+                } elseif (! $comEmpresa && ! $deArea && ! isset(self::SO_AUTENTICADAS[$id])) {
+                    $erros[] = "{$id}: autenticada sem empresa nem área restrita fora da lista SO_AUTENTICADAS";
+                }
+            }
+        }
+        $this->assertSame([], $erros, 'Rotas por classificar (autorização)');
+
+        // listas brancas sem entradas mortas: uma rota removida/renomeada tem de sair das listas
+        foreach (array_merge(array_keys(self::PUBLICAS), array_keys(self::SO_AUTENTICADAS), array_keys(self::SEM_PERMISSAO_POR_DESENHO)) as $id) {
+            $this->assertArrayHasKey($id, $todas, "entrada obsoleta nas listas brancas: {$id}");
+        }
     }
 }

@@ -20,13 +20,13 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('sistema')->name('sistema.')->group(function () {
     Route::controller(UtilizadorController::class)->prefix('utilizadores')->name('utilizadores.')->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::post('/', 'store')->name('store');
+        Route::post('/', 'store')->middleware('throttle:pesado')->name('store');   // criar contas: limite por utilizador (auditoria 2026-11)
         Route::get('colaboradores', 'colaboradores')->name('colaboradores');
         Route::get('{utilizador}', 'show')->whereNumber('utilizador')->name('show');
         Route::put('{utilizador}', 'update')->whereNumber('utilizador')->name('update');
         Route::delete('{utilizador}', 'destroy')->whereNumber('utilizador')->name('destroy');
         Route::put('{utilizador}/estado', 'estado')->whereNumber('utilizador')->name('estado');
-        Route::post('{utilizador}/palavra-passe', 'reporPalavraPasse')->whereNumber('utilizador')->name('palavra_passe');
+        Route::post('{utilizador}/palavra-passe', 'reporPalavraPasse')->whereNumber('utilizador')->middleware('throttle:pesado')->name('palavra_passe');
     });
 
     Route::controller(PerfilController::class)->prefix('perfis')->name('perfis.')->group(function () {

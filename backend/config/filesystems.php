@@ -33,7 +33,7 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            'serve' => false,   // sem a rota pública storage/{path} (não se usam URLs temporários do disco local)
             'throw' => false,
             'report' => false,
         ],
