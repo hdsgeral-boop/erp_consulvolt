@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Utilizador;
+use App\Services\Pagamentos\SegredosGateway;
 use App\Support\Tenancy\ContextoEmpresa;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\DB;
@@ -241,13 +242,13 @@ class WebhookPagamentoSeguroTest extends TestCase
     {
         DB::table('configuracoes_gateway')->updateOrInsert(['chave' => 'ref_webhook_segredo'], ['valor' => 'segredo-em-claro-antigo-123', 'atualizado_em' => now()]);
 
-        $this->assertSame('segredo-em-claro-antigo-123', \App\Services\Pagamentos\SegredosGateway::configuracoes()['ref_webhook_segredo']);
+        $this->assertSame('segredo-em-claro-antigo-123', SegredosGateway::configuracoes()['ref_webhook_segredo']);
 
         (require base_path('database/migrations/2026_11_16_090000_cifrar_segredos_gateway.php'))->up();
 
         $guardado = (string) DB::table('configuracoes_gateway')->where('chave', 'ref_webhook_segredo')->value('valor');
         $this->assertStringStartsWith('enc:', $guardado);
-        $this->assertSame('segredo-em-claro-antigo-123', \App\Services\Pagamentos\SegredosGateway::configuracoes()['ref_webhook_segredo']);
+        $this->assertSame('segredo-em-claro-antigo-123', SegredosGateway::configuracoes()['ref_webhook_segredo']);
 
         // repetir a migração não volta a cifrar (idempotente)
         (require base_path('database/migrations/2026_11_16_090000_cifrar_segredos_gateway.php'))->up();
@@ -258,7 +259,7 @@ class WebhookPagamentoSeguroTest extends TestCase
     {
         config(['app.key' => '']);
 
-        $this->assertSame('valor', \App\Services\Pagamentos\SegredosGateway::cifrar('valor'));
-        $this->assertSame('', \App\Services\Pagamentos\SegredosGateway::decifrar('enc:qualquer-coisa'));
+        $this->assertSame('valor', SegredosGateway::cifrar('valor'));
+        $this->assertSame('', SegredosGateway::decifrar('enc:qualquer-coisa'));
     }
 }

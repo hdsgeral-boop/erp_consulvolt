@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\Empresa;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoEmpresas;
@@ -25,7 +26,7 @@ class LoginEmpresasSobRlsTest extends TestCase
         parent::tearDown();
     }
 
-    /** @return array{0: Utilizador, 1: \App\Models\Empresa} */
+    /** @return array{0: Utilizador, 1: Empresa} */
     private function clienteComAdministrador(): array
     {
         $cliente = Tenant::query()->create(['nome' => 'Cliente RLS', 'slug' => 'cliente-rls']);

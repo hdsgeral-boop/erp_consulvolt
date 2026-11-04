@@ -16,7 +16,11 @@ use App\Services\RH\ServicoDocumentosRH;
 use App\Services\RH\ServicoProdutividade;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -265,20 +269,20 @@ final class FiRhFechoTest extends TestCase
         $this->assertSame(22, $this->em(fn () => EfectividadeAssiduidade::query()->where('colaborador_id', $this->ids['ana'])->count()));
 
         // relatório do relógio: nomes com espaços repetidos casam com o colaborador; duas fichas do mesmo nome fundem-se no dia
-        $livro = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $livro = new Spreadsheet;
         $f = $livro->getActiveSheet();
         $f->setCellValue('A1', 'Attendance Record');
         foreach (['Employee ID', 'Card No.', 'Name', 'Department', '2025/10/01'] as $i => $t) {
-            $f->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1).'4', $t, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $f->setCellValueExplicit(Coordinate::stringFromColumnIndex($i + 1).'4', $t, DataType::TYPE_STRING);
         }
-        $f->setCellValueExplicit('C5', 'Rui   Fictício', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $f->setCellValueExplicit('E5', "09:00 18:00\n--:-- --:--\n--:-- --:--\n--:-- --:--", \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $f->setCellValueExplicit('C6', 'Rui Fictício', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $f->setCellValueExplicit('E6', "08:30 12:00\n13:00 17:00\n--:-- --:--\n--:-- --:--", \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $f->setCellValueExplicit('C7', 'Eva Fictícia', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-        $f->setCellValueExplicit('E7', implode("\n", array_fill(0, 4, '--:-- --:--')), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $f->setCellValueExplicit('C5', 'Rui   Fictício', DataType::TYPE_STRING);
+        $f->setCellValueExplicit('E5', "09:00 18:00\n--:-- --:--\n--:-- --:--\n--:-- --:--", DataType::TYPE_STRING);
+        $f->setCellValueExplicit('C6', 'Rui Fictício', DataType::TYPE_STRING);
+        $f->setCellValueExplicit('E6', "08:30 12:00\n13:00 17:00\n--:-- --:--\n--:-- --:--", DataType::TYPE_STRING);
+        $f->setCellValueExplicit('C7', 'Eva Fictícia', DataType::TYPE_STRING);
+        $f->setCellValueExplicit('E7', implode("\n", array_fill(0, 4, '--:-- --:--')), DataType::TYPE_STRING);
         $caminho = tempnam(sys_get_temp_dir(), 'pic').'.xlsx';
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($livro))->save($caminho);
+        (new Xlsx($livro))->save($caminho);
 
         $this->post('/api/rh/assiduidade/registos/importar', ['ficheiro' => new UploadedFile($caminho, 'picometro.xlsx', null, null, true)], $this->s['rh'] + ['Accept' => 'application/json'])
             ->assertOk()->assertJsonPath('dados.gravados', 1)->assertJsonCount(0, 'dados.erros');

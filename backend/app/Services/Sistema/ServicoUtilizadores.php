@@ -8,9 +8,9 @@ use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoLimitesPlano;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 /**
