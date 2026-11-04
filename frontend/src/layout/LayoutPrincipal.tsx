@@ -48,9 +48,11 @@ import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
 import { useModoMenu } from './modoMenu';
+import { podeVerAssistente } from '@/componentes/assistente/permissao';
 import './telaNocturna.css';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
+const AssistenteChatFlutuante = lazy(() => import('@/componentes/AssistenteChatFlutuante').then((m) => ({ default: m.AssistenteChatFlutuante })));
 const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
 
 const ALTURA_CABECALHO = 60;
@@ -597,6 +599,11 @@ function Estrutura() {
           <TourBoasVindas />
         </Layout>
 
+        {podeVerAssistente(pode) && (
+          <Suspense fallback={null}>
+            <AssistenteChatFlutuante contexto={noEcra ? `${moduloActual.toUpperCase()} › ${ecraActual.replace(/_/g, ' ')}` : undefined} />
+          </Suspense>
+        )}
         {historico.length > 1 && local.pathname !== '/' && (
           <Button className="erp-botao-voltar no-print" type="primary" shape="round" icon={<ArrowLeftOutlined />} onClick={() => navegar(-1)} title="Voltar ao ecrã anterior">
             Voltar
