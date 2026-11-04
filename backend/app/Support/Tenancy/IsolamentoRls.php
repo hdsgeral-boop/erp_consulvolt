@@ -90,6 +90,83 @@ final class IsolamentoRls
     }
 
     /**
+     * Estado REAL do isolamento (não basta haver políticas). `ativo` só é verdadeiro quando todas as verificações passam:
+     *  - saas_ativo: `erp.saas.ativo` efectivo (config), senão o tenant nunca é definido na sessão;
+     *  - ligacao_sem_privilegios: a ligação actual não é superutilizador nem tem BYPASSRLS;
+     *  - nao_dona_das_tabelas: a ligação actual não é dona das tabelas (sem FORCE, o dono ignora a política);
+     *  - row_security: `row_security` ligado na sessão;
+     *  - politicas: todas as tabelas com `empresa_id` (e as de TENANT_DIRETAS) têm a política e a RLS activa.
+     * Cada verificação traz `ok` e, quando falha, o `motivo`.
+     *
+     * @return array{ativo: bool, utilizador: ?string, verificacoes: array<string, array{ok: bool, motivo: ?string}>, tabelas_sem_rls: list<string>}
+     */
+    public function estado(): array
+    {
+        $utilizador = null;
+        $verificacoes = [];
+
+        $verificacoes['saas_ativo'] = (bool) config('erp.saas.ativo', false)
+            ? ['ok' => true, 'motivo' => null]
+            : ['ok' => false, 'motivo' => 'SAAS_ATIVO está desligado na configuração efectiva: a aplicação não define o tenant e a RLS não é usada.'];
+
+        try {
+            $papel = $this->bd->selectOne('SELECT r.rolname, r.rolsuper, r.rolbypassrls FROM pg_roles r WHERE r.rolname = current_user');
+            $utilizador = $papel->rolname ?? null;
+            $privilegiado = $papel === null || $this->booleano($papel->rolsuper) || $this->booleano($papel->rolbypassrls);
+            $verificacoes['ligacao_sem_privilegios'] = $privilegiado
+                ? ['ok' => false, 'motivo' => $papel === null
+                    ? 'Não foi possível identificar a role da ligação.'
+                    : "A ligação actual ({$papel->rolname}) é superutilizador ou tem BYPASSRLS: ignora todas as políticas."]
+                : ['ok' => true, 'motivo' => null];
+
+            $donas = $this->bd->select(<<<'SQL'
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public' AND tableowner = current_user
+                  AND (tablename IN ('empresas', 'utilizadores') OR tablename IN (
+                        SELECT table_name FROM information_schema.columns WHERE table_schema = 'public' AND column_name = 'empresa_id'))
+                ORDER BY tablename
+            SQL);
+            $verificacoes['nao_dona_das_tabelas'] = $donas === []
+                ? ['ok' => true, 'motivo' => null]
+                : ['ok' => false, 'motivo' => 'A ligação actual é dona de '.count($donas).' tabela(s) isoladas (ex.: '.$donas[0]->tablename.'): o dono não é afectado pela política.'];
+        } catch (\Throwable $e) {
+            $verificacoes['ligacao_sem_privilegios'] = ['ok' => false, 'motivo' => 'Não foi possível consultar pg_roles: '.$e->getMessage()];
+            $verificacoes['nao_dona_das_tabelas'] = ['ok' => false, 'motivo' => 'Não foi possível consultar pg_tables.'];
+        }
+
+        try {
+            $rowSecurity = (string) ($this->bd->selectOne("SELECT current_setting('row_security') AS v")->v ?? '');
+            $verificacoes['row_security'] = $rowSecurity === 'on'
+                ? ['ok' => true, 'motivo' => null]
+                : ['ok' => false, 'motivo' => "row_security está '{$rowSecurity}' na sessão."];
+        } catch (\Throwable $e) {
+            $verificacoes['row_security'] = ['ok' => false, 'motivo' => 'Não foi possível ler row_security.'];
+        }
+
+        try {
+            $semPolitica = $this->tabelasSemPolitica();
+        } catch (\Throwable $e) {
+            $semPolitica = [];
+            $verificacoes['politicas'] = ['ok' => false, 'motivo' => 'Não foi possível verificar as políticas: '.$e->getMessage()];
+        }
+        $verificacoes['politicas'] ??= $semPolitica === []
+            ? ['ok' => true, 'motivo' => null]
+            : ['ok' => false, 'motivo' => 'Tabelas sem política/RLS activa: '.implode(', ', $semPolitica).'.'];
+
+        return [
+            'ativo' => ! in_array(false, array_column($verificacoes, 'ok'), true),
+            'utilizador' => $utilizador,
+            'verificacoes' => $verificacoes,
+            'tabelas_sem_rls' => $semPolitica,
+        ];
+    }
+
+    private function booleano(mixed $v): bool
+    {
+        return $v === true || $v === 't' || $v === 1 || $v === '1';
+    }
+
+    /**
      * Cria/actualiza a role da aplicação e os privilégios. A palavra-passe só é definida se indicada.
      * Privilégios por omissão para tabelas futuras (mesmo dono) e auditoria imutável também na base de dados.
      */
@@ -104,7 +181,13 @@ final class IsolamentoRls
         SQL);
 
         if ($palavraPasse !== null && $palavraPasse !== '') {
-            $this->bd->unprepared('ALTER ROLE erp_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '.$this->bd->getPdo()->quote($palavraPasse));
+            $this->bd->unprepared('ALTER ROLE erp_app LOGIN PASSWORD '.$this->bd->getPdo()->quote($palavraPasse));
+        }
+        // Só um superuser altera SUPERUSER/BYPASSRLS (na RDS o dono não é superuser): corrige-se apenas se estiverem mal,
+        // e aí falhar é o correcto — a aplicação não pode ligar com uma role que ignora a RLS.
+        $atributos = $this->bd->selectOne("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'erp_app'");
+        if ($atributos && ($atributos->rolsuper || $atributos->rolbypassrls)) {
+            $this->bd->unprepared('ALTER ROLE erp_app NOSUPERUSER NOBYPASSRLS');
         }
 
         $base = $this->bd->selectOne('SELECT current_database() AS base')->base;

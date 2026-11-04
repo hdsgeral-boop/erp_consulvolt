@@ -68,6 +68,8 @@ final class PlataformaSaasController extends Controller
             'dias_teste_padrao' => $diasTeste,
             'rls_cobertura_completa' => count($tabelasSemRls) === 0,
             'tabelas_sem_rls' => $tabelasSemRls,
+            // Estado REAL do isolamento (role da ligação, dono das tabelas, row_security, políticas), não só a cobertura.
+            'isolamento' => $rls->estado(),
             'estatisticas' => [
                 'tenants' => $totalTenants,
                 'empresas_total' => $totalEmpresas,
