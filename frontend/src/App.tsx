@@ -36,6 +36,7 @@ const PlataformaDefinicoes = lazy(() => import('@/modulos/config/PlataformaDefin
 const PlataformaSessoes = lazy(() => import('@/modulos/config/PlataformaSessoes'));
 const PlataformaAdministradores = lazy(() => import('@/modulos/config/PlataformaAdministradores'));
 const PlataformaAgentesSuporte = lazy(() => import('@/modulos/config/PlataformaAgentesSuporte'));
+const PlataformaIA = lazy(() => import('@/modulos/config/PlataformaIA'));
 const LayoutSuporte = preguicoso(() => import('@/suporte/LayoutSuporte').then((m) => m.LayoutSuporte));
 const DashboardSuporte = lazy(() => import('@/suporte/DashboardSuporte'));
 const RespostasRapidasSuporte = lazy(() => import('@/suporte/RespostasRapidasSuporte'));
@@ -153,6 +154,7 @@ export function App() {
             <Route path="sessoes" element={<PlataformaSessoes />} />
             <Route path="administradores" element={<PlataformaAdministradores />} />
             <Route path="agentes-suporte" element={<PlataformaAgentesSuporte />} />
+            <Route path="ia" element={<PlataformaIA />} />
             <Route path="definicoes" element={<PlataformaDefinicoes />} />
           </Route>
 

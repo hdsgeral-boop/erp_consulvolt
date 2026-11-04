@@ -19,6 +19,7 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   plataforma_codigos: lazy(() => import('./PlataformaCodigos')),
   plataforma_saas: lazy(() => import('./PlataformaSaasGestao')),
   plataforma_cupoes: lazy(() => import('./PlataformaCupoes')),
+  plataforma_ia: lazy(() => import('./PlataformaIA')),
   config_plano: lazy(() => import('./PlanoContas')),
   config_moedas: lazy(() => import('./Moedas')),
   config_utilizadores: lazy(() => import('./Utilizadores')),

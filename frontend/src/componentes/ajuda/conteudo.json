@@ -6,7 +6,8 @@
    "resumo": "Painel de entrada do sistema, com acesso rápido aos módulos e indicadores gerais da empresa activa.",
    "regras": [
     "Todos os dados apresentados são da empresa seleccionada no topo do ecrã. Mude de empresa na caixa de selecção do cabeçalho.",
-    "Use os Favoritos (clique direito num item do menu) para ter à mão os ecrãs que usa todos os dias."
+    "Use os Favoritos (clique direito num item do menu) para ter à mão os ecrãs que usa todos os dias.",
+    "O botão redondo «Assistente» (canto inferior direito) abre o chat de IA: pergunte, anexe documentos e confirme (ou rejeite) as acções que propõe. Nada é executado sem a sua confirmação. É diferente do «Assistente IA para lançamentos» do menu do utilizador."
    ]
   },
   "logistica": {
@@ -592,7 +593,8 @@
     "Crie a ordem: cliente (pesquisa por nome ou NIF, ou «Novo cliente»), peças, serviços, cor, tecido e estado à entrada de cada peça.",
     "Aprove o orçamento, se existir.",
     "Altere o estado à medida que o trabalho avança (individual ou em massa).",
-    "Ao registar, indique o valor a receber agora (o Consumidor Final paga o adiantamento mínimo); o talão e as etiquetas imprimem-se a seguir.","Entregue e emita o documento."
+    "Ao registar, indique o valor a receber agora (o Consumidor Final paga o adiantamento mínimo); o talão e as etiquetas imprimem-se a seguir.",
+    "Entregue e emita o documento."
    ],
    "dicas": [
     "Na lista de ordens pode filtrar por terminal e alterar estados ou aprovar/recusar orçamentos em massa.",
@@ -906,7 +908,8 @@
    "titulo": "Geral / Backup",
    "serve": "Preferências gerais, exportação e importação da base de dados.",
    "passos": [
-    "Faça cópias de segurança regulares com \"Exportar\".","O super-administrador define o nome e o logótipo do sistema (mostrados na entrada e no menu) em \"Identidade do sistema\"."
+    "Faça cópias de segurança regulares com \"Exportar\".",
+    "O super-administrador define o nome e o logótipo do sistema (mostrados na entrada e no menu) em \"Identidade do sistema\"."
    ],
    "dicas": [
     "Guarde a cópia de segurança fora do computador."
@@ -947,7 +950,9 @@
    "titulo": "Utilizadores",
    "serve": "Contas de acesso ao sistema.",
    "passos": [
-    "Crie o utilizador, atribua um perfil e marque as empresas autorizadas. O nome de utilizador é sugerido a partir do nome completo.","A palavra-passe provisória é gerada pelo sistema e enviada por email; o utilizador troca-a no primeiro acesso.","Se o nome de utilizador era de uma conta eliminada, o sistema oferece reactivá-la."
+    "Crie o utilizador, atribua um perfil e marque as empresas autorizadas. O nome de utilizador é sugerido a partir do nome completo.",
+    "A palavra-passe provisória é gerada pelo sistema e enviada por email; o utilizador troca-a no primeiro acesso.",
+    "Se o nome de utilizador era de uma conta eliminada, o sistema oferece reactivá-la."
    ],
    "dicas": [
     "O que o utilizador vê e faz vem do perfil. As alterações ao perfil aplicam-se ao actualizar a página ou no próximo início de sessão."
@@ -1196,6 +1201,22 @@
    "dicas": [
     "A vista «Por departamento» agrupa pela unidade orgânica quando está preenchida; senão pela unidade de negócio.",
     "A caixa de alertas mostra os assuntos à espera da sua decisão, os atrasados e os bloqueados pelo pedido de compra."
+   ]
+  },
+  "plataforma_ia": {
+   "modulo": "sistema",
+   "titulo": "Plataforma: Inteligência artificial",
+   "serve": "Configurar os fornecedores de IA (Anthropic, OpenAI, Google Gemini), atribuir a IA a cada cliente com uma quota mensal de tokens e acompanhar o consumo e o custo.",
+   "passos": [
+    "Separador Fornecedores: cole a chave da API do fornecedor, clique em «Reconhecer chave e carregar modelos», escolha o modelo por omissão, ajuste os preços por milhão de tokens e grave. A chave é guardada cifrada e nunca volta a ser mostrada: o cartão só indica que está configurada.",
+    "Use «Testar ligação» para confirmar que a chave e o modelo funcionam.",
+    "Separador Atribuição aos clientes: escolha o fornecedor e o modelo de cada cliente, defina a quota mensal de tokens (vazio = sem limite), a pesquisa na internet e as acções no ERP, e grave. «Retirar» desliga a IA desse cliente.",
+    "Separador Consumo: tokens, pedidos e custo estimado por mês e por cliente."
+   ],
+   "dicas": [
+    "Para trocar a chave, escreva a nova no campo; em branco mantém a actual.",
+    "Um cliente que esgote a quota fica sem o Assistente até ao mês seguinte ou até aumentar a quota.",
+    "Só é possível atribuir fornecedores com chave configurada e activos."
    ]
   }
  }
