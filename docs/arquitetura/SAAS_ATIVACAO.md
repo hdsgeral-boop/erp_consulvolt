@@ -29,3 +29,29 @@ fica inerte para o superuser.
 
 ## Regra para migrações novas
 Se criar uma tabela com `empresa_id`, terminar com `(new \App\Support\Tenancy\IsolamentoRls(DB::connection()))->aplicarATodas();`.
+
+
+## Lições de operação (integradas da produção, 2026-11)
+
+- **Ficheiros de ambiente.** `.env` na raiz: lido pelo `docker compose` (recriar os serviços ao alterar). `backend/.env`: lido
+  pela aplicação dentro do contentor; o PHP-FPM corre como `www-data` (gid 82), por isso o ficheiro **tem de ser legível por esse
+  grupo**: `chgrp 82 backend/.env && chmod 640 backend/.env`. Se não for legível a aplicação ignora-o em silêncio (a cache cai
+  para `database` e todos os logins dão `ERRO_INTERNO`). Confirmar sempre depois de editar ou recriar o ficheiro.
+- **`DB_APP_PASSWORD` só por `config()`.** O código lê `config('erp.saas.db_app_password')`: com `php artisan optimize` (config em
+  cache) `env()` fora de `config/` devolve vazio e a palavra-passe da role `erp_app` ficaria por definir. O teste
+  `SemEnvForaDaConfigTest` impede `env()` fora de `config/`.
+- **Migrações depois da activação**: sempre com a ligação do dono (`--database=pgsql_owner`), porque `erp_app` não tem DDL.
+- **Cache de empresas por utilizador** (`ServicoEmpresas`, chave de versão `empresas:versao`): uma lista calculada sem contexto de
+  tenant (sob RLS devolve `[]`) ficaria vazia até expirar. No teste o login define o tenant assim que identifica o utilizador
+  (`ServicoAutenticacao::entrar`), e `LoginEmpresasSobRlsTest` (com `SET ROLE erp_app`) cobre a regressão. Se uma lista estiver
+  errada, invalidar com `php artisan erp:empresas:invalidar-cache` (correr também a cada deploy).
+- **Diagnóstico do isolamento.** `IsolamentoRls::estado()` (devolvido em `GET /api/plataforma/saas/estado`, chave `isolamento`) só dá
+  «activo» se: SaaS ligado, a ligação não for superutilizador nem `BYPASSRLS`, não for dona das tabelas isoladas, `row_security`
+  estiver `on` e todas as tabelas tiverem política. Com ligação do dono (testes, migrações) nunca está activo, por desenho.
+- **Verificação pós-activação/deploy**: `ferramentas/operacao/verificar_saas.sh` (só leitura; credenciais por variáveis de ambiente, contas sem MFA
+  e sem troca de palavra-passe pendente): login em cada host, token do cliente A recusado (403) no B e na plataforma,
+  lista de empresas não vazia, `/api/saude`.
+- **Simulação de pagamento.** `POST /api/licenca/subscricoes/{id}/simular-confirmacao` só responde com `SAAS_SIMULACAO_PAGAMENTO=true`
+  (não depende de `APP_ENV`: o servidor de teste corre com `APP_ENV=production`). Em produção real deixar `false`.
+- **Referência (não activada).** Os documentos de deploy da produção (Caddy, RDS, scripts de instalação/actualização) estão em
+  `docs/paridade/producao/`.
