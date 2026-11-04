@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\RH;
 
 use App\Http\Controllers\Controller;
+use App\Models\Empresa;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Services\RH\MotorSalarial;
@@ -52,7 +53,11 @@ final class FolhaSalarialController extends Controller
         }
         $totais['irt_devido'] = array_reduce($res, fn ($s, $x) => $x['irt_escalao'] ? bcadd($s, $x['irt_escalao']['devido'], 2) : $s, '0.00');
 
-        return RespostaApi::sucesso($p->toArray() + ['resultados' => $res, 'totais' => $totais, 'fotografia' => $p->estado !== 'ABERTO'], 'Processamento obtido com sucesso.');
+        // percentagens do INSS vindas da configuração da empresa (cabeçalhos dos mapas de INSS: nunca fixas no código dos relatórios)
+        $empresa = Empresa::query()->find(app(ContextoEmpresa::class)->obrigatorio());
+        $taxas = ['trabalhador' => (float) ($empresa?->taxa_inss_trabalhador ?? 3), 'patronal' => (float) ($empresa?->taxa_inss_patronal ?? 8)];
+
+        return RespostaApi::sucesso($p->toArray() + ['resultados' => $res, 'totais' => $totais, 'fotografia' => $p->estado !== 'ABERTO', 'taxas_inss' => $taxas], 'Processamento obtido com sucesso.');
     }
 
     public function lancamentos(int $id): JsonResponse

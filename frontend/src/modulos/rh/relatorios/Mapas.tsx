@@ -14,6 +14,8 @@ import { useAvisarErro, useCargos } from '../comum/consultas';
 import { ReciboSalario, useEmpresaRecibo } from '../comum/ReciboSalario';
 import { colunasRubricas, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
 import { AvisoNaoValidado, MolduraMapa, useDadosColaborador, usePeriodoMapa } from './comum';
+import { linhaInss, linhaIrtOficial } from './estruturaMapas';
+import { TabelaInss, TabelaIrtOficial } from './TabelasMapasOficiais';
 
 /** M-13: filtro Colaboradores / Avençados nos mapas (o legado tinha folhas separadas, folha_salarios.js:262-298). */
 const filtroGrupo = (grupo: string) => (r: ResultadoSalarial) => grupo === 'TODOS' || (grupo === 'AVENCADOS' ? r.avencado : !r.avencado);
@@ -101,57 +103,19 @@ export function MapaIrt({ periodoId }: PropsMapa = {}) {
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
   const grupoA = res.filter((r) => !r.avencado);
   const grupoB = res.filter((r) => r.avencado);
-  const exportar = () => {
-    const cab = ['NIF', 'N.º SS', 'Nome', 'Província', 'Município', 'Bruto', 'INSS 3%', 'Isenções', 'Matéria colectável', 'Parcela fixa', 'Taxa %', 'Excesso', 'Imposto devido', 'Imposto retido'];
-    const linhas = grupoA.map((r) => {
-      const d = dados(r.colaborador_id, r);
-      const e = r.irt_escalao;
-      return [d.nif, d.inss, d.nome, d.provincia, d.municipio, kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.isencoes), kzCsv(r.base_irt), e ? kzCsv(e.fixo) : '', e ? String(e.taxa).replace('.', ',') : '', e ? kzCsv(e.excesso) : '', e ? kzCsv(e.devido) : '', kzCsv(r.irt)];
-    });
-    descarregar(`mapa-irt-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(cab, linhas));
-  };
+  const periodo = mapa.detalhe.data?.mes_ano ?? '';
+  const linhasA = useMemo(() => grupoA.map((r, i) => linhaIrtOficial(r, i + 1, dados(r.colaborador_id, r), periodo)), [grupoA, dados, periodo]);
   // M-13: o CSV do Grupo B (avençados, 6,5 %) também se exporta
   const exportarB = () => descarregar(`mapa-irt-grupo-b-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(['NIF', 'Nome', 'Valor bruto', 'Matéria colectável', 'IRT retido'],
     grupoB.map((r) => { const d = dados(r.colaborador_id, r); return [d.nif, d.nome, kzCsv(r.bruto), kzCsv(r.base_irt), kzCsv(r.irt)]; })));
   return (
-    <MolduraMapa embutido={embutido} titulo="Mapa Fiscal de IRT (Modelo Oficial)" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+    <MolduraMapa embutido={embutido} titulo="Mapa Fiscal de IRT (Modelo Oficial - Angola)" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
       accoes={<>
-        <Button icon={<DownloadOutlined />} disabled={!grupoA.length} onClick={exportar}>Exportar CSV (Grupo A)</Button>
         <Button icon={<DownloadOutlined />} disabled={!grupoB.length} onClick={exportarB}>Exportar CSV (Grupo B)</Button>
       </>}>
       <AreaImpressao paisagem>
-        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa Fiscal de IRT (Modelo Oficial) — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />
-        <DeslocamentoHorizontal>
-          <table className="rh-tabela-mapa">
-            <thead>
-              <tr><th>Ord.</th><th>NIF</th><th>N.º SS</th><th style={{ textAlign: 'left' }}>Nome</th><th>Província</th><th>Município</th><th>Bruto</th><th>S. Social (3%)</th>
-                <th>Isenções</th><th>Matéria colectável</th><th>Parcela fixa</th><th>Taxa</th><th>Excesso</th><th>Imposto devido</th><th>Imposto retido</th></tr>
-            </thead>
-            <tbody>
-              {grupoA.map((r, i) => {
-                const d = dados(r.colaborador_id, r);
-                const e = r.irt_escalao;
-                return (
-                  <tr key={r.colaborador_id}>
-                    <td className="num">{i + 1}</td><td>{d.nif}</td><td>{d.inss}</td><td>{d.nome}</td><td>{d.provincia}</td><td>{d.municipio}</td>
-                    <td className="num">{formatarKz(r.bruto)}</td><td className="num">{formatarKz(r.inss_trabalhador)}</td><td className="num">{formatarKz(r.isencoes)}</td>
-                    <td className="num">{formatarKz(r.base_irt)}</td><td className="num">{e ? formatarKz(e.fixo) : '—'}</td><td className="num">{e ? `${formatarNumero(e.taxa)}%` : '—'}</td>
-                    <td className="num">{e ? formatarKz(e.excesso) : '—'}</td><td className="num">{e ? formatarKz(e.devido) : '—'}</td><td className="num"><strong>{formatarKz(r.irt)}</strong></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={6}>Totais ({grupoA.length})</td>
-                <td className="num">{formatarKz(somar(grupoA.map((r) => r.bruto)))}</td><td className="num">{formatarKz(somar(grupoA.map((r) => r.inss_trabalhador)))}</td>
-                <td className="num">{formatarKz(somar(grupoA.map((r) => r.isencoes)))}</td><td className="num">{formatarKz(somar(grupoA.map((r) => r.base_irt)))}</td>
-                <td colSpan={3} /><td className="num">{formatarKz(mapa.detalhe.data?.totais.irt_devido ?? somar(grupoA.map((r) => r.irt_escalao?.devido ?? '0')))}</td>
-                <td className="num">{formatarKz(somar(grupoA.map((r) => r.irt)))}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </DeslocamentoHorizontal>
+        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa Fiscal de IRT (Modelo Oficial - Angola) — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />
+        <TabelaIrtOficial linhas={linhasA} contexto={{ empresa: empresa?.nome, nif: empresa?.nif ? String(empresa.nif) : null, periodo }} />
         <Typography.Paragraph type="secondary" className="rh-nao-imprimir" style={{ marginTop: 8 }}>
           O escalão (parcela fixa, taxa e excesso) e o imposto devido vêm do cálculo do servidor (MotorSalarial); o imposto retido é o calculado pelo servidor no processamento (nos períodos migrados, pelo modo do legado).
         </Typography.Paragraph>
@@ -184,38 +148,13 @@ export function MapaInss({ periodoId }: PropsMapa = {}) {
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter((r) => !r.avencado).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
-  const exportar = () => descarregar(`mapa-inss-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(
-    ['Colaborador', 'NIF', 'N.º INSS', 'Base', 'Trabalhador', 'Empresa', 'Total'],
-    res.map((r) => { const d = dados(r.colaborador_id, r); return [d.nome, d.nif, d.inss, kzCsv(r.base_inss), kzCsv(r.inss_trabalhador), kzCsv(r.inss_patronal), kzCsv(somar([r.inss_trabalhador, r.inss_patronal]))]; }),
-  ));
+  const linhas = useMemo(() => res.map((r) => { const d = dados(r.colaborador_id, r); return linhaInss(r, `${d.nome}${r.reformado ? ' (reformado)' : ''}`, d.inss); }), [res, dados]);
   return (
     <MolduraMapa embutido={embutido} titulo="Mapa de INSS" subtitulo="Contribuições para a Segurança Social (INSS) do mês" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
-      accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
-      <AreaImpressao>
+>
+      <AreaImpressao paisagem>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de INSS (Segurança Social)" mesAno={mapa.detalhe.data?.mes_ano} />
-        <DeslocamentoHorizontal>
-          <table className="rh-tabela-mapa">
-            <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>N.º INSS</th><th>Base de incidência</th><th>Trabalhador</th><th>Empresa</th><th>Total</th></tr></thead>
-            <tbody>
-              {res.map((r, i) => {
-                const d = dados(r.colaborador_id, r);
-                return (
-                  <tr key={r.colaborador_id}>
-                    <td className="num">{i + 1}</td><td>{d.nome}{r.reformado ? ' (reformado)' : ''}</td><td>{d.inss || '—'}</td><td className="num">{formatarKz(r.base_inss)}</td>
-                    <td className="num">{formatarKz(r.inss_trabalhador)}</td><td className="num">{formatarKz(r.inss_patronal)}</td><td className="num">{formatarKz(somar([r.inss_trabalhador, r.inss_patronal]))}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3}>Totais ({res.length})</td><td className="num">{formatarKz(somar(res.map((r) => r.base_inss)))}</td>
-                <td className="num">{formatarKz(somar(res.map((r) => r.inss_trabalhador)))}</td><td className="num">{formatarKz(somar(res.map((r) => r.inss_patronal)))}</td>
-                <td className="num">{formatarKz(somar(res.flatMap((r) => [r.inss_trabalhador, r.inss_patronal])))}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </DeslocamentoHorizontal>
+        <TabelaInss linhas={linhas} contexto={{ empresa: empresa?.nome, nif: empresa?.nif ? String(empresa.nif) : null, periodo: mapa.detalhe.data?.mes_ano, taxas: mapa.detalhe.data?.taxas_inss }} />
       </AreaImpressao>
     </MolduraMapa>
   );

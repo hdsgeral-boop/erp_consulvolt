@@ -203,7 +203,6 @@ export interface ContratoTrabalho {
   estado: EstadoContrato | null;
   horas_por_dia: string | null;
   codigo_moeda: string | null;
-  produtividade: { item_id: number; preco_unitario: number | null }[] | null;
   /** Minuta (Lei 12/23): razões do contrato a termo (art. 13.º/2) e período experimental em dias (art. 18.º; vazio = 60/30). */
   motivo_termo?: string | null;
   periodo_experimental_dias?: number | null;
@@ -381,6 +380,8 @@ export interface DetalhePeriodo extends PeriodoSalarial {
   /** irt_devido: Σ do imposto devido pelos escalões (MotorSalarial). */
   totais: Record<ChaveTotal, string> & { irt_devido?: string };
   fotografia: boolean;
+  /** Percentagens do INSS da configuração da empresa (trabalhador e entidade patronal). */
+  taxas_inss?: { trabalhador: number; patronal: number };
 }
 
 export interface Lancamento {
