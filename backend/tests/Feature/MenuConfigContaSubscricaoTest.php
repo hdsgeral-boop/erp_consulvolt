@@ -75,7 +75,7 @@ final class MenuConfigContaSubscricaoTest extends TestCase
         app(ContextoTenant::class)->definir(1);
         $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
 
-        $ecras = $this->menuDe($u)['config'] ?? [];
+        $ecras = $this->menuDe($u, $this->criarEmpresa()->id)['config'] ?? [];
         $this->assertContains('plataforma_clientes', $ecras);
         $this->assertContains('plataforma_cupoes', $ecras);
         $this->assertContains('config_licenca', $ecras);
