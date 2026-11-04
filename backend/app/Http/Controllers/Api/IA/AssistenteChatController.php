@@ -68,7 +68,11 @@ final class AssistenteChatController extends Controller
             'anexos' => ['nullable', 'array', 'max:5'],
             'anexos.*' => ['file', 'max:10240', 'extensions:pdf,png,jpg,jpeg,gif,webp,xlsx,xls,csv,txt,md,json,xml'],
         ], ['anexos.*.extensions' => 'Use PDF, imagem, Excel, CSV ou texto.', 'anexos.*.max' => 'Cada anexo pode ter até 10 MB.']);
-        @set_time_limit(300);   // o ciclo do agente pode fazer vários pedidos ao fornecedor
+        // o ciclo do agente pode fazer vários pedidos ao fornecedor (só por pedido web: em CLI/testes o limite ficaria para o
+        // resto do processo e mataria uma suite longa a meio)
+        if (PHP_SAPI !== 'cli') {
+            @set_time_limit(300);
+        }
 
         return RespostaApi::sucesso(
             $this->agente->enviar($r->user(), $this->contexto->obrigatorio(), isset($d['conversa_id']) ? (int) $d['conversa_id'] : null, $d['texto'], $r->file('anexos', []), $d['modulo'] ?? null, $d['ecra'] ?? null),
