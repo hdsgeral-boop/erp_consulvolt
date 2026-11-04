@@ -11,6 +11,7 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
+use App\Services\Vendas\ServicoRetencaoFonte;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -82,7 +83,7 @@ final class ServicoRecebimentosVendas
             $estado = $recibo->estado === 'ANULADO' ? 'ANULADO' : ($recibo->contabilizado ? 'INTEGRADO' : 'PENDENTE');
             $dados = [
                 'tipo' => 'RECEBIMENTO', 'data_documento' => $recibo->data?->toDateString(), 'conta_financeira' => trim((string) $recibo->codigo_conta),
-                'descricao' => mb_substr($this->descricao($recibo, $cliente), 0, 1000), 'valor_total' => number_format((float) $recibo->montante_total, 2, '.', ''),
+                'descricao' => mb_substr($this->descricao($recibo, $cliente), 0, 1000), 'valor_total' => app(ServicoRetencaoFonte::class)->valorLiquido($recibo),   // o que entra na conta: bruto − retenção na fonte
                 'referencia' => mb_substr((string) ($recibo->referencia_pagamento ?: $recibo->numero_recibo), 0, 100) ?: null,
                 'estado' => $estado, 'codigo_moeda' => 'AOA', 'projeto_id' => $recibo->projeto_id, 'codigo_projeto' => $recibo->codigo_projeto,
                 'numero_lan_contabilizacao' => $estado === 'INTEGRADO' ? $recibo->numero_lan_contabilizacao : ($estado === 'ANULADO' ? $doc?->numero_lan_contabilizacao : null),
@@ -243,6 +244,11 @@ final class ServicoRecebimentosVendas
                 $linhas[] = ['codigo_conta' => $contaCliente, 'numero_documento' => $n, 'valor' => $i->montante_pago,
                     'descricao' => mb_substr("Recibo {$recibo->numero_recibo}".($n ? " — {$n}" : ''), 0, 1000)];
             }
+        }
+        // retenção na fonte: linha a débito (imposto retido pelo cliente) — as linhas somam o valor líquido do documento
+        if ($retencao = app(ServicoRetencaoFonte::class)->doRecibo($recibo)) {
+            $linhas[] = ['codigo_conta' => $retencao->conta_imposto ?: ServicoRetencaoFonte::CONTA_POR_OMISSAO, 'numero_documento' => $recibo->numero_recibo,
+                'valor' => $retencao->valor_retido, 'tipo_dc' => 'D', 'descricao' => mb_substr("Retenção na fonte ({$retencao->percentagem}%) — recibo {$recibo->numero_recibo}", 0, 1000)];
         }
         ItemDocumentoTesouraria::query()->where('documento_tesouraria_id', $doc->id)->delete();
         foreach ($linhas as $l) {

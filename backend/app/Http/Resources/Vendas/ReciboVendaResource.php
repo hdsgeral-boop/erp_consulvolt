@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Vendas;
 
 use App\Models\ReciboVenda;
+use App\Services\Vendas\ServicoRetencaoFonte;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,6 +13,8 @@ final class ReciboVendaResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        $retencoes = app(ServicoRetencaoFonte::class);
+
         return [
             'id' => $this->id,
             'numero_recibo' => $this->numero_recibo,
@@ -19,6 +22,10 @@ final class ReciboVendaResource extends JsonResource
             'cliente_id' => $this->cliente_id,
             'cliente' => $this->whenLoaded('cliente', fn () => ['id' => $this->cliente?->id, 'nome' => $this->cliente?->nome, 'nif' => $this->cliente?->nif]),
             'montante_total' => $this->montante_total,
+            // retenção na fonte do cliente: o recibo liquida pelo bruto (montante_total); em caixa/banco entra o líquido
+            'valor_retido' => $retencoes->valorRetido($this->resource),
+            'valor_liquido' => $retencoes->valorLiquido($this->resource),
+            'retencao' => $retencoes->paraApi($this->resource),
             'meio_pagamento' => $this->meio_pagamento,
             'codigo_conta' => $this->codigo_conta,
             'referencia_pagamento' => $this->referencia_pagamento,

@@ -22,6 +22,7 @@ final class ServicoConfigVendas
         'proveitos_servicos' => 'Proveitos de prestações de serviços (sem conta própria)',
         'iva_vendas' => 'IVA liquidado (produtos sem conta de IVA própria)',
         'adiantamentos_clientes' => 'Adiantamentos de clientes (recibos de adiantamento, sem factura)',
+        'retencao_fonte_clientes' => 'Imposto retido na fonte pelos clientes (recibos com retenção; por omissão 34.1 se existir no plano)',
     ];
 
     public function __construct(private readonly ServicoPlanoContas $plano) {}

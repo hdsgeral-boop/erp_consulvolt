@@ -218,6 +218,10 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
 
             Route::get('configuracao/contas', [ConfigVendasController::class, 'contas'])->name('configuracao.contas');
             Route::put('configuracao/contas', [ConfigVendasController::class, 'definirContas'])->name('configuracao.contas.definir');
+            Route::get('configuracao/retencoes', [ConfigVendasController::class, 'tiposRetencao'])->name('configuracao.retencoes');
+            Route::post('configuracao/retencoes', [ConfigVendasController::class, 'guardarTipoRetencao'])->name('configuracao.retencoes.criar');
+            Route::put('configuracao/retencoes/{tipo}', [ConfigVendasController::class, 'guardarTipoRetencao'])->whereNumber('tipo')->name('configuracao.retencoes.atualizar');
+            Route::delete('configuracao/retencoes/{tipo}', [ConfigVendasController::class, 'eliminarTipoRetencao'])->whereNumber('tipo')->name('configuracao.retencoes.eliminar');
             Route::get('configuracao/series', [ConfigVendasController::class, 'series'])->name('configuracao.series');
             Route::post('configuracao/series', [FaturacaoEletronicaController::class, 'criarSerie'])->name('configuracao.series.criar');
             Route::put('configuracao/series/{serie}', [FaturacaoEletronicaController::class, 'atualizarSerie'])->whereNumber('serie')->name('configuracao.series.atualizar');

@@ -37,11 +37,13 @@ final class ServicoRecibosVenda
         private readonly ServicoExercicios $exercicios,
         private readonly ServicoPlanoContas $plano,
         private readonly ServicoEstadoVenda $estado,
+        private readonly ServicoRetencaoFonte $retencoes,
     ) {}
 
     /**
      * @param  array{cliente_id: int, data: string, codigo_conta: string, meio_pagamento?: string, referencia_pagamento?: ?string,
-     *               alocacoes: list<array{venda_id: int, montante: string|float}>, unidade_negocio_id?: ?int, centro_custo_id?: ?int, projeto_id?: ?int}  $d
+     *               alocacoes: list<array{venda_id: int, montante: string|float}>, unidade_negocio_id?: ?int, centro_custo_id?: ?int, projeto_id?: ?int,
+     *               retencao?: ?array<string, mixed>}  $d  retencao: retenção na fonte do cliente (ver ServicoRetencaoFonte::normalizar)
      */
     public function criar(array $d): ReciboVenda
     {
@@ -86,7 +88,8 @@ final class ServicoRecibosVenda
                 $v->update(['valor_pago' => bcadd((string) ($v->valor_pago ?? '0'), $montante, 2)]);
                 $this->estado->recalcular($v);
             }
-            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // ronda 3: o recebimento aparece na Tesouraria
+            ! empty($d['retencao']) && $this->retencoes->gravar($recibo, $d['retencao']);
+            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // ronda 3: o recebimento aparece na Tesouraria (pelo valor líquido)
 
             return $recibo;
         });
@@ -131,7 +134,8 @@ final class ServicoRecibosVenda
      * Recibo de adiantamento (sem factura).
      *
      * @param  array{cliente_id: int, data: string, codigo_conta: string, montante: string|float, meio_pagamento?: string,
-     *               referencia_pagamento?: ?string, observacoes?: ?string, unidade_negocio_id?: ?int, centro_custo_id?: ?int, projeto_id?: ?int}  $d
+     *               referencia_pagamento?: ?string, observacoes?: ?string, unidade_negocio_id?: ?int, centro_custo_id?: ?int, projeto_id?: ?int,
+     *               retencao?: ?array<string, mixed>}  $d
      */
     public function criarAdiantamento(array $d): ReciboVenda
     {
@@ -162,6 +166,7 @@ final class ServicoRecibosVenda
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
             ]);
             $recibo->forceFill(['tipo_recibo' => 'ADIANTAMENTO'])->save();
+            ! empty($d['retencao']) && $this->retencoes->gravar($recibo, $d['retencao']);
             app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // ronda 3: o recebimento aparece na Tesouraria
 
             return $recibo;

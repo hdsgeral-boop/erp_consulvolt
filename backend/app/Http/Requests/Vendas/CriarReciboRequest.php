@@ -34,6 +34,14 @@ final class CriarReciboRequest extends FormRequest
             'alocacoes' => ['required_unless:tipo_recibo,ADIANTAMENTO', 'prohibited_if:tipo_recibo,ADIANTAMENTO', 'array', 'min:1', 'max:200'],
             'alocacoes.*.venda_id' => ['required', 'integer', $daEmpresa('vendas')],
             'alocacoes.*.montante' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
+            // retenção na fonte do cliente: os limites (0–100, base, valor ≤ base) são validados no serviço, com códigos próprios
+            'retencao' => ['nullable', 'array'],
+            'retencao.tipo_retencao_fonte_id' => ['nullable', 'integer', $daEmpresa('tipos_retencao_fonte')],
+            'retencao.percentagem' => ['nullable', 'numeric'],
+            'retencao.base_incidencia' => ['nullable', 'numeric'],
+            'retencao.valor_retido' => ['nullable', 'numeric'],
+            'retencao.referencia_comprovativo' => ['nullable', 'string', 'max:100'],
+            'retencao.data_comprovativo' => ['nullable', 'date_format:Y-m-d'],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],
             'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
@@ -45,7 +53,8 @@ final class CriarReciboRequest extends FormRequest
     {
         return [
             'cliente_id' => 'cliente', 'codigo_conta' => 'conta de caixa/banco', 'alocacoes' => 'facturas a liquidar',
-            'alocacoes.*.venda_id' => 'factura', 'alocacoes.*.montante' => 'montante',
+            'alocacoes.*.venda_id' => 'factura', 'alocacoes.*.montante' => 'montante', 'retencao.tipo_retencao_fonte_id' => 'tipo de retenção',
+            'retencao.percentagem' => 'percentagem da retenção', 'retencao.referencia_comprovativo' => 'referência do comprovativo',
         ];
     }
 }

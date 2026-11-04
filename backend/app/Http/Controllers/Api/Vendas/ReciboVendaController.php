@@ -36,7 +36,7 @@ final class ReciboVendaController extends Controller
             'pesquisa' => ['nullable', 'string', 'max:100'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1'],
         ]);
-        $pagina = ReciboVenda::query()->with('cliente:id,nome,nif')
+        $pagina = ReciboVenda::query()->with(['cliente:id,nome,nif', 'retencao'])
             ->when($f['cliente_id'] ?? null, fn ($q, $v) => $q->where('cliente_id', $v))
             ->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('data', '>=', $v))
             ->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('data', '<=', $v))
@@ -150,7 +150,7 @@ final class ReciboVendaController extends Controller
 
     private function detalhe(ReciboVenda $recibo): array
     {
-        $dados = (new ReciboVendaResource($recibo->load(['cliente:id,nome,nif', 'itensReciboVenda.venda:id,numero_documento'])))->resolve();
+        $dados = (new ReciboVendaResource($recibo->load(['cliente:id,nome,nif', 'itensReciboVenda.venda:id,numero_documento', 'retencao'])))->resolve();
 
         // ADR-071 (R2/R5): alocação por unidades de negócio do recibo e bloco só de leitura
         $alocacao = $recibo->getAttributes()['unidades_alocadas'] ?? null;

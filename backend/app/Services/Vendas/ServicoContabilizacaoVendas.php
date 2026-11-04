@@ -26,7 +26,8 @@ use Throwable;
  *     movimento, numeração sem corrida); valores do próprio documento (sem recalcular o IVA por outra fórmula);
  *   - FT: D cliente / C proveitos + C IVA · NC: o inverso · FR: D disponibilidade / C proveitos + C IVA
  *     (o legado não permitia descontabilizar FR);
- *   - recibo: D disponibilidade / C cliente;
+ *   - recibo: D disponibilidade / C cliente (com retenção na fonte do cliente: D disponibilidade pelo líquido + D imposto retido
+ *     pela retenção / C cliente pelo bruto — ServicoRetencaoFonte);
  *   - descontabilizar = estorno com rasto (ADR-016), nunca apagar; encomendas não são contabilizáveis;
  *   - CMV em inventário permanente (ADR-043): as linhas D custo / C inventário (o inverso nas devoluções) entram no
  *     lançamento do próprio documento; as guias GR/GD contabilizam só o CMV (sem proveitos);
@@ -249,13 +250,21 @@ final class ServicoContabilizacaoVendas
         $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $recibo->unidade_negocio_id,
             'centro_custo_id' => $recibo->centro_custo_id, 'projeto_id' => $recibo->projeto_id];
 
-        return DB::transaction(function () use ($recibo, $cliente, $contaCredito, $comum, $adiantamento) {
+        // retenção na fonte: o cliente entrega parte ao Estado — entra em caixa/banco só o líquido; a retenção é imposto antecipado (D)
+        $retencoes = app(ServicoRetencaoFonte::class);
+        $retencao = $retencoes->doRecibo($recibo);
+        $contaRetencao = $retencao ? $retencoes->contaParaContabilizar($retencao) : null;
+        $liquido = $retencao ? $retencoes->valorLiquido($recibo) : $recibo->montante_total;
+
+        return DB::transaction(function () use ($recibo, $cliente, $contaCredito, $comum, $adiantamento, $retencao, $contaRetencao, $liquido) {
             $criadas = $this->lancamentos->criar([
                 'diario_id' => $this->diario(self::DIARIO_RECIBOS, 'Recebimentos')->id, 'data_documento' => $recibo->data->toDateString(),
                 'numero_documento' => $recibo->numero_recibo,
                 'descricao' => mb_substr(($adiantamento ? 'Adiantamento ' : '')."{$recibo->numero_recibo} - {$cliente->nome}", 0, 1000),
                 'tipo_origem' => 'RECIBOS', 'linhas' => [
-                    ['codigo_conta' => $recibo->codigo_conta, 'tipo_dc' => 'D', 'valor' => $recibo->montante_total] + $comum,
+                    ['codigo_conta' => $recibo->codigo_conta, 'tipo_dc' => 'D', 'valor' => $liquido] + $comum,
+                    ...($retencao ? [['codigo_conta' => $contaRetencao, 'tipo_dc' => 'D', 'valor' => $retencao->valor_retido,
+                        'descricao' => mb_substr("Retenção na fonte ({$retencao->percentagem}%) {$recibo->numero_recibo} - {$cliente->nome}", 0, 1000)] + $comum] : []),
                     ['codigo_conta' => $contaCredito, 'tipo_dc' => 'C', 'valor' => $recibo->montante_total, 'nota_fluxo_caixa_id' => $this->notaFluxoRecebimentos()] + $comum,
                 ],
             ]);

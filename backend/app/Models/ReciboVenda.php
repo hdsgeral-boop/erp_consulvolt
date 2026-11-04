@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Base\ReciboVendaBase;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * recibos_venda — /api/vendas/recibos.
@@ -14,5 +15,11 @@ class ReciboVenda extends ReciboVendaBase
     public function eAdiantamento(): bool
     {
         return ($this->getAttributes()['tipo_recibo'] ?? null) === 'ADIANTAMENTO';
+    }
+
+    /** Retenção na fonte do recibo (1:1; ausente nos recibos sem retenção). */
+    public function retencao(): HasOne
+    {
+        return $this->hasOne(ReciboVendaRetencao::class, 'recibo_venda_id');
     }
 }

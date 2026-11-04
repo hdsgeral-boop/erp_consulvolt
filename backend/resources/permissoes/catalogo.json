@@ -1151,7 +1151,7 @@
             },
             {
               "chave": "vendas_config",
-              "rotulo": "Configurar contas de vendas",
+              "rotulo": "Configurar contas de vendas e tipos de retenção na fonte",
               "sensivel": true
             },
             {
