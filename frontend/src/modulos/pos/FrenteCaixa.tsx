@@ -1,8 +1,8 @@
-import { Alert, Modal, Result, Skeleton } from 'antd';
+import { Modal, Result, Skeleton } from 'antd';
 import { useEffect, useState } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { TIPOS_TERMINAL, useTerminais } from './comum/dados';
+import { useTerminais } from './comum/dados';
 import { gravarPreferenciasFrente, lerPreferenciasFrente, type PreferenciasFrente } from './comum/frente';
 import { accoesFrente } from './comum/regras';
 import { useCoresPos } from './comum/cores';
@@ -12,6 +12,7 @@ import { BarraSessaoFrente } from './frente/BarraSessaoFrente';
 import { FechoZ } from './frente/FechoZ';
 import { ModoImersivo, pedirEcraInteiro } from './frente/ModoImersivo';
 import { PainelVenda } from './frente/PainelVenda';
+import { FrenteLavandaria } from './lavandaria/FrenteLavandaria';
 import { RelatorioXModal } from './frente/RelatorioXModal';
 
 const chaveTerminal = (empresa: number | undefined) => `erp.pos.terminal.${empresa ?? 0}`;
@@ -136,15 +137,23 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
       <>
         <AvisoSessoesAntigas />
         {/* hotelaria: o mapa de quartos, o check-in e o check-out estão na própria venda (js/hotelaria.js), como no legado */}
-        {terminal.tipo === 'LAVANDARIA' && (
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 12 }}
-            title={`Terminal de ${TIPOS_TERMINAL[terminal.tipo].toLowerCase()}: as ordens, recebimentos e entregas fazem-se no ecrã próprio, nesta mesma sessão.`}
+        {/* lavandaria: a frente própria do protótipo (nova ordem de serviço e ordens/levantamentos) na mesma sessão */}
+        {terminal.tipo === 'LAVANDARIA' && pode('lav_ordens', 'pos_lavandaria_view') ? (
+          <FrenteLavandaria
+            key={sessao.id}
+            terminal={terminal}
+            barraSessao={
+              <BarraSessaoFrente
+                terminal={terminal}
+                podeRelatorioX={accoes.relatorioX}
+                podeFechar={accoes.fecharZ}
+                aoTrocarTerminal={() => setATrocar(true)}
+                aoRelatorioX={() => setVerX(true)}
+                aoFecharCaixa={() => setSessaoZ(sessao.id)}
+              />
+            }
           />
-        )}
-        {accoes.vender ? (
+        ) : accoes.vender ? (
           <PainelVenda
             key={sessao.id}
             terminal={terminal}
