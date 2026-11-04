@@ -1,0 +1,60 @@
+/* Assistente de IA: botão flutuante, mensagens e Markdown. Só tokens do tema (variáveis --ant-*), nunca cores fixas. */
+.erp-assistente-botao {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 900;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--ant-color-bg-container);
+  box-shadow: 0 8px 26px var(--ant-color-primary-border);
+}
+@media (max-width: 575px) {
+  .erp-assistente-botao { right: 12px; bottom: 60px; }
+}
+
+.erp-assistente-mensagem {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ant-color-fill-tertiary);
+  overflow-wrap: anywhere;
+}
+.erp-assistente-mensagem.erp-assistente-utilizador {
+  margin-left: 28px;
+  background: var(--ant-color-primary-bg);
+}
+
+.erp-markdown { line-height: 1.55; overflow-wrap: anywhere; }
+.erp-markdown > :first-child { margin-top: 0; }
+.erp-markdown > :last-child { margin-bottom: 0; }
+.erp-markdown p, .erp-markdown ul, .erp-markdown ol, .erp-markdown blockquote, .erp-markdown pre { margin: 0 0 8px; }
+.erp-markdown h3, .erp-markdown h4, .erp-markdown h5, .erp-markdown h6 { margin: 10px 0 6px; font-size: 1em; font-weight: 700; }
+.erp-markdown h3 { font-size: 1.1em; }
+.erp-markdown ul, .erp-markdown ol { padding-left: 22px; }
+.erp-markdown blockquote {
+  padding: 2px 10px;
+  border-left: 3px solid var(--ant-color-border);
+  color: var(--ant-color-text-secondary);
+}
+.erp-markdown code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--ant-color-fill-secondary);
+  font-size: 0.92em;
+}
+.erp-markdown pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--ant-color-fill-secondary);
+}
+.erp-markdown pre code { padding: 0; background: transparent; }
+.erp-markdown-tabela { margin-bottom: 8px; overflow-x: auto; }
+.erp-markdown-tabela table { border-collapse: collapse; min-width: 100%; }
+.erp-markdown-tabela th, .erp-markdown-tabela td {
+  padding: 4px 8px;
+  border: 1px solid var(--ant-color-border-secondary);
+  text-align: left;
+}
+.erp-markdown-tabela th { background: var(--ant-color-fill-quaternary); font-weight: 600; }
