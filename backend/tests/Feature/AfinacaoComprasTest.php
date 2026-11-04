@@ -127,6 +127,8 @@ final class AfinacaoComprasTest extends TestCase
         $this->getJson('/api/compras/contratos?por_pagina=3', $this->s)->assertOk();
         $tresLinhas = count(DB::getQueryLog());
         DB::disableQueryLog();
-        $this->assertSame($umaLinha, $tresLinhas);
+        // Um N+1 acrescentaria pelo menos 2 consultas (3 linhas contra 1); ±1 absorve uma consulta ocasional que não depende das
+        // linhas (observada em corridas isoladas e no CI, nos dois sentidos).
+        $this->assertEqualsWithDelta($umaLinha, $tresLinhas, 1, "consultas com 1 linha: {$umaLinha}, com 3 linhas: {$tresLinhas}");
     }
 }

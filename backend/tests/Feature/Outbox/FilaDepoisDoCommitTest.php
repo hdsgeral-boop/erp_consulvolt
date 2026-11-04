@@ -50,7 +50,8 @@ final class FilaDepoisDoCommitTest extends TestCase
     #[Test]
     public function after_commit_esta_ligado_por_omissao_nas_ligacoes_da_fila(): void
     {
-        $this->assertNull(env('QUEUE_AFTER_COMMIT'), 'o ambiente de testes não deve sobrepor QUEUE_AFTER_COMMIT');
+        // o .env.example (copiado no CI) traz QUEUE_AFTER_COMMIT=true: o que não pode é o ambiente de testes desligá-lo
+        $this->assertContains(env('QUEUE_AFTER_COMMIT'), [null, true, 'true'], 'o ambiente de testes não deve desligar QUEUE_AFTER_COMMIT');
         foreach (['redis', 'database'] as $ligacao) {
             $this->assertTrue(config("queue.connections.{$ligacao}.after_commit"), "queue.connections.{$ligacao}.after_commit");
         }

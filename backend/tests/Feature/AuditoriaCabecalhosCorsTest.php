@@ -37,7 +37,9 @@ final class AuditoriaCabecalhosCorsTest extends TestCase
         foreach (['Content-Security-Policy', 'X-Content-Type-Options "nosniff"', 'X-Frame-Options', 'Referrer-Policy', 'Permissions-Policy', 'frame-ancestors', "object-src 'none'", "script-src 'self'"] as $esperado) {
             $this->assertStringContainsString($esperado, $c, "falta {$esperado}");
         }
-        $this->assertStringNotContainsString("'unsafe-eval'", $c);
+        // só as directivas contam: o ficheiro explica em comentários que NÃO usa 'unsafe-eval'
+        $semComentarios = implode(PHP_EOL, array_filter(explode(PHP_EOL, $c), fn ($l) => ! str_starts_with(ltrim($l), '#')));
+        $this->assertStringNotContainsString("'unsafe-eval'", $semComentarios);
         $this->assertStringContainsString('https://*.r2.dev', $c, 'CSP tem de continuar a permitir imagens do R2');
     }
 }

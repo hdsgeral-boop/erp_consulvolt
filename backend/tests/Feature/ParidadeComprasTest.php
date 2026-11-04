@@ -197,6 +197,8 @@ final class ParidadeComprasTest extends TestCase
         $this->getJson('/api/compras/pedidos?por_pagina=3', $this->s)->assertOk()->assertJsonCount(3, 'dados');
         $tres = count(DB::getQueryLog());
         DB::disableQueryLog();
-        $this->assertSame($uma, $tres);
+        // Um N+1 acrescentaria pelo menos 2 consultas (3 linhas contra 1); ±1 absorve uma consulta ocasional que não depende das
+        // linhas (observada em corridas isoladas e no CI, nos dois sentidos).
+        $this->assertEqualsWithDelta($uma, $tres, 1, "consultas com 1 linha: {$uma}, com 3 linhas: {$tres}");
     }
 }

@@ -35,7 +35,9 @@ export default defineConfig({
     // teste ser desmontado e rebentar com «window is not defined». Não é uma falha do teste nem da aplicação (o ficheiro
     // já terminou); ignora-se SÓ este erro conhecido, todos os outros erros não tratados continuam a falhar a corrida.
     onUnhandledError(erro) {
-      if (erro instanceof ReferenceError && /window is not defined/.test(erro.message)) return false;
+      // por nome: o erro nasce no contexto virtual do jsdom, onde `instanceof ReferenceError` (do contexto de fora) falha
+      const e = erro as { name?: string; message?: string } | null;
+      if (e?.name === 'ReferenceError' && /window is not defined/.test(String(e.message))) return false;
     },
   },
 });
