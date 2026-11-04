@@ -13,6 +13,7 @@ final class AuditoriaPlataformaController extends Controller
 {
     public function index(Request $r): JsonResponse
     {
+        $this->exigir('plataforma_auditoria_view', 'plataforma_auditoria_gerir');
         $d = $r->validate(['modulo' => ['nullable', 'string', 'max:100'], 'q' => ['nullable', 'string', 'max:100']]);
         $escapar = fn (string $t) => '%'.addcslashes($t, '%_\\').'%';
 

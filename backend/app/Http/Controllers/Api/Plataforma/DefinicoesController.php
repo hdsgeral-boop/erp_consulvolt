@@ -20,6 +20,8 @@ final class DefinicoesController extends Controller
 
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_definicoes_view', 'plataforma_definicoes_gerir');
+
         return RespostaApi::sucesso($this->valores(), 'Definições obtidas com sucesso.');
     }
 

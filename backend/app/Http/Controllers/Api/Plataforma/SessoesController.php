@@ -14,6 +14,7 @@ final class SessoesController extends Controller
 {
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_sessoes_view', 'plataforma_sessoes_gerir');
         $sessoes = DB::table('tokens_acesso as t')
             ->join('utilizadores as u', fn ($j) => $j->on('u.id', '=', 't.portador_id')->where('t.portador_tipo', '=', 'utilizador'))
             ->join('tenants as c', 'c.id', '=', 'u.tenant_id')
@@ -27,6 +28,7 @@ final class SessoesController extends Controller
 
     public function revogar(Request $r, int $id): JsonResponse
     {
+        $this->exigir('plataforma_sessoes_gerir');
         if ((int) $r->user()->currentAccessToken()?->getKey() === $id) {
             throw new ErroNegocio('Não pode terminar a sessão que está a usar; use "Sair".', 'SESSAO_PROPRIA', 422);
         }

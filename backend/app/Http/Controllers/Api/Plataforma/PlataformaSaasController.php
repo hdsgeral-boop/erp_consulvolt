@@ -26,6 +26,7 @@ final class PlataformaSaasController extends Controller
     /** GET /api/plataforma/saas/estado */
     public function estadoGeral(Request $request): JsonResponse
     {
+        $this->exigir('plataforma_saas_view', 'plataforma_saas_gerir');
         $saasAtivo = DefinicoesPlataforma::saasAtivo();
         $licencasAtivas = DefinicoesPlataforma::licencasAtivas();
         $diasTeste = DefinicoesPlataforma::diasTestePadrao();
@@ -111,6 +112,7 @@ final class PlataformaSaasController extends Controller
     /** GET /api/plataforma/saas/empresas */
     public function listarEmpresas(Request $request): JsonResponse
     {
+        $this->exigir('plataforma_saas_view', 'plataforma_saas_gerir');
         $hoje = now()->startOfDay();
 
         $empresas = DB::table('empresas as e')

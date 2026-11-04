@@ -12,6 +12,7 @@ final class CodigosController extends Controller
 {
     public function index(Request $r): JsonResponse
     {
+        $this->exigir('plataforma_codigos_view', 'plataforma_codigos_gerir');
         $r->validate(['q' => ['nullable', 'string', 'max:100']]);
         $termo = mb_strtoupper(trim((string) $r->query('q', '')));
 

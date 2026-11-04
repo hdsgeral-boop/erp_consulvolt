@@ -33,12 +33,16 @@ final class OperadoresPlataformaController extends Controller
 
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_operadores_plataforma_view', 'plataforma_operadores_plataforma_gerir');
+
         return RespostaApi::sucesso($this->consulta()->orderBy('id')->get()->map(fn (Utilizador $u) => $this->apresentar($u))->all(), 'Operadores da plataforma obtidos com sucesso.');
     }
 
     /** Perfis restritos à plataforma, para o selector do formulário de operador (os mesmos de AgentesSuporteController). */
     public function perfis(): JsonResponse
     {
+        $this->exigir('plataforma_operadores_plataforma_view', 'plataforma_operadores_plataforma_gerir');
+
         return RespostaApi::sucesso($this->perfis->listar(soSuporte: true), 'Perfis da plataforma obtidos com sucesso.');
     }
 

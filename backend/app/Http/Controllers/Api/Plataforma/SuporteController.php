@@ -80,6 +80,7 @@ final class SuporteController extends Controller
 
     public function store(Request $r): JsonResponse
     {
+        $this->exigir('plataforma_suporte_gerir');
         $d = $r->validate([
             'tenant_id' => ['required', 'integer', Rule::exists('tenants', 'id')],
             'assunto' => ['required', 'string', 'max:200'],
@@ -121,6 +122,7 @@ final class SuporteController extends Controller
 
     public function eliminar(TicketSuporte $ticket): JsonResponse
     {
+        $this->exigir(TicketSuporte::CHAVE_POR_CATEGORIA[$ticket->categoria] ?? TicketSuporte::CHAVE_POR_CATEGORIA['GERAL']);
         $ticket->delete();
 
         return RespostaApi::sucesso(null, 'Ticket eliminado.');

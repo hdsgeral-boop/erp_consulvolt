@@ -49,6 +49,7 @@ final class PainelController extends Controller
 
     public function relatorioClientes(): Response
     {
+        $this->exigir('plataforma_painel_ver');
         $linhas = $this->clientes->listar()->map(fn (array $i) => [
             $i['tenant']->id, $i['tenant']->nome, $i['tenant']->slug, $i['tenant']->estado, $i['empresas'], $i['utilizadores'],
         ])->all();
@@ -58,6 +59,7 @@ final class PainelController extends Controller
 
     public function relatorioEmpresas(): Response
     {
+        $this->exigir('plataforma_painel_ver');
         $linhas = $this->clientes->empresas()->map(fn (array $e) => [
             $e['id'], $e['cliente'], $e['nome'], $e['nif'], $e['estado'], $e['licenca_origem'], $e['licenca_fim'], $e['criado_em'],
         ])->all();

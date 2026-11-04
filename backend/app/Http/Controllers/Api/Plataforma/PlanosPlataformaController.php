@@ -26,6 +26,7 @@ final class PlanosPlataformaController extends Controller
     /** Planos com a versão em vigor, as versões e quantos clientes os usam; mais o catálogo de módulos. */
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_planos_view', 'plataforma_planos_gerir', 'plataforma_clientes_gerir');
         $clientes = Tenant::query()->whereNotNull('plano')->selectRaw('plano, count(*) as total')->groupBy('plano')->pluck('total', 'plano');
 
         $planos = PlanoLicenca::query()->orderBy('ordem')->orderBy('id')->get()->map(function (PlanoLicenca $p) use ($clientes) {

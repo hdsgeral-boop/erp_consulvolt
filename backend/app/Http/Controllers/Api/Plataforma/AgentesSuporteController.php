@@ -31,12 +31,16 @@ final class AgentesSuporteController extends Controller
 
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_suporte_view', 'plataforma_suporte_gerir');
+
         return RespostaApi::sucesso($this->consulta()->orderBy('id')->get()->map(fn (Utilizador $u) => $this->apresentar($u))->all(), 'Agentes de suporte obtidos com sucesso.');
     }
 
     /** Perfis de especialização do backoffice (ADR-077), para o selector do formulário de agente. */
     public function perfis(): JsonResponse
     {
+        $this->exigir('plataforma_suporte_view', 'plataforma_suporte_gerir');
+
         return RespostaApi::sucesso($this->perfis->listar(soSuporte: true), 'Perfis de suporte obtidos com sucesso.');
     }
 

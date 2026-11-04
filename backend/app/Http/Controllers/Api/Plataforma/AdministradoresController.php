@@ -27,6 +27,8 @@ final class AdministradoresController extends Controller
 {
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_administradores_view', 'plataforma_administradores_gerir');
+
         return RespostaApi::sucesso($this->consulta()->orderBy('id')->get()->map(fn (Utilizador $u) => $this->apresentar($u))->all(), 'Administradores obtidos com sucesso.');
     }
 

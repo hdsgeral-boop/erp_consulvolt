@@ -32,6 +32,7 @@ final class TransferenciasBancariasController extends Controller
     /** GET /api/plataforma/transferencias/pendentes */
     public function pendentes(): JsonResponse
     {
+        $this->exigir('plataforma_saas_view', 'plataforma_saas_gerir');
         $linhas = DB::table('transacoes_gateway as t')
             ->join('subscricoes_empresa as s', 's.id', '=', 't.subscricao_id')
             ->join('empresas as e', 'e.id', '=', 's.empresa_id')
@@ -63,6 +64,7 @@ final class TransferenciasBancariasController extends Controller
     /** GET /api/plataforma/transferencias/comprovativo/{anexo} — entre tenants, por isso sem o âmbito de PertenceEmpresa. */
     public function comprovativo(int $anexo): Response
     {
+        $this->exigir('plataforma_saas_view', 'plataforma_saas_gerir');
         $a = $this->contexto->semIsolamento(fn () => AnexoComprovativoPagamento::query()->findOrFail($anexo));
         $f = $this->comprovativos->conteudo($a) ?? throw new NotFoundHttpException('Comprovativo não encontrado.');
 
@@ -75,6 +77,7 @@ final class TransferenciasBancariasController extends Controller
     /** POST /api/plataforma/transferencias/{subscricao}/confirmar */
     public function confirmar(Request $request, int $subscricao): JsonResponse
     {
+        $this->exigir('plataforma_saas_gerir');
         $empresaId = (int) DB::table('subscricoes_empresa')->where('id', $subscricao)->value('empresa_id');
         if (! $empresaId) {
             throw new NotFoundHttpException('Pedido de subscrição não encontrado.');

@@ -19,6 +19,7 @@ final class CupoesController extends Controller
     /** GET /api/plataforma/cupoes — com métricas de usos e receita descontada. */
     public function index(): JsonResponse
     {
+        $this->exigir('plataforma_cupoes_view', 'plataforma_cupoes_gerir');
         $cupoes = CupomDesconto::query()->withCount('usos')->orderByDesc('id')->get()
             ->map(fn (CupomDesconto $c) => $this->apresentar($c))->all();
 
