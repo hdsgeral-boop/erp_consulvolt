@@ -127,8 +127,8 @@ final class AfinacaoComprasTest extends TestCase
         $this->getJson('/api/compras/contratos?por_pagina=3', $this->s)->assertOk();
         $tresLinhas = count(DB::getQueryLog());
         DB::disableQueryLog();
-        // Um N+1 acrescentaria pelo menos 2 consultas (3 linhas contra 1); ±1 absorve uma consulta ocasional que não depende das
-        // linhas (observada em corridas isoladas e no CI, nos dois sentidos).
+        // ±1: o Sanctum grava `last_used_at = now()` em cada pedido autenticado e o Eloquent só emite o UPDATE se o valor (em segundos)
+        // mudou, por isso a fronteira de um segundo entre duas medições soma ou tira uma consulta. Um N+1 real somaria ≥ 2 (3 linhas contra 1).
         $this->assertEqualsWithDelta($umaLinha, $tresLinhas, 1, "consultas com 1 linha: {$umaLinha}, com 3 linhas: {$tresLinhas}");
     }
 }

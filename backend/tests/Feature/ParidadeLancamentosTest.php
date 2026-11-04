@@ -91,7 +91,9 @@ final class ParidadeLancamentosTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->getJson('/api/contabilidade/lancamentos?codigo_conta=1', $this->cab)->assertOk()->assertJsonCount(3, 'dados');
-        $this->assertSame($consultas, count(DB::getQueryLog()));
+        // ±1: o Sanctum grava `last_used_at = now()` em cada pedido autenticado e o Eloquent só emite o UPDATE se o valor (em segundos)
+        // mudou, por isso a fronteira de um segundo entre duas medições soma ou tira uma consulta. Um N+1 real somaria ≥ 2.
+        $this->assertEqualsWithDelta($consultas, count(DB::getQueryLog()), 1);
         DB::disableQueryLog();
     }
 
