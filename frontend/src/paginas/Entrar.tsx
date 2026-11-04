@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { obter } from '@/api/cliente';
+import { LogotipoDoSistema } from '@/componentes/LogotipoSistema';
+import { RodapeEntrada } from '@/paginas/RodapeEntrada';
+import { useIdentidadeSistema } from '@/sessao/identidade';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
 import { naRotaPortal } from '@/portal/rota';
@@ -35,7 +36,7 @@ export function Entrar() {
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
   const portal = naRotaPortal();
-  const logotipo = useQuery({ queryKey: ['logotipo-login'], queryFn: () => obter<{ logotipo: string | null }>('/sistema/logotipo-login'), retry: false });
+  const sistema = useIdentidadeSistema();
 
   // Erro vindo do redirect do login Google (nunca por AJAX — ver AutenticacaoGoogleController): mostra-o uma vez
   // e limpa a query string, para um recarregar da página não voltar a mostrar o mesmo erro.
@@ -68,11 +69,11 @@ export function Entrar() {
   };
 
   return (
-    <main className="erp-pagina-entrada erp-fundo-entrada">
+    <main className="erp-pagina-entrada erp-fundo-entrada" style={{ paddingBottom: 64 }}>
       <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
-          {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 110, maxWidth: 'min(240px, 100%)', objectFit: 'contain', marginBottom: 8 }} /> : null}
-          <h1 className="erp-entrada-titulo">{portal ? 'Portal do Colaborador' : 'ERP Consulvolt'}</h1>
+          <LogotipoDoSistema tamanho={72} />
+          <h1 className="erp-entrada-titulo">{portal ? 'Portal do Colaborador' : sistema.data?.nome_sistema || 'ERP Consulvolt'}</h1>
           <Typography.Text type="secondary">{portal ? 'Entre com o seu utilizador para aceder ao portal' : 'Aceda à sua conta para continuar'}</Typography.Text>
         </Flex>
         {motivoSaida && <Alert type="info" showIcon title={motivoSaida} style={{ marginBottom: 16 }} />}
@@ -119,6 +120,7 @@ export function Entrar() {
           </Link>
         </Flex>
       </Card>
+      <RodapeEntrada />
     </main>
   );
 }

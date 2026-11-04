@@ -18,6 +18,24 @@ export interface IdentidadeEmpresa {
   logotipo: string | null;
 }
 
+/** Identidade do sistema do endereço (GET /sistema/logotipo-login, público): logótipo (data URI) e nome; null = padrão. */
+export interface IdentidadeSistema {
+  logotipo: string | null;
+  nome_sistema: string | null;
+}
+
+export const CHAVE_IDENTIDADE_SISTEMA = ['sistema', 'logotipo-login'] as const;
+
+/** O servidor escolhe o cliente pelo endereço, por isso serve antes do login (ecrã de entrada, menu, registo). */
+export function useIdentidadeSistema() {
+  return useQuery({
+    queryKey: CHAVE_IDENTIDADE_SISTEMA,
+    queryFn: () => obter<IdentidadeSistema>('/sistema/logotipo-login'),
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
+}
+
 export const chaveIdentidade = (empresaId: number | undefined) => ['sistema', 'identidade', empresaId] as const;
 
 /** Lida uma vez por empresa activa (o logótipo pode ter ~1 MB); muda quando se troca de empresa. */

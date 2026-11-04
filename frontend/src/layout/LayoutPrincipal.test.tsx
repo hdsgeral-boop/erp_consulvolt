@@ -36,6 +36,7 @@ vi.mock('@/sessao/SessaoContexto', () => ({
 
 vi.mock('@/sessao/identidade', () => ({
   useIdentidade: () => ({ data: { id: 1, nome: EMPRESA, logotipo }, isLoading: false }),
+  useIdentidadeSistema: () => ({ data: { logotipo: null, nome_sistema: null }, isLoading: false }),
 }));
 
 // preferências do utilizador (favoritos): um favorito guardado no servidor

@@ -1,8 +1,6 @@
 import { Avatar, Tooltip, Typography, theme } from 'antd';
-import { useQuery } from '@tanstack/react-query';
-import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useIdentidade } from '@/sessao/identidade';
+import { useIdentidade, useIdentidadeSistema } from '@/sessao/identidade';
 import { iniciais } from './marca';
 
 interface Props {
@@ -27,12 +25,8 @@ export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false
   const identidade = useIdentidade();
   const { token } = theme.useToken();
 
-  // Consulta do logótipo e nome do sistema (definido globalmente em /sistema/logotipo-login)
-  const sistema = useQuery({
-    queryKey: ['sistema', 'logotipo-login'],
-    queryFn: () => obter<{ logotipo: string | null; nome_sistema?: string | null }>('/sistema/logotipo-login'),
-    staleTime: 10 * 60_000,
-  });
+  // Logótipo e nome do sistema (Configurações › Geral › Identidade do sistema; GET /sistema/logotipo-login)
+  const sistema = useIdentidadeSistema();
 
   const nomeSistema = sistema.data?.nome_sistema || identidade.data?.nome_sistema || 'CONSULVOLT ERP';
   const nomeEmpresa = identidade.data?.nome || empresa?.nome || 'Consulvolt';

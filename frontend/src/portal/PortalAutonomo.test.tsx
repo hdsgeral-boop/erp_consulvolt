@@ -27,7 +27,10 @@ vi.mock('@/sessao/SessaoContexto', () => ({
     estado: 'autenticado',
   }),
 }));
-vi.mock('@/sessao/identidade', () => ({ useIdentidade: () => ({ data: { id: 7, nome: 'Empresa Fictícia, Lda', logotipo: null }, isLoading: false }) }));
+vi.mock('@/sessao/identidade', () => ({
+  useIdentidade: () => ({ data: { id: 7, nome: 'Empresa Fictícia, Lda', logotipo: null }, isLoading: false }),
+  useIdentidadeSistema: () => ({ data: { logotipo: null, nome_sistema: null }, isLoading: false }),
+}));
 vi.mock('@/api/cliente', () => ({
   obter: vi.fn((url: string) => (url === '/portal/acesso' ? resposta() : Promise.resolve(null))),
   enviar: vi.fn(() => Promise.resolve({ dados: null, mensagem: 'ok' })),

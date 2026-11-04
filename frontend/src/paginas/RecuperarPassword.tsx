@@ -5,6 +5,7 @@ import { UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
+import { RodapeEntrada } from '@/paginas/RodapeEntrada';
 
 /** Ecrã para recuperação de palavra-passe com o mesmo aspecto visual do login. */
 export function RecuperarPassword() {
@@ -40,7 +41,7 @@ export function RecuperarPassword() {
   };
 
   return (
-    <main className="erp-pagina-entrada erp-fundo-entrada">
+    <main className="erp-pagina-entrada erp-fundo-entrada" style={{ paddingBottom: 64 }}>
       <Card
         className="erp-cartao-entrada"
         style={{ width: '100%', maxWidth: 440 }}
@@ -120,6 +121,7 @@ export function RecuperarPassword() {
           </Link>
         </Flex>
       </Card>
+      <RodapeEntrada />
     </main>
   );
 }
