@@ -89,6 +89,13 @@
         },
         "platform": {
             "php": "8.5.12"
+        },
+        "audit": {
+            "ignore-abandoned": {
+                "dragon-code/contracts": "Dependência transitiva de laravel-lang/common (traduções); sem substituto publicado e sem avisos de segurança. Rever quando o laravel-lang a substituir.",
+                "dragon-code/pretty-array": "Dependência transitiva de laravel-lang/publisher; ver acima.",
+                "dragon-code/support": "Dependência transitiva de laravel-lang/*; ver acima."
+            }
         }
     },
     "minimum-stability": "stable",

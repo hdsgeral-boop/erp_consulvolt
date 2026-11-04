@@ -108,7 +108,7 @@ final class CompatibilidadeProducaoTest extends TestCase
         $this->assertSame(6, DB::table('perfis_utilizador_pre_fusao')->count());
         $this->assertSame([3, 4, 5], DB::table('perfis_utilizador_pre_fusao')->where('nome', 'Contabilista')->orderBy('tenant_id')->pluck('tenant_id')->map(fn ($t) => (int) $t)->all());
         $mapa = DB::table('utilizadores_perfil_pre_fusao')->pluck('perfil_utilizador_id', 'id')->map(fn ($p) => (int) $p)->all();
-        $this->assertSame([$i['ua'] => $i['c2'], $i['ub'] => $i['c3'], $i['uc'] => $i['v2'], $i['ud'] => $i['v3']], $mapa);
+        $this->assertEquals([$i['ua'] => $i['c2'], $i['ub'] => $i['c3'], $i['uc'] => $i['v2'], $i['ud'] => $i['v3']], $mapa);   // a ordem das linhas não é garantida sem ORDER BY
     }
 
     #[Test]
