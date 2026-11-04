@@ -1,0 +1,51 @@
+# Produção na AWS (EC2 + RDS PostgreSQL). Usar sempre com o ficheiro base:
+#   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+#
+# Servidor independente do PC local (sem túnel). Diferenças:
+#  - Base de dados: RDS (DB_HOST_RDS no .env da raiz); o contentor postgres não sobe (perfil «local-db»).
+#  - Entrada: Caddy nas portas 80/443; HTTPS a pedido para DOMINIO_BASE e subdomínios (deploy/caddy/Caddyfile.aws).
+#  - Sem os ficheiros do backup antigo montados (só existem no PC).
+#  - Licenças activas (LICENCAS_ATIVAS): empresas novas começam em teste, excepto nos clientes com o plano interno.
+x-rds: &rds
+  environment:
+    DB_HOST: ${DB_HOST_RDS:?defina DB_HOST_RDS no .env}
+    DB_SSLMODE: require
+    # licenças por empresa activas em produção (pedido de 2026-10-22); as empresas sem limite não são afectadas
+    LICENCAS_ATIVAS: "true"
+  depends_on: !override
+    redis:
+      condition: service_healthy
+  volumes: !override
+    - ./backend:/var/www/html
+    - erp_vendor:/var/www/html/vendor
+    - ./frontend/dist:/var/www/html/public/build:ro
+    - ./docker/php/desempenho.ini:/usr/local/etc/php/conf.d/zzz-desempenho.ini:ro
+    - ${AGT_PASTA_SEGREDOS:-./.segredos/agt}:/run/segredos/agt:ro
+
+services:
+  app: *rds
+  worker: *rds
+  scheduler: *rds
+
+  postgres:
+    profiles: ["local-db"]
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: erp_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile.aws:/etc/caddy/Caddyfile:ro
+      - erp_caddy_dados:/data
+    environment:
+      # domínio do sistema (HTTPS a pedido para ele e os subdomínios); sem domínio só responde pelo IP, em HTTP
+      DOMINIO_BASE: ${DOMINIO_BASE:-dominio.invalid}
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  erp_caddy_dados:

@@ -1,0 +1,9 @@
+; Registos de e-mail do meuerp.ao (StackMail). Importar na Cloudflare:
+; DNS > Records > Import and Export > Import DNS records (ficheiro BIND).
+; Só e-mail: o site/plataforma/empresas são os CNAME do túnel (cloudflared tunnel route dns).
+$ORIGIN meuerp.ao.
+$TTL 3600
+@                 IN MX    10 mx.stackmail.com.
+@                 IN TXT   "v=spf1 include:spf.stackmail.com a mx -all"
+s1._domainkey     IN TXT   "v=DKIM1;k=rsa;h=sha256;n=;s=*;t=s;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlRYiUBzHKzirT266Um9Nz0KoK9aTp3dasKR0kLyVvg9GOumoFGi8uvXkLdgkFiQfefDHlEgeAMKN5Ifvw8qLMERHjeB7038O6bwbqHhnPvNwSCRc1damcOnn" "vP7Eewsr1eUIUWasoiWn7VN4L7kq5QMvdT0abBZGY3+EY45r/8IoZN7AAAZFPBNjd1XfnE9G6apzhKUsaEJR5xfUL1Q4K7Ft+hpPZfmFyYxRDKz41dROJzgkxpVEzRzaoxEXbglaNOtRGjksJwt63HiuzVTJpJtag7L9sWb1zDlPQo76O0tiNARGeoNrufwalNAdGbfT" "rsAxdvotnhZC+a92wLAFaQIDAQAB"
+_dmarc            IN TXT   "v=DMARC1;p=none;sp=none;adkim=r;aspf=r;np=none;psd=u;t=n"
