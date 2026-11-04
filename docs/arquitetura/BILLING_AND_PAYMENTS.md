@@ -28,15 +28,24 @@ Antes da Fase 0, `GatewayPagamentoController::processarWebhook` confiava directa
 sem validar o montante contra o valor devido — um vector real de fraude (forjar uma confirmação falsa activava
 uma licença de graça). Corrigido:
 
-- `ProcessadorPagamentos::processarWebhook()` exige uma assinatura HMAC-SHA256 (`sha256=<hex>` sobre o corpo
-  bruto do pedido, cabeçalho `X-Webhook-Assinatura`) contra um segredo configurado por gateway
-  (`ref_webhook_segredo`/`mcx_webhook_segredo`). Sem segredo configurado, ou com assinatura inválida, o pedido é
-  rejeitado com `401` e fica registado em log (nunca passa em silêncio).
-- O montante confirmado nunca vem do payload: os drivers (`GatewayReferenciaMulticaixa`,
-  `GatewayMulticaixaExpress`) comparam sempre o valor da transacção interna (`bccomp`, nunca float) e devolvem o
-  valor **autoritário** da base de dados, nunca o que o gateway alegou pagar.
-- Testes: `PagamentosWebhookSegurancaTest` (assinatura inválida, repetição, montante divergente — todos
-  rejeitados e auditados).
+- `ProcessadorPagamentos::processarWebhook()` (contrato evoluído em 2026-11, integração da produção) exige:
+  assinatura HMAC-SHA256 de `"{timestamp}.{corpo bruto}"` (cabeçalhos `X-Webhook-Timestamp`, `X-Webhook-Signature`
+  — aceita o prefixo `sha256=` — e `X-Webhook-Event-Id`), comparada com `hash_equals` contra o segredo do gateway
+  (`ref_webhook_segredo`/`mcx_webhook_segredo`, **cifrado em repouso** com prefixo `enc:` — `SegredosGateway`, chave
+  `APP_KEY`); janela anti-replay de 300 s; evento único por gateway (`webhooks_pagamento.evento_unico`, idempotência);
+  gateway da transacção igual ao da rota; valor e moeda **obrigatórios** e iguais aos da subscrição; subscrição
+  `PENDENTE` (bloqueada com `lockForUpdate`). Respostas: 403 sem segredo configurado, 401 assinatura inválida, 400
+  timestamp fora da janela / evento sem id, 409 evento duplicado ou subscrição não pendente, 422 gateway/valor/moeda.
+  **Todas** as tentativas (aceites e rejeitadas) ficam em `webhooks_pagamento` (e as rejeições principais em log).
+- O contrato antigo (`X-Webhook-Assinatura: sha256=<hmac do corpo>`) foi **retirado**: não protegia contra repetição.
+  O fornecedor do gateway tem de enviar os três cabeçalhos novos.
+- O montante nunca é aceite sem confronto: os drivers devolvem o valor/moeda declarados no payload e o processador
+  compara-os (`number_format(…, 2)`) com os da subscrição; divergência → `VALOR_DIFERENTE`/`MOEDA_DIFERENTE` (422), sem
+  confirmar nada.
+- A configuração dos gateways nunca devolve segredos (nem os últimos 4 caracteres): só `configurado`/`tem_chave` e
+  `webhook_segredo_configurado`/`tem_segredo_webhook`. Segredos de webhook novos exigem pelo menos 16 caracteres.
+- Testes: `WebhookPagamentoSeguroTest` (assinatura inválida, replay, evento duplicado/sem id, valor, moeda, estado,
+  gateway, segredos cifrados, migração de cifragem, simulação por flag) e `NotificacoesEGatewaysTest`.
 
 ## 3. Facturação electrónica da subscrição (AGT)
 

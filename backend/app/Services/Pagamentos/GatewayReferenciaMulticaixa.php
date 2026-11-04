@@ -4,9 +4,7 @@ namespace App\Services\Pagamentos;
 
 use App\Models\SubscricaoEmpresa;
 use App\Models\TransacaoGateway;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -19,7 +17,7 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
 {
     public function iniciar(SubscricaoEmpresa $subscricao, array $parametros = []): ResultadoIniciacao
     {
-        $configs = DB::table('configuracoes_gateway')->pluck('valor', 'chave');
+        $configs = SegredosGateway::configuracoes();
 
         $entidade = $configs['ref_entidade'] ?? '00123';
         $subentidade = $configs['ref_subentidade'] ?? '';
@@ -102,12 +100,14 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
         );
     }
 
-    public function processarWebhook(array $payload): ResultadoConfirmacao
+    public function processarWebhook(array $payload, array $headers = []): ResultadoConfirmacao
     {
         // Aceita formatos padrão de webhook (ex: Proxypay / EMIS / standard JSON)
         $referencia = $payload['referencia'] ?? $payload['reference'] ?? $payload['custom_fields']['referencia'] ?? null;
         $referenciaExterna = $payload['id'] ?? $payload['transaction_id'] ?? null;
-        $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? 'paid'));
+        $valor = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
+        $moeda = isset($payload['moeda']) || isset($payload['currency']) ? strtoupper((string) ($payload['moeda'] ?? $payload['currency'])) : null;
+        $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? ''));
 
         if (! $referencia && ! $referenciaExterna) {
             return new ResultadoConfirmacao(sucesso: false, mensagem: 'Referência não identificada no payload do webhook.');
@@ -116,21 +116,12 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
         $transacao = TransacaoGateway::query()
             ->when($referencia, fn ($q) => $q->where('referencia', preg_replace('/\s+/', '', (string) $referencia)))
             ->when($referenciaExterna && ! $referencia, fn ($q) => $q->where('referencia_externa', $referenciaExterna))
+            ->where('gateway', TransacaoGateway::GATEWAY_REFERENCIA)
+            ->orderByDesc('id')
             ->first();
 
         if (! $transacao) {
             return new ResultadoConfirmacao(sucesso: false, mensagem: 'Transação correspondente não encontrada na base de dados.');
-        }
-
-        // O montante nunca é aceite do payload (controlado pelo remetente) — só serve para detectar divergências.
-        $valorRecebido = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
-        if ($valorRecebido !== null && bccomp((string) $valorRecebido, (string) $transacao->valor, 2) !== 0) {
-            Log::warning('Webhook de pagamento (Referência) com montante divergente do valor devido.', [
-                'transacao_id' => $transacao->id, 'esperado' => (string) $transacao->valor, 'recebido' => (string) $valorRecebido,
-            ]);
-
-            return new ResultadoConfirmacao(sucesso: false, subscricaoId: $transacao->subscricao_id,
-                mensagem: 'O montante confirmado não corresponde ao valor devido.', dadosOriginais: $payload);
         }
 
         $sucesso = in_array($status, ['paid', 'pago', 'success', 'concluido', 'settled'], true);
@@ -139,9 +130,11 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
             sucesso: $sucesso,
             subscricaoId: $transacao->subscricao_id,
             referenciaExterna: $referenciaExterna ?: $transacao->referencia_externa,
-            valorPago: (float) $transacao->valor,
+            valorPago: $valor,
             mensagem: $sucesso ? 'Pagamento por referência confirmado com sucesso.' : 'Notificação recebida com estado '.$status,
             dadosOriginais: $payload,
+            moeda: $moeda,
+            gateway: $transacao->gateway,
         );
     }
 

@@ -20,12 +20,19 @@ use Tests\TestCase;
 class NotificacoesEGatewaysTest extends TestCase
 {
     /**
-     * O webhook de pagamento exige `X-Webhook-Assinatura: sha256=<hmac>` sobre o corpo bruto (igual ao que o
-     * `postJson` envia, via `json_encode($corpo)`) — ver `ProcessadorPagamentos::processarWebhook`.
+     * O webhook de pagamento exige X-Webhook-Timestamp, X-Webhook-Event-Id e X-Webhook-Signature = HMAC-SHA256 de
+     * "{timestamp}.{corpo bruto}" (o corpo é o que o `postJson` envia, via `json_encode($corpo)`) — ver
+     * `ProcessadorPagamentos::processarWebhook`.
      */
     private function assinaturaWebhook(array $corpo, string $segredo): array
     {
-        return ['X-Webhook-Assinatura' => 'sha256='.hash_hmac('sha256', json_encode($corpo), $segredo)];
+        $ts = (string) time();
+
+        return [
+            'X-Webhook-Timestamp' => $ts,
+            'X-Webhook-Signature' => hash_hmac('sha256', $ts.'.'.json_encode($corpo), $segredo),
+            'X-Webhook-Event-Id' => 'evt-'.bin2hex(random_bytes(6)),
+        ];
     }
 
     public function test_notificacoes_da_empresa_com_isolamento(): void
@@ -132,6 +139,7 @@ class NotificacoesEGatewaysTest extends TestCase
             'referencia' => str_replace(' ', '', $resRef['referencia']),
             'status' => 'paid',
             'amount' => 20000,
+            'moeda' => 'AOA',
         ];
         $this->postJson('/api/pagamentos/webhook/referencia', $corpo, $this->assinaturaWebhook($corpo, 'segredo-teste-referencia'))
             ->assertOk()->assertJsonPath('sucesso', true);

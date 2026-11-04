@@ -5,9 +5,8 @@ namespace App\Services\Pagamentos;
 use App\Exceptions\ErroNegocio;
 use App\Models\SubscricaoEmpresa;
 use App\Models\TransacaoGateway;
-use Illuminate\Support\Facades\DB;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -27,7 +26,7 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
             throw new ErroNegocio('O número de telemóvel deve ser um número válido de Angola com 9 dígitos (iniciado por 9).', 'TELEMOVEL_INVALIDO', 422);
         }
 
-        $configs = DB::table('configuracoes_gateway')->pluck('valor', 'chave');
+        $configs = SegredosGateway::configuracoes();
         $merchantId = $configs['mcx_merchant_id'] ?? 'CONSULVOLT';
         $terminalId = $configs['mcx_terminal_id'] ?? '';
         $urlApi = $configs['mcx_url_api'] ?? '';
@@ -98,33 +97,31 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
         );
     }
 
-    public function processarWebhook(array $payload): ResultadoConfirmacao
+    public function processarWebhook(array $payload, array $headers = []): ResultadoConfirmacao
     {
         $referenciaExterna = $payload['id_transacao'] ?? $payload['transaction_id'] ?? $payload['id'] ?? null;
         $referenciaSubscricao = $payload['referencia'] ?? $payload['reference'] ?? null;
+        $valor = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
+        $moeda = isset($payload['moeda']) || isset($payload['currency']) ? strtoupper((string) ($payload['moeda'] ?? $payload['currency'])) : null;
         $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? ''));
+
+        if (! $referenciaExterna && ! $referenciaSubscricao) {
+            return new ResultadoConfirmacao(sucesso: false, mensagem: 'Transação não identificada no payload do webhook.');
+        }
 
         $transacao = TransacaoGateway::query()
             ->when($referenciaExterna, fn ($q) => $q->where('referencia_externa', $referenciaExterna))
             ->when(! $referenciaExterna && $referenciaSubscricao, function ($q) use ($referenciaSubscricao) {
-                $subId = SubscricaoEmpresa::query()->where('referencia', $referenciaSubscricao)->value('id');
+                // sem sessão (webhook): a subscrição é de qualquer empresa, por isso fora do isolamento por empresa
+                $subId = app(ContextoEmpresa::class)->semIsolamento(fn () => SubscricaoEmpresa::query()->where('referencia', $referenciaSubscricao)->value('id'));
                 $q->where('subscricao_id', $subId);
             })
+            ->where('gateway', TransacaoGateway::GATEWAY_EXPRESS)
+            ->orderByDesc('id')
             ->first();
 
         if (! $transacao) {
             return new ResultadoConfirmacao(sucesso: false, mensagem: 'Transação Multicaixa Express correspondente não encontrada.');
-        }
-
-        // O montante nunca é aceite do payload (controlado pelo remetente) — só serve para detectar divergências.
-        $valorRecebido = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
-        if ($valorRecebido !== null && bccomp((string) $valorRecebido, (string) $transacao->valor, 2) !== 0) {
-            Log::warning('Webhook de pagamento (Multicaixa Express) com montante divergente do valor devido.', [
-                'transacao_id' => $transacao->id, 'esperado' => (string) $transacao->valor, 'recebido' => (string) $valorRecebido,
-            ]);
-
-            return new ResultadoConfirmacao(sucesso: false, subscricaoId: $transacao->subscricao_id,
-                mensagem: 'O montante confirmado não corresponde ao valor devido.', dadosOriginais: $payload);
         }
 
         $sucesso = in_array($status, ['success', 'sucesso', 'pago', 'paid', 'approved', 'concluido'], true);
@@ -133,9 +130,11 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
             sucesso: $sucesso,
             subscricaoId: $transacao->subscricao_id,
             referenciaExterna: $referenciaExterna ?: $transacao->referencia_externa,
-            valorPago: (float) $transacao->valor,
+            valorPago: $valor,
             mensagem: $sucesso ? 'Pagamento Multicaixa Express aprovado com sucesso.' : 'Notificação Express recebida com estado '.$status,
             dadosOriginais: $payload,
+            moeda: $moeda,
+            gateway: $transacao->gateway,
         );
     }
 

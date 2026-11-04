@@ -8,7 +8,7 @@
 
 | # | Problema | Correcção | Fase |
 |---|---|---|---|
-| 1 | Webhook de pagamento sem assinatura: confiava em `status`/`amount` do payload, sem HMAC, sem protecção contra repetição, sem validar o montante devido. Forjar uma confirmação falsa activava uma licença de graça. | HMAC-SHA256 obrigatório (`X-Webhook-Assinatura`), montante sempre comparado com o valor interno (`bccomp`), nunca aceite do payload. | 0 |
+| 1 | Webhook de pagamento sem assinatura: confiava em `status`/`amount` do payload, sem HMAC, sem protecção contra repetição, sem validar o montante devido. Forjar uma confirmação falsa activava uma licença de graça. | HMAC-SHA256 obrigatório sobre `timestamp.corpo` (`X-Webhook-Signature`/`-Timestamp`/`-Event-Id`, anti-replay e idempotência por evento), montante sempre comparado com o valor interno (`bccomp`), nunca aceite do payload. | 0 |
 | 2 | Qualquer utilizador autenticado (mesmo de uma empresa cliente comum) via as versões exactas de PostgreSQL/Redis em `/api/saude` — informação de reconhecimento útil a um atacante (OWASP A05). | Versões só visíveis a um perfil privilegiado (`Utilizador::ePrivilegiado()`) ou em modo de depuração. | 7 |
 | 3 | `GatewayPagamentoController::guardarConfig` guardava o segredo do webhook sem o mascarar na leitura seguinte (risco de exposição em logs/capturas de ecrã do backoffice). | `webhook_segredo` mascarado em `obterConfiguracoes()`. | 0 |
 | 4 | Verificação "token MFA pendente" invertida: `$token->can('mfa:pendente')` devolve `true` mesmo para um token completo (`['*']` satisfaz qualquer `can()`), deixando passar tokens que deviam estar bloqueados. | Verificação correcta é `! $token->can('*')` (token limitado = não tem a ability total), nunca `$token->can('<ability-específica>')`. | 4 |
