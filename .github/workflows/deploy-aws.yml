@@ -1,0 +1,101 @@
+# Deploy automático para a AWS (EC2 + RDS, docs/DEPLOY_AWS.md): corre depois de o CI passar num push ao main.
+# Também pode ser lançado à mão (Actions › Deploy AWS › Run workflow), para o commit indicado ou o último do main.
+#
+# Acesso à AWS: utilizador IAM «github-deploy-meuerp» (segredos AWS_DEPLOY_*), que só pode escrever em
+# s3://meuerp-transferencia-…/deploy/ e correr o documento SSM «MeuErp-Atualizar» neste servidor (nada mais; sem SSH).
+# No servidor, deploy/aws/atualizar.sh actualiza, aplica migrações e, se a saúde falhar, repõe o código anterior.
+name: Deploy AWS
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit a publicar (vazio = último do main)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-north-1
+  BUCKET: meuerp-transferencia-962367498111
+  INSTANCIA: i-021a07e6f24932c8a
+
+jobs:
+  deploy:
+    name: Publicar na AWS
+    # só com o CI verde num push ao main (ou à mão)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: producao
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: eu-north-1
+    steps:
+      - name: Commit a publicar
+        id: alvo
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || inputs.sha || github.sha }}"
+          [[ "$SHA" =~ ^[0-9a-f]{7,40}$ ]] || { echo "sha inválido: $SHA"; exit 1; }
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.alvo.outputs.sha }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar o frontend
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts=false --no-audit --no-fund
+          npm run build
+
+      - name: Pacote (código do commit + frontend compilado)
+        run: |
+          SHA=${{ steps.alvo.outputs.sha }}
+          git archive --format=tar -o /tmp/erp.tar HEAD
+          tar rf /tmp/erp.tar frontend/dist
+          gzip -9 /tmp/erp.tar
+          aws s3 cp /tmp/erp.tar.gz "s3://$BUCKET/deploy/$SHA.tar.gz" --only-show-errors
+          aws s3 cp deploy/aws/atualizar.sh "s3://$BUCKET/deploy/atualizar-$SHA.sh" --only-show-errors
+          ls -la /tmp/erp.tar.gz
+
+      - name: Actualizar o servidor (SSM)
+        run: |
+          SHA=${{ steps.alvo.outputs.sha }}
+          CMD=$(aws ssm send-command --instance-ids "$INSTANCIA" --document-name MeuErp-Atualizar \
+                --parameters "sha=$SHA" --comment "deploy $SHA" --query Command.CommandId --output text)
+          echo "comando SSM: $CMD"
+          for i in $(seq 1 180); do
+            sleep 10
+            ESTADO=$(aws ssm get-command-invocation --command-id "$CMD" --instance-id "$INSTANCIA" --query Status --output text 2>/dev/null || echo Pending)
+            case "$ESTADO" in Success|Failed|TimedOut|Cancelled|Cancelling) break;; esac
+          done
+          aws ssm get-command-invocation --command-id "$CMD" --instance-id "$INSTANCIA" --query StandardOutputContent --output text
+          echo "--- erros ---"
+          aws ssm get-command-invocation --command-id "$CMD" --instance-id "$INSTANCIA" --query StandardErrorContent --output text | tail -30
+          echo "estado: $ESTADO"
+          [ "$ESTADO" = "Success" ]
+
+      - name: Verificar o site
+        run: |
+          for h in meuerp.ao consulvolt.meuerp.ao gestao-admin.meuerp.ao; do
+            curl -fsS --resolve "$h:443:13.62.141.36" -o /dev/null -w "$h %{http_code}\n" "https://$h/api/saude"
+          done
