@@ -150,12 +150,24 @@ interface ValoresRecibo {
   observacoes?: string;
 }
 
-function NovoRecibo() {
+export function NovoRecibo() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [form] = Form.useForm<ValoresRecibo>();
   const clienteId = Form.useWatch('cliente_id', form);
-  const liquidar = (useLocation().state as { liquidar?: { cliente_id: number; venda_id: number } } | null)?.liquidar;
+  const liquidar = (useLocation().state as { liquidar?: { cliente_id?: number | null; venda_id: number } } | null)?.liquidar;
+  // «Liquidar» é sempre de UMA factura (um só cliente): o cliente vem da factura e o campo fica bloqueado (sem «Alterar» não se parte a lista)
+  const [clienteDesbloqueado, setClienteDesbloqueado] = useState(false);
+  const docLiquidar = useQuery({
+    queryKey: ['vendas', 'documento', liquidar?.venda_id],
+    queryFn: () => obter<DocumentoVenda>(`/vendas/documentos/${liquidar?.venda_id}`),
+    enabled: !!liquidar && !liquidar.cliente_id,
+  });
+  const clienteLiquidar = liquidar?.cliente_id ?? docLiquidar.data?.cliente_id;
+  const clienteBloqueado = !!liquidar && !clienteDesbloqueado;
+  useEffect(() => {
+    if (clienteLiquidar && !clienteDesbloqueado) form.setFieldValue('cliente_id', clienteLiquidar);
+  }, [clienteLiquidar, clienteDesbloqueado, form]);
   const [alocacoes, setAlocacoes] = useState<Record<number, number | null>>({});
   const [recebido, setRecebido] = useState<number | null>(null);
   // M-18: recibo de adiantamento (showDirectReceiptForm do legado) — sem facturas; aloca-se depois no detalhe
@@ -228,7 +240,9 @@ function NovoRecibo() {
           <Row gutter={16}>
             <Col xs={24} md={10}>
               <Form.Item name="cliente_id" label="Cliente" rules={[{ required: true, message: 'Escolha o cliente.' }]}>
-                <SeletorTerceiro papel="CLIENTE" />
+                {clienteBloqueado
+                  ? <ClienteBloqueado id={clienteLiquidar} aoAlterar={() => setClienteDesbloqueado(true)} />
+                  : <SeletorTerceiro papel="CLIENTE" />}
               </Form.Item>
             </Col>
             <Col xs={12} md={5}>
@@ -322,6 +336,18 @@ function NovoRecibo() {
         </Space>
       </Form>
     </>
+  );
+}
+
+/** Cliente vindo de «Liquidar»: informação só de leitura (nome e NIF, nunca o id), com «Alterar» para o desbloquear. */
+export function ClienteBloqueado({ id, value, aoAlterar }: { id?: number; value?: number; aoAlterar: () => void }) {
+  const cid = id ?? value;
+  const ficha = useQuery({ queryKey: ['terceiros', 'ficha', cid], queryFn: () => obter<{ id: number; nome: string; nif: string | null }>(`/terceiros/${cid}`), enabled: !!cid, retry: false });
+  return (
+    <Flex gap={8} align="center" data-testid="cliente-bloqueado">
+      <Input readOnly aria-label="Cliente" value={ficha.data?.nome ? `${ficha.data.nome.trim()}${ficha.data.nif ? ` (NIF ${ficha.data.nif})` : ''}` : ficha.isError ? 'Cliente da factura' : 'A carregar…'} />
+      <Button type="link" onClick={aoAlterar}>Alterar</Button>
+    </Flex>
   );
 }
 

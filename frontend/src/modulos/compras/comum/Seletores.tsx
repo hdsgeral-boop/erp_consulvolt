@@ -76,6 +76,17 @@ export function SeletorTerceiro({ papel, onEscolher, permissaoCriar, ...props }:
     retry: false,
   });
   const escolher = (t: FichaTerceiro) => { props.onChange?.(t.id, { value: t.id, label: t.nome.trim() }); onEscolher?.(t); };
+  const opcoes = (consulta.data?.itens ?? []).map((t) => ({ value: t.id, label: `${t.nome.trim()}${t.nif ? ` (NIF ${t.nif})` : ''}` }));
+  // valor pré-seleccionado (ex.: vindo de «Liquidar») que não está na lista carregada: resolve o rótulo pela ficha, para não mostrar o id
+  const valorAtual = typeof props.value === 'number' ? props.value : undefined;
+  const foraDaLista = valorAtual !== undefined && !opcoes.some((o) => o.value === valorAtual);
+  const ficha = useQuery({
+    queryKey: ['terceiros', 'ficha', valorAtual],
+    queryFn: () => obter<FichaTerceiro>(`/terceiros/${valorAtual}`),
+    enabled: foraDaLista,
+    retry: false,
+  });
+  if (foraDaLista && ficha.data) opcoes.unshift({ value: ficha.data.id, label: `${ficha.data.nome.trim()}${ficha.data.nif ? ` (NIF ${ficha.data.nif})` : ''}` });
   return (
     <>
       <Select<number>
@@ -85,7 +96,7 @@ export function SeletorTerceiro({ papel, onEscolher, permissaoCriar, ...props }:
         onSearch={setPesquisa}
         loading={consulta.isFetching}
         placeholder={papel === 'CLIENTE' ? 'Pesquisar cliente (nome ou NIF)' : 'Pesquisar fornecedor (nome ou NIF)'}
-        options={(consulta.data?.itens ?? []).map((t) => ({ value: t.id, label: `${t.nome.trim()}${t.nif ? ` (NIF ${t.nif})` : ''}` }))}
+        options={opcoes}
         popupRender={(menu) => dropdownComCriar(menu, { mostrar: !!permissaoCriar, podeCriar, rotulo: papel === 'CLIENTE' ? 'cliente' : 'fornecedor', aoClicar: () => setACriar(true) })}
         {...props}
         onChange={(v, o) => { props.onChange?.(v, o); onEscolher?.((consulta.data?.itens ?? []).find((t) => t.id === v)); }}
