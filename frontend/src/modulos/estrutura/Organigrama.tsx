@@ -231,7 +231,7 @@ export default function Organigrama() {
       <CabecalhoModulo
         titulo="Organigrama"
         subtitulo={<><b>Funcional</b>: unidades e cargos com vagas ocupadas/previstas. <b>Nominal</b>: responsáveis e pessoas de cada unidade. Clique numa caixa para ver o detalhe; use o botão ± para recolher ramos.</>}
-        accoes={<Button icon={<IconeFa nome="edit" />} onClick={() => navegar('../est_estrutura')}>Editar estrutura</Button>}
+        accoes={<Button icon={<IconeFa nome="edit" />} onClick={() => navegar('/m/estrutura/est_estrutura')}>Editar estrutura</Button>}
       />
       <div className="org-barra imp-nao-imprimir">
         <div className="org-grupo">
@@ -304,7 +304,7 @@ export default function Organigrama() {
           <Skeleton active />
         ) : !visivel.length ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-            Ainda não há estrutura orgânica. <button type="button" className="est-ligacao" onClick={() => navegar('../est_estrutura')}>Criar a estrutura</button>
+            Ainda não há estrutura orgânica. <button type="button" className="est-ligacao" onClick={() => navegar('/m/estrutura/est_estrutura')}>Criar a estrutura</button>
           </div>
         ) : (
           <div ref={area} className={`org-arvore organigrama${orientacao === 'horizontal' ? ' horiz' : ''}`} style={{ transform: `scale(${zoom})` }}>
@@ -324,7 +324,7 @@ export default function Organigrama() {
           nomeCargo={cargos.nome}
           responsavel={detalhe.unidade.colaborador_responsavel_id ? colaboradores.nome(detalhe.unidade.colaborador_responsavel_id) : '—'}
           aoFechar={() => setDetalhe(null)}
-          abrirNaEstrutura={() => navegar(`../est_estrutura?unidade=${detalhe.unidade.id}`)}
+          abrirNaEstrutura={() => navegar(`/m/estrutura/est_estrutura?unidade=${detalhe.unidade.id}`)}
         />
       )}
     </>

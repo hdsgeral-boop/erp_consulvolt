@@ -129,8 +129,8 @@ export default function Estrutura() {
         subtitulo="Unidades da empresa (órgãos sociais, direcções, departamentos, secções), responsáveis, cargos com vagas e colaboradores afectos. Cada unidade pode ligar-se a um centro de custo e unidade de negócio."
         accoes={
           <div className="est-accoes">
-            <Button icon={<Icone nome="sitemap" />} onClick={() => navegar('../est_organigrama')}>Organigrama</Button>
-            <Button icon={<Icone nome="table" />} onClick={() => navegar('../est_mapa')}>Mapa de pessoal</Button>
+            <Button icon={<Icone nome="sitemap" />} onClick={() => navegar('/m/estrutura/est_organigrama')}>Organigrama</Button>
+            <Button icon={<Icone nome="table" />} onClick={() => navegar('/m/estrutura/est_mapa')}>Mapa de pessoal</Button>
             {editar && (
               <>
                 <Button icon={<Icone nome="user-tag" />} onClick={() => setEmMassa({ unidade: seleccionada, soSem: false })}>Afectar colaboradores</Button>
