@@ -53,4 +53,33 @@ final class SemearPlanoContasEmFaltaTest extends TestCase
         $this->assertContains($semPlano->id, $primeira);
         $this->assertSame([], $segunda);
     }
+
+    public function test_empresa_modelo_configurada_substitui_a_mais_antiga_da_plataforma(): void
+    {
+        $antiga = $this->criarEmpresa();
+        app(ContextoEmpresa::class)->executarComo($antiga->id, fn () => PlanoConta::create(['codigo' => '61', 'descricao' => 'Da empresa mais antiga', 'tipo' => PlanoConta::TIPO_MOVIMENTO]));
+        $escolhida = $this->criarEmpresa();
+        app(ContextoEmpresa::class)->executarComo($escolhida->id, fn () => PlanoConta::create(['codigo' => '71', 'descricao' => 'Da empresa escolhida', 'tipo' => PlanoConta::TIPO_MOVIMENTO]));
+        $semPlano = $this->criarEmpresa();
+
+        config(['erp.plano_contas.empresa_modelo' => $escolhida->id]);
+        app(ServicoPlanoContasModelo::class)->semear($semPlano->id);
+
+        app(ContextoEmpresa::class)->executarComo($semPlano->id, function () use ($semPlano) {
+            $this->assertDatabaseHas('plano_contas', ['empresa_id' => $semPlano->id, 'codigo' => '71']);
+            $this->assertDatabaseMissing('plano_contas', ['empresa_id' => $semPlano->id, 'codigo' => '61']);
+        });
+    }
+
+    public function test_empresa_modelo_configurada_inexistente_cai_para_a_mais_antiga(): void
+    {
+        $antiga = $this->criarEmpresa();
+        app(ContextoEmpresa::class)->executarComo($antiga->id, fn () => PlanoConta::create(['codigo' => '61', 'descricao' => 'Da empresa mais antiga', 'tipo' => PlanoConta::TIPO_MOVIMENTO]));
+        $semPlano = $this->criarEmpresa();
+
+        config(['erp.plano_contas.empresa_modelo' => 999999]);
+        app(ServicoPlanoContasModelo::class)->semear($semPlano->id);
+
+        app(ContextoEmpresa::class)->executarComo($semPlano->id, fn () => $this->assertDatabaseHas('plano_contas', ['empresa_id' => $semPlano->id, 'codigo' => '61']));
+    }
 }

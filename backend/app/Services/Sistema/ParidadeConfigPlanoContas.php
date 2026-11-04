@@ -19,6 +19,10 @@ use Illuminate\Support\Facades\DB;
  *  - «Copiar de outra empresa» (openCopySimpleTableModal('chart_of_accounts','code'), app_v2.js:4850-4960): só copia as
  *    contas que NÃO existem na empresa activa (nunca substitui nem apaga), com pré-visualização, numa transacção e com
  *    registo na auditoria; exige acesso do utilizador à empresa de origem;
+ *  - «Sincronizar PGCA oficial»: acrescenta as contas do Plano Geral de Contabilidade de Angola em falta
+ *    (database/dados/pgca_angola.json, do PDF «Plano de Contas · MEU ERP», sem a conta 000); as que já existem com o
+ *    mesmo código são ignoradas e listadas (com a descrição actual, para se ver onde difere do PGCA) — nunca se altera
+ *    nem apaga nenhuma conta; a simulação não grava nada e a sincronização exige confirmação explícita;
  *  - «Importar Excel» (importChartOfAccountsExcel, app_v2.js:8643): validação linha a linha (código, descrição e tipo M/T),
  *    relatório de erros antes de gravar, e as contas existentes nunca são alteradas nem apagadas (decisão IGNORAR do
  *    centro de migração, ServicoMigracaoDados, que grava pelas regras do plano de contas).
@@ -183,6 +187,52 @@ final class ParidadeConfigPlanoContas
         return $r;
     }
 
+    /**
+     * Pré-visualização do «Sincronizar PGCA oficial» (nada é gravado): contas em falta, contas já existentes e, destas, as
+     * que têm descrição diferente da do PGCA (informativo — nunca são alteradas).
+     *
+     * @return array{total: int, novas: int, existentes: int, descricoes_diferentes: int, amostra: list<array{codigo: string, descricao: string, tipo: string}>, iguais: list<array{codigo: string, descricao: string, descricao_actual: ?string}>, diferentes: list<array{codigo: string, descricao: string, descricao_actual: ?string}>}
+     */
+    public function simularPgca(): array
+    {
+        $pgca = self::pgca();
+        $actuais = PlanoConta::query()->get(['codigo', 'descricao'])->mapWithKeys(fn (PlanoConta $c) => [self::chave($c->codigo) => $c->descricao])->all();
+        $novas = array_values(array_filter($pgca, fn ($c) => ! array_key_exists(self::chave($c['codigo']), $actuais)));
+        $iguais = array_values(array_filter($pgca, fn ($c) => array_key_exists(self::chave($c['codigo']), $actuais)));
+        $diferentes = array_values(array_filter($iguais, fn ($c) => self::chave($actuais[self::chave($c['codigo'])]) !== self::chave($c['descricao'])));
+        $linha = fn ($c) => ['codigo' => $c['codigo'], 'descricao' => $c['descricao'], 'descricao_actual' => $actuais[self::chave($c['codigo'])]];
+
+        return ['total' => count($pgca), 'novas' => count($novas), 'existentes' => count($iguais), 'descricoes_diferentes' => count($diferentes),
+            'amostra' => array_slice(array_map(fn ($c) => ['codigo' => $c['codigo'], 'descricao' => $c['descricao'], 'tipo' => $c['tipo']], $novas), 0, 50),
+            'iguais' => array_slice(array_map($linha, $iguais), 0, 50),
+            'diferentes' => array_slice(array_map($linha, $diferentes), 0, 50)];
+    }
+
+    /** @return array{total: int, criadas: int, existentes: int} */
+    public function sincronizarPgca(): array
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $pgca = self::pgca();
+        $criadas = DB::transaction(function () use ($pgca, $empresa) {
+            $existentes = PlanoConta::query()->lockForUpdate()->pluck('codigo')->mapWithKeys(fn ($c) => [self::chave($c) => true])->all();
+            // em lote (centenas de contas): a auditoria fica no resumo abaixo, não conta a conta
+            $agora = now();
+            $novas = array_values(array_filter($pgca, fn ($c) => ! isset($existentes[self::chave($c['codigo'])])));
+            foreach (array_chunk($novas, 500) as $lote) {
+                DB::table('plano_contas')->insert(array_map(fn ($c) => ['empresa_id' => $empresa, 'codigo' => $c['codigo'],
+                    'descricao' => $c['descricao'], 'tipo' => $c['tipo'], 'criado_em' => $agora, 'atualizado_em' => $agora], $lote));
+            }
+            $n = count($novas);
+            $this->auditoria->registar('Sistema/Plano de contas', 'Sincronizar PGCA oficial',
+                "{$n} conta(s) do PGCA acrescentada(s); as existentes foram mantidas.", 'plano_contas', null, null, ['criadas' => $n], $empresa);
+
+            return $n;
+        });
+        InvalidacaoCache::agoraEDepoisDoCommit(fn () => Cache::forget(ChaveCache::empresa($empresa, 'contabilidade', 'plano_contas')));
+
+        return ['total' => count($pgca), 'criadas' => $criadas, 'existentes' => count($pgca) - $criadas];
+    }
+
     // ───────────── regras internas ─────────────
 
     /** @return array{0: string, 1: list<array<string, mixed>>, 2: list<array<string, mixed>>} nome da origem, contas da origem, novas */
@@ -267,6 +317,14 @@ final class ParidadeConfigPlanoContas
         }
 
         return $linhaMigracao;
+    }
+
+    /** @return list<array{codigo: string, descricao: string, tipo: string, pgca: string}> contas do PGCA (ficheiro do repositório) */
+    private static function pgca(): array
+    {
+        static $contas = null;
+
+        return $contas ??= json_decode((string) file_get_contents(database_path('dados/pgca_angola.json')), true, 512, JSON_THROW_ON_ERROR)['contas'];
     }
 
     private static function chave(mixed $codigo): string

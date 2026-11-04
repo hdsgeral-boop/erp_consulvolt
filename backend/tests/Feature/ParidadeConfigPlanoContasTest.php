@@ -187,4 +187,51 @@ final class ParidadeConfigPlanoContasTest extends TestCase
             $this->sessao(['config_plano_view']) + ['Accept' => 'application/json'])->assertForbidden();
         $this->assertCount(2, $this->planoA());
     }
+
+    #[Test]
+    public function sincronizar_pgca_acrescenta_as_contas_em_falta_e_nunca_altera_as_existentes(): void
+    {
+        $this->postJson('/api/config/plano-contas/pgca/simular', [], $this->sessao(['config_plano_view']))->assertForbidden();
+        $s = $this->sessao(['config_plano_view', 'contab_plano_gerir']);
+
+        $p = $this->postJson('/api/config/plano-contas/pgca/simular', [], $s)->assertOk()->json('dados');
+        $this->assertSame(755, $p['total']);
+        $this->assertSame([753, 2], [$p['novas'], $p['existentes']]);
+        $this->assertEqualsCanonicalizing(['3111', '62'], array_column($p['iguais'], 'codigo'));
+        $this->assertGreaterThanOrEqual(1, $p['descricoes_diferentes'], '«Clientes A» difere da descrição oficial: é só informativo');
+        $this->assertSame('Clientes A', collect($p['diferentes'])->firstWhere('codigo', '3111')['descricao_actual']);
+        $this->assertNotContains('000', array_column($p['amostra'], 'codigo'));
+        $this->assertCount(2, $this->planoA(), 'a simulação não grava');
+
+        // sem confirmação explícita nada é gravado
+        $this->postJson('/api/config/plano-contas/pgca', [], $s)->assertUnprocessable();
+        $this->assertCount(2, $this->planoA());
+        $this->postJson('/api/config/plano-contas/pgca', ['confirmar' => true], $s)->assertOk()
+            ->assertJsonPath('dados.criadas', 753)->assertJsonPath('dados.existentes', 2);
+
+        $plano = $this->planoA();
+        $this->assertCount(755, $plano);
+        $this->assertSame('Clientes A', $plano['3111'], 'as existentes não são alteradas');
+        $this->assertSame('Gastos com pessoal', $plano['62']);
+        $this->assertArrayNotHasKey('000', $plano);
+        $this->assertSame('T', $this->em($this->a, fn () => PlanoConta::query()->where('codigo', '1')->value('tipo')));
+        $this->assertSame(4, $this->em($this->b, fn () => PlanoConta::query()->count()), 'outras empresas não são tocadas');
+        $this->assertTrue($this->em($this->a, fn () => LogAuditoria::query()->where('acao', 'Sincronizar PGCA oficial')->exists()));
+
+        // idempotente
+        $this->postJson('/api/config/plano-contas/pgca', ['confirmar' => true], $s)->assertOk()->assertJsonPath('dados.criadas', 0);
+        $this->assertCount(755, $this->planoA());
+    }
+
+    #[Test]
+    public function o_ficheiro_pgca_tem_755_contas_sem_duplicados_nem_a_conta_000(): void
+    {
+        $contas = json_decode((string) file_get_contents(database_path('dados/pgca_angola.json')), true, 512, JSON_THROW_ON_ERROR)['contas'];
+        $codigos = array_column($contas, 'codigo');
+
+        $this->assertCount(755, $contas);
+        $this->assertSame($codigos, array_values(array_unique($codigos)));
+        $this->assertNotContains('000', $codigos);
+        $this->assertEqualsCanonicalizing(['M', 'T'], array_values(array_unique(array_column($contas, 'tipo'))));
+    }
 }

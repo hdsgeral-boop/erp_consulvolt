@@ -28,7 +28,7 @@ final class ServicoPlanoContasModelo
         $linhas = $this->tenant->executarComo($plataformaTenantId, function () use ($empresaId, $plataformaTenantId) {
             // tenant_id explícito, não só o contexto RLS (regra do projecto: nunca confiar só na RLS — ver
             // ServicoUtilizadores/IsolamentoRls) — importa sobretudo em testes, onde a ligação é a do dono e ignora a RLS.
-            $modelo = DB::table('empresas')->where('tenant_id', $plataformaTenantId)->whereNull('eliminado_em')->orderBy('id')->value('id');
+            $modelo = $this->empresaModelo($plataformaTenantId);
             if ($modelo === null || (int) $modelo === $empresaId) {
                 return collect();
             }
@@ -50,6 +50,21 @@ final class ServicoPlanoContasModelo
         ])->all());
 
         InvalidacaoCache::esquecer(ChaveCache::empresa($empresaId, 'contabilidade', 'plano_contas'));
+    }
+
+    /**
+     * Empresa-modelo: a configurada em `erp.plano_contas.empresa_modelo` (PLANO_CONTAS_EMPRESA_MODELO) se existir, não estiver
+     * eliminada e for do tenant da plataforma; senão a mais antiga desse tenant.
+     */
+    private function empresaModelo(int $plataformaTenantId): mixed
+    {
+        $base = DB::table('empresas')->where('tenant_id', $plataformaTenantId)->whereNull('eliminado_em');
+        $configurada = (int) config('erp.plano_contas.empresa_modelo');
+        if ($configurada > 0 && (clone $base)->where('id', $configurada)->exists()) {
+            return $configurada;
+        }
+
+        return $base->orderBy('id')->value('id');
     }
 
     /**

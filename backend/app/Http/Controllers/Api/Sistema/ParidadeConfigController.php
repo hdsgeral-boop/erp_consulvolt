@@ -52,6 +52,27 @@ final class ParidadeConfigController extends Controller
             : 'Todas as contas da empresa de origem já existem na empresa activa.');
     }
 
+    /** POST /config/plano-contas/pgca/simular — «Sincronizar PGCA oficial»: o que entraria (nada é gravado). */
+    public function simularPgca(): JsonResponse
+    {
+        $this->exigir('contab_plano_gerir');
+
+        return RespostaApi::sucesso($this->plano->simularPgca(), 'Pré-visualização da sincronização com o PGCA.');
+    }
+
+    /** POST /config/plano-contas/pgca — {confirmar: true}: acrescenta as contas do PGCA em falta; as existentes ficam como estão. */
+    public function sincronizarPgca(Request $r): JsonResponse
+    {
+        $this->exigir('contab_plano_gerir');
+        $r->validate(['confirmar' => ['required', 'accepted']],
+            ['confirmar.accepted' => 'Confirme a sincronização.', 'confirmar.required' => 'Confirme a sincronização.']);
+        $res = $this->plano->sincronizarPgca();
+
+        return RespostaApi::sucesso($res, $res['criadas']
+            ? "{$res['criadas']} conta(s) do PGCA acrescentada(s); {$res['existentes']} já existia(m) e foi(ram) ignorada(s)."
+            : 'O plano de contas já tem todas as contas do PGCA: nada foi alterado.');
+    }
+
     /** POST /config/plano-contas/importar — multipart ficheiro (+ simular): valida cada linha; só cria contas novas. */
     public function importar(Request $r, ServicoLeituraFolha $folha): JsonResponse
     {
