@@ -121,7 +121,7 @@ function ResumoDaCopia({ r }: { r: ResumoCopia }) {
 /**
  * Importar cópia de segurança não é self-service: cria dados por transacção a partir de um ficheiro de fora, sem a
  * validação de quem está a criar pela interface normal — por isso fica reservado a Super Administradores; quem
- * precisar de importar uma cópia abre um ticket em Minha Licença › Minha conta a indicar o que precisa.
+ * precisar de importar uma cópia abre um ticket em Conta e Subscrição › Minha Conta a indicar o que precisa.
  */
 function ImportarReservada() {
   return (
@@ -130,7 +130,7 @@ function ImportarReservada() {
         type="info"
         showIcon
         title="Reservado à equipa de suporte"
-        description="A importação de cópias de segurança só pode ser feita por um Super Administrador. Para pedir uma importação, abra um ticket em Minha Licença › Minha conta a indicar o que precisa."
+        description="A importação de cópias de segurança só pode ser feita por um Super Administrador. Para pedir uma importação, abra um ticket em Conta e Subscrição › Minha Conta a indicar o que precisa."
       />
     </Card>
   );

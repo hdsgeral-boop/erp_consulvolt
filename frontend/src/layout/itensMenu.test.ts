@@ -80,19 +80,34 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
     expect(rotulos(sistema.children)).toEqual(['Configurações', 'Migração de Dados']);
   });
 
-  it('grupo «Plataforma SaaS» chama-se «Minha Licença» para quem não é Super Administrador', () => {
-    // O menu já vem filtrado do servidor (ServicoPermissoes::elegivelPlataforma): um utilizador comum nunca recebe
-    // ecrãs plataforma_*; só aqui se testa o rótulo do grupo, que depende de `opts.superAdmin`, não do conteúdo.
-    const semPlataforma: ModuloMenu[] = [...MENU, { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('config_licenca'), ecra('minha_conta')] }];
-    const comum = filho(filho(construirMenuLateral(semPlataforma, { superAdmin: false }).itens as Item[], 'Sistema').children, 'Minha Licença');
-    expect(rotulos(comum.children)).toEqual(['Licença e plano', 'Minha conta']);
+  it('grupo «Conta e Subscrição» só tem Licença e Plano + Minha Conta; ecrãs plataforma_* nunca entram no menu do ERP', () => {
+    const cliente: ModuloMenu[] = [...MENU, { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('config_licenca'), ecra('minha_conta')] }];
+    const grupo = (m: ModuloMenu[], opts = {}) => filho(filho(construirMenuLateral(m, opts).itens as Item[], 'Sistema').children, 'Conta e Subscrição');
+    expect(rotulos(grupo(cliente).children)).toEqual(['Licença e Plano', 'Minha Conta']);
 
-    const comPlataforma: ModuloMenu[] = [
+    // mesmo que o servidor devolva plataforma_* (utilizador da plataforma), o menu do ERP não os mostra: vivem em /admin
+    const plataforma: ModuloMenu[] = [
       ...MENU,
-      { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('config_licenca'), ecra('minha_conta'), ecra('plataforma_clientes')] },
+      { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('config_licenca'), ecra('minha_conta'), ecra('plataforma_clientes'), ecra('plataforma_painel')] },
     ];
-    const admin = filho(filho(construirMenuLateral(comPlataforma, { superAdmin: true }).itens as Item[], 'Sistema').children, 'Plataforma SaaS');
-    expect(rotulos(admin.children)).toEqual(['Licença e plano', 'Plataforma: clientes', 'Minha conta']);
+    const itens = construirMenuLateral(plataforma, { superAdmin: true }).itens as Item[];
+    expect(rotulos(grupo(plataforma, { superAdmin: true }).children)).toEqual(['Licença e Plano', 'Minha Conta']);
+    expect(JSON.stringify(itens)).not.toContain('plataforma_');
+    expect(JSON.stringify(itens)).not.toContain('Plataforma SaaS');
+  });
+
+  it('«Assistente IA (regras)» está em Sistema › Configurações e já não em Contabilidade', () => {
+    const m: ModuloMenu[] = [
+      { id: 'contab', nome: 'Contabilidade', ecras: [ecra('lancamentos')] },
+      { id: 'config', nome: 'Configurações', ecras: [ecra('config_geral'), ecra('ia_assistente')] },
+    ];
+    const r = construirMenuLateral(m).itens as Item[];
+    const config = filho(filho(r, 'Sistema').children, 'Configurações');
+    expect(rotulos(config.children)).toContain('Assistente IA (regras)');
+    const contab = filho(filho(r, 'Menu Geral').children, 'Contabilidade');
+    expect(rotulos(contab.children)).not.toContain('Assistente IA (regras)');
+    // sem a permissão (o servidor não devolve o ecrã) não aparece em lado nenhum
+    expect(JSON.stringify(construirMenuLateral([{ id: 'config', nome: 'Configurações', ecras: [ecra('config_geral')] }]).itens)).not.toContain('Assistente IA');
   });
 
   it('sem permissões, os grupos vazios desaparecem', () => {

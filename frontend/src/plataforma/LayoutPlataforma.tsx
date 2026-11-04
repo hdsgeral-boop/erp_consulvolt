@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Avatar, Button, Dropdown, Layout, Menu, Space, Tag, type MenuProps } from 'antd';
 import {
   AuditOutlined,
@@ -6,7 +6,10 @@ import {
   CreditCardOutlined,
   CustomerServiceOutlined,
   DashboardOutlined,
+  BookOutlined,
   DownOutlined,
+  GiftOutlined,
+  HeartOutlined,
   IdcardOutlined,
   LaptopOutlined,
   LayoutOutlined,
@@ -17,6 +20,7 @@ import {
   SettingOutlined,
   SwapOutlined,
   TeamOutlined,
+  UserSwitchOutlined,
   CheckCircleFilled,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
@@ -26,36 +30,68 @@ import './plataforma.css';
 
 const LARGURA_MENU = 250;
 
-const pagina = (caminho: string, texto: string, icon: ReactNode): Extract<NonNullable<MenuProps['items']>[number], { key?: unknown }> => ({
+type ItemConsola = Extract<NonNullable<MenuProps['items']>[number], { key?: unknown }>;
+
+/** `ecra` = ecrã `plataforma_*` do catálogo; um operador só vê os que o servidor lhe devolve no menu (o super-administrador vê todos). */
+const pagina = (caminho: string, texto: string, icon: ReactNode, ecra?: string): ItemConsola & { ecra?: string } => ({
   key: caminho,
   icon,
   label: <Link to={caminho}>{texto}</Link>,
+  ecra,
 });
 
-/** Grupos do menu: visão geral, operação comercial (clientes/planos/licenciamento), suporte à operação. */
-const ITENS_MENU: MenuProps['items'] = [
-  pagina('/admin', 'Dashboard Executivo', <DashboardOutlined />),
+type EntradaMenu = ReturnType<typeof pagina> | { type: 'divider' };
+
+/**
+ * Grupos do menu: visão geral, operação comercial (clientes/planos/licenciamento), suporte à operação, administração.
+ * Reúne tudo o que antes estava no menu «Plataforma SaaS» do ERP do cliente (agora só «Conta e Subscrição»).
+ */
+const ENTRADAS_MENU: EntradaMenu[] = [
+  pagina('/admin', 'Dashboard Executivo', <DashboardOutlined />, 'plataforma_painel'),
+  pagina('/admin/monitorizacao', 'Monitorização', <HeartOutlined />, 'plataforma_monitorizacao'),
   { type: 'divider' },
-  pagina('/admin/clientes', 'Clientes & Tenants', <TeamOutlined />),
-  pagina('/admin/planos', 'Planos & Licenças', <CreditCardOutlined />),
-  pagina('/admin/saas', 'Activação SaaS', <CloudServerOutlined />),
-  pagina('/admin/ia', 'Inteligência Artificial', <RobotOutlined />),
+  pagina('/admin/clientes', 'Clientes & Tenants', <TeamOutlined />, 'plataforma_clientes'),
+  pagina('/admin/planos', 'Planos & Licenças', <CreditCardOutlined />, 'plataforma_planos'),
+  pagina('/admin/saas', 'Activação SaaS', <CloudServerOutlined />, 'plataforma_saas'),
+  pagina('/admin/cupoes', 'Cupões de desconto', <GiftOutlined />, 'plataforma_cupoes'),
+  pagina('/admin/ia', 'Inteligência Artificial', <RobotOutlined />, 'plataforma_ia'),
   { type: 'divider' },
-  pagina('/admin/suporte', 'Suporte & Tickets', <CustomerServiceOutlined />),
-  pagina('/admin/auditoria', 'Auditoria & Logs', <SafetyCertificateOutlined />),
-  pagina('/admin/sessoes', 'Sessões Activas', <LaptopOutlined />),
+  pagina('/admin/suporte', 'Suporte & Tickets', <CustomerServiceOutlined />, 'plataforma_suporte'),
+  pagina('/admin/auditoria', 'Auditoria & Logs', <SafetyCertificateOutlined />, 'plataforma_auditoria'),
+  pagina('/admin/sessoes', 'Sessões Activas', <LaptopOutlined />, 'plataforma_sessoes'),
   { type: 'divider' },
-  pagina('/admin/administradores', 'Administradores', <IdcardOutlined />),
+  pagina('/admin/administradores', 'Administradores', <IdcardOutlined />, 'plataforma_administradores'),
+  pagina('/admin/operadores', 'Operadores', <UserSwitchOutlined />, 'plataforma_operadores_plataforma'),
   pagina('/admin/agentes-suporte', 'Agentes de Suporte', <CustomerServiceOutlined />),
-  pagina('/admin/definicoes', 'Definições da Plataforma', <SettingOutlined />),
+  pagina('/admin/definicoes', 'Definições da Plataforma', <SettingOutlined />, 'plataforma_definicoes'),
+  pagina('/admin/codigos', 'Manual de códigos', <BookOutlined />, 'plataforma_codigos'),
 ];
 
+/** Itens que o utilizador pode ver: todos para o super-administrador; para um operador, só os ecrãs que o menu do servidor lhe dá. */
+export function itensConsola(superAdmin: boolean, ecrasPermitidos: ReadonlySet<string>): NonNullable<MenuProps['items']> {
+  const itens = ENTRADAS_MENU.filter((x) => superAdmin || ('type' in x ? true : !!x.ecra && ecrasPermitidos.has(x.ecra)));
+  // sem divisórias soltas (no início, no fim ou duas seguidas)
+  const saida: EntradaMenu[] = [];
+  for (const x of itens) {
+    if ('type' in x && (saida.length === 0 || 'type' in saida[saida.length - 1])) continue;
+    saida.push(x);
+  }
+  if (saida.length && 'type' in saida[saida.length - 1]) saida.pop();
+  return saida.map((x) => {
+    if ('type' in x) return x;
+    const { ecra: _ecra, ...resto } = x;
+    return resto;
+  });
+}
+
 export function LayoutPlataforma() {
-  const { utilizador, sair } = useSessao();
+  const { utilizador, sair, menu } = useSessao();
   const navigate = useNavigate();
   const location = useLocation();
   const idUtilizador = utilizador?.id ?? utilizador?.nome_utilizador ?? null;
   const { modo, definir: definirModo } = useModoMenuPlataforma(idUtilizador);
+  const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
+  const ITENS_MENU = useMemo(() => itensConsola(superAdmin, new Set(menu.find((m) => m.id === 'config')?.ecras.map((e) => e.id) ?? [])), [superAdmin, menu]);
 
   const nome = utilizador?.nome_completo || utilizador?.nome_utilizador || 'Administrador';
   const iniciais = nome
@@ -100,7 +136,7 @@ export function LayoutPlataforma() {
         <span style={{ lineHeight: 1.3, textAlign: 'left' }}>
           <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{nome}</span>
           <Tag color="blue" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 6px' }}>
-            <AuditOutlined style={{ marginRight: 3 }} /> SUPER ADMIN
+            <AuditOutlined style={{ marginRight: 3 }} /> {superAdmin ? 'SUPER ADMIN' : 'OPERADOR'}
           </Tag>
         </span>
         <DownOutlined style={{ fontSize: 11, color: '#94a3b8' }} />
@@ -125,7 +161,7 @@ export function LayoutPlataforma() {
               theme="dark"
               mode="horizontal"
               selectedKeys={[location.pathname]}
-              items={(ITENS_MENU ?? []).filter((item) => item?.type !== 'divider')}
+              items={ITENS_MENU.filter((item) => item?.type !== 'divider')}
               style={{ background: 'transparent', border: 'none', flex: '1 1 auto', minWidth: 0 }}
             />
           </div>

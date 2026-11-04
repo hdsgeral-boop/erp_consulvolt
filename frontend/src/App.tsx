@@ -37,6 +37,10 @@ const PlataformaSessoes = lazy(() => import('@/modulos/config/PlataformaSessoes'
 const PlataformaAdministradores = lazy(() => import('@/modulos/config/PlataformaAdministradores'));
 const PlataformaAgentesSuporte = lazy(() => import('@/modulos/config/PlataformaAgentesSuporte'));
 const PlataformaIA = lazy(() => import('@/modulos/config/PlataformaIA'));
+const PlataformaMonitorizacao = lazy(() => import('@/modulos/config/PlataformaMonitorizacao'));
+const PlataformaOperadores = lazy(() => import('@/modulos/config/PlataformaOperadores'));
+const PlataformaCupoes = lazy(() => import('@/modulos/config/PlataformaCupoes'));
+const PlataformaCodigos = lazy(() => import('@/modulos/config/PlataformaCodigos'));
 const LayoutSuporte = preguicoso(() => import('@/suporte/LayoutSuporte').then((m) => m.LayoutSuporte));
 const DashboardSuporte = lazy(() => import('@/suporte/DashboardSuporte'));
 const RespostasRapidasSuporte = lazy(() => import('@/suporte/RespostasRapidasSuporte'));
@@ -64,6 +68,8 @@ export function App() {
   const { estado, empresa, utilizador } = useSessao();
   const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
   const agenteSuporte = utilizador?.papel === 'AGENTE_SUPORTE';
+  // operador do back-office: entra na consola, onde o menu só mostra o que o servidor lhe permite (ExigirPlataforma + chaves do perfil)
+  const operadorPlataforma = utilizador?.papel === 'OPERADOR_PLATAFORMA';
 
   if (estado === 'a_carregar') {
     return A_CARREGAR;
@@ -138,7 +144,7 @@ export function App() {
             element={
               estado === 'anonimo' ? (
                 <Navigate to="/admin/login" replace />
-              ) : superAdmin ? (
+              ) : superAdmin || operadorPlataforma ? (
                 <LayoutPlataforma />
               ) : (
                 <AcessoNegadoPlataforma agenteSuporte={agenteSuporte} />
@@ -156,6 +162,10 @@ export function App() {
             <Route path="agentes-suporte" element={<PlataformaAgentesSuporte />} />
             <Route path="ia" element={<PlataformaIA />} />
             <Route path="definicoes" element={<PlataformaDefinicoes />} />
+            <Route path="monitorizacao" element={<PlataformaMonitorizacao />} />
+            <Route path="operadores" element={<PlataformaOperadores />} />
+            <Route path="cupoes" element={<PlataformaCupoes />} />
+            <Route path="codigos" element={<PlataformaCodigos />} />
           </Route>
 
           {/* Backoffice de suporte, isolado da plataforma (ADR-076): agente de suporte ou super-administrador */}

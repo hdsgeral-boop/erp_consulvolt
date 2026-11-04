@@ -109,7 +109,7 @@ export default function Manutencao() {
           showIcon
           style={{ marginBottom: 16 }}
           title="Correcções em massa reservadas à equipa de suporte"
-          description="Anulações, estornos e outras correcções em massa só podem ser feitas por um Super Administrador. Para pedir uma, abra um ticket em Minha Licença › Minha conta a indicar o que precisa."
+          description="Anulações, estornos e outras correcções em massa só podem ser feitas por um Super Administrador. Para pedir uma, abra um ticket em Conta e Subscrição › Minha Conta a indicar o que precisa."
         />
       )}
       {superAdmin && catalogo.isLoading ? (

@@ -130,7 +130,6 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
   ]),
   g('contab', 'Contabilidade', 'book', [
     e('contab', 'lancamentos', 'Lançamentos (Diários)', 'book-open'),
-    e('contab', 'ia_assistente', 'Assistente IA (regras)', 'robot'),   // Fase H: no legado abre a partir dos Lançamentos
     e('acrescimos', 'ad_registos', 'Acréscimos e Diferimentos', 'exchange-alt'),
     e('acrescimos', 'ad_propostas', 'Acrésc./Difer. — Proposta Mensal', 'calendar-check'),
     e('acrescimos', 'ad_recolher', 'Acrésc./Difer. — Recolher Documentos', 'inbox'),
@@ -191,25 +190,16 @@ export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
     e('config', 'config_perfis', 'Perfis e Permissões', 'user-shield'),
     e('config', 'config_logs', 'Logs de Navegação', 'history'),
     e('config', 'notificacoes_centro', 'Notificações e Alertas', 'bell'),
+    e('config', 'ia_assistente', 'Assistente IA (regras)', 'robot'),   // era de Contabilidade; só aparece a quem tem ia_assistente_view
     e('config', 'config_manutencao', 'Manutenção de dados', 'shield-alt'),
   ]),
-  g('sistema-plataforma', 'Plataforma SaaS', 'layer-group', [
-    e('config', 'config_licenca', 'Licença e plano', 'credit-card'),
-    e('config', 'plataforma_painel', 'Plataforma: painel', 'chart-line'),
-    e('config', 'plataforma_monitorizacao', 'Plataforma: monitorização', 'database'),
-    e('config', 'plataforma_clientes', 'Plataforma: clientes', 'building'),
-    e('config', 'plataforma_suporte', 'Plataforma: Suporte', 'life-ring'),
-    e('config', 'plataforma_administradores', 'Plataforma: Administradores', 'user-shield'),
-    e('config', 'plataforma_operadores_plataforma', 'Plataforma: Operadores', 'user-shield'),
-    e('config', 'plataforma_auditoria', 'Plataforma: Auditoria', 'clipboard-list'),
-    e('config', 'plataforma_sessoes', 'Plataforma: Sessões activas', 'desktop'),
-    e('config', 'plataforma_definicoes', 'Plataforma: Definições', 'sliders-h'),
-    e('config', 'plataforma_saas', 'Plataforma: Gestão de SaaS', 'power-off'),
-    e('config', 'plataforma_cupoes', 'Plataforma: Cupões de desconto', 'ticket-alt'),
-    e('config', 'minha_conta', 'Minha conta', 'id-card'),
-    e('config', 'plataforma_planos', 'Plataforma: Planos e versões', 'tags'),
-    e('config', 'plataforma_codigos', 'Plataforma: Manual de códigos', 'book'),
-    e('config', 'plataforma_ia', 'Plataforma: Inteligência artificial', 'robot'),
+  // O que é do cliente: a licença/plano da sua empresa e a sua conta. A administração da plataforma SaaS (clientes, planos,
+  // suporte, auditoria, definições, …) NÃO está no menu do ERP: vive na consola da plataforma (/admin, frontend/src/plataforma).
+  // Os ecrãs `plataforma_*` continuam no catálogo de permissões (Gate e editor de perfis) mas nunca entram aqui (ver
+  // ecraDaPlataforma e plataforma/enderecosPlataforma.ts).
+  g('sistema-plataforma', 'Conta e Subscrição', 'layer-group', [
+    e('config', 'config_licenca', 'Licença e Plano', 'credit-card'),
+    e('config', 'minha_conta', 'Minha Conta', 'id-card'),
   ]),
   e('config', 'config_migracao', 'Migração de Dados', 'file-import'),
 ]);
@@ -224,6 +214,9 @@ export const ESCONDIDOS = new Set<string>([
   'contab/contab_mapa_fluxo', 'contab/contab_mapa_evolucao',
   'contab/imposto_selo',
 ]);
+
+/** Ecrã de administração da plataforma SaaS («plataforma_*»): vive na consola /admin, nunca no menu nem na pesquisa do ERP. */
+export const ecraDaPlataforma = (ecra: string): boolean => ecra.startsWith('plataforma_');
 
 /** Grupo onde entram os ecrãs de cada módulo que não estão na estrutura (exclusivos do sistema novo). 'topo' = itens soltos. */
 export const CASA_MODULO: Readonly<Record<string, string>> = {

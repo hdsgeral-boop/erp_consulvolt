@@ -440,7 +440,7 @@ function Estrutura() {
     ...(podeBI ? [{ key: 'powerbi', icon: <ApiOutlined />, label: 'Power BI (feed OData)', onClick: () => setPainel('powerbi') }] : []),
     // Super Administrador: o login já não força a consola da plataforma (vai direto à escolha de empresa/ERP), por
     // isso precisa deste link para lá chegar quando quiser (simétrico ao «Entrar no ERP» de LayoutPlataforma).
-    ...(superAdmin ? [{ key: 'consola-plataforma', icon: <AuditOutlined />, label: 'Consola da Plataforma', onClick: () => navegar('/admin') }] : []),
+    ...(superAdmin || utilizador?.papel === 'OPERADOR_PLATAFORMA' ? [{ key: 'consola-plataforma', icon: <AuditOutlined />, label: 'Consola da Plataforma', onClick: () => navegar('/admin') }] : []),
     { key: 'tour', icon: <CompassOutlined />, label: 'Repetir tutorial', onClick: reiniciarTourBoasVindas },
     { type: 'divider' as const },
     { key: 'sair', icon: <LogoutOutlined />, label: 'Terminar sessão', onClick: () => void sair() },

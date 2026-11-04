@@ -1,25 +1,13 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-/** Ecrãs do módulo Configurações (ids do catálogo de permissões). */
+/** Ecrãs do módulo Configurações (ids do catálogo de permissões). Os plataforma_* vivem na consola /admin (App.tsx), não aqui. */
 export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   config_geral: lazy(() => import('./ConfigGeral')),
   config_empresas: lazy(() => import('./Empresas')),
   config_licenca: lazy(() => import('./Licenca')),
-  plataforma_painel: lazy(() => import('./PlataformaPainel')),
-  plataforma_monitorizacao: lazy(() => import('./PlataformaMonitorizacao')),
-  plataforma_clientes: lazy(() => import('./PlataformaClientes')),
-  plataforma_suporte: lazy(() => import('./PlataformaSuporte')),
-  plataforma_administradores: lazy(() => import('./PlataformaAdministradores')),
-  plataforma_operadores_plataforma: lazy(() => import('./PlataformaOperadores')),
-  plataforma_auditoria: lazy(() => import('./PlataformaAuditoria')),
-  plataforma_sessoes: lazy(() => import('./PlataformaSessoes')),
-  plataforma_definicoes: lazy(() => import('./PlataformaDefinicoes')),
+  // Assistente IA (regras em ficheiro JSON; Versão Actual, Fase H): passou de Contabilidade para Configurações
+  ia_assistente: lazy(() => import('./IAAssistente')),
   minha_conta: lazy(() => import('./MinhaConta')),
-  plataforma_planos: lazy(() => import('./PlataformaPlanos')),
-  plataforma_codigos: lazy(() => import('./PlataformaCodigos')),
-  plataforma_saas: lazy(() => import('./PlataformaSaasGestao')),
-  plataforma_cupoes: lazy(() => import('./PlataformaCupoes')),
-  plataforma_ia: lazy(() => import('./PlataformaIA')),
   config_plano: lazy(() => import('./PlanoContas')),
   config_moedas: lazy(() => import('./Moedas')),
   config_utilizadores: lazy(() => import('./Utilizadores')),
