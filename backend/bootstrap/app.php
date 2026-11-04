@@ -4,6 +4,7 @@ use App\Exceptions\ErroNegocio;
 use App\Exceptions\ManipuladorExcecoesApi;
 use App\Http\Middleware\BloquearExportacaoComLicencaExpirada;
 use App\Http\Middleware\BloquearTokenMfaPendente;
+use App\Http\Middleware\CacheCondicional;
 use App\Http\Middleware\ExigirAdministradorCliente;
 use App\Http\Middleware\ExigirAreaPortal;
 use App\Http\Middleware\ExigirPlataforma;
@@ -26,6 +27,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Atrás do nginx/Caddy/túnel: só se confia no IP do cliente (X-Forwarded-For) e no esquema https (X-Forwarded-Proto)
+        // quando o pedido chega de uma rede privada (o proxy). NUNCA no host encaminhado (X-Forwarded-Host): o endereço
+        // decide a plataforma/empresa (DominioPedido) e um visitante poderia forjá-lo.
+        $middleware->trustProxies(
+            at: ['127.0.0.1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+            headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
+        );
         // Duplo-submit do CSRF (Fase D): só actua quando há cookie de sessão (ver VerificarCsrfDuploSubmit) — o
         // mais cedo possível, antes de gastar trabalho de autenticação/tenant num pedido que já se sabe inválido.
         $middleware->api(prepend: [ForcarRespostaJson::class, VerificarCsrfDuploSubmit::class]);
@@ -45,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'suporte' => ExigirSuporte::class,
             'licenca_exportacao' => BloquearExportacaoComLicencaExpirada::class,
             'area_portal' => ExigirAreaPortal::class,
+            'cache_condicional' => CacheCondicional::class,
         ]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);
