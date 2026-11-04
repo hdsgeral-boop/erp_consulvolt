@@ -34,12 +34,59 @@ final class PlanosPlataformaController extends Controller
             return [
                 'id' => $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'preco_mensal' => (float) $p->preco_mensal, 'moeda' => $p->moeda,
                 'max_empresas' => $p->max_empresas, 'max_utilizadores' => $p->max_utilizadores, 'dias_teste' => $p->dias_teste, 'ativo' => $p->ativo,
+                'descricao' => $p->descricao, 'ordem' => (int) $p->ordem, 'tem_versao_publicada' => $todas->contains('estado', PlanoLicencaVersao::PUBLICADA),
                 'clientes' => (int) ($clientes[$p->codigo] ?? 0),
                 'versoes' => $todas->map(fn (PlanoLicencaVersao $v) => $this->versoes->apresentar($v))->all(),
             ];
         })->all();
 
         return RespostaApi::sucesso(['planos' => $planos, 'modulos' => (array) config('erp.planos_catalogo.modulos')], 'Planos obtidos com sucesso.');
+    }
+
+    /** POST /plataforma/planos — cria o plano com a versão 1 em rascunho (o plano só fica activo depois de publicada uma versão). */
+    public function criarPlano(Request $r): JsonResponse
+    {
+        $this->exigir('plataforma_planos_gerir');
+        $d = $r->validate([
+            'codigo' => ['required', 'string', 'max:30', 'regex:/^[a-z0-9_-]+$/', Rule::unique('planos_licenca', 'codigo')],
+            'nome' => ['required', 'string', 'max:100', Rule::unique('planos_licenca', 'nome')],
+            'descricao' => ['nullable', 'string', 'max:2000'],
+            'preco_mensal' => ['required', 'numeric', 'min:0', 'max:999999999'],
+            'moeda' => ['required', 'string', 'regex:/^[A-Za-z]{3}$/'],
+            'max_empresas' => ['nullable', 'integer', 'min:1'],
+            'max_utilizadores' => ['nullable', 'integer', 'min:1'],
+            'dias_teste' => ['nullable', 'integer', 'between:1,90'],
+            'modulos' => ['nullable', 'array'],
+            'modulos.*' => ['string', Rule::in(array_keys((array) config('erp.planos_catalogo.modulos')))],
+            'ordem' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $d['moeda'] = strtoupper($d['moeda']);
+        $plano = $this->versoes->criarPlano($d);
+
+        return RespostaApi::criado(
+            ['id' => $plano->id, 'codigo' => $plano->codigo, 'nome' => $plano->nome, 'ativo' => (bool) $plano->ativo],
+            'Plano criado com a versão 1 em rascunho. Publique-a para o activar.',
+        );
+    }
+
+    /** PUT /plataforma/planos/{plano} — nome, descrição, ordem e activo (o código não muda; preço e limites só por versão). */
+    public function atualizarPlano(Request $r, int $plano): JsonResponse
+    {
+        $this->exigir('plataforma_planos_gerir');
+        $modelo = PlanoLicenca::query()->findOrFail($plano);
+        $d = $r->validate([
+            'nome' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('planos_licenca', 'nome')->ignore($modelo->id)],
+            'descricao' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'ativo' => ['sometimes', 'required', 'boolean'],
+            'ordem' => ['sometimes', 'required', 'integer', 'min:0'],
+            'confirmar_desativacao' => ['sometimes', 'boolean'],
+        ]);
+        $p = $this->versoes->atualizarPlano($modelo, $d);
+
+        return RespostaApi::sucesso(
+            ['id' => $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'descricao' => $p->descricao, 'ativo' => (bool) $p->ativo, 'ordem' => (int) $p->ordem, 'clientes' => $this->versoes->clientesDoPlano($p)],
+            'Plano actualizado.',
+        );
     }
 
     public function criarVersao(Request $r, int $plano): JsonResponse

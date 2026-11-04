@@ -8,6 +8,7 @@ use App\Mail\ContaSuspensaMail;
 use App\Models\Empresa;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoGestaoEmpresas;
 use App\Services\Sistema\ServicoPerfis;
 use App\Support\Outbox\Outbox;
@@ -28,17 +29,36 @@ final class ServicoClientes
         private readonly ContextoTenant $tenant,
         private readonly ServicoGestaoEmpresas $empresas,
         private readonly ServicoPerfis $perfis,
+        private readonly ServicoAuditoria $auditoria,
     ) {}
 
-    /** @return Collection<int, array{tenant: Tenant, empresas: int, utilizadores: int}> */
-    public function listar(): Collection
+    /**
+     * Pesquisa `q` (nome ou endereço, sem distinguir maiúsculas), `estado` e `plano` (código; `sem-plano` para os
+     * clientes sem plano) são opcionais.
+     *
+     * @param  array{q?: ?string, estado?: ?string, plano?: ?string}  $filtros
+     * @return Collection<int, array{tenant: Tenant, empresas: int, utilizadores: int}>
+     */
+    public function listar(array $filtros = []): Collection
     {
         $empresas = collect(DB::select('SELECT tenant_id, empresas FROM plataforma_empresas_por_tenant()'))->keyBy('tenant_id');
         // utilizadores tem RLS (tenant_id directo): a função SECURITY DEFINER vê todos os tenants, tal como
         // plataforma_empresas_por_tenant() já fazia para empresas (ver migração saas_rls_utilizadores).
         $utilizadores = collect(DB::select('SELECT tenant_id, total FROM plataforma_utilizadores_por_tenant()'))->pluck('total', 'tenant_id');
 
-        return Tenant::query()->orderBy('id')->get()->map(fn (Tenant $c) => [
+        $consulta = Tenant::query()->orderBy('id');
+        if (filled($filtros['q'] ?? null)) {
+            $termo = '%'.mb_strtolower(str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim((string) $filtros['q']))).'%';
+            $consulta->where(fn ($q) => $q->whereRaw('lower(nome) LIKE ?', [$termo])->orWhereRaw('lower(slug) LIKE ?', [$termo]));
+        }
+        if (filled($filtros['estado'] ?? null)) {
+            $consulta->where('estado', $filtros['estado']);
+        }
+        if (filled($filtros['plano'] ?? null)) {
+            $filtros['plano'] === 'sem-plano' ? $consulta->whereNull('plano') : $consulta->where('plano', $filtros['plano']);
+        }
+
+        return $consulta->get()->map(fn (Tenant $c) => [
             'tenant' => $c,
             'empresas' => (int) ($empresas[$c->id]->empresas ?? 0),
             'utilizadores' => (int) ($utilizadores[$c->id] ?? 0),
@@ -119,6 +139,78 @@ final class ServicoClientes
         }
 
         return $resultado + ['palavra_passe' => $palavraPasse];
+    }
+
+    /**
+     * Utilizadores do cliente. `utilizadores` tem RLS por tenant_id: só se lêem no contexto do próprio cliente
+     * (o where explícito é a 2.ª camada).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function utilizadores(Tenant $cliente): array
+    {
+        return $this->tenant->executarComo((int) $cliente->id, fn () => Utilizador::query()->where('tenant_id', $cliente->id)->orderBy('id')->get()
+            ->map(fn (Utilizador $u) => $this->resumoUtilizador($u))->values()->all());
+    }
+
+    /**
+     * Edita nome, e-mail, papel e estado de um utilizador do cliente (parciais). Corre no contexto do cliente (RLS);
+     * o e-mail é único dentro do cliente; só os papéis ADMINISTRADOR e UTILIZADOR podem ser atribuídos (o
+     * super-administrador pertence à plataforma); nunca se remove nem desactiva o último administrador activo do
+     * cliente; desactivar revoga as sessões. Auditado.
+     *
+     * @param  array{nome_completo?: ?string, email?: ?string, papel?: string, ativo?: bool}  $d
+     * @return array<string, mixed>
+     */
+    public function atualizarUtilizador(Tenant $cliente, int $utilizadorId, array $d): array
+    {
+        return $this->tenant->executarComo((int) $cliente->id, fn () => DB::transaction(function () use ($cliente, $utilizadorId, $d) {
+            $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->lockForUpdate()->findOrFail($utilizadorId);
+            $antes = $alvo->only(['nome_completo', 'email', 'papel', 'ativo']);
+
+            if (array_key_exists('email', $d) && filled($d['email'])
+                && Utilizador::query()->where('tenant_id', $cliente->id)->whereKeyNot($alvo->id)->whereRaw('lower(email) = ?', [mb_strtolower((string) $d['email'])])->exists()) {
+                throw new ErroNegocio('Este e-mail já está em uso por outro utilizador deste cliente.', 'EMAIL_DUPLICADO', 422);
+            }
+            $papelNovo = $d['papel'] ?? $alvo->papel;
+            if ($papelNovo !== $alvo->papel && ! in_array($papelNovo, [Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_UTILIZADOR], true)) {
+                throw new ErroNegocio('Papel inválido para um utilizador de cliente.', 'PAPEL_INVALIDO', 422);
+            }
+            $ativoNovo = array_key_exists('ativo', $d) ? (bool) $d['ativo'] : (bool) $alvo->ativo;
+
+            $papeisAdmin = [Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_SUPER_ADMINISTRADOR];
+            $eraAdmin = $alvo->ativo && in_array($alvo->papel, $papeisAdmin, true);
+            $continuaAdmin = $ativoNovo && in_array($papelNovo, $papeisAdmin, true);
+            if ($eraAdmin && ! $continuaAdmin && ! Utilizador::query()->where('tenant_id', $cliente->id)->whereKeyNot($alvo->id)->where('ativo', true)
+                ->whereIn('papel', $papeisAdmin)->exists()) {
+                throw new ErroNegocio('É o último administrador activo deste cliente: não pode ser desactivado nem rebaixado.', 'ULTIMO_ADMINISTRADOR', 422);
+            }
+
+            foreach (['nome_completo', 'email'] as $campo) {
+                if (array_key_exists($campo, $d)) {
+                    $alvo->{$campo} = filled($d[$campo]) ? trim((string) $d[$campo]) : null;
+                }
+            }
+            $alvo->papel = $papelNovo;
+            $alvo->ativo = $ativoNovo;
+            $alvo->save();
+            if (! $ativoNovo) {
+                $alvo->tokens()->delete();
+            }
+            $this->auditoria->registar('Plataforma', 'Alterar utilizador de cliente', "Utilizador '{$alvo->nome_utilizador}' do cliente #{$cliente->id} alterado.",
+                'utilizadores', $alvo->id, $antes, $alvo->only(['nome_completo', 'email', 'papel', 'ativo']));
+
+            return $this->resumoUtilizador($alvo);
+        }));
+    }
+
+    /** @return array<string, mixed> */
+    private function resumoUtilizador(Utilizador $u): array
+    {
+        return [
+            'id' => $u->id, 'nome_utilizador' => $u->nome_utilizador, 'email' => $u->email,
+            'nome_completo' => $u->nome_completo, 'papel' => $u->papel, 'ativo' => (bool) $u->ativo,
+        ];
     }
 
     /** Edita nome e endereço (slug). */

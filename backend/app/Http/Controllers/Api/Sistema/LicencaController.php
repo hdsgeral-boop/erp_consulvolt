@@ -14,6 +14,7 @@ use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Tenant;
 use App\Models\TicketSuporte;
+use App\Services\Pagamentos\ProcessadorPagamentos;
 use App\Services\Pagamentos\ServicoComprovativosPagamento;
 use App\Services\Plataforma\ServicoAnexosSuporte;
 use App\Services\Plataforma\ServicoSlaSuporte;
@@ -79,6 +80,21 @@ final class LicencaController extends Controller
             // traduz sem duplicar a lista à mão (erp.planos_catalogo.modulos, o mesmo catálogo que ModulosPlano usa).
             'modulos_catalogo' => (array) config('erp.planos_catalogo.modulos'),
         ], 'Definições públicas da plataforma.');
+    }
+
+    /**
+     * Dados bancários da plataforma para o pagamento por transferência (banco, titular, IBAN, SWIFT), definidos em
+     * Plataforma › Definições › Pagamentos. São da plataforma, não do cliente: aqui só os lê quem gere a licença.
+     */
+    public function dadosBancarios(ProcessadorPagamentos $pagamentos): JsonResponse
+    {
+        $this->exigir('config_licenca_gerir');
+        $d = $pagamentos->obterConfiguracoes()['dados_bancarios'] ?? [];
+
+        return RespostaApi::sucesso([
+            'banco' => (string) ($d['banco'] ?? ''), 'titular' => (string) ($d['titular'] ?? ''),
+            'iban' => (string) ($d['iban'] ?? ''), 'swift' => (string) ($d['swift'] ?? ''),
+        ], 'Dados bancários da plataforma.');
     }
 
     public function criarPlano(Request $request): JsonResponse

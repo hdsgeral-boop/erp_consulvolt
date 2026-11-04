@@ -30,6 +30,7 @@ final class RegrasCacheTest extends TestCase
         'Services/Gestao/Paineis/ServicoPaineis.php',
         'Services/Integracoes/Operacoes/ServicoOperacoes.php',
         'Services/Logistica/ServicoProdutos.php',
+        'Services/Plataforma/ServicoDashboardExecutivo.php',
         'Services/RH/CacheFaltasDoAno.php',
         'Services/Logistica/ServicoNiveisStock.php',
         'Services/Sistema/ServicoCopiaEmpresa.php',

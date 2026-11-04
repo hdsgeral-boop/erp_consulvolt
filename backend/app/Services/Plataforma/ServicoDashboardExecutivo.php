@@ -4,10 +4,13 @@ namespace App\Services\Plataforma;
 
 use App\Http\Controllers\Api\SaudeController;
 use App\Models\Empresa;
+use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
+use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,6 +30,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class ServicoDashboardExecutivo
 {
+    public const TTL_SERIES = 120;
+
     public function __construct(private readonly ContextoEmpresa $contexto) {}
 
     /** @return array<string, mixed> */
@@ -47,6 +52,40 @@ final class ServicoDashboardExecutivo
                 'taxa_conversao_trial_mes' => $this->taxaConversaoTrial($inicioMes),
                 'tickets' => $this->tickets(),
                 'disponibilidade' => $this->disponibilidade(),
+            ] + $this->series();
+        });
+    }
+
+    /**
+     * Séries para os gráficos do painel: clientes novos e receita recebida por mês (12 meses), acessos por dia (30 dias)
+     * e clientes por plano. O cliente que opera a plataforma fica fora das contagens de negócio. Receita e acessos vêm
+     * de funções SECURITY DEFINER (agregados de todos os clientes, ver 2026_11_16_110000). Só números, sem dados
+     * pessoais; em cache de 2 minutos (chave global `plataforma:painel:series`, ver CACHE.md).
+     *
+     * @return array<string, mixed>
+     */
+    private function series(): array
+    {
+        return Cache::remember('plataforma:painel:series', self::TTL_SERIES, function () {
+            $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
+            $meses = collect(range(11, 0))->map(fn (int $i) => now()->startOfMonth()->subMonths($i));
+            $dias = collect(range(29, 0))->map(fn (int $i) => now()->subDays($i)->startOfDay());
+
+            $clientes = Tenant::query()->where('id', '<>', $plataforma)->get(['id', 'plano', 'criado_em']);
+            $novos = $clientes->groupBy(fn (Tenant $t) => $t->criado_em?->format('Y-m'))->map->count();
+            $receita = collect(DB::select('SELECT mes, total FROM plataforma_receita_por_mes(?)', [$meses->first()]))->pluck('total', 'mes');
+            $acessos = collect(DB::select('SELECT dia, total FROM plataforma_acessos_por_dia(?, ?)', [$dias->first(), $plataforma]))->pluck('total', 'dia');
+            $nomesPlanos = PlanoLicenca::query()->pluck('nome', 'codigo');
+
+            return [
+                'moeda' => 'AOA',
+                'meses' => $meses->map(fn (Carbon $m) => $m->locale('pt')->isoFormat('MMM YY'))->all(),
+                'clientes_novos_mes' => $meses->map(fn (Carbon $m) => (int) ($novos[$m->format('Y-m')] ?? 0))->all(),
+                'receita_mes' => $meses->map(fn (Carbon $m) => round((float) ($receita[$m->format('Y-m')] ?? 0), 2))->all(),
+                'dias' => $dias->map(fn (Carbon $d) => $d->format('d/m'))->all(),
+                'acessos_dia' => $dias->map(fn (Carbon $d) => (int) ($acessos[$d->format('Y-m-d')] ?? 0))->all(),
+                'por_plano' => $clientes->groupBy(fn (Tenant $t) => $t->plano ?: '')->map->count()
+                    ->map(fn (int $n, string $codigo) => ['plano' => $codigo === '' ? 'Sem plano' : ($nomesPlanos[$codigo] ?? $codigo), 'clientes' => $n])->values()->all(),
             ];
         });
     }

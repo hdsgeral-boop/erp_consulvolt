@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -23,7 +24,12 @@ final class ClientesController extends Controller
 
     public function index(Request $r): JsonResponse
     {
-        $lista = $this->clientes->listar()->map(fn (array $i) => $this->apresentar($i['tenant'], $r) + ['empresas' => $i['empresas'], 'utilizadores' => $i['utilizadores']])->all();
+        $d = $r->validate([
+            'q' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'estado' => ['sometimes', 'nullable', Rule::in([Tenant::ESTADO_ATIVO, Tenant::ESTADO_SUSPENSO, Tenant::ESTADO_ARQUIVADO])],
+            'plano' => ['sometimes', 'nullable', 'string', 'max:60'],
+        ]);
+        $lista = $this->clientes->listar($d)->map(fn (array $i) => $this->apresentar($i['tenant'], $r) + ['empresas' => $i['empresas'], 'utilizadores' => $i['utilizadores']])->all();
 
         return RespostaApi::sucesso($lista, 'Clientes obtidos com sucesso.');
     }
@@ -109,27 +115,36 @@ final class ClientesController extends Controller
 
     public function utilizadores(Tenant $cliente): JsonResponse
     {
-        $lista = Utilizador::query()->where('tenant_id', $cliente->id)->orderBy('id')->get()->map(fn (Utilizador $u) => [
-            'id' => $u->id,
-            'nome_utilizador' => $u->nome_utilizador,
-            'email' => $u->email,
-            'nome_completo' => $u->nome_completo,
-            'papel' => $u->papel,
-            'ativo' => (bool) $u->ativo,
-        ])->values()->all();
+        return RespostaApi::sucesso($this->clientes->utilizadores($cliente), 'Utilizadores obtidos com sucesso.');
+    }
 
-        return RespostaApi::sucesso($lista, 'Utilizadores obtidos com sucesso.');
+    /** PUT clientes/{cliente}/utilizadores/{utilizador} — parciais: {ativo} ou {nome_completo, email, papel}. */
+    public function atualizarUtilizador(Request $r, Tenant $cliente, int $utilizador): JsonResponse
+    {
+        $this->exigir('plataforma_clientes_gerir');
+        $d = $r->validate([
+            'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:150'],
+            'papel' => ['sometimes', 'string', Rule::in([Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_UTILIZADOR])],
+            'ativo' => ['sometimes', 'boolean'],
+        ]);
+
+        return RespostaApi::sucesso($this->clientes->atualizarUtilizador($cliente, $utilizador, $d), 'Utilizador actualizado.');
     }
 
     /** A nova palavra-passe é sempre gerada pelo sistema e enviada por email — nunca escolhida por quem a repõe. */
     public function redefinirSenha(Tenant $cliente, int $utilizador): JsonResponse
     {
         $this->exigir('plataforma_clientes_gerir');
-        $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->whereKey($utilizador)->firstOrFail();
-
+        // utilizadores tem RLS por tenant_id: lê-se e grava-se no contexto do cliente
         $palavraPasse = Str::password(14);
-        $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
-        $alvo->tokens()->delete();
+        $alvo = app(ContextoTenant::class)->executarComo((int) $cliente->id, function () use ($cliente, $utilizador, $palavraPasse) {
+            $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->whereKey($utilizador)->firstOrFail();
+            $alvo->update(['palavra_passe' => $palavraPasse, 'deve_alterar_password' => true]);
+            $alvo->tokens()->delete();
+
+            return $alvo;
+        });
         if ($alvo->email) {
             Mail::to($alvo->email)->send(new PalavraPasseRedefinidaMail($alvo->nome_completo ?: $alvo->nome_utilizador, $alvo->nome_utilizador, $palavraPasse, $cliente->nome));
         }
