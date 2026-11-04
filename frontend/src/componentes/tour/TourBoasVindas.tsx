@@ -12,6 +12,9 @@ import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
  */
 export const CHAVE_SESSAO_MOSTRAR_TOUR = 'cv.mostrar_tour_boas_vindas';
 
+/** Cópia local de «já viu o tour» (por utilizador): evita repeti-lo se a preferência do servidor não puder ser lida. */
+const CHAVE_LOCAL_VISTO = 'erp.tour_boas_vindas_v1';
+
 /** Evento global: reabre o tour a pedido (ex.: botão "Repetir tutorial" no menu do utilizador). */
 const EVENTO_REINICIAR = 'erp:tour:reiniciar';
 
@@ -100,6 +103,7 @@ function medirAlvo(seletor: string): Retangulo | null {
  */
 export function TourBoasVindas() {
   const { estado, utilizador, empresa } = useSessao();
+  const chaveLocal = `${CHAVE_LOCAL_VISTO}:${utilizador?.id ?? ''}`;
   const { data: licenca } = useEstadoLicenca(!!empresa);
   const [visto, definirVisto, aCarregarPref] = usePreferencia<boolean>('interface', 'tour_boas_vindas_v1', false);
   const [fase, setFase] = useState<'oculto' | 'boas_vindas' | 'passo'>('oculto');
@@ -109,9 +113,11 @@ export function TourBoasVindas() {
   useEffect(() => {
     if (estado !== 'autenticado') return;
     let viaSessao = false;
+    let vistoLocal = false;
     try {
       viaSessao = sessionStorage.getItem(CHAVE_SESSAO_MOSTRAR_TOUR) === '1';
       if (viaSessao) sessionStorage.removeItem(CHAVE_SESSAO_MOSTRAR_TOUR);
+      vistoLocal = localStorage.getItem(chaveLocal) === '1';
     } catch {
       /* modo privado ou armazenamento bloqueado: segue só pela preferência do servidor */
     }
@@ -120,11 +126,11 @@ export function TourBoasVindas() {
       setFase('boas_vindas');
       return;
     }
-    if (!aCarregarPref && !visto) {
+    if (!aCarregarPref && !visto && !vistoLocal) {
       setIndice(0);
       setFase('boas_vindas');
     }
-  }, [estado, aCarregarPref, visto]);
+  }, [estado, aCarregarPref, visto, chaveLocal]);
 
   useEffect(() => {
     const reiniciar = () => {
@@ -169,7 +175,12 @@ export function TourBoasVindas() {
   const concluirTour = useCallback(() => {
     setFase('oculto');
     definirVisto(true);
-  }, [definirVisto]);
+    try {
+      localStorage.setItem(chaveLocal, '1');
+    } catch {
+      /* sem armazenamento local: fica só a preferência do servidor */
+    }
+  }, [definirVisto, chaveLocal]);
 
   const avancar = useCallback(() => {
     // Salta passos cujo alvo não existe neste ecrã (ex.: pesquisa de topo escondida em telemóvel).

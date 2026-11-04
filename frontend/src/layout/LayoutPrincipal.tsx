@@ -1,8 +1,10 @@
 import { Avatar, Button, ConfigProvider, Drawer, Dropdown, Flex, Input, Layout, Menu, Modal, Select, Space, Spin, Tooltip, Typography, type MenuProps } from 'antd';
 import {
   ApiOutlined,
+  ArrowLeftOutlined,
   AuditOutlined,
   CheckOutlined,
+  CompassOutlined,
   DownOutlined,
   EditOutlined,
   IdcardOutlined,
@@ -20,7 +22,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
 import { useEcra } from '@/componentes/responsivo/useEcra';
@@ -31,6 +33,7 @@ import { MAX_ROTULO_FAVORITO, nomeOriginalFavorito, useFavoritos } from '@/compo
 import { notificarErro } from '@/utilitarios/erros';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { ICONES_FA } from '@/componentes/fluxos/iconesFa';
+import { TourBoasVindas, reiniciarTourBoasVindas } from '@/componentes/tour/TourBoasVindas';
 import { CHAVE_MENU_GERAL, construirMenuLateral, estadoMenu } from './itensMenu';
 import { MarcaEmpresa } from './MarcaEmpresa';
 import { AvisoLicenca } from './AvisoLicenca';
@@ -58,6 +61,20 @@ const ID_MENU_LATERAL = 'erp-menu-lateral';
 type ItemMenuLateral = ItemMenu;
 
 const temFilhos = (it: ItemMenuLateral): boolean => !!it && typeof it === 'object' && Array.isArray((it as { children?: unknown }).children);
+
+/** Chaves de todos os grupos do menu (para «Expandir tudo»). */
+function chavesDosGrupos(lista: ItemMenuLateral[]): string[] {
+  const r: string[] = [];
+  const percorrer = (l: ItemMenuLateral[]) =>
+    l.forEach((it) => {
+      if (!temFilhos(it)) return;
+      const g = it as { key?: React.Key; children: ItemMenuLateral[] };
+      r.push(String(g.key));
+      percorrer(g.children);
+    });
+  percorrer(lista);
+  return r;
+}
 
 /**
  * Modo «menu no topo»: substitui o grupo `chaveGrupo` (ex.: «Menu Geral») pelos seus próprios filhos, na mesma
@@ -145,6 +162,7 @@ function Estrutura() {
   const identidade = useIdentidade();
   const navegar = useNavigate();
   const local = useLocation();
+  const tipoNavegacao = useNavigationType();
   const ecra = useEcra();
   const { favoritos, eFavorito, alternar, renomear } = useFavoritos();
   // renomear favorito (lápis no menu «⋮» do item): rótulo próprio guardado com a preferência
@@ -172,6 +190,7 @@ function Estrutura() {
   const colapsado = recolhido && !ecra.pequeno;
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const [painel, setPainel] = useState<'powerbi' | 'ia' | null>(null);
+  const [historico, setHistorico] = useState<string[]>([]);
 
   // «Recolher menu» (botão a meio do bordo do menu) alterna entre «só símbolos» e o último aspecto expandido
   const anteriorExpandido = useRef<AspectoMenu>(aspecto.menu === 'icones' ? 'completo' : aspecto.menu);
@@ -252,6 +271,7 @@ function Estrutura() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, aspecto.menu, ecra.pequeno, favoritos, abrirRenomear]);
   // como no legado, os itens soltos (Início, Dashboard Global, …) ficam por cima dos botões do aspecto e os grupos por baixo
+  const todosGrupos = useMemo(() => chavesDosGrupos(base), [base]);
   const itensTopo = useMemo(() => itens.filter((i) => !temFilhos(i)), [itens]);
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
   // modo «menu no topo»: os módulos do grupo «Menu Geral» passam a dropdowns soltos na barra (Favoritos e Sistema mantêm-se como grupo).
@@ -279,6 +299,14 @@ function Estrutura() {
   useEffect(() => {
     if (!ecra.pequeno) setGavetaAberta(false);
   }, [ecra.pequeno]);
+
+  // histórico de navegação dentro da aplicação, para o botão flutuante «Voltar» (legado navigationBack)
+  useEffect(() => {
+    setHistorico((h) => {
+      if (tipoNavegacao === 'POP' && h.length > 1 && h[h.length - 2] === local.pathname) return h.slice(0, -1);
+      return h[h.length - 1] === local.pathname ? h : [...h, local.pathname].slice(-50);
+    });
+  }, [local.pathname, tipoNavegacao]);
 
   // Ctrl+Shift+N (legado) ou Alt+Shift+N: tela nocturna (o Ctrl+K da pesquisa está em PesquisaCabecalho)
   useEffect(() => {
@@ -381,6 +409,20 @@ function Estrutura() {
     />
   );
 
+  // «Expandir/Recolher tudo» no próprio menu (só na barra lateral larga e não recolhida)
+  const controlosMenu = !ecra.pequeno && !colapsado && todosGrupos.length > 0 && (
+    <div className="erp-menu-controlos">
+      <div className="erp-menu-expandir">
+        <button type="button" title="Expandir Tudo" aria-label="Expandir tudo" onClick={() => setAbertosMenu(todosGrupos)}>
+          <IconeFa nome="expand-alt" />
+        </button>
+        <button type="button" title="Recolher Tudo" aria-label="Recolher tudo" onClick={() => setAbertosMenu([])}>
+          <IconeFa nome="compress-alt" />
+        </button>
+      </div>
+    </div>
+  );
+
   const textoFavorito = favoritoActual ? 'Retirar dos favoritos' : 'Adicionar aos favoritos';
   const textoTema = escuro ? 'Desligar a tela nocturna' : 'Tela nocturna';
   const itensUtilizador: MenuProps['items'] = [
@@ -397,6 +439,7 @@ function Estrutura() {
     // Super Administrador: o login já não força a consola da plataforma (vai direto à escolha de empresa/ERP), por
     // isso precisa deste link para lá chegar quando quiser (simétrico ao «Entrar no ERP» de LayoutPlataforma).
     ...(superAdmin ? [{ key: 'consola-plataforma', icon: <AuditOutlined />, label: 'Consola da Plataforma', onClick: () => navegar('/admin') }] : []),
+    { key: 'tour', icon: <CompassOutlined />, label: 'Repetir tutorial', onClick: reiniciarTourBoasVindas },
     { type: 'divider' as const },
     { key: 'sair', icon: <LogoutOutlined />, label: 'Terminar sessão', onClick: () => void sair() },
   ];
@@ -420,6 +463,7 @@ function Estrutura() {
             </div>
             <nav id={ID_MENU_LATERAL} className="erp-sider-rolagem" aria-label="Menu principal">
               {menuTopo}
+              {controlosMenu}
               {menuGrupos}
             </nav>
             <PuxadorMenu largura={larguraMenu} puxador={puxador} recolhido={recolhido} aoAlternar={alternarRecolhido} controla={ID_MENU_LATERAL} />
@@ -550,8 +594,14 @@ function Estrutura() {
               <Outlet />
             </Suspense>
           </Layout.Content>
+          <TourBoasVindas />
         </Layout>
 
+        {historico.length > 1 && local.pathname !== '/' && (
+          <Button className="erp-botao-voltar no-print" type="primary" shape="round" icon={<ArrowLeftOutlined />} onClick={() => navegar(-1)} title="Voltar ao ecrã anterior">
+            Voltar
+          </Button>
+        )}
         <Modal
           title="Renomear favorito"
           open={aRenomear !== null}

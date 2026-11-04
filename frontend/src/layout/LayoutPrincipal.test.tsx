@@ -105,6 +105,28 @@ describe('LayoutPrincipal — portátil (1366 px)', () => {
     expect(screen.getByText('Página inicial')).toBeInTheDocument();
   });
 
+  it('«Expandir tudo» abre todos os grupos do menu e «Recolher tudo» fecha-os', async () => {
+    const { container } = montar();
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    expect(within(lateral).queryByText('Vendas')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir tudo' }));
+    expect(await within(lateral).findByText('Vendas')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher tudo' }));
+    await waitFor(() => expect(within(lateral).queryByText('Vendas')).toBeNull());
+  });
+
+  it('o botão flutuante «Voltar» só aparece depois de navegar e volta ao ecrã anterior', async () => {
+    const { container } = montar();
+    expect(screen.queryByRole('button', { name: /Voltar/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir tudo' }));
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    fireEvent.click(await within(lateral).findByText('Faturação'));
+    expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Voltar/ }));
+    expect(await screen.findByText('Página inicial')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Voltar/ })).toBeNull());
+  });
+
   it('«Trocar empresa» volta à escolha de empresa', () => {
     largarEmpresaMock.mockClear();
     montar('/m/vendas/vendas_faturacao');

@@ -92,6 +92,12 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       .catch(() => limparSessao(null));
   }, [carregarMenu, limparSessao]);
 
+  // empresa em uso (escolhida agora ou reaberta do armazenamento): fica no topo da próxima escolha
+  const utilizadorId = dados?.utilizador.id;
+  useEffect(() => {
+    if (utilizadorId != null && empresaId != null) armazenamento.registarEmpresaRecente(utilizadorId, empresaId);
+  }, [utilizadorId, empresaId]);
+
   // inactividade (o servidor também termina a sessão ao fim de N minutos sem pedidos)
   useEffect(() => {
     if (estado !== 'autenticado') return;

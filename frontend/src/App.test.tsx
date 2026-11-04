@@ -89,3 +89,25 @@ describe('App — isolamento do backoffice de suporte (ADR-076)', () => {
     expect(await screen.findByText('Layout ERP')).toBeInTheDocument();
   });
 });
+
+/**
+ * Terminar sessão ou largar a empresa não reabre o ecrã onde se estava (a produção resolvia-o com history.replaceState
+ * fora do router): aqui o próprio encaminhamento trata disso — sem sessão cai em /entrar e, com sessão, /entrar vai a /inicio.
+ */
+describe('App — voltar ao início ao terminar sessão', () => {
+  it('sem sessão, um ecrã de módulo reencaminha para /entrar (o endereço do ecrã anterior desaparece)', async () => {
+    sessao = { estado: 'anonimo', empresa: null, utilizador: null };
+    irPara('/m/rh/colaboradores');
+    render(<App />);
+    expect(await screen.findByText('Login ERP')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/entrar');
+  });
+
+  it('depois de entrar, /entrar leva a /inicio e não ao ecrã onde se estava', async () => {
+    sessao = { estado: 'autenticado', empresa: { id: 1, nome: 'Empresa Teste' }, utilizador: { papel: 'UTILIZADOR' } };
+    irPara('/entrar');
+    render(<App />);
+    expect(await screen.findByText('Layout ERP')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/inicio');
+  });
+});

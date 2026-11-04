@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import type { Empresa } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { armazenamento } from '@/sessao/armazenamento';
 import { iniciais } from '@/layout/marca';
 import { notificarErro } from '@/utilitarios/erros';
 import { naRotaPortal } from '@/portal/rota';
@@ -20,6 +21,15 @@ export function filtrarEmpresas(empresas: Empresa[], pesquisa: string): Empresa[
     const alvo = normalizarPesquisa(`${e.nome} ${e.nif ?? ''}`);
     return termos.every((t) => alvo.includes(t));
   });
+}
+
+/** Põe primeiro as empresas usadas recentemente (pela ordem de uso); as restantes mantêm a ordem recebida. */
+export function ordenarPorRecentes(empresas: Empresa[], recentes: number[]): Empresa[] {
+  const posicao = (id: number) => {
+    const i = recentes.indexOf(id);
+    return i === -1 ? recentes.length : i;
+  };
+  return empresas.map((e, i) => ({ e, i })).sort((a, b) => posicao(a.e.id) - posicao(b.e.id) || a.i - b.i).map(({ e }) => e);
 }
 
 /** Logótipo da empresa (lido do detalhe, só para quem tem acesso); as iniciais enquanto carrega ou se não houver. */
@@ -55,7 +65,11 @@ export function EscolherEmpresa() {
   const { empresas, escolherEmpresa, sair, utilizador } = useSessao();
   const [aEscolher, setAEscolher] = useState<number | null>(null);
   const [pesquisa, setPesquisa] = useState('');
-  const visiveis = useMemo(() => filtrarEmpresas(empresas, pesquisa), [empresas, pesquisa]);
+  // lidas uma vez ao abrir: a ordem não muda enquanto se escolhe
+  const [recentes] = useState(() => (utilizador ? armazenamento.empresasRecentes(utilizador.id) : []));
+  const ordenadas = useMemo(() => ordenarPorRecentes(empresas, recentes), [empresas, recentes]);
+  const visiveis = useMemo(() => filtrarEmpresas(ordenadas, pesquisa), [ordenadas, pesquisa]);
+  const ultimaUsada = recentes.find((id) => empresas.some((e) => e.id === id));
 
   const escolher = (id: number) => {
     setAEscolher(id);
@@ -121,6 +135,11 @@ export function EscolherEmpresa() {
                       title={
                         <>
                           {e.nome}
+                          {empresas.length > 1 && e.id === ultimaUsada && (
+                            <Tag color="blue" variant="outlined" style={{ marginInlineStart: 8 }}>
+                              Usada por último
+                            </Tag>
+                          )}
                           {/* legado: marca «Consolidação» das holdings na escolha de empresa (js/app_v2.js:455) */}
                           {e.e_consolidacao && (
                             <Tag color="purple" variant="outlined" style={{ marginInlineStart: 8 }}>
