@@ -21,7 +21,7 @@ return new class extends Migration
     {
         $rls = new IsolamentoRls(DB::connection());
         $rls->aplicarATodas();
-        $rls->prepararRole((string) env('DB_APP_PASSWORD', ''));
+        $rls->prepararRole((string) config('erp.saas.db_app_password', ''));
 
         DB::statement(<<<'SQL'
             CREATE OR REPLACE FUNCTION plataforma_utilizadores_por_tenant() RETURNS TABLE (tenant_id bigint, total bigint)

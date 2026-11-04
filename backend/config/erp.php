@@ -158,6 +158,12 @@ return [
         'ativo' => (bool) env('SAAS_ATIVO', false),
         // Ligacao com DDL (dono da base) para comandos de manutencao (ex.: particoes de auditoria). null = ligacao por omissao.
         'ligacao_dono' => env('SAAS_LIGACAO_DONO'),
+        // Palavra-passe da role erp_app (sujeita a RLS). Aqui e não com env() no código: com `artisan optimize` (config em cache,
+        // como no deploy) env() fora de config/ devolve vazio e a palavra-passe da role nunca seria definida.
+        'db_app_password' => env('DB_APP_PASSWORD', ''),
+        // Simulação de pagamento (`subscricoes/{id}/simular-confirmacao`). Condicionada a esta flag e NÃO a APP_ENV: o servidor
+        // de teste corre com APP_ENV=production e precisa da simulação; em produção real fica desligada.
+        'simulacao_pagamento' => (bool) env('SAAS_SIMULACAO_PAGAMENTO', false),
         // Comandos de manutencao (sem utilizador, a atravessar tenants): correm na ligacao do dono, que ignora a RLS.
         'comandos_de_manutencao' => [
             'erp:produtos:converter-contas-categorias', 'erp:migracao:corrigir-dados', 'erp:saft:documentos-importados',
