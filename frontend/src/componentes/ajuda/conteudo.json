@@ -1114,7 +1114,7 @@
    ]
   },
   "ia_assistente": {
-   "modulo": "contabilidade",
+   "modulo": "sistema",
    "titulo": "Assistente IA — Regras em ficheiro",
    "serve": "Propor lançamentos repetitivos (ex.: fecho de caixa diário) a partir de uma regra em ficheiro JSON com as contas, as fórmulas e as validações.",
    "passos": [

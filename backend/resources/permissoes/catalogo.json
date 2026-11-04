@@ -537,27 +537,6 @@
       "nome": "Contabilidade",
       "ecras": [
         {
-          "id": "ia_assistente",
-          "nome": "Assistente IA (lançamento assistido)",
-          "vistas": [
-            "ia_assistente"
-          ],
-          "pai": null,
-          "nota": null,
-          "tarefas": [
-            {
-              "chave": "ia_regras",
-              "rotulo": "Importar, activar e eliminar ficheiros de regras",
-              "sensivel": false
-            },
-            {
-              "chave": "ia_lancar",
-              "rotulo": "Calcular com as regras e ler documentos com o agente (a gravação no diário exige a tarefa de lançamentos)",
-              "sensivel": true
-            }
-          ]
-        },
-        {
           "id": "lancamentos",
           "nome": "Lançamentos (diários)",
           "vistas": [
@@ -2814,6 +2793,27 @@
               "chave": "notificacoes_centro_gerir",
               "rotulo": "Marcar como lidas e gerir notificações e alertas",
               "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "ia_assistente",
+          "nome": "Assistente IA (lançamento assistido)",
+          "vistas": [
+            "ia_assistente"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "ia_regras",
+              "rotulo": "Importar, activar e eliminar ficheiros de regras",
+              "sensivel": false
+            },
+            {
+              "chave": "ia_lancar",
+              "rotulo": "Calcular com as regras e ler documentos com o agente (a gravação no diário exige a tarefa de lançamentos)",
+              "sensivel": true
             }
           ]
         }

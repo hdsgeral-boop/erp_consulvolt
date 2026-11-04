@@ -45,7 +45,7 @@ import {
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /**
- * Contabilidade › Assistente IA (lançamento assistido) — ecrã `ia_assistente` da Versão Actual (js/ia_regras_ficheiro.js).
+ * Sistema › Configurações › Assistente IA (lançamento assistido) — ecrã `ia_assistente` da Versão Actual (js/ia_regras_ficheiro.js).
  *
  * Cada regra é um ficheiro JSON com as contas, as fórmulas e as validações. Os dois motores usam o mesmo ficheiro e o mesmo
  * cálculo, feito no SERVIDOR: o motor interno pede os valores num formulário gerado pela regra; a IA externa lê-os do
