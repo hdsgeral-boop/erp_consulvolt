@@ -535,7 +535,7 @@
     "No fim do dia, feche a sessão (Z)."
    ],
    "dicas": [
-    "Terminais de hotelaria e lavandaria têm fluxos próprios (quartos/estadias, ordens de serviço)."
+    "Terminais de hotelaria têm fluxo próprio (quartos/estadias). Nos terminais de lavandaria a frente de caixa mostra «Nova ordem de serviço» e «Ordens e levantamentos» na mesma sessão de caixa."
    ]
   },
   "pos_relatorios": {
@@ -589,10 +589,10 @@
    "titulo": "Lavandaria",
    "serve": "Registar ordens, acompanhar estados e emitir documentos.",
    "passos": [
-    "Crie a ordem: cliente, peças, serviços e estado à entrada.",
+    "Crie a ordem: cliente (pesquisa por nome ou NIF, ou «Novo cliente»), peças, serviços, cor, tecido e estado à entrada de cada peça.",
     "Aprove o orçamento, se existir.",
     "Altere o estado à medida que o trabalho avança (individual ou em massa).",
-    "Entregue e emita o documento."
+    "Ao registar, indique o valor a receber agora (o Consumidor Final paga o adiantamento mínimo); o talão e as etiquetas imprimem-se a seguir.","Entregue e emita o documento."
    ],
    "dicas": [
     "Na lista de ordens pode filtrar por terminal e alterar estados ou aprovar/recusar orçamentos em massa.",
@@ -906,7 +906,7 @@
    "titulo": "Geral / Backup",
    "serve": "Preferências gerais, exportação e importação da base de dados.",
    "passos": [
-    "Faça cópias de segurança regulares com \"Exportar\"."
+    "Faça cópias de segurança regulares com \"Exportar\".","O super-administrador define o nome e o logótipo do sistema (mostrados na entrada e no menu) em \"Identidade do sistema\"."
    ],
    "dicas": [
     "Guarde a cópia de segurança fora do computador."
@@ -947,7 +947,7 @@
    "titulo": "Utilizadores",
    "serve": "Contas de acesso ao sistema.",
    "passos": [
-    "Crie o utilizador, atribua um perfil e marque as empresas autorizadas."
+    "Crie o utilizador, atribua um perfil e marque as empresas autorizadas. O nome de utilizador é sugerido a partir do nome completo.","A palavra-passe provisória é gerada pelo sistema e enviada por email; o utilizador troca-a no primeiro acesso.","Se o nome de utilizador era de uma conta eliminada, o sistema oferece reactivá-la."
    ],
    "dicas": [
     "O que o utilizador vê e faz vem do perfil. As alterações ao perfil aplicam-se ao actualizar a página ou no próximo início de sessão."
