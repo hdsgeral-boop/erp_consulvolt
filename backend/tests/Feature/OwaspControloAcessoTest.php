@@ -18,6 +18,7 @@ final class OwaspControloAcessoTest extends TestCase
 {
     /** Rotas sem permissão de ecrã por desenho (dados do próprio utilizador ou da sessão). "MÉTODO uri" => motivo */
     private const SEM_PERMISSAO_POR_DESENHO = [
+        'GET api/ia/estado' => 'estado do assistente IA: sem ia_chat_view devolve ativo:false (alimenta o botão flutuante)',
         'GET api/sistema/menu' => 'menu já filtrado pelas permissões do utilizador',
         'GET api/sistema/identidade' => 'identidade da empresa activa (cabeçalho dos documentos impressos)',
         'GET api/sistema/moedas' => 'dados de referência dos formulários',

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
 use App\Http\Controllers\Api\Plataforma\CupoesController;
 use App\Http\Controllers\Api\Plataforma\DashboardSuporteController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
+use App\Http\Controllers\Api\Plataforma\IAPlataformaController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
 use App\Http\Controllers\Api\Plataforma\MonitorizacaoController;
 use App\Http\Controllers\Api\Plataforma\NotaInternaSuporteController;
@@ -89,6 +90,18 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::put('administradores/{administrador}', 'atualizar')->whereNumber('administrador')->name('administradores.atualizar');
         Route::post('administradores/{administrador}/palavra-passe', 'reporPalavraPasse')->whereNumber('administrador')->name('administradores.palavra_passe');
         Route::delete('administradores/{administrador}', 'eliminar')->whereNumber('administrador')->name('administradores.eliminar');
+    });
+
+    // IA da plataforma (Bloco B): chaves dos fornecedores (cifradas, nunca devolvidas), atribuição por cliente e consumo
+    Route::controller(IAPlataformaController::class)->prefix('ia')->name('ia.')->group(function () {
+        Route::get('fornecedores', 'fornecedores')->name('fornecedores.index');
+        Route::put('fornecedores/{fornecedor}', 'gravarFornecedor')->where('fornecedor', 'anthropic|openai|gemini')->name('fornecedores.gravar');
+        Route::post('fornecedores/{fornecedor}/modelos', 'modelos')->where('fornecedor', 'anthropic|openai|gemini')->middleware('throttle:10,1')->name('fornecedores.modelos');
+        Route::post('fornecedores/{fornecedor}/testar', 'testar')->where('fornecedor', 'anthropic|openai|gemini')->middleware('throttle:10,1')->name('fornecedores.testar');
+        Route::get('atribuicoes', 'atribuicoes')->name('atribuicoes.index');
+        Route::put('atribuicoes/{cliente}', 'atribuir')->whereNumber('cliente')->name('atribuicoes.gravar');
+        Route::delete('atribuicoes/{cliente}', 'removerAtribuicao')->whereNumber('cliente')->name('atribuicoes.remover');
+        Route::get('consumo', 'consumo')->name('consumo');
     });
 
     Route::controller(AgentesSuporteController::class)->group(function () {

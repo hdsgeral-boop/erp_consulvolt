@@ -51,6 +51,8 @@ return [
         'externo_por_minuto' => (int) env('ERP_API_EXTERNO_POR_MINUTO', 6),
         // Importações de folhas e ZIP de recibos — limitador «pesado».
         'pesado_por_minuto' => (int) env('ERP_API_PESADO_POR_MINUTO', 30),
+        'ia_por_minuto' => (int) env('ERP_API_IA_POR_MINUTO', 20),             // assistente IA: envios por utilizador e minuto
+        'ia_cliente_por_minuto' => (int) env('ERP_API_IA_CLIENTE_POR_MINUTO', 120),   // e por cliente (soma dos utilizadores)
     ],
 
     'password' => [

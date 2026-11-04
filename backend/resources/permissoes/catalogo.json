@@ -35,6 +35,22 @@
           "pai": null,
           "nota": "Cada separador também exige a consulta do módulo de origem.",
           "tarefas": []
+        },
+        {
+          "id": "ia_chat",
+          "nome": "Assistente IA (conversa)",
+          "vistas": [
+            "ia_chat"
+          ],
+          "pai": null,
+          "nota": "Conversa com o assistente: consulta dados com as permissões de cada ecrã e propõe operações que o utilizador confirma. Exige que a plataforma tenha atribuído a IA ao cliente.",
+          "tarefas": [
+            {
+              "chave": "ia_chat_regras",
+              "rotulo": "Definir as regras da IA do cliente (instruções aplicadas a todas as conversas)",
+              "sensivel": true
+            }
+          ]
         }
       ]
     },
@@ -2659,6 +2675,22 @@
           ]
         },
         {
+          "id": "plataforma_ia",
+          "nome": "Plataforma: Inteligência artificial",
+          "vistas": [
+            "plataforma_ia"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "plataforma_ia_gerir",
+              "rotulo": "Configurar fornecedores de IA (chaves), atribuir a clientes, quotas e ver o consumo",
+              "sensivel": true
+            }
+          ]
+        },
+        {
           "id": "config_plano",
           "nome": "Plano de contas",
           "vistas": [
@@ -3026,7 +3058,8 @@
         "ad_editar": true,
         "ad_contabilizar": true,
         "ia_regras": true,
-        "ia_lancar": true
+        "ia_lancar": true,
+        "ia_chat_view": true
       }
     },
     {
@@ -3059,7 +3092,8 @@
         "teso_conf_registar": true,
         "teso_carta_emitir": true,
         "teso_carta_modelo": true,
-        "pos_prestar": true
+        "pos_prestar": true,
+        "ia_chat_view": true
       }
     },
     {
@@ -3212,7 +3246,8 @@
         "vendas_recibos": true,
         "crm_converter": true,
         "vendas_alterar_preco": true,
-        "vendas_series_view": true
+        "vendas_series_view": true,
+        "ia_chat_view": true
       }
     },
     {
@@ -3260,7 +3295,8 @@
         "compras_fact_registar": true,
         "compras_forn_gerir": true,
         "compras_gerar_pedidos": true,
-        "compras_contratos_gerir": true
+        "compras_contratos_gerir": true,
+        "ia_chat_view": true
       }
     },
     {
@@ -3414,7 +3450,8 @@
         "config_empresas_view": true,
         "config_plano_view": true,
         "config_moedas_view": true,
-        "config_logs_view": true
+        "config_logs_view": true,
+        "ia_chat_view": true
       }
     },
     {
@@ -3554,7 +3591,9 @@
         "orc_aprovar_excesso": true,
         "est_ver_salarios": true,
         "rh_aval_bonus_aprovar": true,
-        "mt_aprovar": true
+        "mt_aprovar": true,
+        "ia_chat_view": true,
+        "ia_chat_regras": true
       }
     },
     {
@@ -3582,7 +3621,8 @@
         "orc_hierarquia": true,
         "orc_contributo": true,
         "orc_previsoes_edit": true,
-        "orc_cenarios_edit": true
+        "orc_cenarios_edit": true,
+        "ia_chat_view": true
       }
     },
     {

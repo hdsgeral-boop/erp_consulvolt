@@ -194,6 +194,11 @@ class AppServiceProvider extends ServiceProvider
         // operações pesadas (importações de folhas, ZIP de recibos) têm limites próprios, abaixo do geral.
         $quem = fn (Request $request) => (string) ($request->user()?->getKey() ?: $request->ip());
         RateLimiter::for('externo', fn (Request $request) => Limit::perMinute((int) config('erp.api.externo_por_minuto', 6))->by('externo|'.$quem($request)));
+        // Assistente IA (chat): cada envio pode fazer vários pedidos pagos ao fornecedor — limite por utilizador e, em conjunto, por cliente
+        RateLimiter::for('ia-chat', fn (Request $request) => [
+            Limit::perMinute((int) config('erp.api.ia_por_minuto', 20))->by('ia|u|'.$quem($request)),
+            Limit::perMinute((int) config('erp.api.ia_cliente_por_minuto', 120))->by('ia|t|'.($request->user()?->tenant_id ?? $request->ip())),
+        ]);
         RateLimiter::for('pesado', fn (Request $request) => Limit::perMinute((int) config('erp.api.pesado_por_minuto', 30))->by('pesado|'.$quem($request)));
     }
 }
