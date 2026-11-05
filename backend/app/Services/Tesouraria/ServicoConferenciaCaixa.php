@@ -94,7 +94,7 @@ final class ServicoConferenciaCaixa
                         ['codigo_conta' => $sobra ? $contra : $c->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor, 'nota_demonstracao_id' => $sobra ? null : $this->config->notaDisponibilidades()]]])->first()->numero_lan;
             }
             $c->update(['estado' => 'FINALIZADO', 'total_sistema' => $sistema, 'diferenca' => $diferenca, 'referencia_lancamento' => $numero,
-                'conta_regularizacao' => $contra]);
+                'conta_regularizacao' => $contra, 'nome_conta_regularizacao' => $contra ? $this->plano->contaDeMovimento($contra)['descricao'] : null]);
 
             return $c;
         });
@@ -140,7 +140,7 @@ final class ServicoConferenciaCaixa
             if ($c->referencia_lancamento && LancamentoContabil::query()->where('numero_lan', $c->referencia_lancamento)->whereNull('estornado_por_id')->exists()) {
                 $this->lancamentos->estornar($this->localizador->localizar($c->referencia_lancamento, ''), $motivo);
             }
-            $c->update(['estado' => 'RASCUNHO', 'referencia_lancamento' => null, 'conta_regularizacao' => null, 'nome_gerente' => null, 'assinado_gerente_em' => null]);
+            $c->update(['estado' => 'RASCUNHO', 'referencia_lancamento' => null, 'conta_regularizacao' => null, 'nome_conta_regularizacao' => null, 'nome_gerente' => null, 'assinado_gerente_em' => null]);
 
             return $c;
         });

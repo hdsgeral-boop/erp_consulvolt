@@ -35,6 +35,8 @@ export function pedidoConferencia(c: ConferenciaCaixa) {
           ['Saldo externo', c.saldo_externo ? `${formatarKz(c.saldo_externo)} Kz` : '—'],
           ['Operador', c.nome_operador ?? '—'],
           ['Regularização', c.referencia_lancamento ?? '—'],
+          ['Conta de regularização', c.conta_regularizacao ? `${c.conta_regularizacao}${c.nome_conta_regularizacao ? ` — ${c.nome_conta_regularizacao}` : ''}` : '—'],
+          ['Registado por', c.registado_por ?? '—'],
         ],
         3,
       ) +
@@ -170,6 +172,7 @@ export default function Conferencia() {
         { titulo: 'Saldo sistema (Kz)', valor: (c) => c.total_sistema, formato: 'moeda' },
         { titulo: 'Diferença (Kz)', valor: (c) => c.diferenca, formato: 'moeda', somar: true },
         { titulo: 'Estado', valor: (c) => (c.estado === 'FINALIZADO' ? 'Finalizado' : 'Rascunho') },
+        { titulo: 'Regularização', valor: (c) => (c.referencia_lancamento ? `${c.referencia_lancamento}${c.conta_regularizacao ? ` (${c.conta_regularizacao})` : ''}` : '') },
         { titulo: 'Gerente', valor: (c) => (c.nome_gerente ? `${c.nome_gerente} · ${formatarDataHora(c.assinado_gerente_em)}` : '') },
       ],
       linhas: lista.data ?? [],
@@ -289,6 +292,12 @@ export default function Conferencia() {
             title: 'Diferença', dataIndex: 'diferenca', align: 'right',
             render: (v: string, c) => (c.estado !== 'FINALIZADO' && !paraCentimos(v) ? '—'
               : <strong style={{ color: leituraDiferenca(v).cor, whiteSpace: 'nowrap' }}>{paraCentimos(v) >= 0 ? '+' : ''}{formatarKz(v)}</strong>),
+          },
+          {
+            title: 'Regularização', key: 'regularizacao', responsive: ['lg'],
+            render: (_, c) => (c.referencia_lancamento
+              ? <><code style={{ fontSize: 11 }}>{c.referencia_lancamento}</code>{c.conta_regularizacao && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{c.conta_regularizacao}{c.nome_conta_regularizacao ? ` — ${c.nome_conta_regularizacao}` : ''}</Typography.Text>}</>
+              : '—'),
           },
           {
             title: 'Estado', dataIndex: 'estado',

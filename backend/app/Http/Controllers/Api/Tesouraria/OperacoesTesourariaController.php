@@ -212,7 +212,9 @@ final class OperacoesTesourariaController extends Controller
             'terceiro_id' => ['nullable', 'integer', $daEmpresa('terceiros')], 'numero_documento' => ['nullable', 'string', 'max:100'], 'referencia' => ['nullable', 'string', 'max:100'],
             'venda_id' => ['nullable', 'integer', $daEmpresa('vendas')], 'fatura_compra_id' => ['nullable', 'integer', $daEmpresa('faturas_compra')],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
-            'nota_demonstracao_id' => ['nullable', 'integer'], 'nota_fluxo_caixa_id' => ['nullable', 'integer']]);
+            'nota_demonstracao_id' => ['nullable', 'integer'], 'nota_fluxo_caixa_id' => ['nullable', 'integer'],
+            // ligação ao documento de suporte (digitalização/ERP externo), como nos documentos de tesouraria
+            'url_documento' => ['nullable', 'string', 'max:150', 'url:http,https']], [], ['url_documento' => 'URL do documento']);
         // As notas (DEMO/fluxo) gravam-se na mesma transacção, logo a seguir ao movimento (A-11: o ServicoCaixa ainda não as recebe).
         DB::transaction(function () use ($id, $d) {
             $m = $this->caixa->registarMovimento(SessaoCaixa::query()->findOrFail($id), $d);

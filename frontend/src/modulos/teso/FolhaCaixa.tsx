@@ -20,6 +20,7 @@ import { ModalLiquidarFacturas } from './caixa/ModalLiquidarFacturas';
 import { ModalClassificarMovimentos } from './caixa/ModalClassificarMovimentos';
 import type { ModoLiquidacao } from './caixaLiquidacao';
 import type { MovimentoCaixa, ProdutoDespesa, SessaoCaixa } from './api';
+import { urlSegura } from './colunasLegado';
 import { SeletorContaFinanceira } from './comum';
 import { accoesSessao, sessaoAbertaRecente, valorComMoeda } from './regras';
 import { eContaCaixa, PREFIXOS_CAIXA } from './ronda3';
@@ -360,6 +361,8 @@ function useCamposMovimento(activo: boolean): CampoFormulario[] {
       converter: (t) => (SO_DIGITOS.test(t.trim()) ? Number(t.trim()) : undefined) },
     { nome: 'numero_documento', rotulo: 'N.º documento', largura: 130, maxLength: 100, emLinhas: 'opcional', seccao: 'Terceiro e documento', aliases: ['Nº Doc.', 'Documento'] },
     { nome: 'referencia', rotulo: 'Referência', largura: 130, maxLength: 100, emLinhas: 'opcional', seccao: 'Terceiro e documento' },
+    { nome: 'url_documento', rotulo: 'URL do documento', largura: 200, maxLength: 150, emLinhas: 'opcional', seccao: 'Terceiro e documento', aliases: ['Documento externo', 'URL'],
+      validar: (v) => (typeof v === 'string' && v.trim() && !urlSegura(v) ? 'O URL tem de começar por http:// ou https://.' : null) },
     { nome: 'unidade_negocio_id', rotulo: 'Unidade de negócio', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['UN'],
       opcoes: (un.data ?? []).map((x) => ({ value: x.id, label: `${x.codigo ? `${x.codigo} — ` : ''}${x.nome}` })) },
     { nome: 'centro_custo_id', rotulo: 'Centro de custo', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['CC'], opcoes: opcoesAux(cc.data) },
@@ -378,6 +381,7 @@ interface ValoresMovimento {
   terceiro_id?: number;
   numero_documento?: string;
   referencia?: string;
+  url_documento?: string;
   centro_custo_id?: number;
   unidade_negocio_id?: number;
   nota_demonstracao_id?: number;
@@ -527,6 +531,10 @@ function DetalheSessao() {
             },
             { title: 'Nº Doc.', dataIndex: 'numero_documento', responsive: ['sm'] },
             { title: 'Referência', dataIndex: 'referencia', responsive: ['md'], render: (v: string | null) => v ?? '—' },
+            {
+              title: 'Documento', dataIndex: 'url_documento', responsive: ['lg'], valorImpressao: (m) => urlSegura(m.url_documento) ?? '',
+              render: (v: string | null) => { const u = urlSegura(v); return u ? <a href={u} target="_blank" rel="noopener noreferrer"><IconeFa nome="external-link-alt" /> Ver Doc.</a> : '—'; },
+            },
             { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260, responsive: ['md'] },
             { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, m) => m.terceiro?.nome?.trim() ?? (m.terceiro_id ? `#${m.terceiro_id}` : '—'), valorImpressao: (m) => m.terceiro?.nome?.trim() ?? '' },
             { title: 'UN', dataIndex: 'unidade_negocio_id', responsive: ['lg'], render: (v: number | null) => (v ? unidades.get(v) ?? `#${v}` : '—') },
@@ -629,6 +637,11 @@ function DetalheSessao() {
               <Col xs={24} sm={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} /></Form.Item></Col>
               <Col xs={24} sm={6}><Form.Item name="numero_documento" label="N.º documento"><Input maxLength={100} /></Form.Item></Col>
               <Col xs={24} sm={6}><Form.Item name="referencia" label="Referência"><Input maxLength={100} /></Form.Item></Col>
+              <Col xs={24}>
+                <Form.Item name="url_documento" label="URL do documento (digitalização / sistema externo)" rules={[{ type: 'url', message: 'Indique um URL válido (http:// ou https://).' }]}>
+                  <Input maxLength={150} placeholder="https://…" />
+                </Form.Item>
+              </Col>
             </Row>
           </SeccaoFormulario>
           <SeccaoFormulario titulo="Classificação (UN, CC e notas)" recolhida>

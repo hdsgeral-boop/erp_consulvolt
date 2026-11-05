@@ -238,6 +238,8 @@ export interface MovimentoCaixa {
   nota_fluxo_caixa_id?: number | null;
   venda_id?: number | null;
   fatura_compra_id?: number | null;
+  /** ligação ao documento de suporte (http/https) */
+  url_documento?: string | null;
 }
 
 export interface SessaoCaixa {
@@ -285,6 +287,7 @@ export interface ConferenciaCaixa {
   estado: EstadoConferencia;
   referencia_lancamento: string | null;
   conta_regularizacao: string | null;
+  nome_conta_regularizacao?: string | null;
   nome_gerente: string | null;
   assinado_gerente_em: string | null;
 }

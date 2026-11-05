@@ -107,7 +107,7 @@ final class ServicoCaixa
                 'conta_credito' => $rec ? $d['conta_contrapartida'] : $sessao->codigo_conta, 'descricao' => $d['descricao'], 'valor' => $valor,
                 'produto_id' => $d['produto_id'] ?? null, 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null,
                 'tipo_origem' => ($d['venda_id'] ?? null) || ($d['fatura_compra_id'] ?? null) ? 'CONTABILIDADE' : 'MANUAL', 'contabilizado' => false,
-                'codigo_moeda' => 'AOA', 'valor_kz' => $valor, 'venda_id' => $d['venda_id'] ?? null, 'fatura_compra_id' => $d['fatura_compra_id'] ?? null,
+                'codigo_moeda' => 'AOA', 'valor_kz' => $valor, 'url_documento' => ($u = trim((string) ($d['url_documento'] ?? ''))) !== '' ? mb_substr($u, 0, 150) : null, 'venda_id' => $d['venda_id'] ?? null, 'fatura_compra_id' => $d['fatura_compra_id'] ?? null,
             ]);
         });
     }
@@ -164,7 +164,7 @@ final class ServicoCaixa
                 $linhas = [];
                 foreach ($grupo as $m) {
                     $comum = ['valor' => $m->valor, 'descricao' => mb_substr((string) $m->descricao, 0, 1000), 'terceiro_id' => $m->terceiro_id,
-                        'unidade_negocio_id' => $m->unidade_negocio_id, 'centro_custo_id' => $m->centro_custo_id];
+                        'unidade_negocio_id' => $m->unidade_negocio_id, 'centro_custo_id' => $m->centro_custo_id, 'url_documento' => $m->url_documento];
                     $linhas[] = ['codigo_conta' => $m->conta_debito, 'tipo_dc' => 'D', 'numero_documento' => $m->tipo === 'PAG' ? $m->numero_documento : null]
                         + $notas($m, (string) $m->conta_debito) + $comum;
                     $linhas[] = ['codigo_conta' => $m->conta_credito, 'tipo_dc' => 'C', 'numero_documento' => $m->tipo === 'REC' ? $m->numero_documento : null]

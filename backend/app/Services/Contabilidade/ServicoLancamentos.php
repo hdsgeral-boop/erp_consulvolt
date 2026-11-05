@@ -93,6 +93,8 @@ final class ServicoLancamentos
                     // moeda do documento (linhas de clientes/fornecedores/bancos em moeda estrangeira): permite o saldo em moeda
                     'codigo_moeda' => $l['codigo_moeda'] ?? null, 'valor_moeda' => isset($l['valor_moeda']) ? $this->dinheiro($l['valor_moeda']) : null,
                     'taxa_cambio' => $l['taxa_cambio'] ?? null,
+                    // ligação ao documento de suporte (só http/https; vem da Tesouraria/importações)
+                    'url_documento' => isset($l['url_documento']) && preg_match('#^https?://[^\s<>"\']+$#i', (string) $l['url_documento']) ? mb_substr((string) $l['url_documento'], 0, 150) : null,
                 ]));
             }
 
