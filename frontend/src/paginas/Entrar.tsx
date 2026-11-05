@@ -1,3 +1,4 @@
+import { podeConsolaPlataforma } from '@/sessao/areas';
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
@@ -60,7 +61,7 @@ export function Entrar() {
       // só este login explícito (a seguir a um logout) cai na consola da plataforma; trocar de empresa a meio da
       // sessão (LayoutPrincipal) nunca mais passa por aqui — fica sempre dentro do ERP (Destino em App.tsx). Quem
       // entra pelo Portal nunca sai dele, nem um super-administrador (ADR-071: o Portal é o único destino possível).
-      if (u.papel === 'SUPER_ADMINISTRADOR' && !portal) navegar('/admin');
+      if (u.papel === 'SUPER_ADMINISTRADOR' && podeConsolaPlataforma(u) && !portal) navegar('/admin');
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível entrar.');
     } finally {

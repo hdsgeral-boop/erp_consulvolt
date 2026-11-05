@@ -7,6 +7,7 @@ import { http, obter } from '@/api/cliente';
 import { LogotipoDoSistema } from '@/componentes/LogotipoSistema';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
+import { podeBackofficeSuporte, podeConsolaPlataforma } from '@/sessao/areas';
 
 /**
  * Login único do backoffice (plataforma + suporte): só autentica Super Administradores e Agentes de Suporte.
@@ -27,9 +28,9 @@ export function PlataformaLogin() {
   const precisaCriarAdmin = inicial.data?.precisa_criar_admin === true && criado === null;
 
   // Se já tem sessão aberta com acesso ao backoffice, encaminha directo para a sua área
-  if (utilizador?.papel === 'SUPER_ADMINISTRADOR') {
+  if (podeConsolaPlataforma(utilizador)) {
     navigate('/admin', { replace: true });
-  } else if (utilizador?.papel === 'AGENTE_SUPORTE') {
+  } else if (utilizador?.papel === 'AGENTE_SUPORTE' && podeBackofficeSuporte(utilizador)) {
     navigate('/suporte', { replace: true });
   }
 
@@ -38,9 +39,9 @@ export function PlataformaLogin() {
     setAEntrar(true);
     try {
       const u = await entrar(v.nome_utilizador, v.palavra_passe);
-      if (u.papel === 'SUPER_ADMINISTRADOR') {
+      if (podeConsolaPlataforma(u)) {
         navigate('/admin', { replace: true });
-      } else if (u.papel === 'AGENTE_SUPORTE') {
+      } else if (u.papel === 'AGENTE_SUPORTE' && podeBackofficeSuporte(u)) {
         navigate('/suporte', { replace: true });
       } else {
         await sair('Acesso não permitido. Esta área é reservada à administração da plataforma e à equipa de suporte — entre com a sua conta normal.');

@@ -49,6 +49,7 @@ import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
 import { useModoMenu } from './modoMenu';
 import { podeVerAssistente } from '@/componentes/assistente/permissao';
+import { podeConsolaPlataforma } from '@/sessao/areas';
 import './telaNocturna.css';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
@@ -440,7 +441,7 @@ function Estrutura() {
     ...(podeBI ? [{ key: 'powerbi', icon: <ApiOutlined />, label: 'Power BI (feed OData)', onClick: () => setPainel('powerbi') }] : []),
     // Super Administrador: o login já não força a consola da plataforma (vai direto à escolha de empresa/ERP), por
     // isso precisa deste link para lá chegar quando quiser (simétrico ao «Entrar no ERP» de LayoutPlataforma).
-    ...(superAdmin || utilizador?.papel === 'OPERADOR_PLATAFORMA' ? [{ key: 'consola-plataforma', icon: <AuditOutlined />, label: 'Consola da Plataforma', onClick: () => navegar('/admin') }] : []),
+    ...(podeConsolaPlataforma(utilizador) ? [{ key: 'consola-plataforma', icon: <AuditOutlined />, label: 'Consola da Plataforma', onClick: () => navegar('/admin') }] : []),
     { key: 'tour', icon: <CompassOutlined />, label: 'Repetir tutorial', onClick: reiniciarTourBoasVindas },
     { type: 'divider' as const },
     { key: 'sair', icon: <LogoutOutlined />, label: 'Terminar sessão', onClick: () => void sair() },

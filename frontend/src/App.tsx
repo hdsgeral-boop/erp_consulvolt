@@ -2,6 +2,7 @@ import { message, Spin } from 'antd';
 import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { podeBackofficeSuporte, podeConsolaPlataforma } from '@/sessao/areas';
 import { LayoutPrincipal } from '@/layout/LayoutPrincipal';
 import { Entrar } from '@/paginas/Entrar';
 import { EscolherEmpresa } from '@/paginas/EscolherEmpresa';
@@ -66,10 +67,12 @@ const A_CARREGAR = <Spin size="large" style={{ display: 'block', marginTop: '40v
  */
 export function App() {
   const { estado, empresa, utilizador } = useSessao();
-  const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
-  const agenteSuporte = utilizador?.papel === 'AGENTE_SUPORTE';
+  // da plataforma (tenant 1) e não só «papel Super Admin»: o de um cliente não entra na consola (o servidor responderia 403 a tudo)
+  const superAdmin = podeConsolaPlataforma(utilizador) && utilizador?.papel === 'SUPER_ADMINISTRADOR';
+  const suporteSuper = podeBackofficeSuporte(utilizador) && utilizador?.papel === 'SUPER_ADMINISTRADOR';
+  const agenteSuporte = utilizador?.papel === 'AGENTE_SUPORTE' && podeBackofficeSuporte(utilizador);
   // operador do back-office: entra na consola, onde o menu só mostra o que o servidor lhe permite (ExigirPlataforma + chaves do perfil)
-  const operadorPlataforma = utilizador?.papel === 'OPERADOR_PLATAFORMA';
+  const operadorPlataforma = utilizador?.papel === 'OPERADOR_PLATAFORMA' && podeConsolaPlataforma(utilizador);
 
   if (estado === 'a_carregar') {
     return A_CARREGAR;
@@ -137,7 +140,7 @@ export function App() {
           {/* Portal de Administração da Plataforma SaaS */}
           <Route
             path="admin/login"
-            element={superAdmin ? <Navigate to="/admin" replace /> : agenteSuporte ? <Navigate to="/suporte" replace /> : <PlataformaLogin />}
+            element={superAdmin || operadorPlataforma ? <Navigate to="/admin" replace /> : agenteSuporte ? <Navigate to="/suporte" replace /> : <PlataformaLogin />}
           />
           <Route
             path="admin"
@@ -171,14 +174,14 @@ export function App() {
           {/* Backoffice de suporte, isolado da plataforma (ADR-076): agente de suporte ou super-administrador */}
           <Route
             path="suporte/login"
-            element={superAdmin || agenteSuporte ? <Navigate to="/suporte" replace /> : <SuporteLogin />}
+            element={suporteSuper || agenteSuporte ? <Navigate to="/suporte" replace /> : <SuporteLogin />}
           />
           <Route
             path="suporte"
             element={
               estado === 'anonimo' ? (
                 <Navigate to="/suporte/login" replace />
-              ) : superAdmin || agenteSuporte ? (
+              ) : suporteSuper || agenteSuporte ? (
                 <LayoutSuporte />
               ) : (
                 <Navigate to="/app" replace />

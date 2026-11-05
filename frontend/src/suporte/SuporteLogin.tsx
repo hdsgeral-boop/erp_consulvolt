@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
+import { podeBackofficeSuporte } from '@/sessao/areas';
 
-const ELEGIVEL = (papel: string | null | undefined) => papel === 'AGENTE_SUPORTE' || papel === 'SUPER_ADMINISTRADOR';
+const ELEGIVEL = podeBackofficeSuporte;
 
 /**
  * Login dedicado ao backoffice de suporte (ADR-076) — só agentes de suporte e super-administradores. Um utilizador
@@ -19,7 +20,7 @@ export function SuporteLogin() {
   const [aEntrar, setAEntrar] = useState(false);
 
   useEffect(() => {
-    if (ELEGIVEL(utilizador?.papel)) navigate('/suporte', { replace: true });
+    if (ELEGIVEL(utilizador)) navigate('/suporte', { replace: true });
   }, [utilizador, navigate]);
 
   const submeter = async (v: { nome_utilizador: string; palavra_passe: string }) => {
@@ -27,7 +28,7 @@ export function SuporteLogin() {
     setAEntrar(true);
     try {
       const u = await entrar(v.nome_utilizador, v.palavra_passe);
-      if (!ELEGIVEL(u.papel)) {
+      if (!ELEGIVEL(u)) {
         await sair('Este acesso é reservado à equipa de suporte da plataforma. Entre pela página normal do ERP.');
         return;
       }

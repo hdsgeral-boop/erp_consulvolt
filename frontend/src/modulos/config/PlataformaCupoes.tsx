@@ -28,7 +28,8 @@ export default function PlataformaCupoes() {
   const [form] = Form.useForm();
 
   const { data: cupoes, isLoading } = useQuery({ queryKey: CHAVE, queryFn: () => obter<Cupom[]>('/plataforma/cupoes') });
-  const { data: planos } = useQuery({ queryKey: ['licenca', 'planos-todos'], queryFn: () => obter<PlanoOpcao[]>('/licenca/planos', { todos: 1 }) });
+  const { data: planos } = useQuery({ queryKey: ['plataforma', 'planos-opcoes'], queryFn: async () => (await obter<{ planos: PlanoOpcao[] }>('/plataforma/planos')).planos });
+  // (a consola não tem empresa activa: /licenca/planos é da empresa e respondia 422 EMPRESA_NAO_INDICADA — a lista de planos vem da plataforma)
   const refrescar = () => qc.invalidateQueries({ queryKey: CHAVE });
 
   const gravar = useMutation({
