@@ -113,19 +113,19 @@ export function App() {
         <Routes>
           <Route
             path="/"
-            element={estado === 'anonimo' ? <LandingPage /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+            element={estado === 'anonimo' ? <LandingPage /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} consola={superAdmin || operadorPlataforma} />}
           />
           <Route
             path="registar"
-            element={estado === 'anonimo' ? <RegistarEmpresa /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+            element={estado === 'anonimo' ? <RegistarEmpresa /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} consola={superAdmin || operadorPlataforma} />}
           />
           <Route
             path="entrar"
-            element={estado === 'anonimo' ? <Entrar /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+            element={estado === 'anonimo' ? <Entrar /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} consola={superAdmin || operadorPlataforma} />}
           />
           <Route
             path="recuperar-password"
-            element={estado === 'anonimo' ? <RecuperarPassword /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} />}
+            element={estado === 'anonimo' ? <RecuperarPassword /> : <Destino empresa={!!empresa} agenteSuporte={agenteSuporte} consola={superAdmin || operadorPlataforma} />}
           />
           <Route
             path="portal/*"
@@ -233,11 +233,13 @@ export function App() {
   );
 }
 
-// Super Administrador: fora do login explícito (Entrar.tsx, que já o manda para /admin), cai na escolha/ERP como
-// qualquer utilizador — trocar de empresa (LayoutPrincipal) ou recarregar a página nunca força a consola da
-// plataforma; chega lá pelo link «Consola da Plataforma» no menu do utilizador quando quiser.
-function Destino({ empresa, agenteSuporte }: { empresa: boolean; agenteSuporte: boolean }) {
-  return <Navigate to={agenteSuporte ? '/suporte' : empresa ? '/inicio' : '/app'} replace />;
+// Destino de quem já tem sessão em /, /entrar, /registar e /recuperar-password: o administrador da plataforma (super
+// administrador do tenant da plataforma, operador do back-office e a conta root) cai na Consola da Plataforma (/admin),
+// o agente de suporte no seu backoffice e os restantes na escolha de empresa/ERP. Decidir aqui (e não só no `navegar`
+// do Entrar.tsx) evita a corrida em que o /entrar reencaminhava para /app antes de o login chegar a /admin. Trocar de
+// empresa ou recarregar /app, /inicio ou /m/... nunca força a consola; a consola abre ERP por «Entrar no ERP».
+function Destino({ empresa, agenteSuporte, consola }: { empresa: boolean; agenteSuporte: boolean; consola: boolean }) {
+  return <Navigate to={agenteSuporte ? '/suporte' : consola ? '/admin' : empresa ? '/inicio' : '/app'} replace />;
 }
 
 /**

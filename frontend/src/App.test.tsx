@@ -110,4 +110,37 @@ describe('App — voltar ao início ao terminar sessão', () => {
     expect(await screen.findByText('Layout ERP')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/inicio');
   });
+
+  it('depois do login, a conta root e os administradores da plataforma vão para a Consola (/admin), não para a escolha de empresa', async () => {
+    for (const u of [
+      { papel: 'SUPER_ADMINISTRADOR', conta_root: true },
+      { papel: 'SUPER_ADMINISTRADOR', area_plataforma: true },
+      { papel: 'OPERADOR_PLATAFORMA', area_plataforma: true },
+    ]) {
+      sessao = { estado: 'autenticado', empresa: null, utilizador: u as never };
+      for (const entrada of ['/entrar', '/']) {
+        irPara(entrada);
+        const { unmount } = render(<App />);
+        expect(await screen.findByText('Layout Plataforma')).toBeInTheDocument();
+        expect(screen.queryByText('Escolher empresa')).toBeNull();
+        expect(window.location.pathname).toBe('/admin');
+        unmount();
+      }
+    }
+  });
+
+  it('o super-administrador de um cliente (sem área da plataforma) continua no ERP depois do login', async () => {
+    sessao = { estado: 'autenticado', empresa: null, utilizador: { papel: 'SUPER_ADMINISTRADOR', area_plataforma: false } as never };
+    irPara('/entrar');
+    render(<App />);
+    expect(await screen.findByText('Escolher empresa')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/app');
+  });
+
+  it('/app continua a mostrar a escolha de empresa à conta root (é por «Entrar no ERP» que se chega lá)', async () => {
+    sessao = { estado: 'autenticado', empresa: null, utilizador: { papel: 'SUPER_ADMINISTRADOR', conta_root: true } as never };
+    irPara('/app');
+    render(<App />);
+    expect(await screen.findByText('Escolher empresa')).toBeInTheDocument();
+  });
 });
