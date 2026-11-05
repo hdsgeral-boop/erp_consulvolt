@@ -52,13 +52,8 @@ body,
     -webkit-overflow-scrolling: touch !important;
   }
 
-  .ant-table {
-    min-width: 580px;
-  }
-
   /* Modais ocupam tela cheia confortável em smartphones */
   .ant-modal {
-    max-width: calc(100vw - 16px) !important;
     margin: 8px auto !important;
     top: 8px !important;
   }

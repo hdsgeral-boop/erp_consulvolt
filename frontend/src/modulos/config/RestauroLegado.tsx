@@ -3,7 +3,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { enviar, obter } from '@/api/cliente';
+import { enviar, obterAutomatico } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos';
 import { formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
@@ -103,7 +103,7 @@ export function RestauroLegado() {
   const cliente = useQueryClient();
   const consulta = useQuery({
     queryKey: CHAVE,
-    queryFn: () => obter<Resposta>('/sistema/restauros-legado'),
+    queryFn: () => obterAutomatico<Resposta>('/sistema/restauros-legado'),
     retry: false,
     refetchInterval: (q) => ((q.state.data?.pedidos ?? []).some((p) => p.estado === 'SIMULANDO' || p.estado === 'EM_EXECUCAO') ? 5000 : false),
   });

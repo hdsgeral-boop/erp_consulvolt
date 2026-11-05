@@ -1,7 +1,7 @@
 import { Button, Card, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
 import { LaptopOutlined, StopOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { enviar, obter } from '@/api/cliente';
+import { enviar, obterAutomatico } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora } from '@/utilitarios/formatacao';
@@ -21,7 +21,7 @@ const CHAVE = ['plataforma', 'sessoes'];
 /** Plataforma SaaS — sessões activas (plataforma_sessoes): tokens válidos de todos os clientes, com revogação. */
 export default function PlataformaSessoes() {
   const qc = useQueryClient();
-  const lista = useQuery({ queryKey: CHAVE, queryFn: () => obter<Sessao[]>('/plataforma/sessoes'), refetchInterval: 30_000 });
+  const lista = useQuery({ queryKey: CHAVE, queryFn: () => obterAutomatico<Sessao[]>('/plataforma/sessoes'), refetchInterval: 30_000 });
   const revogar = useMutation({
     mutationFn: (id: number) => enviar('delete', `/plataforma/sessoes/${id}`),
     onSuccess: () => {

@@ -2,7 +2,7 @@ import { Button, Card, Empty, Form, Input, InputNumber, Modal, Popconfirm, Space
 import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined, ShopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { enviar, obter } from '@/api/cliente';
+import { enviar, obterAutomatico } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { larguraModal } from '@/componentes/responsivo';
@@ -14,7 +14,7 @@ import { dadosMesa, estadoMesa, type MesaPOS } from './mesas';
 const CAMPOS_MESA: CampoFormulario[] = [{ nome: 'nome', rotulo: 'Nome da mesa', obrigatorio: true, largura: 260, maxLength: 60, aliases: ['Mesa', 'Nome'], placeholder: 'Ex.: Mesa 9' }];
 
 export function useMesas(terminal: number, activo = true) {
-  return useQuery({ queryKey: ['pos', 'mesas', terminal], queryFn: () => obter<MesaPOS[]>(`/pos/terminais/${terminal}/mesas`), enabled: activo, refetchInterval: 30_000 });
+  return useQuery({ queryKey: ['pos', 'mesas', terminal], queryFn: () => obterAutomatico<MesaPOS[]>(`/pos/terminais/${terminal}/mesas`), enabled: activo, refetchInterval: 30_000 });
 }
 
 /**

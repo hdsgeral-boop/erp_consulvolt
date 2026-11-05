@@ -1,7 +1,7 @@
 import { Spin } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { obter } from '@/api/cliente';
+import { obterAutomatico } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Quarto } from '../hotelaria/tipos';
@@ -10,7 +10,7 @@ import { useCoresPos } from '../comum/cores';
 
 /** Mapa de quartos com a ocupação (GET /pos/hotelaria/quartos), partilhado pela frente de caixa e pelo ecrã da hotelaria. */
 export function useQuartos(terminalId: number | undefined, activo = true) {
-  return useQuery({ queryKey: ['pos', 'hotelaria', 'quartos', terminalId], queryFn: () => obter<Quarto[]>('/pos/hotelaria/quartos', { terminal_pos_id: terminalId }), enabled: activo, refetchInterval: 60_000 });
+  return useQuery({ queryKey: ['pos', 'hotelaria', 'quartos', terminalId], queryFn: () => obterAutomatico<Quarto[]>('/pos/hotelaria/quartos', { terminal_pos_id: terminalId }), enabled: activo, refetchInterval: 60_000 });
 }
 
 const corPrimaria = '#2563eb';

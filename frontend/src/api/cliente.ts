@@ -98,6 +98,18 @@ export async function obter<T>(url: string, params?: Record<string, unknown>, co
   return r.data.dados;
 }
 
+/**
+ * Cabeçalho que marca um pedido como AUTOMÁTICO (polling, heartbeat, actualização em segundo plano): o servidor não o conta
+ * como actividade do utilizador, por isso NÃO renova a inactividade de 15 min (ADR-085; backend PedidoAutomatico, só em GET).
+ * Use `obterAutomatico` em todo o `refetchInterval`/temporizador; um pedido provocado por um clique usa `obter`.
+ */
+export const CABECALHO_AUTOMATICO = { 'X-Erp-Automatico': '1' } as const;
+
+/** GET marcado como automático (ver CABECALHO_AUTOMATICO): para consultas periódicas que não são acção do utilizador. */
+export function obterAutomatico<T>(url: string, params?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> {
+  return obter<T>(url, params, { ...config, headers: { ...config?.headers, ...CABECALHO_AUTOMATICO } });
+}
+
 export async function obterPagina<T>(url: string, params?: Record<string, unknown>): Promise<Pagina<T>> {
   const r = await http.get<Envelope<T[]>>(url, { params: limpar(params) });
   return {

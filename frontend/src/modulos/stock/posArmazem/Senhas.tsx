@@ -1,7 +1,7 @@
 import { Button, Skeleton } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { obterAutomatico } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -50,7 +50,7 @@ export function Senhas({ armazem }: { armazem: number }) {
 
   const estado = useQuery({
     queryKey: ['logistica', 'pos-armazem', 'senhas', armazem],
-    queryFn: () => obter<EstadoSenhas>('/pos/armazem/senhas', { armazem_id: armazem }),
+    queryFn: () => obterAutomatico<EstadoSenhas>('/pos/armazem/senhas', { armazem_id: armazem }),
     refetchInterval: INTERVALO_MONITOR,
     refetchIntervalInBackground: true,
   });

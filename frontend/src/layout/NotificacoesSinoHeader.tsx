@@ -28,7 +28,7 @@ import { useNavigate } from 'react-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/pt';
-import { enviar, obter } from '@/api/cliente';
+import { enviar, obterAutomatico } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 
 dayjs.extend(relativeTime);
@@ -67,7 +67,7 @@ export function NotificacoesSinoHeader() {
   // Consulta de notificações a cada 35 segundos
   const { data: resumo, refetch } = useQuery({
     queryKey: CHAVE_NOTIFICACOES,
-    queryFn: () => obter<ResumoNotificacoes>('/sistema/notificacoes'),
+    queryFn: () => obterAutomatico<ResumoNotificacoes>('/sistema/notificacoes'),
     refetchInterval: 35_000,
     staleTime: 20_000,
   });

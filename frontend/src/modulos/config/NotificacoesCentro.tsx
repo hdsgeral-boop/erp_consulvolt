@@ -35,7 +35,7 @@ import { useNavigate } from 'react-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/pt';
-import { enviar, obter } from '@/api/cliente';
+import { enviar, obterAutomatico } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 
@@ -123,7 +123,7 @@ export default function NotificacoesCentro() {
 
   const { data: dados, isLoading, refetch, isFetching } = useQuery({
     queryKey: CHAVE_CENTRO,
-    queryFn: () => obter<ResumoNotificacoesCompleto>('/sistema/notificacoes?limite=100'),
+    queryFn: () => obterAutomatico<ResumoNotificacoesCompleto>('/sistema/notificacoes?limite=100'),
     refetchInterval: 30_000,
   });
 

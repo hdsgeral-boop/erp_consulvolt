@@ -2,7 +2,7 @@ import { Alert, Button, Card, Flex, Modal, Select, Space, Table, Tag, Typography
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { obter } from '@/api/cliente';
+import { obterAutomatico } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { scrollTabela } from '@/componentes/responsivo';
@@ -78,7 +78,7 @@ const OPERACOES = ['registarFactura', 'obterEstado', 'consultarFactura', 'solici
 export function MonitorAgt() {
   const { pode } = useSessao();
   const navegar = useNavigate();
-  const consulta = useQuery({ queryKey: ['vendas', 'fe', 'monitor'], queryFn: () => obter<MonitorAgtDados>('/vendas/faturacao-eletronica/monitor'), refetchInterval: 60_000 });
+  const consulta = useQuery({ queryKey: ['vendas', 'fe', 'monitor'], queryFn: () => obterAutomatico<MonitorAgtDados>('/vendas/faturacao-eletronica/monitor'), refetchInterval: 60_000 });
   const accao = useAccao<{ id: number; numero_documento: string }>({ invalidar: [['vendas']], aoSucesso: (d) => d?.id && navegar(`/m/vendas/vendas_faturacao/${d.id}`) });
   const [filtro, setFiltro] = useState<{ operacao?: string; sucesso?: boolean }>({});
   const [detalhe, setDetalhe] = useState<Comunicacao | null>(null);

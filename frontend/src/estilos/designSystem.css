@@ -1,0 +1,154 @@
+/*
+ * Design system do ERP — tokens CSS e estados interactivos comuns (guia: docs/UI_DESIGN_SYSTEM.md).
+ *
+ * Não é um 2.º design system: os tokens espelham os de src/estilos/tema.ts (ConfigProvider do Ant Design 6, que continua a ser
+ * a fonte das cores e dos raios dos componentes; src/estilos/tema.test.tsx confirma que ambos coincidem). Aqui ficam apenas
+ * os valores que o CSS próprio precisa (espaçamentos, sombras, transições, tipografia fluida, foco) e os estados comuns
+ * (hover/active/focus-visible dos botões, cartões interactivos, redução de movimento).
+ * Pontos de quebra (as media queries não aceitam var()): xs < 576 · sm ≥ 576 · md ≥ 768 · lg ≥ 992 · xl ≥ 1200 · xxl ≥ 1600.
+ */
+:root {
+  /* cores (= tema.ts) */
+  --erp-cor-primaria: #2563eb;
+  --erp-cor-primaria-escura: #1d4ed8;
+  --erp-cor-primaria-clara: #eff6ff;
+  --erp-cor-sucesso: #059669;
+  --erp-cor-aviso: #f59e0b;
+  --erp-cor-perigo: #dc2626;
+  --erp-cor-texto: #1e293b;
+  --erp-cor-texto-secundario: #475569;
+  --erp-cor-texto-terciario: #64748b;
+  --erp-cor-limite: #cbd5e1;
+  --erp-cor-limite-suave: #e2e8f0;
+  --erp-cor-fundo: #f8fafc;
+  --erp-cor-menu: #121212;
+  --erp-cor-realce-menu: #3b82f6;
+  /* foco visível (contraste ≥ 3:1 sobre branco e sobre o menu escuro) */
+  --erp-foco: #1d4ed8;
+  --erp-foco-escuro: #93c5fd;
+
+  /* raios (= tema.ts: botões 2, componentes 4; 8 e 12 para painéis e sobreposições) */
+  --erp-raio-botao: 2px;
+  --erp-raio: 4px;
+  --erp-raio-painel: 8px;
+  --erp-raio-sobreposicao: 12px;
+
+  /* sombras discretas */
+  --erp-sombra-1: 0 1px 2px rgb(15 23 42 / 0.06);
+  --erp-sombra-2: 0 4px 12px rgb(15 23 42 / 0.1);
+  --erp-sombra-3: 0 12px 32px rgb(15 23 42 / 0.18);
+
+  /* espaçamentos (escala de 4 px) */
+  --erp-esp-1: 4px;
+  --erp-esp-2: 8px;
+  --erp-esp-3: 12px;
+  --erp-esp-4: 16px;
+  --erp-esp-5: 24px;
+  --erp-esp-6: 32px;
+
+  /* tipografia fluida (tema.ts fixa o tamanho base em 13 px; estes são os do conteúdo que escala com o ecrã) */
+  --erp-fs-pequeno: 12px;
+  --erp-fs-base: 13px;
+  --erp-fs-titulo-pagina: clamp(20px, 2.4vw, 26px);
+  --erp-fs-titulo-cartao: clamp(13px, 1.2vw, 14px);
+  --erp-fs-valor-kpi: clamp(20px, 2.2vw, 28px);
+
+  /* movimento: 150–220 ms; só transform/opacity/cor (reduzido a ~0 com prefers-reduced-motion) */
+  --erp-dur-rapida: 150ms;
+  --erp-dur: 180ms;
+  --erp-dur-lenta: 220ms;
+  --erp-ease: cubic-bezier(0.2, 0, 0, 1);
+  --erp-elevacao: translateY(-1px);
+  --erp-compressao: scale(0.98);
+}
+
+/* ── Foco visível comum (WCAG 2.4.7/2.4.11): só no teclado; os componentes com foco próprio (menus, campos) mantêm-no ── */
+:root :is(a[href], button, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--erp-foco);
+  outline-offset: 2px;
+}
+:root .ant-layout-sider :is(a[href], button, [role='menuitem']):focus-visible,
+:root .erp-barra-topo :is(a[href], button, [role='menuitem']):focus-visible,
+:root .erp-gaveta-menu :is(a[href], button, [role='menuitem']):focus-visible {
+  outline-color: var(--erp-foco-escuro);
+}
+
+/* ── Botões: hover (luminosidade/elevação 1 px), active (compressão), transição de 180 ms ──────────────── */
+:root .ant-btn:not(.ant-btn-link):not(.ant-btn-text) {
+  transition: transform var(--erp-dur) var(--erp-ease), box-shadow var(--erp-dur) var(--erp-ease),
+    background-color var(--erp-dur) var(--erp-ease), border-color var(--erp-dur) var(--erp-ease), color var(--erp-dur) var(--erp-ease);
+}
+@media (hover: hover) {
+  :root .ant-btn:not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-sm):not(:disabled):not(.ant-btn-disabled):not(.ant-btn-loading):hover {
+    transform: var(--erp-elevacao);
+    box-shadow: var(--erp-sombra-2);
+  }
+}
+:root .ant-btn:not(.ant-btn-link):not(.ant-btn-text):not(:disabled):not(.ant-btn-disabled):active {
+  transform: var(--erp-compressao);
+  box-shadow: none;
+}
+/* carregamento e desactivado: sem resposta ao rato, estado também indicado por forma (cursor), não só pela cor */
+:root .ant-btn.ant-btn-loading { cursor: progress; }
+:root .ant-btn:disabled,
+:root .ant-btn.ant-btn-disabled { cursor: not-allowed; }
+
+/* ── Cartões interactivos (só estes sobem no hover; os informativos ficam imóveis) ───────────────────── */
+:root .ant-card-hoverable,
+:root .erp-cartao-interactivo {
+  cursor: pointer;
+  transition: transform var(--erp-dur) var(--erp-ease), box-shadow var(--erp-dur) var(--erp-ease), border-color var(--erp-dur) var(--erp-ease);
+}
+@media (hover: hover) {
+  :root .ant-card-hoverable:hover,
+  :root .erp-cartao-interactivo:hover {
+    transform: translateY(-2px);
+    border-color: var(--erp-cor-primaria);
+    box-shadow: var(--erp-sombra-2);
+  }
+}
+:root .ant-card-hoverable:active,
+:root .erp-cartao-interactivo:active { transform: none; box-shadow: var(--erp-sombra-1); }
+:root .erp-cartao-interactivo:focus-within { border-color: var(--erp-cor-primaria); }
+
+/* ── Menus: item activo com indicação por forma (barra lateral) e transição suave ─────────────────────── */
+:root .ant-menu-item,
+:root .ant-menu-submenu-title {
+  transition: background-color var(--erp-dur) var(--erp-ease), color var(--erp-dur) var(--erp-ease);
+}
+:root .ant-menu-submenu-arrow { transition: transform var(--erp-dur) var(--erp-ease); }
+
+/* ── Gráficos: realce de barras/pontos ao passar (não altera o valor representado) ───────────────────── */
+@media (hover: hover) {
+  .grafico-raiz svg rect[aria-label]:hover,
+  .grafico-raiz svg path[aria-label]:hover { filter: brightness(1.08); }
+}
+
+/* ── Áreas clicáveis maiores em ecrãs tácteis (WCAG 2.5.8; ideal 44 px nos botões principais) ─────────── */
+@media (pointer: coarse) {
+  :root .ant-btn:not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-sm) { min-height: 40px; }
+  :root .ant-btn.ant-btn-icon-only:not(.ant-btn-sm) { min-width: 40px; }
+  :root .ant-pagination-item,
+  :root .ant-pagination-prev,
+  :root .ant-pagination-next { min-width: 32px; height: 32px; line-height: 30px; }
+}
+
+/* ── Redução de movimento (WCAG 2.3.3): sem transições nem animações; os indicadores de carregamento mantêm-se ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+  :root *:not([class*='ant-spin']):not(.anticon-spin):not(.anticon-loading),
+  :root *:not([class*='ant-spin']):not(.anticon-spin):not(.anticon-loading)::before,
+  :root *:not([class*='ant-spin']):not(.anticon-spin):not(.anticon-loading)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  :root .ant-btn:hover,
+  :root .ant-btn:active,
+  :root .ant-card-hoverable:hover,
+  :root .erp-cartao-interactivo:hover { transform: none !important; }
+}

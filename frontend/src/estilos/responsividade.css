@@ -112,11 +112,6 @@
   :root .ant-card .ant-card-extra { margin-inline-start: 0; width: 100%; }
 }
 
-/* ── Tabelas em telemóvel: sem o mínimo fixo de 580 px; a tabela mede o seu conteúdo e desloca dentro do contentor ── */
-@media (max-width: 767.98px) {
-  :root .ant-table-wrapper .ant-table { min-width: 0; }
-}
-
 /* ── Cabeçalho do ERP em 992–1199 px: o nome e o papel do utilizador cedem lugar ao nome da empresa ── */
 @media (min-width: 576px) and (max-width: 1199.98px) {
   :root .erp-cabecalho .erp-utilizador-textos { display: none; }

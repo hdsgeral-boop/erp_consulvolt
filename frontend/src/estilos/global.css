@@ -57,17 +57,7 @@ canvas {
   padding: 24px;
 }
 
-@media (max-width: 767.98px) {
-  .erp-conteudo {
-    padding: 16px;
-  }
-}
-
-@media (max-width: 575.98px) {
-  .erp-conteudo {
-    padding: 12px;
-  }
-}
+/* Preenchimento do conteúdo em ecrãs < 768 px: escalaResponsiva.css (uma só fonte). */
 
 /* Menu lateral fixo (desktop): acompanha o ecrã; a marca fica no topo e só a árvore (.erp-sider-rolagem) se desloca,
    para o friso de largura (.erp-menu-puxador, a cavalo do bordo direito) ficar sempre à vista (legado: .sidebar fixa,
@@ -178,10 +168,7 @@ canvas {
 }
 
 /* ── Modais e gavetas nunca maiores do que o ecrã ───────────────────────────── */
-:root .ant-modal {
-  max-width: calc(100vw - 32px);
-}
-
+/* Largura máxima do modal: responsividade.css (uma só fonte). */
 :root .ant-modal-footer {
   display: flex;
   flex-wrap: wrap;
