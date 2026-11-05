@@ -6,6 +6,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use ReflectionMethod;
@@ -153,7 +154,8 @@ final class EsquemaContratoTest extends TestCase
             if ($modelo->getTable() !== $t['tabela']) {
                 $falhas[] = "tabela errada em {$classe}";
             }
-            $colunas = array_column($t['colunas'], 'coluna');
+            // Colunas do contrato do legado + as acrescentadas por migrações posteriores (aditivas) que existem na base.
+            $colunas = array_unique(array_merge(array_column($t['colunas'], 'coluna'), Schema::getColumnListing($t['tabela'])));
             foreach (array_diff($modelo->getFillable(), $colunas) as $extra) {
                 $falhas[] = "fillable sem coluna: {$classe}::{$extra}";
             }
