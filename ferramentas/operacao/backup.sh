@@ -6,6 +6,7 @@
 #
 # Conteúdo de cada cópia (pasta <destino>/<classe>/<AAAAMMDD-HHMMSS>/):
 #   base_<nome>.dump         pg_dump formato custom, comprimido (restauro com restaurar.sh / pg_restore)
+#                            -> com ERP_COPIAS_CHAVE definida fica CIFRADO: base_<nome>.dump.enc (AES-256-CBC, PBKDF2 200 000) (ADR-085)
 #   base_<nome>.lista        índice do dump (pg_restore --list) — prova de que o ficheiro é legível
 #   storage.tar.gz           storage/app do Laravel (relatórios de migração, cópias por empresa, anexos)  [opcional]
 #   redis.tar.gz             dados do Redis (AOF/RDB: filas pendentes, locks)                               [opcional]
@@ -23,7 +24,9 @@
 #   ERP_COPIAS_STORAGE_DIR  pasta a arquivar como storage.tar.gz (vazio = não arquiva)
 #   ERP_COPIAS_REDIS_DIR    pasta de dados do Redis (vazio = não arquiva)
 #   ERP_COPIAS_SEGREDOS_DIR pasta das chaves AGT; só é arquivada se ERP_COPIAS_CHAVE estiver definida
-#   ERP_COPIAS_CHAVE        frase-passe da cifra dos segredos (guardar FORA do servidor, num cofre)
+#   ERP_COPIAS_CHAVE        frase-passe da cifra das cópias: dump, storage, redis e segredos (guardar FORA do servidor, num cofre;
+#                           sem ela perde-se a cópia). Sem esta variável a cópia fica em CLARO (aviso) — só aceitável com disco/volume
+#                           cifrado (RDS/EBS com KMS). ERP_COPIAS_CIFRAR=0 desliga a cifra mesmo com chave (não recomendado).
 #
 # Código de saída: 0 = cópia criada e verificada; ≠0 = falhou (nada fica na pasta final).
 # =============================================================================================
@@ -105,6 +108,24 @@ if [ -n "${ERP_COPIAS_SEGREDOS_DIR:-}" ] && [ -n "${ERP_COPIAS_CHAVE:-}" ]; then
     registar "segredos: cifrados e verificados"
 elif [ -n "${ERP_COPIAS_SEGREDOS_DIR:-}" ]; then
     registar "AVISO: ERP_COPIAS_SEGREDOS_DIR definido sem ERP_COPIAS_CHAVE — segredos NÃO incluídos (nunca em claro)."
+fi
+
+# --- 4b. Cifra das cópias (ADR-085) -------------------------------------------------------------
+# O dump tem TODOS os dados (palavras-passe com hash, dados pessoais, segredos já cifrados com a APP_KEY): protege-se em repouso.
+# O índice (.lista, só nomes de tabelas) e o manifesto ficam em claro de propósito. A chave nunca vai para o ficheiro.
+cifrar_ficheiro() {   # $1 = ficheiro em claro -> $1.enc (verificado) e o claro é apagado
+    openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:ERP_COPIAS_CHAVE -in "$1" -out "$1.enc"         || falhar "cifra de $(basename "$1") falhou."
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:ERP_COPIAS_CHAVE -in "$1.enc" | cmp -s - "$1"         || falhar "verificação da decifra de $(basename "$1") falhou."
+    rm -f "$1"
+}
+if [ -n "${ERP_COPIAS_CHAVE:-}" ] && [ "${ERP_COPIAS_CIFRAR:-1}" != "0" ]; then
+    command -v openssl >/dev/null || falhar "openssl não encontrado (necessário para cifrar as cópias)."
+    for f in "$DUMP" "$TEMP/storage.tar.gz" "$TEMP/redis.tar.gz"; do
+        [ -f "$f" ] && cifrar_ficheiro "$f"
+    done
+    registar "cópia CIFRADA (AES-256-CBC, PBKDF2 200 000 it.): dump e ficheiros verificados; os ficheiros em claro foram apagados"
+else
+    registar "AVISO: cópia SEM cifra (ERP_COPIAS_CHAVE não definida ou ERP_COPIAS_CIFRAR=0). Só aceitável com volume/disco cifrado."
 fi
 
 # --- 5. Manifesto e somas de verificação --------------------------------------------------------

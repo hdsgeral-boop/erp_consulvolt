@@ -95,7 +95,9 @@ return [
     |
     */
 
-    'cipher' => 'AES-256-CBC',
+    // AES-256-CBC (omissão: compatível com os segredos já gravados na produção) ou AES-256-GCM (AEAD). Mudar é seguro:
+    // o encrypter lê as duas cifras (EncrypterCompativel); depois correr `php artisan erp:seguranca:rodar-chave`.
+    'cipher' => env('APP_CIPHER', 'AES-256-CBC'),
 
     'key' => env('APP_KEY'),
 

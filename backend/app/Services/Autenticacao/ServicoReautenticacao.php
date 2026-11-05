@@ -7,7 +7,6 @@ use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoAuditoria;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Step-up (ADR-085): confirmação de identidade RECENTE exigida pelas operações críticas (middleware `mfa_recente`).
@@ -99,7 +98,7 @@ final class ServicoReautenticacao
     {
         $hashes = $u->mfa_codigos_recuperacao ?? [];
         foreach ($hashes as $indice => $hash) {
-            if (Hash::check($codigo, $hash)) {
+            if (password_verify($codigo, $hash)) {
                 unset($hashes[$indice]);
                 $u->forceFill(['mfa_codigos_recuperacao' => array_values($hashes)])->save();
 

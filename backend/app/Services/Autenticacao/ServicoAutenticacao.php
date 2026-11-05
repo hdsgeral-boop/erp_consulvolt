@@ -214,7 +214,9 @@ final class ServicoAutenticacao
     private function credencialValida(Utilizador $utilizador, string $palavraPasse): bool
     {
         if ($utilizador->palavra_passe !== null) {
-            return Hash::check($palavraPasse, $utilizador->palavra_passe);
+            // `Hash::check` com HASH_DRIVER=argon2id LANÇA excepção (500) perante um hash bcrypt antigo; `password_verify` lê
+            // qualquer algoritmo (bcrypt, argon2i/id) e o rehash transparente (`modernizarHash`) passa-o para o actual (ADR-085).
+            return password_verify($palavraPasse, $utilizador->palavra_passe);
         }
 
         if ($utilizador->temCredencialLegada()) {

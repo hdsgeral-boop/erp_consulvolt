@@ -61,7 +61,7 @@ final class SegredosGateway
         return $valor;
     }
 
-    /** base64 de um JSON com `iv`, `value` e `mac` (começa por `eyJ`) — a forma de `Crypt::encryptString`. */
+    /** base64 de um JSON com `iv`, `value` e `mac` (CBC) ou `tag` (GCM) (começa por `eyJ`) — a forma de `Crypt::encryptString`. */
     public static function pareceUmPayloadCifrado(string $valor): bool
     {
         if (! str_starts_with($valor, 'eyJ')) {
@@ -70,7 +70,7 @@ final class SegredosGateway
         $json = base64_decode($valor, true);
         $dados = $json === false ? null : json_decode($json, true);
 
-        return is_array($dados) && isset($dados['iv'], $dados['value'], $dados['mac']);
+        return is_array($dados) && isset($dados['iv'], $dados['value']) && (isset($dados['mac']) || isset($dados['tag']));
     }
 
     private static function decifrarPayload(string $payload): string

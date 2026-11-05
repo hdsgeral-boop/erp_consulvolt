@@ -49,10 +49,10 @@ echo "$BASE" | grep -Eq '^[a-z_][a-z0-9_]{0,62}$' || falhar "nome de base invál
 if [ -d "$ORIGEM" ]; then
     PASTA="$ORIGEM"
     DUMP=""
-    for f in "$PASTA"/base_*.dump; do
+    for f in "$PASTA"/base_*.dump "$PASTA"/base_*.dump.enc; do
         if [ -f "$f" ]; then DUMP="$f"; break; fi
     done
-    [ -n "$DUMP" ] || falhar "a pasta $PASTA não contém base_*.dump."
+    [ -n "$DUMP" ] || falhar "a pasta $PASTA não contém base_*.dump (ou .dump.enc)."
     if [ -f "$PASTA/SHA256SUMS" ]; then
         (cd "$PASTA" && sha256sum -c SHA256SUMS >/dev/null) || falhar "SHA256SUMS não confere: cópia corrompida."
         registar "somas SHA-256 conferidas"
@@ -64,7 +64,20 @@ else
     [ -f "$DUMP" ] || falhar "ficheiro não encontrado: $DUMP"
 fi
 LISTA=$(mktemp)
-trap 'rm -f "$LISTA"' EXIT
+CLARO=""
+trap 'rm -f "$LISTA" "$CLARO"' EXIT
+# Cópia cifrada (ADR-085): decifra para um ficheiro temporário (só o dono lê) com a frase-passe ERP_COPIAS_CHAVE
+case "$DUMP" in
+    *.enc)
+        [ -n "${ERP_COPIAS_CHAVE:-}" ] || falhar "a cópia está cifrada: defina ERP_COPIAS_CHAVE (a frase-passe guardada no cofre)."
+        command -v openssl >/dev/null || falhar "openssl não encontrado (necessário para decifrar a cópia)."
+        umask 077
+        CLARO=$(mktemp)
+        openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:ERP_COPIAS_CHAVE -in "$DUMP" -out "$CLARO"             || falhar "não foi possível decifrar $DUMP (frase-passe errada ou ficheiro corrompido)."
+        DUMP="$CLARO"
+        registar "dump decifrado para um ficheiro temporário"
+        ;;
+esac
 pg_restore --list "$DUMP" > "$LISTA" || falhar "pg_restore não consegue ler $DUMP."
 N_DADOS=$(grep -c ' TABLE DATA ' "$LISTA" || true)
 [ "${N_DADOS:-0}" -gt 0 ] || falhar "o dump não tem dados de tabelas."
@@ -75,7 +88,7 @@ EXISTE=$(psql -XAt -d postgres -c "select 1 from pg_database where datname = '$B
 [ -z "$EXISTE" ] || falhar "a base '$BASE' já existe. O restauro só cria bases novas (apague-a ou escolha outro nome)."
 
 if [ -n "$STORAGE_DESTINO" ]; then
-    [ -f "$PASTA/storage.tar.gz" ] || falhar "a cópia não tem storage.tar.gz."
+    [ -f "$PASTA/storage.tar.gz" ] || [ -f "$PASTA/storage.tar.gz.enc" ] || falhar "a cópia não tem storage.tar.gz (nem .enc)."
     mkdir -p "$STORAGE_DESTINO"
     [ -z "$(ls -A "$STORAGE_DESTINO")" ] || falhar "a pasta $STORAGE_DESTINO não está vazia."
 fi
@@ -95,7 +108,7 @@ fi
 INICIO=$(date +%s)
 CRIADA=0
 desfazer() {
-    rm -f "$LISTA"
+    rm -f "$LISTA" "$CLARO"
     if [ "$CRIADA" = "1" ]; then
         registar "a apagar a base parcial '$BASE'…"
         dropdb --if-exists "$BASE" || true
@@ -118,7 +131,12 @@ N_EMPRESAS=$(psql -XAt -d "$BASE" -c "select count(*) from empresas" 2>/dev/null
 CRIADA=0   # sucesso: já não se apaga
 
 if [ -n "$STORAGE_DESTINO" ]; then
-    tar -C "$STORAGE_DESTINO" -xzf "$PASTA/storage.tar.gz" || falhar "extracção do storage falhou."
+    if [ -f "$PASTA/storage.tar.gz.enc" ]; then
+        [ -n "${ERP_COPIAS_CHAVE:-}" ] || falhar "o storage está cifrado: defina ERP_COPIAS_CHAVE."
+        openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:ERP_COPIAS_CHAVE -in "$PASTA/storage.tar.gz.enc"             | tar -C "$STORAGE_DESTINO" -xz || falhar "decifra/extracção do storage falhou."
+    else
+        tar -C "$STORAGE_DESTINO" -xzf "$PASTA/storage.tar.gz" || falhar "extracção do storage falhou."
+    fi
     registar "storage extraído para $STORAGE_DESTINO"
 fi
 

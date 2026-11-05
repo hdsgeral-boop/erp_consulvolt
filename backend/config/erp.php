@@ -216,7 +216,7 @@ return [
         'comandos_de_manutencao' => [
             'erp:produtos:converter-contas-categorias', 'erp:migracao:corrigir-dados', 'erp:saft:documentos-importados',
             'erp:migrar-backup-legado', 'erp:migracao:pos-carga', 'erp:tesouraria:diferencas-cambio',
-            'erp:tesouraria:reconciliar-recibos', 'erp:e2e:preparar', 'erp:licencas:planos-iniciais',
+            'erp:tesouraria:reconciliar-recibos', 'erp:e2e:preparar', 'erp:licencas:planos-iniciais', 'erp:seguranca:rodar-chave',
         ],
     ],
 

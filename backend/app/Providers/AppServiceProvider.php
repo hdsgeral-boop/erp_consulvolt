@@ -11,6 +11,7 @@ use App\Services\Vendas\Agt\ClienteAgt;
 use App\Services\Vendas\Agt\ClienteAgtPorEmpresa;
 use App\Support\Autenticacao\CookiesSessao;
 use App\Support\Dados\OrdenacaoTexto;
+use App\Support\Seguranca\EncrypterCompativel;
 use App\Support\Seguranca\ValorSemFormulas;
 use App\Support\Tenancy\ContextoEmpresa;
 use App\Support\Tenancy\ContextoTenant;
@@ -18,6 +19,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -41,6 +43,10 @@ class AppServiceProvider extends ServiceProvider
         // Ligação à AGT (ADR-030; r4_agt): a da empresa activa, quando configurada; senão o driver do servidor
         // (directa, pelo serviço intermédio do legado, ou desligada — por omissão)
         $this->app->bind(ClienteAgt::class, fn ($app) => $app->make(ClienteAgtPorEmpresa::class));
+
+        // Segredos reversíveis (ADR-085): o encrypter lê também os payloads da outra cifra (CBC <-> GCM), para mudar
+        // `APP_CIPHER` sem deixar segredos gravados ilegíveis; `erp:seguranca:rodar-chave` recifra-os depois.
+        $this->app->extend('encrypter', fn ($encrypter) => $encrypter instanceof Encrypter && ! $encrypter instanceof EncrypterCompativel ? EncrypterCompativel::de($encrypter) : $encrypter);
     }
 
     public function boot(): void

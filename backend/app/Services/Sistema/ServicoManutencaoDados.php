@@ -10,7 +10,6 @@ use App\Models\Utilizador;
 use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Manutenção de dados com deliberação (js/manutencao.js; tabela pedidos_manutencao_equipamentos — ADR-021: apesar
@@ -292,7 +291,7 @@ final class ServicoManutencaoDados
         // verificações e palavra-passe FORA da transacção: a tentativa falhada fica na auditoria mesmo com a recusa
         $p = $this->expirarSeNecessario($id);
         $this->exigirDecisor($p, $actor);
-        if ($palavraPasse === '' || $actor->palavra_passe === null || ! Hash::check($palavraPasse, $actor->palavra_passe)) {
+        if ($palavraPasse === '' || $actor->palavra_passe === null || ! password_verify($palavraPasse, $actor->palavra_passe)) {
             $this->auditoria->registar('Manutenção de dados', 'Tentativa de aprovação falhada', "#{$p->id}: palavra-passe incorrecta de {$actor->nome_utilizador}.",
                 'pedidos_manutencao_equipamentos', $p->id);
             throw new ErroNegocio('Palavra-passe incorrecta.', 'PALAVRA_PASSE_INCORRECTA', 422);
