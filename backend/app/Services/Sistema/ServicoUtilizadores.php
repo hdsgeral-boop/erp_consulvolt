@@ -85,6 +85,19 @@ final class ServicoUtilizadores
     }
 
     /**
+     * Utilizador que o actor pode ver (404 fora do seu domínio) e GERIR quanto a sessões: afecta o acesso a todas as
+     * empresas do alvo, por isso aplica a mesma regra de repor palavra-passe/estado (exigirGerivel).
+     */
+    public function paraControloDeSessoes(int $id, Utilizador $actor): Utilizador
+    {
+        $this->obter($id, $actor);   // 404 se estiver fora das empresas que o actor administra
+        $alvo = Utilizador::query()->findOrFail($id);
+        $this->exigirGerivel($alvo, $actor);
+
+        return $alvo;
+    }
+
+    /**
      * @return array<string, mixed> dados públicos (sem hashes nem segredos); com $actor sem acesso total, as ligações
      *                              a empresas fora do seu domínio não são mostradas
      */

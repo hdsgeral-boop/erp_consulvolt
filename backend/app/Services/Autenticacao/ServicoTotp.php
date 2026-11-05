@@ -50,6 +50,29 @@ final class ServicoTotp
         return false;
     }
 
+    /**
+     * Como `verificar`, mas devolve o passo (contador) que coincidiu, ou null. Serve para tornar o código de USO ÚNICO:
+     * quem o recebe regista o passo já gasto (ServicoReautenticacao) e recusa a repetição dentro da janela
+     * (OWASP ASVS 2.8.4: um OTP não pode ser reutilizado).
+     */
+    public function passoValido(string $segredo, string $codigo, int $janela = 1): ?int
+    {
+        $codigo = trim($codigo);
+        if (! ctype_digit($codigo) || strlen($codigo) !== self::DIGITOS) {
+            return null;
+        }
+
+        $contadorAtual = intdiv(time(), self::PASSO_SEGUNDOS);
+        $achado = null;
+        for ($desvio = -$janela; $desvio <= $janela; $desvio++) {   // sem retorno antecipado: tempo independente do desvio
+            if (hash_equals($this->gerarCodigo($segredo, $contadorAtual + $desvio), $codigo)) {
+                $achado = $contadorAtual + $desvio;
+            }
+        }
+
+        return $achado;
+    }
+
     /** HOTP (RFC 4226 §5.3) para um contador dado — a mesma função usada para TOTP (RFC 6238 §4) com contador = floor(tempo/passo). */
     private function gerarCodigo(string $segredoBase32, int $contador): string
     {

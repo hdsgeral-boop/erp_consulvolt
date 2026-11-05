@@ -233,6 +233,76 @@ final class ServicoSessoes
         return $n;
     }
 
+    // ---- controlo por empresa (administrador) ----------------------------------------------------------------------
+
+    /**
+     * Sessões activas de UM utilizador (para o administrador que o gere). Mesmo formato de `listar`, com o nome do titular.
+     * A visibilidade do alvo é verificada por quem chama (ServicoUtilizadores::exigirGerivel).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listarDoUtilizador(Utilizador $alvo): array
+    {
+        return array_map(fn (array $l) => $l + ['utilizador_id' => $alvo->getKey(), 'nome_utilizador' => $alvo->nome_utilizador], $this->listar($alvo, null));
+    }
+
+    /**
+     * Sessões activas dos utilizadores da empresa (os ligados a ela por `utilizador_empresa` e os de acesso total) do
+     * tenant indicado — o controlo de sessões da empresa. O filtro por tenant é explícito (não depende só da RLS).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function daEmpresa(int $empresaId, int $tenantId): array
+    {
+        $idle = now()->subMinutes((int) config('erp.sessao.inatividade_minutos'));
+        $limiteAbsoluto = now()->subHours((int) config('erp.sessao.validade_horas'));
+
+        return DB::table('tokens_acesso as t')
+            ->join('utilizadores as u', fn ($j) => $j->on('u.id', '=', 't.portador_id')->where('t.portador_tipo', '=', (new Utilizador)->getMorphClass()))
+            ->where('u.tenant_id', $tenantId)
+            ->whereNull('u.eliminado_em')
+            ->where(fn ($q) => $q->where('u.acesso_todas_empresas', true)->orWhereExists(fn ($e) => $e->selectRaw('1')->from('utilizador_empresa as ue')
+                ->whereColumn('ue.utilizador_id', 'u.id')->where('ue.empresa_id', $empresaId)))
+            ->whereRaw("t.permissoes::jsonb @> '[\"*\"]'::jsonb")
+            ->where('t.criado_em', '>', $limiteAbsoluto)
+            ->where(fn ($q) => $q->where('t.ultimo_uso_em', '>', $idle)->orWhere(fn ($q2) => $q2->whereNull('t.ultimo_uso_em')->where('t.criado_em', '>', $idle)))
+            ->orderByDesc(DB::raw('COALESCE(t.ultimo_uso_em, t.criado_em)'))
+            ->limit(500)
+            ->get(['t.id', 't.rotulo', 't.endereco_ip', 't.criado_em', 't.ultimo_uso_em', 'u.id as utilizador_id', 'u.nome_utilizador'])
+            ->map(fn ($t) => [
+                'id' => (int) $t->id, 'utilizador_id' => (int) $t->utilizador_id, 'nome_utilizador' => $t->nome_utilizador,
+                'dispositivo' => $t->rotulo ?? 'Dispositivo desconhecido', 'ip_aproximado' => AgenteUtilizador::ipAproximado($t->endereco_ip),
+                'criada_em' => $t->criado_em, 'ultima_actividade_em' => $t->ultimo_uso_em ?? $t->criado_em,
+            ])->all();
+    }
+
+    /**
+     * Termina todas as sessões de um utilizador a pedido de um administrador (conta comprometida/perdida). Auditado.
+     * A visibilidade/gestão do alvo é verificada por quem chama.
+     */
+    public function terminarTodasDe(Utilizador $alvo, Utilizador $actor, string $motivo = ''): int
+    {
+        $n = (int) $alvo->tokens()->delete();
+        $this->auditoria->registar('Autenticação', 'Sessões terminadas por administrador',
+            "O administrador '{$actor->nome_utilizador}' terminou {$n} sessão(ões) de '{$alvo->nome_utilizador}'".($motivo !== '' ? " ({$motivo})." : '.'),
+            'utilizadores', $alvo->getKey(), utilizadorId: $actor->getKey(), nomeUtilizador: $actor->nome_utilizador);
+
+        return $n;
+    }
+
+    /** Termina UMA sessão (por id) de um utilizador que o administrador gere; false se não for desse utilizador. */
+    public function terminarDe(Utilizador $alvo, Utilizador $actor, int $sessaoId): bool
+    {
+        $n = $alvo->tokens()->whereKey($sessaoId)->delete();
+        if ($n > 0) {
+            $this->auditoria->registar('Autenticação', 'Sessão terminada por administrador',
+                "O administrador '{$actor->nome_utilizador}' terminou uma sessão de '{$alvo->nome_utilizador}'.",
+                'utilizadores', $alvo->getKey(), utilizadorId: $actor->getKey(), nomeUtilizador: $actor->nome_utilizador);
+        }
+
+        return $n > 0;
+    }
+
     public function expiraEm(): Carbon
     {
         return now()->addHours((int) config('erp.sessao.validade_horas'));

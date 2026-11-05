@@ -99,14 +99,19 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
         // «Gerir Dados Pessoais»: o próprio utilizador (sem empresa activa nem permissões do catálogo)
         Route::get('dados-pessoais', [DadosPessoaisController::class, 'show'])->name('dados_pessoais.show');
         Route::put('dados-pessoais', [DadosPessoaisController::class, 'update'])->name('dados_pessoais.update');
-        Route::put('palavra-passe', [DadosPessoaisController::class, 'palavraPasse'])->middleware('throttle:palavra-passe')->name('palavra_passe');
+        Route::put('palavra-passe', [DadosPessoaisController::class, 'palavraPasse'])->middleware(['throttle:palavra-passe', 'mfa_recente'])->name('palavra_passe');
+        // Step-up (ADR-085): confirma a identidade (código MFA ou palavra-passe) para as operações marcadas `mfa_recente`
+        Route::post('reautenticar', [MfaController::class, 'reautenticar'])->middleware('throttle:palavra-passe')->name('reautenticar');
+        // Logout global: termina TODAS as sessões do utilizador (incluindo esta) e limpa os cookies
+        Route::post('sair-de-todas', [AutenticacaoController::class, 'sairDeTodas'])->name('sair_de_todas');
 
         // MFA (Fase 4 da extensão SaaS): o próprio utilizador configura/desactiva o seu MFA; `verificar` é o 2.º
         // passo do login, autenticado só pelo token limitado 'mfa:pendente' que `entrar()` devolveu.
         Route::prefix('mfa')->name('mfa.')->controller(MfaController::class)->group(function () {
-            Route::post('iniciar', 'iniciarSetup')->name('iniciar');
+            // (re)configurar ou desactivar o MFA é crítico: exige autenticação recente (ADR-085, step-up)
+            Route::post('iniciar', 'iniciarSetup')->middleware('mfa_recente')->name('iniciar');
             Route::post('confirmar', 'confirmarSetup')->name('confirmar');
-            Route::post('desactivar', 'desactivar')->name('desactivar');
+            Route::post('desactivar', 'desactivar')->middleware('mfa_recente')->name('desactivar');
             Route::post('verificar', 'verificar')->middleware('throttle:entrar')->name('verificar');
         });
     });

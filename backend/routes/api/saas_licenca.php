@@ -12,8 +12,8 @@ Route::prefix('licenca')->name('licenca.')->group(function () {
     Route::controller(LicencaController::class)->group(function () {
         Route::get('estado', 'estado')->name('estado');
         Route::get('planos', 'planos')->name('planos');
-        Route::post('planos', 'criarPlano')->name('planos.criar');
-        Route::put('planos/{plano}', 'actualizarPlano')->whereNumber('plano')->name('planos.actualizar');
+        Route::post('planos', 'criarPlano')->middleware('mfa_recente')->name('planos.criar');
+        Route::put('planos/{plano}', 'actualizarPlano')->whereNumber('plano')->middleware('mfa_recente')->name('planos.actualizar');
         Route::get('dados-bancarios', 'dadosBancarios')->name('dados_bancarios');
         Route::get('subscricoes', 'subscricoes')->name('subscricoes');
         Route::post('renovacao', 'renovar')->name('renovacao');

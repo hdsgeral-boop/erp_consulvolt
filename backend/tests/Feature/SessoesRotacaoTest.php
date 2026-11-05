@@ -336,8 +336,8 @@ final class SessoesRotacaoTest extends TestCase
         $this->assertSame('strict', $token->getSameSite());
         $this->assertSame('/', $token->getPath());
         $this->assertNull($token->getDomain());
-        // validade alinhada com a expiração absoluta da sessão (12 h)
-        $this->assertEqualsWithDelta(now()->addHours(12)->getTimestamp(), $token->getExpiresTime(), 120);
+        // validade alinhada com a expiração absoluta da sessão (2 h, ADR-085)
+        $this->assertEqualsWithDelta(now()->addHours(2)->getTimestamp(), $token->getExpiresTime(), 120);
         $csrf = $r->getCookie('XSRF-TOKEN', false);
         $this->assertFalse($csrf->isHttpOnly());   // o único legível por JavaScript
         $this->assertSame('strict', $csrf->getSameSite());

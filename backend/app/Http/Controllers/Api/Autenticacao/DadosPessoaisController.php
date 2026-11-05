@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
  */
 final class DadosPessoaisController extends Controller
 {
-    public function __construct(private readonly ServicoDadosPessoais $servico) {}
+    public function __construct(private readonly ServicoDadosPessoais $servico, private readonly ServicoReautenticacao $reautenticacao) {}
 
     /** GET /api/autenticacao/dados-pessoais */
     public function show(Request $r): JsonResponse
@@ -31,6 +31,11 @@ final class DadosPessoaisController extends Controller
             'email' => ['nullable', 'email', 'max:150'],
         ], ['telefone.regex' => 'O telefone só pode ter algarismos, espaços e os sinais + ( ) - .']);
         $u = $this->servico->atualizar($r->user(), $d);
+        // Trocar o e-mail (canal de recuperação e de avisos) é crítico: exige autenticação recente (ADR-085)
+        $novoEmail = isset($d['email']) ? mb_strtolower(trim((string) $d['email'])) : null;
+        if ($novoEmail !== null && $novoEmail !== '' && $novoEmail !== mb_strtolower((string) $r->user()->email)) {
+            $this->reautenticacao->exigirRecente($r->user());
+        }
 
         return RespostaApi::sucesso($this->servico->obter($u), 'Dados pessoais gravados.');
     }

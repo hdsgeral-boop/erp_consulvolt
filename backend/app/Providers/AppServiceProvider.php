@@ -152,6 +152,12 @@ class AppServiceProvider extends ServiceProvider
                 return false;
             }
 
+            // Duração ABSOLUTA (ADR-085): conta desde a criação da sessão e a rotação do token (mesma linha) nunca a reinicia.
+            // Também limita as sessões emitidas antes de a validade passar a 2 h (o `expira_em` delas era maior).
+            if ($token->criado_em === null || $token->criado_em->lte(now()->subHours((int) config('erp.sessao.validade_horas')))) {
+                return false;
+            }
+
             $referencia = $token->ultimo_uso_em ?? $token->criado_em;
             if ($referencia === null || ! $referencia->gt(now()->subMinutes(config('erp.sessao.inatividade_minutos')))) {
                 return false;

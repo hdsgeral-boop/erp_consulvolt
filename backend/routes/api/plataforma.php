@@ -28,11 +28,11 @@ use App\Http\Controllers\Api\Plataforma\TransferenciasBancariasController;
 use App\Http\Controllers\Api\Sistema\GatewayPagamentoController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->group(function () {
+Route::prefix('plataforma')->name('plataforma.')->middleware(['plataforma', 'mfa_recente:,escrita'])->group(function () {
     Route::get('painel', [PainelController::class, 'dashboard'])->name('painel');
     Route::get('monitorizacao', [MonitorizacaoController::class, 'index'])->name('monitorizacao');
-    Route::get('relatorios/clientes.csv', [PainelController::class, 'relatorioClientes'])->name('relatorios.clientes');
-    Route::get('relatorios/empresas.csv', [PainelController::class, 'relatorioEmpresas'])->name('relatorios.empresas');
+    Route::get('relatorios/clientes.csv', [PainelController::class, 'relatorioClientes'])->middleware('mfa_recente')->name('relatorios.clientes');
+    Route::get('relatorios/empresas.csv', [PainelController::class, 'relatorioEmpresas'])->middleware('mfa_recente')->name('relatorios.empresas');
 
     Route::controller(ClientesController::class)->group(function () {
         Route::get('clientes', 'index')->name('clientes.index');

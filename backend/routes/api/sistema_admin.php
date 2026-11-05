@@ -18,10 +18,13 @@ use Illuminate\Support\Facades\Route;
 // substituir conta, manutenção de dados, cópias de segurança e migração de dados.
 
 Route::prefix('sistema')->name('sistema.')->group(function () {
-    Route::controller(UtilizadorController::class)->prefix('utilizadores')->name('utilizadores.')->group(function () {
+    Route::controller(UtilizadorController::class)->prefix('utilizadores')->name('utilizadores.')->middleware('mfa_recente:,escrita')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->middleware('throttle:pesado')->name('store');   // criar contas: limite por utilizador (auditoria 2026-11)
         Route::get('colaboradores', 'colaboradores')->name('colaboradores');
+        // Controlo de sessões (ADR-085): ver e terminar as sessões de um utilizador (bloquear conta comprometida)
+        Route::get('{utilizador}/sessoes', 'sessoes')->whereNumber('utilizador')->name('sessoes');
+        Route::delete('{utilizador}/sessoes', 'terminarSessoes')->whereNumber('utilizador')->name('sessoes.terminar');
         Route::get('{utilizador}', 'show')->whereNumber('utilizador')->name('show');
         Route::put('{utilizador}', 'update')->whereNumber('utilizador')->name('update');
         Route::delete('{utilizador}', 'destroy')->whereNumber('utilizador')->name('destroy');
@@ -29,7 +32,9 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
         Route::post('{utilizador}/palavra-passe', 'reporPalavraPasse')->whereNumber('utilizador')->middleware('throttle:pesado')->name('palavra_passe');
     });
 
-    Route::controller(PerfilController::class)->prefix('perfis')->name('perfis.')->group(function () {
+    Route::get('sessoes-empresa', [UtilizadorController::class, 'sessoesDaEmpresa'])->name('sessoes_empresa');
+
+    Route::controller(PerfilController::class)->prefix('perfis')->name('perfis.')->middleware('mfa_recente:,escrita')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
         Route::get('catalogo', 'catalogo')->name('catalogo');
@@ -43,7 +48,7 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
         Route::post('{perfil}/duplicar', 'duplicar')->whereNumber('perfil')->name('duplicar');
     });
 
-    Route::controller(EmpresaController::class)->group(function () {
+    Route::controller(EmpresaController::class)->middleware('mfa_recente:,escrita')->group(function () {
         Route::get('gestao-empresas', 'gestao')->name('gestao_empresas.index');
         Route::get('gestao-empresas/{empresa}', 'ficha')->whereNumber('empresa')->name('gestao_empresas.show');
         Route::post('empresas', 'store')->name('empresas.store');
@@ -94,7 +99,7 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
 
     Route::put('configuracoes/logotipo-login', [ConfiguracaoSistemaController::class, 'gravarLogotipoLogin'])->name('configuracoes.logotipo_login');
 
-    Route::controller(CopiaEmpresaController::class)->prefix('copias')->name('copias.')->group(function () {
+    Route::controller(CopiaEmpresaController::class)->prefix('copias')->name('copias.')->middleware('mfa_recente')->group(function () {
         Route::get('exportar', 'exportar')->middleware('licenca_exportacao')->name('exportar');
         Route::post('importar', 'importar')->name('importar');
         Route::post('clonar', 'clonar')->name('clonar');

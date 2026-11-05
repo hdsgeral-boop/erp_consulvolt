@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\Sistema;
 
+use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Mail\NovoUtilizadorMail;
 use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Services\Autenticacao\ServicoSessoes;
 use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -20,7 +22,7 @@ final class UtilizadorController extends Controller
 {
     private const VER = ['config_utilizadores_view', 'config_util_gerir'];
 
-    public function __construct(private readonly ServicoUtilizadores $utilizadores) {}
+    public function __construct(private readonly ServicoUtilizadores $utilizadores, private readonly ServicoSessoes $sessoes) {}
 
     public function index(Request $r): JsonResponse
     {
@@ -86,6 +88,51 @@ final class UtilizadorController extends Controller
         $this->utilizadores->eliminar(Utilizador::query()->findOrFail($utilizador), $r->user());
 
         return RespostaApi::sucesso(null, 'Utilizador eliminado.');
+    }
+
+    /** GET /api/sistema/sessoes-empresa — sessões activas dos utilizadores da empresa activa (controlo de sessões por empresa). */
+    public function sessoesDaEmpresa(Request $r, ContextoEmpresa $contexto): JsonResponse
+    {
+        $this->exigir(...self::VER);
+
+        return RespostaApi::sucesso($this->sessoes->daEmpresa($contexto->obrigatorio(), (int) $r->user()->tenant_id), 'Sessões obtidas com sucesso.');
+    }
+
+    /** GET /api/sistema/utilizadores/{utilizador}/sessoes */
+    public function sessoes(Request $r, int $utilizador): JsonResponse
+    {
+        $this->exigir(...self::VER);
+        $this->utilizadores->obter($utilizador, $r->user());   // 404 se fora do domínio do actor
+
+        return RespostaApi::sucesso($this->sessoes->listarDoUtilizador(Utilizador::query()->findOrFail($utilizador)), 'Sessões obtidas com sucesso.');
+    }
+
+    /**
+     * DELETE /api/sistema/utilizadores/{utilizador}/sessoes — termina todas as sessões do utilizador (conta comprometida ou
+     * perdida). Com `bloquear`, desactiva também a conta (nenhum novo acesso até um administrador a reactivar).
+     */
+    public function terminarSessoes(Request $r, int $utilizador): JsonResponse
+    {
+        $this->exigir('config_util_gerir');
+        $d = $r->validate(['bloquear' => ['nullable', 'boolean'], 'sessao_id' => ['nullable', 'integer', 'min:1']]);
+        $alvo = $this->utilizadores->paraControloDeSessoes($utilizador, $r->user());
+
+        if (isset($d['sessao_id'])) {
+            if (! $this->sessoes->terminarDe($alvo, $r->user(), (int) $d['sessao_id'])) {
+                throw new ErroNegocio('Sessão não encontrada.', 'SESSAO_NAO_ENCONTRADA', 404);
+            }
+
+            return RespostaApi::sucesso(['terminadas' => 1], 'Sessão terminada.');
+        }
+        if (($d['bloquear'] ?? false) && $alvo->getKey() !== $r->user()->getKey()) {
+            $this->utilizadores->definirEstado($alvo, false, $r->user());   // desactivar já revoga as sessões e audita
+            $this->sessoes->terminarTodasDe($alvo, $r->user(), 'conta bloqueada por suspeita de comprometimento');
+
+            return RespostaApi::sucesso(['bloqueada' => true], 'Conta bloqueada e sessões terminadas.');
+        }
+        $n = $this->sessoes->terminarTodasDe($alvo, $r->user());
+
+        return RespostaApi::sucesso(['terminadas' => $n], "{$n} sessão(ões) terminada(s).");
     }
 
     /** GET /api/sistema/utilizadores/colaboradores — colaboradores da empresa activa ligáveis a um utilizador. */

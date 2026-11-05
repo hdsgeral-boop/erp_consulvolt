@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Autenticacao;
 
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Models\TokenAcesso;
 use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Autenticacao\ServicoTotp;
 use App\Support\Api\RespostaApi;
@@ -24,6 +25,7 @@ final class MfaController extends Controller
         private readonly ServicoTotp $totp,
         private readonly ServicoAutenticacao $autenticacao,
     ) {}
+        private readonly ServicoReautenticacao $reautenticacao,
 
     /** POST /api/autenticacao/mfa/iniciar — gera um novo segredo (ainda inactivo) e o URI para o QR code. */
     public function iniciarSetup(Request $request): JsonResponse
@@ -92,7 +94,8 @@ final class MfaController extends Controller
         $d = $request->validate(['codigo' => ['required', 'string']]);
         $codigo = trim($d['codigo']);
 
-        $valido = $this->totp->verificar((string) $utilizador->mfa_segredo, $codigo) || $this->consumirCodigoRecuperacao($utilizador, $codigo);
+        // Código de uso único (ADR-085): o passo TOTP gasto no login não volta a servir (nem para reautenticar).
+        $valido = $this->reautenticacao->codigoValido($utilizador, $codigo);
         if (! $valido) {
             throw new ErroNegocio('Código inválido.', 'CODIGO_INVALIDO', 422);
         }
@@ -110,19 +113,22 @@ final class MfaController extends Controller
         ], 'Sessão iniciada com sucesso.'), $sessao['token'], $sessao['expira_em'], $dispositivo['id'], $request);
     }
 
-    /** Um código de recuperação só serve uma vez: se válido, é removido da lista antes de devolver true. */
-    private function consumirCodigoRecuperacao($utilizador, string $codigo): bool
+    /**
+     * POST /api/autenticacao/reautenticar — step-up (ADR-085): prova a identidade (código MFA se o MFA está activo, senão a
+     * palavra-passe actual) e marca ESTA sessão como autenticada de fresco; as operações críticas (`mfa_recente`) passam a
+     * aceitar durante `erp.sessao.stepup_minutos`. Limitado por utilizador (`reautenticar`).
+     */
+    public function reautenticar(Request $request): JsonResponse
     {
-        $hashes = $utilizador->mfa_codigos_recuperacao ?? [];
-        foreach ($hashes as $indice => $hash) {
-            if (Hash::check($codigo, $hash)) {
-                unset($hashes[$indice]);
-                $utilizador->forceFill(['mfa_codigos_recuperacao' => array_values($hashes)])->save();
-
-                return true;
-            }
+        $utilizador = $request->user();
+        $token = $utilizador->currentAccessToken();
+        if (! $token instanceof TokenAcesso || ! $token->can('*')) {
+            throw new ErroNegocio('Sem sessão completa para reautenticar.', 'SESSAO_INVALIDA', 403);
         }
 
         return false;
     }
 }
+        $d = $request->validate(['codigo' => ['nullable', 'string', 'max:32'], 'palavra_passe' => ['nullable', 'string', 'max:200']]);
+
+        $this->reautenticacao->confirmar($utilizador, $token, $d['codigo'] ?? null, $d['palavra_passe'] ?? null);

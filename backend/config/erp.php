@@ -30,8 +30,18 @@ return [
     'sessao' => [
         // Paridade com o legado (js/app_v2.js:704-723): logout automático após 15 minutos sem actividade.
         'inatividade_minutos' => (int) env('ERP_SESSAO_INATIVIDADE_MINUTOS', 15),
-        // Validade máxima absoluta de um token, independentemente da actividade.
-        'validade_horas' => (int) env('ERP_SESSAO_VALIDADE_HORAS', 12),
+        // Validade máxima ABSOLUTA da sessão (2 h), independentemente da actividade e SEM renovação: a rotação do token
+        // (RotacionarToken) muda o segredo na mesma linha e nunca o `expira_em`/`criado_em` (ADR-085).
+        'validade_horas' => (int) env('ERP_SESSAO_VALIDADE_HORAS', 2),
+        // Pedidos automáticos (polling, heartbeat, actualização em segundo plano) NÃO contam como actividade do utilizador:
+        // o frontend envia este cabeçalho (só GET/HEAD) e o servidor não renova `ultimo_uso_em` (ADR-085).
+        'cabecalho_automatico' => 'X-Erp-Automatico',
+        // Step-up (MFA/reautenticação recente) para operações críticas: janela, em minutos, em que a última autenticação
+        // forte (login, código MFA ou palavra-passe de reautenticação) ainda vale. Ver ExigirMfaRecente.
+        'stepup_minutos' => (int) env('ERP_SESSAO_STEPUP_MINUTOS', 15),
+        // Nomes de rota (prefixos) isentos nos grupos `mfa_recente:,escrita`: tickets de suporte e avaliação de perfis (POST sem gravar).
+        'stepup_isentas' => ['plataforma.suporte.', 'sistema.perfis.avaliar', 'sistema.empresa_ativa.'],
+        'stepup_ativo' => (bool) env('ERP_SESSAO_STEPUP_ATIVO', true),
         // Tentativas de login por minuto (por nome de utilizador + IP).
         'tentativas_por_minuto' => (int) env('ERP_SESSAO_TENTATIVAS_POR_MINUTO', 5),
         // Tentativas de login por minuto a partir do mesmo IP, com qualquer nome de utilizador (contra password spraying).

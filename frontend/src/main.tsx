@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/pt';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessaoProvider } from '@/sessao/SessaoContexto';
+import { PedidoReautenticacao } from '@/sessao/PedidoReautenticacao';
 import { limparChavesAntigas } from '@/sessao/armazenamento';
 import { idOpaco } from '@/sessao/chaveOpaca';
 import { App } from '@/App';
@@ -70,6 +71,7 @@ createRoot(document.getElementById('raiz')!).render(
             <App />
           </SessaoProvider>
         </QueryClientProvider>
+            <PedidoReautenticacao />
       </AntApp>
     </ConfigProvider>
   </StrictMode>,

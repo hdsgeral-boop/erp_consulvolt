@@ -195,6 +195,16 @@ final class ServicoAutenticacao
         $this->auditoria->registar('Autenticação', 'Sair', 'Sessão terminada.', 'utilizadores', $utilizador->getKey());
     }
 
+    /** Logout global (ADR-085): apaga todas as sessões (dispositivos) do utilizador; devolve quantas. */
+    public function sairDeTodas(Utilizador $utilizador): int
+    {
+        $n = $utilizador->tokens()->delete();
+        $this->auditoria->registar('Autenticação', 'Sair de todas as sessões', "Logout global ({$n} sessão(ões)).", 'utilizadores', $utilizador->getKey(),
+            utilizadorId: $utilizador->getKey(), nomeUtilizador: $utilizador->nome_utilizador);
+
+        return (int) $n;
+    }
+
     /** Confirma a palavra-passe actual do utilizador (hash moderno ou PBKDF2 do legado), sem iniciar sessão. */
     public function palavraPasseCorrecta(Utilizador $utilizador, string $palavraPasse): bool
     {

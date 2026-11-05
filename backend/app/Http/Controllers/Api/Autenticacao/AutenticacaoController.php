@@ -78,6 +78,14 @@ final class AutenticacaoController extends Controller
     }
 
     /** GET /api/autenticacao/eu */
+    /** POST /api/autenticacao/sair-de-todas — logout global: termina todas as sessões do utilizador, incluindo esta. */
+    public function sairDeTodas(Request $request): JsonResponse
+    {
+        $n = $this->autenticacao->sairDeTodas($request->user());
+
+        return CookiesSessao::limpar(RespostaApi::sucesso(['terminadas' => $n], 'Todas as sessões foram terminadas.'), $request);
+    }
+
     public function eu(Request $request): JsonResponse
     {
         return RespostaApi::sucesso($this->perfilSessao($request->user()) + [

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Autenticacao\ServicoSessoes;
+use App\Support\Autenticacao\PedidoAutomatico;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -35,7 +36,7 @@ class TokenAcesso extends PersonalAccessToken
 
     protected $fillable = [
         'nome', 'token', 'permissoes', 'expira_em', 'endereco_ip', 'agente_utilizador',
-        'dispositivo_id', 'rotulo', 'agente_assinatura', 'tokens_anteriores', 'rotacao_em', 'empresa_ativa_id',
+        'dispositivo_id', 'rotulo', 'agente_assinatura', 'tokens_anteriores', 'rotacao_em', 'empresa_ativa_id', 'reautenticado_em',
         // nomes usados por HasApiTokens::createToken()
         'name', 'abilities', 'expires_at',
     ];
@@ -47,6 +48,7 @@ class TokenAcesso extends PersonalAccessToken
         'ultimo_uso_em' => 'datetime',
         'expira_em' => 'datetime',
         'rotacao_em' => 'datetime',
+        'reautenticado_em' => 'datetime',
         'tokens_anteriores' => 'array',
     ];
 
@@ -112,7 +114,15 @@ class TokenAcesso extends PersonalAccessToken
 
     public function setAttribute($key, $value)
     {
-        return parent::setAttribute(self::ALIASES[$key] ?? $key, $value);
+        $coluna = self::ALIASES[$key] ?? $key;
+
+        // ADR-085: o Guard do Sanctum escreve `last_used_at` em TODOS os pedidos autenticados. Um pedido automático
+        // (polling/heartbeat, `X-Erp-Automatico: 1`) não é actividade do utilizador e não pode renovar a inactividade.
+        if ($coluna === 'ultimo_uso_em' && $this->exists && PedidoAutomatico::e(request())) {
+            return $this;
+        }
+
+        return parent::setAttribute($coluna, $value);
     }
 
     public function isFillable($key)

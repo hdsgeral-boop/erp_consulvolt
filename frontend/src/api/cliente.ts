@@ -2,6 +2,7 @@ import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { Modal } from 'antd';
 import { ErroApi, type Envelope, type Pagina } from './tipos';
 import { armazenamento } from '@/sessao/armazenamento';
+import { metodoDoErro, pedirReautenticacao } from '@/sessao/reautenticacao';
 
 /**
  * Cliente HTTP da API (/api). O token viaja num cookie HttpOnly (withCredentials; nunca acessível a JavaScript —
@@ -89,7 +90,17 @@ http.interceptors.response.use(
       corpo?.mensagem ??
       (estado === 0 ? 'Sem ligação ao servidor. Verifique a rede e tente novamente.' : `Erro inesperado (${estado}).`);
     if (corpo?.codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
-    return Promise.reject(new ErroApi(mensagem, estado, corpo?.codigo, corpo?.erros as Record<string, unknown> | undefined));
+    const erros = corpo?.erros as Record<string, unknown> | undefined;
+    // Step-up (ADR-085): operação crítica sem autenticação recente — pede o código/palavra-passe e repete o pedido UMA vez
+    const original = e.config as (AxiosRequestConfig & { _reautenticado?: boolean }) | undefined;
+    if (estado === 403 && corpo?.codigo === 'MFA_REQUERIDO' && original && !original._reautenticado && !original.url?.includes('autenticacao/reautenticar')) {
+      return pedirReautenticacao(metodoDoErro(erros)).then((confirmado) => {
+        if (!confirmado) return Promise.reject(new ErroApi(mensagem, estado, corpo?.codigo, erros));
+        original._reautenticado = true;
+        return http.request(original);
+      });
+    }
+    return Promise.reject(new ErroApi(mensagem, estado, corpo?.codigo, erros));
   },
 );
 
@@ -134,7 +145,7 @@ export interface Descarga {
  * um 401 termina a sessão e, quando o servidor responde erro, lê-se o envelope JSON que vem dentro do blob
  * (mensagem, código e detalhes) para lançar um ErroApi. O nome vem do Content-Disposition ou, na falta dele, de `nomeFicheiro`.
  */
-export async function descarregar(url: string, params: Record<string, unknown> | undefined, nomeFicheiro: string): Promise<Descarga> {
+export async function descarregar(url: string, params: Record<string, unknown> | undefined, nomeFicheiro: string, jaReautenticado = false): Promise<Descarga> {
   // validateStatus aceita tudo para o corpo (blob) do erro não se perder no interceptor;
   // sem resposta (rede), o interceptor já converte em ErroApi.
   const r = await http.get<Blob>(url, { params: limpar(params), responseType: 'blob', validateStatus: () => true });
@@ -152,6 +163,9 @@ export async function descarregar(url: string, params: Record<string, unknown> |
       /* corpo não é JSON */
     }
     if (codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
+    if (r.status === 403 && codigo === 'MFA_REQUERIDO' && !jaReautenticado && (await pedirReautenticacao(metodoDoErro(erros)))) {
+      return descarregar(url, params, nomeFicheiro, true);
+    }
     throw new ErroApi(mensagem, r.status, codigo, erros);
   }
   const cabecalhos: Record<string, string> = {};

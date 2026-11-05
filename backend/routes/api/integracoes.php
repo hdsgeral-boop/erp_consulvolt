@@ -30,7 +30,7 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
     });
 
     // Power BI: tokens de leitura do feed OData da empresa activa (config_backup)
-    Route::controller(TokensBIController::class)->prefix('bi/tokens')->name('bi.tokens.')->group(function () {
+    Route::controller(TokensBIController::class)->prefix('bi/tokens')->name('bi.tokens.')->middleware('mfa_recente:,escrita')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
         Route::post('{token}/revogar', 'revogar')->whereNumber('token')->name('revogar');
