@@ -158,7 +158,10 @@ export function NovaProposta() {
   };
 
   const submeter = async (v: ValoresProposta) => {
-    const documentos = propostasPorPedido(v.pedidos_compra_ids, v.linhas);
+    // As colunas da linha sem campo registado (pedido_compra_id, item_pedido_id, produto_id…) não vêm no `v.linhas` do
+    // onFinish (o antd só devolve os subcampos registados da lista): lê-se a lista completa guardada no formulário.
+    const linhasCompletas = (form.getFieldValue('linhas') as LinhaProposta[] | undefined) ?? v.linhas;
+    const documentos = propostasPorPedido(v.pedidos_compra_ids, linhasCompletas);
     if (!documentos.length) {
       void message.error('Indique a quantidade a propor em pelo menos um artigo.');
       return;
