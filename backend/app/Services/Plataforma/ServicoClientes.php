@@ -147,9 +147,9 @@ final class ServicoClientes
      *
      * @return list<array<string, mixed>>
      */
-    public function utilizadores(Tenant $cliente): array
+    public function utilizadores(Tenant $cliente, ?Utilizador $actor = null): array
     {
-        return $this->tenant->executarComo((int) $cliente->id, fn () => Utilizador::query()->where('tenant_id', $cliente->id)->orderBy('id')->get()
+        return $this->tenant->executarComo((int) $cliente->id, fn () => Utilizador::query()->visivelPara($actor)->where('tenant_id', $cliente->id)->orderBy('id')->get()
             ->map(fn (Utilizador $u) => $this->resumoUtilizador($u))->values()->all());
     }
 

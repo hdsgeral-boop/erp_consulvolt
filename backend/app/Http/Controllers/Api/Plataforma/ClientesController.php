@@ -115,7 +115,7 @@ final class ClientesController extends Controller
 
     public function utilizadores(Tenant $cliente): JsonResponse
     {
-        return RespostaApi::sucesso($this->clientes->utilizadores($cliente), 'Utilizadores obtidos com sucesso.');
+        return RespostaApi::sucesso($this->clientes->utilizadores($cliente, request()->user()), 'Utilizadores obtidos com sucesso.');
     }
 
     /** PUT clientes/{cliente}/utilizadores/{utilizador} — parciais: {ativo} ou {nome_completo, email, papel}. */

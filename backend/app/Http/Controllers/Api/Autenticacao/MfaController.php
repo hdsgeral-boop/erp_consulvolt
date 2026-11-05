@@ -71,6 +71,10 @@ final class MfaController extends Controller
     {
         $utilizador = $request->user();
         $d = $request->validate(['palavra_passe' => ['required', 'string']]);
+        // Conta ROOT global (ADR-084): o MFA da conta mestra não se desactiva pela API.
+        if ($utilizador->eRoot()) {
+            throw new ErroNegocio('O MFA da conta root não pode ser desactivado.', 'ROOT_MFA_OBRIGATORIO', 403);
+        }
 
         if (! $this->autenticacao->palavraPasseCorrecta($utilizador, $d['palavra_passe'])) {
             throw new ErroNegocio('Palavra-passe incorrecta.', 'PALAVRA_PASSE_INCORRETA', 422);

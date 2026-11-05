@@ -25,6 +25,8 @@ final class UtilizadorResource extends JsonResource
             // um super-administrador de um cliente não é da plataforma. O frontend usa isto nas guardas de rota.
             'area_plataforma' => $this->ePlataforma(),
             'area_suporte' => $this->eSuportePlataforma(),
+            // Conta ROOT global (ADR-084): só se revela ao próprio titular (nunca em listas de outros utilizadores).
+            'conta_root' => $request->user()?->is($this->resource) ? $this->eRoot() : false,
             'ativo' => (bool) $this->ativo,
             'deve_alterar_password' => (bool) $this->deve_alterar_password,
             'ultimo_acesso_em' => $this->ultimo_acesso_em?->toAtomString(),

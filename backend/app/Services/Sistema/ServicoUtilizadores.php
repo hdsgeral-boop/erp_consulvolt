@@ -50,7 +50,7 @@ final class ServicoUtilizadores
     public function listar(array $f, ?Utilizador $actor = null): LengthAwarePaginator
     {
         $dominio = $actor ? $this->dominio($actor) : null;
-        $pagina = Utilizador::query()->with('perfil')
+        $pagina = Utilizador::query()->with('perfil')->visivelPara($actor)
             // Segurança (Fase 6): sem acesso total só se vêem os utilizadores com acesso a uma das empresas do actor.
             ->when($dominio !== null, fn ($q) => $q->where(fn ($w) => $this->visiveis($w, $dominio)))
             ->when(isset($f['pesquisa']) && $f['pesquisa'] !== '', function ($q) use ($f) {
@@ -79,7 +79,7 @@ final class ServicoUtilizadores
     public function obter(int $id, Utilizador $actor): array
     {
         $dominio = $this->dominio($actor);
-        $u = Utilizador::query()->with('perfil')->when($dominio !== null, fn ($q) => $q->where(fn ($w) => $this->visiveis($w, $dominio)))->findOrFail($id);
+        $u = Utilizador::query()->with('perfil')->visivelPara($actor)->when($dominio !== null, fn ($q) => $q->where(fn ($w) => $this->visiveis($w, $dominio)))->findOrFail($id);
 
         return $this->apresentar($u, $actor);
     }

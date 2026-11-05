@@ -132,7 +132,7 @@ final class AdministradoresController extends Controller
 
     private function consulta()
     {
-        return Utilizador::query()
+        return Utilizador::query()->visivelPara(request()->user())
             ->where('tenant_id', (int) config('erp.dominio.plataforma_tenant_id'))
             ->where('papel', Utilizador::PAPEL_SUPER_ADMINISTRADOR);
     }

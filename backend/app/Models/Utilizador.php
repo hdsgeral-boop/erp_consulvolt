@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Exceptions\ErroNegocio;
 use App\Models\Concerns\Auditavel;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Tenancy\ContextoTenant;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Autenticavel;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -74,6 +76,7 @@ class Utilizador extends Autenticavel
             'ultimo_acesso_em' => 'datetime',
             'acesso_todas_empresas' => 'boolean',
             'ativo' => 'boolean',
+            'conta_root' => 'boolean',
             'deve_alterar_password' => 'boolean',
             'modulos_permitidos' => 'array',
             'mfa_segredo' => 'encrypted',
@@ -84,8 +87,17 @@ class Utilizador extends Autenticavel
         ];
     }
 
+    /**
+     * Interruptor ligado SÓ pelo comando `erp:root:definir` (ADR-084): sem ele, nada no processo web ou em código
+     * aplicacional marca, desmarca, desactiva, despromove ou elimina uma conta root.
+     */
+    public static bool $autorizarAlteracaoRoot = false;
+
     protected static function booted(): void
     {
+        static::saving(fn (Utilizador $u) => self::protegerContaRoot($u));
+        static::deleting(fn (Utilizador $u) => self::protegerContaRoot($u, true));
+
         // SaaS (ADR-073): um utilizador novo pertence ao tenant do pedido/trabalho que o cria.
         static::creating(function (Utilizador $u) {
             if (Schema::hasColumn('utilizadores', 'tenant_id')) {
@@ -98,6 +110,12 @@ class Utilizador extends Autenticavel
                 app(ServicoEmpresas::class)->invalidarUtilizador((int) $u->getKey());
             }
         });
+    }
+
+    /** Esconde as contas root (ADR-084) de quem não é root: não se listam nem se pesquisam por outros utilizadores. */
+    public function scopeVisivelPara($q, ?self $actor)
+    {
+        return $actor?->eRoot() ? $q : $q->where('utilizadores.conta_root', false);
     }
 
     public function perfil(): BelongsTo
@@ -137,6 +155,52 @@ class Utilizador extends Autenticavel
         return $this->papel === self::PAPEL_SUPER_ADMINISTRADOR;
     }
 
+    /**
+     * Conta ROOT global (ADR-084): a coluna `conta_root`, nunca o nome. Só conta enquanto a conta está activa e não
+     * eliminada — uma conta root desactivada não pode entrar (e o login recusa-a antes de qualquer poder).
+     */
+    public function eRoot(): bool
+    {
+        $a = $this->attributes;
+
+        return ($a['conta_root'] ?? false) && ($a['ativo'] ?? false) && ($a['eliminado_em'] ?? null) === null;
+    }
+
+    /**
+     * Salvaguardas do modelo para a conta root (aplicam-se a QUALQUER caminho Eloquent, não só às rotas):
+     *  - `conta_root` não muda fora do comando artisan (nem por mass assignment, nem por forceFill de código aplicacional);
+     *  - ninguém, além do próprio titular, altera uma conta root (nem super-administradores de clientes ou da plataforma);
+     *  - nem o titular a desactiva, despromove ou elimina (a revogação é só pelo comando, que protege a última root).
+     */
+    private static function protegerContaRoot(Utilizador $u, bool $eliminar = false): void
+    {
+        if (self::$autorizarAlteracaoRoot) {
+            return;
+        }
+        $erro = fn (string $m) => new ErroNegocio($m, 'CONTA_ROOT_PROTEGIDA', 403);
+
+        if (! $u->exists && ! empty($u->attributes['conta_root'])) {
+            throw $erro('A conta root só se define pelo comando erp:root:definir.');
+        }
+        if ($u->exists && $u->isDirty('conta_root')) {
+            throw $erro('A conta root só se define ou revoga pelo comando erp:root:definir.');
+        }
+        if (! $u->exists || ! ($u->original['conta_root'] ?? false)) {
+            return;
+        }
+        if ($eliminar) {
+            throw $erro('Uma conta root não se elimina; revogue-a primeiro pelo comando erp:root:definir.');
+        }
+        $actor = Auth::user();
+        if ($actor instanceof self && (int) $actor->getKey() !== (int) $u->getKey()) {
+            throw $erro('Uma conta root só pode ser alterada pelo seu titular.');
+        }
+        if ($u->isDirty('ativo') && ! $u->ativo || $u->isDirty('eliminado_em') && $u->eliminado_em !== null
+            || $u->isDirty('papel') && $u->papel !== self::PAPEL_SUPER_ADMINISTRADOR) {
+            throw $erro('Uma conta root não se desactiva, despromove nem elimina por esta via.');
+        }
+    }
+
     public function eAgenteSuporte(): bool
     {
         return $this->papel === self::PAPEL_AGENTE_SUPORTE;
@@ -153,7 +217,7 @@ class Utilizador extends Autenticavel
      */
     public function ePlataforma(): bool
     {
-        return ($this->eSuperAdministrador() || $this->eOperadorPlataforma())
+        return $this->eRoot() || ($this->eSuperAdministrador() || $this->eOperadorPlataforma())
             && (int) $this->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
     }
 
@@ -162,7 +226,7 @@ class Utilizador extends Autenticavel
      */
     public function eSuportePlataforma(): bool
     {
-        return ($this->eSuperAdministrador() || $this->eAgenteSuporte())
+        return $this->eRoot() || ($this->eSuperAdministrador() || $this->eAgenteSuporte())
             && (int) $this->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
     }
 
