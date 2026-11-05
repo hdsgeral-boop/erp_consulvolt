@@ -116,7 +116,9 @@ export function DetalheOrcamento() {
           <Descriptions.Item label="Submetido">{o.submetido_em ? `${o.submetido_por ?? ''} ${formatarDataHora(o.submetido_em)}` : '—'}</Descriptions.Item>
           <Descriptions.Item label="Aprovado">{o.aprovado_em ? `${o.aprovado_por ?? ''} ${formatarDataHora(o.aprovado_em)}` : '—'}</Descriptions.Item>
           {o.prazo_contributo && <Descriptions.Item label="Prazo dos contributos">{formatarData(o.prazo_contributo)}</Descriptions.Item>}
-          {o.consolidado_em && <Descriptions.Item label="Consolidado">{formatarDataHora(o.consolidado_em)}</Descriptions.Item>}
+          {o.consolidado_em && <Descriptions.Item label="Consolidado">{`${o.consolidado_por ? `${o.consolidado_por} · ` : ''}${formatarDataHora(o.consolidado_em)}${o.consolidado_ids?.length ? ` · ${o.consolidado_ids.length} orçamento(s) filho(s)` : ''}`}</Descriptions.Item>}
+          {o.versao_origem_id && <Descriptions.Item label="Versão de origem"><a onClick={() => navegar(`../${o.versao_origem_id}`, { relative: 'path' })}>#{o.versao_origem_id}</a></Descriptions.Item>}
+          {o.substituido_por_id && <Descriptions.Item label="Substituído por"><a onClick={() => navegar(`../${o.substituido_por_id}`, { relative: 'path' })}>#{o.substituido_por_id}</a>{o.substituido_em ? ` · ${formatarDataHora(o.substituido_em)}` : ''}</Descriptions.Item>}
           {o.orcamento_pai_id && <Descriptions.Item label="Orçamento pai"><a onClick={() => navegar(`../${o.orcamento_pai_id}`, { relative: 'path' })}>#{o.orcamento_pai_id}</a></Descriptions.Item>}
         </Descriptions>
       </Card>

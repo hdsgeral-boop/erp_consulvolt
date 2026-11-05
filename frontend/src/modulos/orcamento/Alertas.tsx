@@ -64,7 +64,7 @@ function Pedidos() {
       title: 'Valor', dataIndex: 'valor', align: 'right', valorImpressao: (p) => `${formatarKz(p.valor)} (excesso ${formatarKz(p.valor_excesso)})`,
       render: (v, p) => <><ValorKz valor={v} />{Number(p.valor_excesso) > 0 && <div><Typography.Text type="danger" style={{ fontSize: 12 }}>excesso {formatarKz(p.valor_excesso)}</Typography.Text></div>}</>,
     },
-    { title: 'Execução', dataIndex: 'percentagem', align: 'right', render: (v) => <strong>{(v ? `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 1 })} %` : '—')}</strong>, valorImpressao: (p) => { const v = p.percentagem; return (v ? `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 1 })} %` : '—'); } },
+    { title: 'Execução', dataIndex: 'percentagem', align: 'right', render: (v, p) => <><strong>{(v ? `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 1 })} %` : '—')}</strong>{p.valor_orcado != null && p.valor_consumido != null && <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{formatarKz(p.valor_consumido)} de {formatarKz(p.valor_orcado)}</Typography.Text></div>}</>, valorImpressao: (p) => { const v = p.percentagem; return (v ? `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 1 })} %` : '—'); } },
     {
       title: 'Motivo', dataIndex: 'motivo', valorImpressao: (p) => [p.motivo, p.nota_decisao].filter(Boolean).join(' · '),
       render: (v, p) => <>{v ?? '—'}{p.nota_decisao && <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{p.nota_decisao}</Typography.Text></div>}</>,
@@ -74,7 +74,8 @@ function Pedidos() {
       render: (_, p) => (
         <>
           <EtiquetaOrc valor={p.estado} />{p.autoaprovado && <Tag>No acto</Tag>}
-          {p.decidido_por && <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>decidido por {p.decidido_por}{p.decidido_por === p.pedido_por ? ' · pelo próprio' : ''}</Typography.Text></div>}
+          {p.decidido_por && <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>decidido por {p.decidido_por}{p.decidido_por === p.pedido_por ? ' · pelo próprio' : ''}{p.decidido_em ? ` em ${formatarDataHora(p.decidido_em)}` : ''}</Typography.Text></div>}
+          {p.utilizado_em && <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>utilizado em {formatarDataHora(p.utilizado_em)}</Typography.Text></div>}
         </>
       ),
     },

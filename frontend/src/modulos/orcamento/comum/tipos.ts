@@ -57,8 +57,12 @@ export interface Orcamento {
   aprovado_por: string | null;
   aprovado_em: string | null;
   substituido_por_id: number | null;
+  substituido_em?: string | null;
   prazo_contributo: string | null;
   consolidado_em: string | null;
+  consolidado_por?: string | null;
+  /** ids dos orçamentos filhos consolidados no pai */
+  consolidado_ids?: number[] | null;
   rejeicoes: { por: string | null; em: string; motivo: string }[] | null;
 }
 

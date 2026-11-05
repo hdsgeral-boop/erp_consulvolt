@@ -75,7 +75,8 @@ final class OrcamentoPlaneamentoTest extends TestCase
         $this->postJson("/api/orcamento/previsoes/{$p}/revisao", [], $s)->assertStatus(422)->assertJsonPath('codigo', 'REVISAO_EM_CURSO');
         // editar e publicar; publicada não se elimina
         $this->putJson("/api/orcamento/previsoes/{$p}", ['linhas' => [['rubrica_orcamental_id' => $this->ids['P01'], 'valores' => [$abr => 650] + $v['previsao']]]], $s)->assertOk();
-        $this->postJson("/api/orcamento/previsoes/{$p}/publicar", [], $s)->assertOk()->assertJsonPath('dados.estado', 'PUBLICADA');
+        $this->postJson("/api/orcamento/previsoes/{$p}/publicar", [], $s)->assertOk()->assertJsonPath('dados.estado', 'PUBLICADA')
+            ->assertJsonPath('dados.publicado_por', fn ($v) => is_string($v) && $v !== '')->assertJsonPath('dados.publicado_em', fn ($v) => is_string($v) && $v !== '');
         $this->deleteJson("/api/orcamento/previsoes/{$p}", [], $s)->assertStatus(422)->assertJsonPath('codigo', 'PREVISAO_PUBLICADA');
         // nova revisão: os meses em comum vêm da anterior; o novo mês (Abril do ano seguinte) é semeado pela tendência
         $r2 = $this->postJson("/api/orcamento/previsoes/{$p}/revisao", [], $s)->assertCreated()->assertJsonPath('dados.revisao', 2)->json('dados.id');

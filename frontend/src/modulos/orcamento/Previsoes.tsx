@@ -214,6 +214,7 @@ function Detalhe({ id, aoAbrir }: { id: number; aoAbrir: (id: number | null) => 
           <Tag color="blue">rev. {p.revisao}</Tag>
           <Tag color={p.estado === 'PUBLICADA' ? 'green' : 'gold'}>{p.estado === 'PUBLICADA' ? 'Publicada' : 'Rascunho'}</Tag>
           <Typography.Text type="secondary" style={{ fontSize: 13 }}>· {rotuloOrc(p.tipo)} · {dimensoes(p)} · real até {dayjs(`${p.mes_referencia}-01`).format('MMM YYYY')}{p.metodo ? ` · semente: ${METODOS.find((m) => m.value === p.metodo)?.label ?? p.metodo}` : ''}</Typography.Text>
+          {p.estado === 'PUBLICADA' && p.publicado_em && <Typography.Text type="secondary" style={{ fontSize: 13 }}>· publicada{p.publicado_por ? ` por ${p.publicado_por}` : ''} em {dayjs(p.publicado_em).format('DD/MM/YYYY HH:mm')}</Typography.Text>}
           {alterado && <Typography.Text style={{ color: '#b45309', fontSize: 13 }}>● alterações por gravar</Typography.Text>}
         </Space>
         <Space wrap>

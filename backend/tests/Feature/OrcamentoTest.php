@@ -100,12 +100,13 @@ final class OrcamentoTest extends TestCase
         $this->assertEquals([250, 300, 20, false, true], [$c['C02']['orcado'], $c['C02']['realizado'], $c['C02']['desvio_pct'], $c['C02']['favoravel'], $c['C02']['desvio_significativo']]);
 
         // nova versão: a anterior vigora até à aprovação da nova, depois fica SUBSTITUIDA
-        $v2 = $this->postJson("/api/orcamento/orcamentos/{$o}/nova-versao", [], $a)->assertCreated()->assertJsonPath('dados.versao', 2)->json('dados.id');
+        $v2 = $this->postJson("/api/orcamento/orcamentos/{$o}/nova-versao", [], $a)->assertCreated()->assertJsonPath('dados.versao', 2)->assertJsonPath('dados.versao_origem_id', $o)->json('dados.id');
         $this->postJson("/api/orcamento/orcamentos/{$o}/nova-versao", [], $a)->assertStatus(422)->assertJsonPath('codigo', 'VERSAO_EM_CURSO');
         $this->putJson("/api/orcamento/orcamentos/{$v2}/valores", ['linhas' => [['rubrica_orcamental_id' => $this->rub('P01'), 'valores' => $this->meses(150)]]], $a)->assertOk();
         $this->postJson("/api/orcamento/orcamentos/{$v2}/submeter", [], $a)->assertOk();
         $this->postJson("/api/orcamento/orcamentos/{$v2}/aprovar", [], $b)->assertOk();
-        $this->getJson("/api/orcamento/orcamentos/{$o}", $a)->assertJsonPath('dados.estado', 'SUBSTITUIDO')->assertJsonPath('dados.substituido_por_id', $v2);
+        $this->getJson("/api/orcamento/orcamentos/{$o}", $a)->assertJsonPath('dados.estado', 'SUBSTITUIDO')->assertJsonPath('dados.substituido_por_id', $v2)
+            ->assertJsonPath('dados.substituido_em', fn ($v) => is_string($v) && $v !== '');   // data da substituição visível na ficha
         $c2 = collect($this->getJson("/api/orcamento/orcamentos/{$v2}/controlo?mes=1&vista=MES", $a)->json('dados.linhas'))->keyBy('codigo');
         $this->assertEquals([150, 100], [$c2['P01']['orcado'], $c2['P01']['orcado_inicial']]);
 
@@ -158,7 +159,7 @@ final class OrcamentoTest extends TestCase
         $v2 = $this->postJson("/api/orcamento/orcamentos/{$filhos[0]}/nova-versao", [], $a)->json('dados.id');
         $this->putJson("/api/orcamento/orcamentos/{$v2}/valores", ['linhas' => [['rubrica_orcamental_id' => $this->rub('P01'), 'valores' => $this->meses(15, 0), 'notas' => 'Revisto']]], $a)->assertOk();
         $this->postJson("/api/orcamento/orcamentos/{$v2}/submeter", [], $a)->assertOk();
-        $this->postJson("/api/orcamento/orcamentos/{$pai2}/consolidar", [], $a)->assertOk()->assertJsonCount(2, 'dados.consolidado_ids');
+        $this->postJson("/api/orcamento/orcamentos/{$pai2}/consolidar", [], $a)->assertOk()->assertJsonCount(2, 'dados.consolidado_ids')->assertJsonPath('dados.consolidado_por', fn ($v) => is_string($v) && $v !== '');
         $this->assertSame(35.0, (float) collect($this->getJson("/api/orcamento/orcamentos/{$pai2}", $a)->json('dados.linhas'))->first()['valores'][0]);   // 15 + 20
     }
 

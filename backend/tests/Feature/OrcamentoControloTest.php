@@ -122,9 +122,11 @@ final class OrcamentoControloTest extends TestCase
         $p = $this->postJson('/api/orcamento/pedidos-excesso', $doc + ['motivo' => 'Transporte urgente de material'], $a)->assertCreated()->json('dados.0');
         $this->assertEquals([1200, 1000, 300, 100], [$p['valor_orcado'], $p['valor_consumido'], $p['valor'], $p['valor_excesso']]);
         $this->postJson("/api/orcamento/pedidos-excesso/{$p['id']}/decidir", ['decisao' => 'APROVADO'], $a)->assertStatus(403);   // sem permissão
-        $this->postJson("/api/orcamento/pedidos-excesso/{$p['id']}/decidir", ['decisao' => 'APROVADO'], $this->s['aprovador'])->assertOk()->assertJsonPath('dados.estado', 'APROVADO');
+        $this->postJson("/api/orcamento/pedidos-excesso/{$p['id']}/decidir", ['decisao' => 'APROVADO'], $this->s['aprovador'])->assertOk()->assertJsonPath('dados.estado', 'APROVADO')
+            ->assertJsonPath('dados.decidido_em', fn ($v) => is_string($v) && $v !== '');   // data da decisão exposta ao ecrã
         $this->fatura('F-1', 300, $a)->assertCreated();
         $this->assertSame('UTILIZADO', $this->em(fn () => PedidoExtrapolacaoOrcamento::query()->find($p['id'])->estado));
+        $this->assertNotNull($this->em(fn () => PedidoExtrapolacaoOrcamento::query()->find($p['id'])->utilizado_em));
 
         // aprovar no acto (quem tem a permissão, com motivo); a factura por contabilizar conta como compromisso
         $this->fatura('F-2', 50, $this->s['aprovador'], ['orcamento' => ['aprovar_excesso' => true]])->assertStatus(422)->assertJsonPath('codigo', 'MOTIVO_EM_FALTA');
