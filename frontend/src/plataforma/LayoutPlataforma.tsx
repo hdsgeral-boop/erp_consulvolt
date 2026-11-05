@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from 'react';
-import { Avatar, Button, Dropdown, Layout, Menu, Space, Tag, type MenuProps } from 'antd';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Avatar, Button, Drawer, Dropdown, Layout, Menu, Space, Tag, type MenuProps } from 'antd';
 import {
   AuditOutlined,
   CloudServerOutlined,
@@ -24,6 +24,7 @@ import {
   CheckCircleFilled,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
+import { useEcra } from '@/componentes/responsivo/useEcra';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useModoMenuPlataforma } from './modoMenuPlataforma';
 import './plataforma.css';
@@ -93,6 +94,14 @@ export function LayoutPlataforma() {
   const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
   const ITENS_MENU = useMemo(() => itensConsola(superAdmin, new Set(menu.find((m) => m.id === 'config')?.ecras.map((e) => e.id) ?? [])), [superAdmin, menu]);
 
+  // < 992 px: sem barra lateral nem barra do topo — o menu passa a uma gaveta aberta pelo botão «Abrir menu»
+  const ecra = useEcra();
+  const [gavetaAberta, setGavetaAberta] = useState(false);
+  const lateral = modo === 'lateral' && !ecra.pequeno;
+  const noTopo = modo === 'topo' && !ecra.pequeno;
+  useEffect(() => setGavetaAberta(false), [location.pathname]);
+  useEffect(() => { if (!ecra.pequeno) setGavetaAberta(false); }, [ecra.pequeno]);
+
   const nome = utilizador?.nome_completo || utilizador?.nome_utilizador || 'Administrador';
   const iniciais = nome
     .split(' ')
@@ -133,12 +142,12 @@ export function LayoutPlataforma() {
     >
       <button type="button" className="erp-plataforma-utilizador" aria-label="Opções do utilizador" aria-haspopup="menu">
         <Avatar style={{ background: '#1947b3', fontWeight: 700, fontSize: 13, flex: 'none' }}>{iniciais || 'A'}</Avatar>
-        <span style={{ lineHeight: 1.3, textAlign: 'left' }}>
+        {ecra.md && <span style={{ lineHeight: 1.3, textAlign: 'left' }}>
           <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{nome}</span>
           <Tag color="blue" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 6px' }}>
             <AuditOutlined style={{ marginRight: 3 }} /> {superAdmin ? 'SUPER ADMIN' : 'OPERADOR'}
           </Tag>
-        </span>
+        </span>}
         <DownOutlined style={{ fontSize: 11, color: '#94a3b8' }} />
       </button>
     </Dropdown>
@@ -146,15 +155,28 @@ export function LayoutPlataforma() {
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f6f8fb' }}>
-      {modo === 'lateral' && (
+      {ecra.pequeno && (
+        <Drawer
+          placement="left"
+          open={gavetaAberta}
+          onClose={() => setGavetaAberta(false)}
+          size={280}
+          styles={{ body: { padding: 0, background: '#081b30' }, header: { display: 'none' } }}
+          rootClassName="erp-gaveta-plataforma"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{logo}</div>
+          <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={ITENS_MENU} style={{ background: 'transparent', marginTop: 10, border: 'none' }} />
+        </Drawer>
+      )}
+      {lateral && (
         <Layout.Sider width={LARGURA_MENU} theme="dark" style={{ background: '#081b30', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '22px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{logo}</div>
           <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={ITENS_MENU} style={{ background: 'transparent', marginTop: 10, border: 'none' }} />
         </Layout.Sider>
       )}
 
-      <Layout>
-        {modo === 'topo' && (
+      <Layout style={{ minWidth: 0 }}>
+        {noTopo && (
           <div style={{ background: '#081b30', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 28, height: 64, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
             {logo}
             <Menu
@@ -170,7 +192,8 @@ export function LayoutPlataforma() {
         <Layout.Header
           style={{
             background: '#fff',
-            padding: '0 24px',
+            padding: ecra.md ? '0 24px' : '0 10px',
+            gap: 8,
             borderBottom: '1px solid #e7ecf3',
             display: 'flex',
             justifyContent: 'space-between',
@@ -179,28 +202,29 @@ export function LayoutPlataforma() {
             lineHeight: 'normal',
           }}
         >
-          <Space size={14} align="center">
-            <Button
+          <Space size={ecra.md ? 14 : 6} align="center" style={{ minWidth: 0 }}>
+            {ecra.pequeno && <Button type="text" icon={<MenuOutlined />} aria-label="Abrir menu" aria-expanded={gavetaAberta} onClick={() => setGavetaAberta(true)} />}
+            {!ecra.pequeno && <Button
               type="text"
               icon={modo === 'lateral' ? <LayoutOutlined /> : <MenuOutlined />}
               onClick={() => definirModo(modo === 'lateral' ? 'topo' : 'lateral')}
             >
               {modo === 'lateral' ? 'Menu no topo' : 'Menu ao lado'}
-            </Button>
-            <Tag icon={<CheckCircleFilled style={{ color: '#10b981' }} />} color="success" style={{ margin: 0 }}>
+            </Button>}
+            {ecra.xl && <Tag icon={<CheckCircleFilled style={{ color: '#10b981' }} />} color="success" style={{ margin: 0 }}>
               Cluster SaaS online (PostgreSQL + Redis)
-            </Tag>
+            </Tag>}
           </Space>
 
-          <Space size={16} align="center">
+          <Space size={ecra.md ? 16 : 6} align="center" style={{ flex: 'none' }}>
             <Link to="/app">
-              <Button icon={<SwapOutlined />}>Entrar no ERP</Button>
+              <Button icon={<SwapOutlined />} aria-label="Entrar no ERP">{ecra.md ? 'Entrar no ERP' : null}</Button>
             </Link>
             {utilizadorDropdown}
           </Space>
         </Layout.Header>
 
-        <Layout.Content style={{ padding: 28, maxWidth: 1480, width: '100%', margin: '0 auto' }}>
+        <Layout.Content style={{ padding: ecra.md ? 28 : ecra.sm ? 16 : 10, maxWidth: 1480, width: '100%', minWidth: 0, margin: '0 auto' }}>
           <Outlet />
         </Layout.Content>
       </Layout>
