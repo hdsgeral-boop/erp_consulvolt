@@ -158,6 +158,15 @@ class Utilizador extends Autenticavel
     }
 
     /**
+     * Pode usar o backoffice de suporte (ExigirSuporte): tenant da plataforma, super-administrador ou agente de suporte.
+     */
+    public function eSuportePlataforma(): bool
+    {
+        return ($this->eSuperAdministrador() || $this->eAgenteSuporte())
+            && (int) $this->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
+    }
+
+    /**
      * Conta privilegiada (Fase 4 da extensão SaaS, secção 12, ponto 222: "MFA obrigatório para contas
      * privilegiadas") — qualquer papel com poder administrativo acima de um utilizador comum de empresa.
      */

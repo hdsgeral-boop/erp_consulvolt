@@ -376,7 +376,16 @@ final class ServicoPermissoes
         if ($permitidos === null) {
             return false;
         }
-        $ecras = self::ecrasDaChave(self::norm($chave));
+        // O plano comercial limita os módulos de NEGÓCIO do cliente. A administração da plataforma e o backoffice de
+        // suporte não são módulos de um plano (o módulo `suporte` nunca consta de um plano): sem esta excepção o tenant
+        // da própria plataforma, que tem um plano (ex.: «empresarial»), ficava sem todas as chaves `suporte_*` — 403 em
+        // tickets, respostas rápidas e agentes — mesmo para o super-administrador. Quem pode usar estas áreas decide-o
+        // `tem()` (elegivelPlataforma/elegivelSuporte), não o plano.
+        $k = self::norm($chave);
+        if ($this->ePlataforma($k) || $this->eSuporte($k)) {
+            return false;
+        }
+        $ecras = self::ecrasDaChave($k);
         $moduloOk = fn (string $m) => in_array($m, ModulosPlano::SEMPRE_DISPONIVEIS, true) || in_array($m, $permitidos, true);
 
         return $ecras !== [] && array_filter($ecras, fn ($e) => $moduloOk($e['modulo'] ?? '')) === [];
