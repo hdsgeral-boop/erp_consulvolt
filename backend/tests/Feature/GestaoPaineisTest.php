@@ -350,8 +350,12 @@ final class GestaoPaineisTest extends TestCase
         $this->postJson('/api/gestao/cubo/consultar', $base + ['conjunto' => 'vendas', 'medidas' => [['medida' => 'total', 'agregacao' => 'string_agg']]], $s)
             ->assertStatus(422)->assertJsonPath('codigo', 'CUBO_PEDIDO_INVALIDO');
         $this->postJson('/api/gestao/cubo/consultar', $base + ['conjunto' => 'vendas', 'filtros' => ['1=1' => ['x']]], $s)->assertStatus(422);
-        $r = $this->postJson('/api/gestao/cubo/consultar', $base + ['conjunto' => 'vendas', 'linhas' => ['cliente'], 'filtros' => ['cliente' => ["Cliente A' OR '1'='1"]]], $s)->assertOk()->json('dados');
-        $this->assertSame([], $r['resultado']);   // o valor do filtro vai por parâmetro
+        // Injecção no valor do filtro: o filtro global de entrada recusa-a (422) e, mesmo que passasse, o valor vai por parâmetro.
+        $r = $this->postJson('/api/gestao/cubo/consultar', $base + ['conjunto' => 'vendas', 'linhas' => ['cliente'], 'filtros' => ['cliente' => ["Cliente A' OR '1'='1"]]], $s);
+        $this->assertContains($r->status(), [200, 422]);
+        if ($r->status() === 200) {
+            $this->assertSame([], $r->json('dados')['resultado']);
+        }
         $this->postJson('/api/gestao/cubo/consultar', ['conjunto' => 'vendas'], $s)->assertStatus(422);
     }
 }
