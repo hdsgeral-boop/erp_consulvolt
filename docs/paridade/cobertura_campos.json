@@ -5,9 +5,9 @@
   "colunas": 3990,
   "INFRA": 1297,
   "LEGADO_TECNICO": 78,
-  "FUNCIONAL_COBERTO": 1918,
-  "FUNCIONAL_SO_BACKEND": 325,
-  "FUNCIONAL_SEM_API": 357,
+  "FUNCIONAL_COBERTO": 1928,
+  "FUNCIONAL_SO_BACKEND": 316,
+  "FUNCIONAL_SEM_API": 356,
   "ORFA": 15
  },
  "por_modulo": {
@@ -86,9 +86,9 @@
    "colunas": 711,
    "INFRA": 201,
    "LEGADO_TECNICO": 20,
-   "FUNCIONAL_COBERTO": 388,
-   "FUNCIONAL_SO_BACKEND": 37,
-   "FUNCIONAL_SEM_API": 64,
+   "FUNCIONAL_COBERTO": 398,
+   "FUNCIONAL_SO_BACKEND": 28,
+   "FUNCIONAL_SEM_API": 63,
    "ORFA": 1
   },
   "Compras": {
@@ -408,8 +408,8 @@
    "colunas": 21,
    "INFRA": 4,
    "LEGADO_TECNICO": 0,
-   "FUNCIONAL_COBERTO": 10,
-   "FUNCIONAL_SO_BACKEND": 7,
+   "FUNCIONAL_COBERTO": 13,
+   "FUNCIONAL_SO_BACKEND": 4,
    "FUNCIONAL_SEM_API": 0,
    "ORFA": 0
   },
@@ -498,8 +498,8 @@
    "colunas": 26,
    "INFRA": 6,
    "LEGADO_TECNICO": 1,
-   "FUNCIONAL_COBERTO": 17,
-   "FUNCIONAL_SO_BACKEND": 2,
+   "FUNCIONAL_COBERTO": 19,
+   "FUNCIONAL_SO_BACKEND": 0,
    "FUNCIONAL_SEM_API": 0,
    "ORFA": 0
   },
@@ -538,9 +538,9 @@
    "colunas": 18,
    "INFRA": 5,
    "LEGADO_TECNICO": 0,
-   "FUNCIONAL_COBERTO": 12,
+   "FUNCIONAL_COBERTO": 13,
    "FUNCIONAL_SO_BACKEND": 0,
-   "FUNCIONAL_SEM_API": 1,
+   "FUNCIONAL_SEM_API": 0,
    "ORFA": 0
   },
   "configuracoes_contabeis_compras": {
@@ -1098,8 +1098,8 @@
    "colunas": 21,
    "INFRA": 4,
    "LEGADO_TECNICO": 1,
-   "FUNCIONAL_COBERTO": 13,
-   "FUNCIONAL_SO_BACKEND": 3,
+   "FUNCIONAL_COBERTO": 15,
+   "FUNCIONAL_SO_BACKEND": 1,
    "FUNCIONAL_SEM_API": 0,
    "ORFA": 0
   },
@@ -2028,8 +2028,8 @@
    "colunas": 22,
    "INFRA": 6,
    "LEGADO_TECNICO": 1,
-   "FUNCIONAL_COBERTO": 11,
-   "FUNCIONAL_SO_BACKEND": 4,
+   "FUNCIONAL_COBERTO": 13,
+   "FUNCIONAL_SO_BACKEND": 2,
    "FUNCIONAL_SEM_API": 0,
    "ORFA": 0
   },
@@ -3012,7 +3012,16 @@
    "action": "Vendas\\LigacaoAgtController@documentosImportados"
   }
  ],
- "chamadas_frontend_sem_rota": [],
+ "chamadas_frontend_sem_rota": [
+  {
+   "ficheiro": "frontend/src/paginas/SeletorEmpresasRoot.tsx",
+   "url": "/plataforma/root/empresas"
+  },
+  {
+   "ficheiro": "frontend/src/sessao/PedidoReautenticacao.tsx",
+   "url": "POST /autenticacao/reautenticar"
+  }
+ ],
  "colunas": [
   {
    "tabela": "abates_vendas_ativos",
@@ -4675,6 +4684,7 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php",
     "backend/app/Services/Vendas/Agt/ServicoWebhookAgt.php"
    ],
    "ficheiros_front": [],
@@ -4838,7 +4848,7 @@
    "api_leitura": false,
    "api_escrita": true,
    "frontend_ui": true,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
@@ -4926,6 +4936,7 @@
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Vendas/LigacaoAgtController.php",
     "backend/app/Models/LigacaoAgtEmpresa.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php",
     "backend/app/Services/Vendas/Agt/ServicoLigacaoAgt.php"
    ],
    "ficheiros_front": [
@@ -5263,7 +5274,7 @@
     "backend/app/Http/Controllers/Api/Sistema/GatewayPagamentoController.php",
     "backend/app/Models/LigacaoAgtEmpresa.php",
     "backend/app/Services/Pagamentos/ProcessadorPagamentos.php",
-    "backend/app/Services/Vendas/Agt/ServicoLigacaoAgt.php"
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -14902,12 +14913,12 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
-   "motivo": "só nos tipos TypeScript",
+   "classe": "FUNCIONAL_COBERTO",
+   "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
@@ -14915,6 +14926,7 @@
     "backend/app/Services/RH/ServicoAvaliacao360.php"
    ],
    "ficheiros_front": [
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx",
     "frontend/src/modulos/rh/api.ts"
    ],
    "onde_ligar": {
@@ -14970,19 +14982,21 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
     "backend/app/Services/RH/ServicoAvaliacao360.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx"
+   ],
    "onde_ligar": {
     "controllers": [
      "AvaliacaoController"
@@ -15000,19 +15014,21 @@
    "tipo": "timestamp with time zone",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
     "backend/app/Services/RH/ServicoAvaliacao360.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx"
+   ],
    "onde_ligar": {
     "controllers": [
      "AvaliacaoController"
@@ -20110,19 +20126,21 @@
    "tipo": "timestamp with time zone",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
     "backend/app/Services/RH/ServicoAvaliacao360.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx"
+   ],
    "onde_ligar": {
     "controllers": [
      "AvaliacaoController",
@@ -20142,19 +20160,21 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
     "backend/app/Services/RH/ServicoAvaliacao360.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx"
+   ],
    "onde_ligar": {
     "controllers": [
      "AvaliacaoController",
@@ -23458,17 +23478,24 @@
    "tipo": "numeric",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SEM_API",
-   "motivo": "sem uso em código; o legado tinha dados",
-   "backend": false,
+   "classe": "FUNCIONAL_COBERTO",
+   "motivo": "",
+   "backend": true,
    "api_leitura": false,
-   "api_escrita": false,
-   "frontend_ui": false,
-   "frontend_tipo": false,
+   "api_escrita": true,
+   "frontend_ui": true,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 1,
-   "ficheiros_back": [],
-   "ficheiros_front": [],
+   "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/RH/AssiduidadeController.php",
+    "backend/app/Services/RH/ServicoAssiduidade.php",
+    "backend/app/Services/RH/ServicoCalendarioRH.php"
+   ],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/Assiduidade.tsx",
+    "frontend/src/modulos/rh/api.ts"
+   ],
    "onde_ligar": {
     "controllers": [],
     "frontend": [
@@ -25579,7 +25606,8 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
-    "backend/app/Services/Pagamentos/SegredosGateway.php"
+    "backend/app/Services/Pagamentos/SegredosGateway.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -25603,7 +25631,8 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
-    "backend/app/Services/Pagamentos/SegredosGateway.php"
+    "backend/app/Services/Pagamentos/SegredosGateway.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -27481,10 +27510,10 @@
     "backend/app/Services/CRM/ServicoContasCRM.php"
    ],
    "ficheiros_front": [
+    "frontend/src/componentes/AjudasAcessibilidade.tsx",
+    "frontend/src/componentes/SaltarParaConteudo.tsx",
     "frontend/src/componentes/tour/TourBoasVindas.tsx",
-    "frontend/src/layout/LayoutPrincipal.tsx",
-    "frontend/src/modulos/crm/Contas.tsx",
-    "frontend/src/modulos/geral/RelatoriosGestao.tsx"
+    "frontend/src/layout/LayoutPrincipal.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -36655,10 +36684,10 @@
     "backend/app/Jobs/Sistema/SimularRestauroLegado.php"
    ],
    "ficheiros_front": [
+    "frontend/src/componentes/AjudasAcessibilidade.tsx",
     "frontend/src/layout/PesquisaEcras.tsx",
     "frontend/src/modulos/compras/comum/ModaisEncomenda.tsx",
-    "frontend/src/modulos/compras/comum/Rececoes.tsx",
-    "frontend/src/modulos/config/ConfigGeral.tsx"
+    "frontend/src/modulos/compras/comum/Rececoes.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -38974,10 +39003,10 @@
    "fk": "tenants",
    "preenchimento_legado": null,
    "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Autenticacao/AutenticacaoController.php",
     "backend/app/Http/Controllers/Api/Autenticacao/RegistoEmpresaController.php",
     "backend/app/Http/Controllers/Api/Plataforma/ClientesController.php",
-    "backend/app/Http/Controllers/Api/Plataforma/MinhaContaController.php",
-    "backend/app/Http/Controllers/Api/Plataforma/PlataformaSaasController.php"
+    "backend/app/Http/Controllers/Api/Plataforma/MinhaContaController.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/PlataformaSaasGestao.tsx",
@@ -43001,10 +43030,10 @@
     "backend/app/Jobs/Sistema/SimularRestauroLegado.php"
    ],
    "ficheiros_front": [
+    "frontend/src/componentes/AjudasAcessibilidade.tsx",
     "frontend/src/layout/PesquisaEcras.tsx",
     "frontend/src/modulos/compras/comum/ModaisEncomenda.tsx",
-    "frontend/src/modulos/compras/comum/Rececoes.tsx",
-    "frontend/src/modulos/config/ConfigGeral.tsx"
+    "frontend/src/modulos/compras/comum/Rececoes.tsx"
    ],
    "onde_ligar": {
     "controllers": [],
@@ -49057,12 +49086,12 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": true,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": 0.3333,
@@ -49070,7 +49099,9 @@
     "backend/app/Http/Controllers/Api/RH/AssiduidadeController.php",
     "backend/app/Services/RH/ServicoAssiduidade.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/Assiduidade.tsx"
+   ],
    "onde_ligar": {
     "controllers": [
      "AssiduidadeController"
@@ -49213,13 +49244,13 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": true,
-   "frontend_ui": false,
-   "frontend_tipo": false,
+   "frontend_ui": true,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
@@ -49227,7 +49258,11 @@
     "backend/app/Services/RH/ServicoAssiduidade.php",
     "backend/app/Services/RH/ServicoProdutividade.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/Assiduidade.tsx",
+    "frontend/src/modulos/rh/Produtividade.tsx",
+    "frontend/src/modulos/rh/api.ts"
+   ],
    "onde_ligar": {
     "controllers": [
      "AssiduidadeController"
@@ -50069,10 +50104,10 @@
     "backend/app/Http/Controllers/Api/Plataforma/TransferenciasBancariasController.php"
    ],
    "ficheiros_front": [
+    "frontend/src/componentes/AjudasAcessibilidade.tsx",
     "frontend/src/componentes/CabecalhoModulo.tsx",
-    "frontend/src/componentes/TabelaApi.tsx",
-    "frontend/src/componentes/impressao/BotoesExportar.tsx",
-    "frontend/src/componentes/reparticao/TabelaPorUnidade.tsx"
+    "frontend/src/componentes/SaltarParaConteudo.tsx",
+    "frontend/src/componentes/TabelaApi.tsx"
    ],
    "onde_ligar": {
     "controllers": [],
@@ -54035,7 +54070,8 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
-    "backend/app/Services/IA/Agente/ServicoConfiguracaoIA.php"
+    "backend/app/Services/IA/Agente/ServicoConfiguracaoIA.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [
     "frontend/src/componentes/icones/iconesModulos.tsx",
@@ -54133,7 +54169,8 @@
    "preenchimento_legado": null,
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Plataforma/IAPlataformaController.php",
-    "backend/app/Services/IA/Agente/ServicoConfiguracaoIA.php"
+    "backend/app/Services/IA/Agente/ServicoConfiguracaoIA.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/PlataformaIA.tsx",
@@ -57283,8 +57320,8 @@
    "ficheiros_front": [
     "frontend/src/modulos/acrescimos/DetalheItem.tsx",
     "frontend/src/modulos/acrescimos/ModalItem.tsx",
-    "frontend/src/modulos/acrescimos/comum/regras.ts",
-    "frontend/src/modulos/acrescimos/comum/tipos.ts"
+    "frontend/src/paginas/EscolherEmpresa.tsx",
+    "frontend/src/modulos/acrescimos/comum/regras.ts"
    ],
    "onde_ligar": {
     "controllers": [
@@ -82290,10 +82327,10 @@
     "backend/app/Services/Migracao/RegistoOcorrencias.php"
    ],
    "ficheiros_front": [
+    "frontend/src/componentes/AjudasAcessibilidade.tsx",
     "frontend/src/componentes/fluxos/ComponentesFluxo.tsx",
     "frontend/src/componentes/formularios/PainelLinhas.tsx",
-    "frontend/src/componentes/impressao/BotoesExportar.tsx",
-    "frontend/src/componentes/vistas/FiltrosColuna.tsx"
+    "frontend/src/componentes/impressao/BotoesExportar.tsx"
    ],
    "onde_ligar": {
     "controllers": [],
@@ -93730,7 +93767,8 @@
    "ficheiros_front": [
     "frontend/src/modulos/rh/Processamento.tsx",
     "frontend/src/modulos/rh/comum/ListaPeriodos.tsx",
-    "frontend/src/modulos/rh/Assiduidade.tsx"
+    "frontend/src/modulos/rh/Assiduidade.tsx",
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -93776,7 +93814,8 @@
    "ficheiros_front": [
     "frontend/src/modulos/rh/Processamento.tsx",
     "frontend/src/modulos/rh/comum/ListaPeriodos.tsx",
-    "frontend/src/modulos/rh/Assiduidade.tsx"
+    "frontend/src/modulos/rh/Assiduidade.tsx",
+    "frontend/src/modulos/rh/AvaliacaoCiclo.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -94646,19 +94685,21 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": 0.8,
    "ficheiros_back": [
     "backend/app/Services/RH/ServicoProdutividade.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/Produtividade.tsx"
+   ],
    "onde_ligar": {
     "controllers": [
      "EntregaveisController",
@@ -94756,13 +94797,13 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "RH",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
    "backend": true,
    "api_leitura": true,
    "api_escrita": true,
-   "frontend_ui": false,
-   "frontend_tipo": false,
+   "frontend_ui": true,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 0.4,
    "ficheiros_back": [
@@ -94770,7 +94811,11 @@
     "backend/app/Services/RH/ServicoAssiduidade.php",
     "backend/app/Services/RH/ServicoProdutividade.php"
    ],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/rh/Assiduidade.tsx",
+    "frontend/src/modulos/rh/Produtividade.tsx",
+    "frontend/src/modulos/rh/api.ts"
+   ],
    "onde_ligar": {
     "controllers": [
      "EntregaveisController",
@@ -127944,7 +127989,8 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
-    "backend/app/Services/Pagamentos/ProcessadorPagamentos.php"
+    "backend/app/Services/Pagamentos/ProcessadorPagamentos.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/Licenca.tsx",
@@ -132048,7 +132094,7 @@
    "api_leitura": false,
    "api_escrita": true,
    "frontend_ui": true,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
@@ -132886,10 +132932,10 @@
    "fk": "tenants",
    "preenchimento_legado": null,
    "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Autenticacao/AutenticacaoController.php",
     "backend/app/Http/Controllers/Api/Autenticacao/AutenticacaoGoogleController.php",
     "backend/app/Http/Controllers/Api/Autenticacao/RegistoEmpresaController.php",
-    "backend/app/Http/Controllers/Api/Plataforma/AdministradoresController.php",
-    "backend/app/Http/Controllers/Api/Plataforma/AgentesSuporteController.php"
+    "backend/app/Http/Controllers/Api/Plataforma/AdministradoresController.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/PlataformaSuporte.tsx",
@@ -132995,7 +133041,8 @@
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Autenticacao/MfaController.php",
     "backend/app/Models/Utilizador.php",
-    "backend/app/Services/Autenticacao/ServicoReautenticacao.php"
+    "backend/app/Services/Autenticacao/ServicoReautenticacao.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -138830,7 +138877,8 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
-    "backend/app/Services/Pagamentos/ProcessadorPagamentos.php"
+    "backend/app/Services/Pagamentos/ProcessadorPagamentos.php",
+    "backend/app/Services/Seguranca/ServicoRotacaoChaves.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/Licenca.tsx",

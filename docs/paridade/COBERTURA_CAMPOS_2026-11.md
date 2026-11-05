@@ -27,9 +27,9 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | :--- | :--- | :--- |
 | INFRA | 1297 | 32.5% |
 | LEGADO_TECNICO | 78 | 2.0% |
-| FUNCIONAL_COBERTO | 1918 | 48.1% |
-| FUNCIONAL_SO_BACKEND | 325 | 8.1% |
-| FUNCIONAL_SEM_API | 357 | 8.9% |
+| FUNCIONAL_COBERTO | 1928 | 48.3% |
+| FUNCIONAL_SO_BACKEND | 316 | 7.9% |
+| FUNCIONAL_SEM_API | 356 | 8.9% |
 | ORFA | 15 | 0.4% |
 
 ## Por módulo
@@ -41,7 +41,7 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | Logística | 9 | 182 | 41 | 4 | 116 | 18 | 3 | 0 |
 | Tesouraria | 10 | 197 | 41 | 10 | 102 | 31 | 12 | 1 |
 | Contabilidade | 11 | 181 | 48 | 5 | 72 | 3 | 50 | 3 |
-| RH | 43 | 711 | 201 | 20 | 388 | 37 | 64 | 1 |
+| RH | 43 | 711 | 201 | 20 | 398 | 28 | 63 | 1 |
 | Activos | 16 | 285 | 70 | 3 | 156 | 33 | 23 | 0 |
 | CRM | 8 | 109 | 37 | 2 | 64 | 6 | 0 | 0 |
 | Projectos | 21 | 272 | 87 | 4 | 151 | 17 | 9 | 4 |
@@ -79,7 +79,6 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | resultados_folha_salarial | Outros | 9 | 25 |
 | notificacoes_sistema | Outros | 8 | 13 |
 | avaliacoes_desempenho_rh | RH | 7 | 34 |
-| bonificacoes_avaliacao_rh | RH | 7 | 21 |
 | documentos_anexos | Sistema | 7 | 11 |
 | ia_consumo | Outros | 7 | 12 |
 | ia_mensagens | Outros | 7 | 10 |
@@ -100,8 +99,9 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | multas_entregavel | Estrutura | 6 | 23 |
 | produtos | Logística | 6 | 59 |
 | subscricoes_empresa | Plataforma | 6 | 28 |
+| utilizadores | Sistema | 6 | 28 |
 
-## Lista priorizada de lacunas (697)
+## Lista priorizada de lacunas (687)
 
 Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(s) e ecrã(s) do âmbito da tabela.
 
@@ -387,18 +387,10 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `reaberta_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
 - `reaberta_por` (character varying) SO_BACKEND — só nos tipos TypeScript
 **bonificacoes_avaliacao_rh** — controllers: AvaliacaoController; ecrãs: frontend/src/modulos/rh/AvaliacaoCiclo.tsx, frontend/src/modulos/rh/AvaliacaoConfig.tsx, frontend/src/modulos/rh/comum/PortalAvaliacao.tsx
-- `aprovado_em` (timestamp with time zone) SO_BACKEND
-- `aprovado_por` (character varying) SO_BACKEND
 - `avaliacao_desempenho_id` (bigint) SO_BACKEND — só nos tipos TypeScript
-- `calculado_por` (character varying) SO_BACKEND — só nos tipos TypeScript
 - `lancado_em` (timestamp with time zone) SO_BACKEND
 - `lancado_por` (character varying) SO_BACKEND
 - `linha_folha_salarial_id` (bigint) SO_BACKEND
-**ciclos_avaliacao_360** — controllers: AvaliacaoController, AvaliacaoEquipaController, ParidadeAvaliacaoRHController; ecrãs: frontend/src/modulos/rh/Avaliacao.tsx, frontend/src/modulos/rh/AvaliacaoCiclo.tsx, frontend/src/modulos/rh/AvaliacaoConfig.tsx
-- `fechado_em` (timestamp with time zone) SO_BACKEND
-- `fechado_por` (character varying) SO_BACKEND
-**configuracoes_assiduidade** — controllers: —; ecrãs: frontend/src/componentes/icones/iconesModulos.tsx, frontend/src/modulos/rh/Assiduidade.tsx
-- `minimo_dia_horas` (numeric) SEM_API — sem uso em código; o legado tinha dados
 **confirmacoes_avaliacao_rh** — controllers: —; ecrãs: —
 - `ciclo_avaliacao_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
 - `colaborador_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
@@ -413,9 +405,7 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `decidido_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
 - `pedido_portal_colaborador_id` (bigint) SO_BACKEND
 **fechos_mensais_assiduidade** — controllers: AssiduidadeController; ecrãs: frontend/src/modulos/rh/Assiduidade.tsx
-- `lancado_por` (character varying) SO_BACKEND
 - `periodo_processamento_salarial_id` (bigint) SO_BACKEND
-- `reaberto_por` (character varying) SO_BACKEND
 **feedbacks_avaliacao_360** — controllers: AvaliacaoController, AvaliacaoEquipaController; ecrãs: frontend/src/modulos/rh/comum/AMinhaEquipa.tsx, frontend/src/modulos/rh/comum/PortalAvaliacao.tsx
 - `colaborador_chefia_id` (bigint) SO_BACKEND
 **habilitacoes_colaboradores** — controllers: —; ecrãs: —
@@ -471,9 +461,7 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `cancelado_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
 - `plano_ferias_colaborador_id` (bigint) SO_BACKEND
 **periodos_produtividade_rh** — controllers: EntregaveisController, FeriasProdutividadeController, FiRhController, ImportacaoRHController, ProdutividadeProjetosController; ecrãs: frontend/src/modulos/estrutura/tarefas/api.ts, frontend/src/modulos/projectos/comum/PonteProdutividade.tsx, frontend/src/modulos/rh/Calcular.tsx
-- `lancado_por` (character varying) SO_BACKEND
 - `periodo_processamento_salarial_id` (bigint) SO_BACKEND — só nos tipos TypeScript
-- `reaberto_por` (character varying) SO_BACKEND
 - `registos_fecho` (integer) SO_BACKEND — só nos tipos TypeScript
 **prestacoes_emprestimos** — controllers: —; ecrãs: —
 - `colaborador_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
@@ -1062,8 +1050,10 @@ Campos `nome:`/`<Form.Item name>` que não são coluna de nenhuma tabela e que n
 | `codigo_serie` | frontend/src/modulos/vendas/series/SeriesNumeracao.tsx |
 | `contingencia_sn` | frontend/src/modulos/vendas/series/SeriesNumeracao.tsx |
 
-### Chamadas do frontend a rotas inexistentes — 404 latente (0)
+### Chamadas do frontend a rotas inexistentes — 404 latente (2)
 
+- `/plataforma/root/empresas` — frontend/src/paginas/SeletorEmpresasRoot.tsx
+- `POST /autenticacao/reautenticar` — frontend/src/sessao/PedidoReautenticacao.tsx
 
 ### Rotas da API sem referência no frontend (38)
 
