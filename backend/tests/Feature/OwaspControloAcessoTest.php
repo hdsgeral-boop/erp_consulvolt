@@ -155,6 +155,8 @@ final class OwaspControloAcessoTest extends TestCase
     /** Autenticadas, mas SEM empresa activa por desenho (dados da própria sessão/conta). "MÉTODO uri" => motivo */
     private const SO_AUTENTICADAS = [
         'GET api/autenticacao/eu' => 'o próprio utilizador e as suas empresas',
+        'POST api/autenticacao/reautenticar' => 'step-up do próprio (código MFA ou palavra-passe; limite «palavra-passe»; ADR-085)',
+        'POST api/autenticacao/sair-de-todas' => 'logout global do próprio (ADR-085)',
         'GET api/autenticacao/dados-pessoais' => 'dados do próprio',
         'PUT api/autenticacao/dados-pessoais' => 'dados do próprio (validados; sem papel/perfil)',
         'PUT api/autenticacao/palavra-passe' => 'password do próprio (exige a actual; limite «palavra-passe»)',
