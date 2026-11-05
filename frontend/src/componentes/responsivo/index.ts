@@ -3,3 +3,5 @@ export { useEcra, useEcraPequeno, PONTOS_QUEBRA, type EstadoEcra, type PontoQueb
 export { larguraModal, larguraGaveta, scrollTabela, COLUNAS_DESCRICOES, COL_CAMPO, COL_CAMPO_LARGO, MARGEM_ECRA } from './utilitarios';
 export { BarraFiltros } from './BarraFiltros';
 export { DeslocamentoHorizontal } from './DeslocamentoHorizontal';
+export { ResumoValores, type ItemResumoValores, type ResumoValoresProps } from './ResumoValores';
+export { ValorMonetario, formatarValor, type ValorMonetarioProps } from './ValorMonetario';

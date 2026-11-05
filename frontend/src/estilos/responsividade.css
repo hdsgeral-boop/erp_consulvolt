@@ -1,0 +1,121 @@
+/*
+ * Responsividade global de tabelas, descrições, cartões e valores (guia: docs/FRONTEND_RESPONSIVIDADE.md).
+ * Pontos de quebra: xs < 576 · sm ≥ 576 · md ≥ 768 · lg ≥ 992 · xl ≥ 1200 · xxl ≥ 1600.
+ * Regra de ouro: valores (moeda, números, datas) nunca partem a meio; rótulos e texto livre só quebram entre palavras.
+ */
+
+/* ── Valores: nunca partir a meio ───────────────────────────────────────────── */
+.erp-valor,
+.erp-resumo-valores__valor,
+:root .ant-statistic .ant-statistic-content {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.erp-valor--direita { text-align: end; }
+
+/* ── Descriptions: colunas dimensionadas pelo conteúdo (em vez de «table-layout: fixed», que parte «9 500 AOA») ── */
+:root .ant-descriptions .ant-descriptions-view table {
+  table-layout: auto;
+}
+
+/* Texto livre só quebra em fronteiras de palavras (o «anywhere» do telemóvel parte números) */
+:root .ant-descriptions .ant-descriptions-item-content,
+:root .ant-descriptions .ant-descriptions-item-label {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+:root .ant-descriptions-bordered .ant-descriptions-item-label {
+  min-width: 96px;
+}
+
+/* Tags com valores (descontos, estados) não partem a meio */
+:root .ant-descriptions .ant-tag {
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ── Statistic: valor inteiro; título pode quebrar entre palavras ────────────── */
+:root .ant-statistic .ant-statistic-title {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* ── Cartões e cabeçalhos de cartão ─────────────────────────────────────────── */
+:root .ant-card { min-width: 0; max-width: 100%; }
+:root .ant-card .ant-card-head-wrapper { flex-wrap: wrap; row-gap: 4px; }
+:root .ant-card .ant-card-head-title { white-space: normal; overflow-wrap: break-word; }
+:root .ant-card .ant-card-extra { margin-inline-start: auto; }
+
+/* ── Tabelas: rótulos curtos em nowrap; colunas de texto livre marcadas com «erp-quebra» ─────── */
+:root .ant-table-wrapper .ant-table-cell { overflow-wrap: normal; }
+:root .ant-table-wrapper .ant-table-cell.erp-quebra { overflow-wrap: break-word; word-break: normal; min-width: 160px; }
+:root .ant-table-wrapper .ant-table-cell.erp-valor,
+:root .ant-table-wrapper .ant-table-cell.ant-table-cell-align-right { font-variant-numeric: tabular-nums; }
+:root .ant-table-wrapper,
+:root .ant-spin-nested-loading,
+:root .ant-spin-container { min-width: 0; max-width: 100%; }
+
+/* ── Resumo de valores: grelha auto-fit (cada bloco ocupa o que precisa; quebra linha ao faltar espaço) ── */
+.erp-resumo-valores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--erp-resumo-min, 150px)), 1fr));
+  gap: 1px;
+  background: var(--ant-color-border-secondary, #e2e8f0);
+  border: 1px solid var(--ant-color-border-secondary, #e2e8f0);
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+.erp-resumo-valores--compacto { --erp-resumo-min: 130px; }
+.erp-resumo-valores--largo { --erp-resumo-min: 200px; }
+.erp-resumo-valores__item {
+  background: var(--ant-color-bg-container, #fff);
+  padding: 8px 12px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.erp-resumo-valores__item--destaque { background: var(--ant-color-primary-bg, #eff6ff); }
+.erp-resumo-valores__rotulo {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ant-color-text-secondary, #64748b);
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.erp-resumo-valores__valor {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  min-width: 0;
+}
+.erp-resumo-valores__item--destaque .erp-resumo-valores__valor { font-size: 15px; font-weight: 700; }
+
+/* ── Modais, gavetas: nunca maiores do que o ecrã ───────────────────────────── */
+:root .ant-modal { max-width: calc(100vw - 16px); }
+:root .ant-modal .ant-modal-body { overflow-wrap: break-word; }
+:root .ant-drawer .ant-drawer-content-wrapper { max-width: 100vw; }
+
+/* ── Blocos flexíveis: filhos podem encolher (evita sobreposição) ────────────── */
+:root .ant-space-item,
+:root .ant-flex > * { min-width: 0; }
+
+/* ── Telemóvel (< 576 px) ──────────────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+  :root .ant-statistic .ant-statistic-content { font-size: 20px; }
+  :root .ant-card .ant-card-extra { margin-inline-start: 0; width: 100%; }
+}
+
+/* ── Tabelas em telemóvel: sem o mínimo fixo de 580 px; a tabela mede o seu conteúdo e desloca dentro do contentor ── */
+@media (max-width: 767.98px) {
+  :root .ant-table-wrapper .ant-table { min-width: 0; }
+}
+
+/* ── Cabeçalho do ERP em 992–1199 px: o nome e o papel do utilizador cedem lugar ao nome da empresa ── */
+@media (min-width: 576px) and (max-width: 1199.98px) {
+  :root .erp-cabecalho .erp-utilizador-textos { display: none; }
+}

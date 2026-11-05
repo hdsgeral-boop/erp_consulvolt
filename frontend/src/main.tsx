@@ -20,6 +20,8 @@ import '@fontsource/inter/latin-800.css';
 import '@/estilos/global.css';
 import '@/estilos/identidade.css';
 import '@/estilos/escalaResponsiva.css';
+import '@/estilos/responsividade.css';
+import '@/estilos/menuTopo.css';
 
 dayjs.locale('pt');
 

@@ -38,6 +38,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ResumoValores, ValorMonetario } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
@@ -392,21 +393,25 @@ export default function Licenca() {
                       )}
 
                       {ciclo && (
-                        <Descriptions size="small" column={{ xs: 1, sm: 2, md: 4 }} bordered style={{ maxWidth: 680 }}>
-                          <Descriptions.Item label="Subtotal bruto">{formatarNumero(ciclo.valor_bruto)} {plano?.moeda}</Descriptions.Item>
-                          <Descriptions.Item label="Desconto do ciclo">
-                            {ciclo.desconto_percentagem > 0 ? (
-                              <Tag color="green">−{formatarNumero(ciclo.valor_desconto_ciclo)} {plano?.moeda} ({formatarNumero(ciclo.desconto_percentagem)}%)</Tag>
-                            ) : '—'}
-                          </Descriptions.Item>
-                          <Descriptions.Item label="Preço mensal efectivo">{formatarNumero(ciclo.preco_mensal_efetivo)} {plano?.moeda}/mês</Descriptions.Item>
-                          <Descriptions.Item label="Desconto do cupão">
-                            {cupomResultado?.valido ? (
-                              <Tag color="green">−{formatarNumero(cupomResultado.valor_desconto_cupom)} {plano?.moeda} ({cupomResultado.cupom?.codigo})</Tag>
-                            ) : '—'}
-                          </Descriptions.Item>
-                          <Descriptions.Item label="Valor a pagar"><strong>{formatarNumero(total ?? ciclo.valor_apos_ciclo)} {plano?.moeda}</strong></Descriptions.Item>
-                        </Descriptions>
+                        <ResumoValores
+                          itens={[
+                            { rotulo: 'Subtotal bruto', valor: <ValorMonetario valor={formatarNumero(ciclo.valor_bruto)} moeda={plano?.moeda} /> },
+                            {
+                              rotulo: 'Desconto do ciclo',
+                              valor: ciclo.desconto_percentagem > 0 ? (
+                                <Tag color="green">−{formatarNumero(ciclo.valor_desconto_ciclo)} {plano?.moeda} ({formatarNumero(ciclo.desconto_percentagem)}%)</Tag>
+                              ) : '—',
+                            },
+                            { rotulo: 'Preço mensal efectivo', valor: <ValorMonetario valor={formatarNumero(ciclo.preco_mensal_efetivo)} moeda={plano?.moeda} sufixo="/mês" /> },
+                            {
+                              rotulo: 'Desconto do cupão',
+                              valor: cupomResultado?.valido ? (
+                                <Tag color="green">−{formatarNumero(cupomResultado.valor_desconto_cupom)} {plano?.moeda} ({cupomResultado.cupom?.codigo})</Tag>
+                              ) : '—',
+                            },
+                            { rotulo: 'Valor a pagar', destaque: true, valor: <ValorMonetario forte valor={formatarNumero(total ?? ciclo.valor_apos_ciclo)} moeda={plano?.moeda} /> },
+                          ]}
+                        />
                       )}
                     </Space>
                   </Card>
