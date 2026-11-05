@@ -7,6 +7,7 @@ use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -59,10 +60,10 @@ final class RootEmpresasController extends Controller
      * Logótipos (data URI) só das empresas da página: a RLS da tabela `empresas` só deixa ler o tenant activo, por isso
      * muda-se o contexto para cada cliente da página, lê-se e repõe-se o tenant anterior (como em ResolverEmpresaAtiva).
      *
-     * @param  \Illuminate\Support\Collection<int, object>  $linhas
+     * @param  Collection<int, object>  $linhas
      * @return array<int, string>
      */
-    private function logotipos($linhas): array
+    private function logotipos(Collection $linhas): array
     {
         $tenant = app(ContextoTenant::class);
         $anterior = $tenant->id();
