@@ -48,6 +48,8 @@ final class EmitirDocumentoRequest extends FormRequest
             'valido_ate' => ['nullable', 'date_format:Y-m-d'],
             'condicoes_pagamento' => ['nullable', 'string', 'max:2000'],
             'observacoes' => ['nullable', 'string', 'max:4000'],
+            'data_entrega' => ['nullable', 'date_format:Y-m-d'],   // entrega prevista (NE/OR/PF/GR): vendas.data_entrega
+            'local_entrega' => ['nullable', 'string', 'max:500'],   // local de entrega/descarga: vendas.local_entrega
             'codigo_moeda' => ['nullable', 'string', 'regex:/^[A-Z]{3}$/'],
             'taxa_cambio' => ['nullable', 'numeric', 'gt:0', 'max:999999999'],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],
@@ -75,7 +77,7 @@ final class EmitirDocumentoRequest extends FormRequest
             'venda_origem_id' => 'factura de referência', 'motivo_nota_credito' => 'motivo da nota de crédito',
             'guias_saida' => 'guias de saída', 'guias_saida.*' => 'guia de saída', 'contas_pagamento' => 'contas dos meios de pagamento',
             'contas_pagamento.*' => 'meio de pagamento',
-            'conta_disponibilidade' => 'conta de caixa/banco', 'plano_pagamentos' => 'plano de pagamentos',
+            'data_entrega' => 'data de entrega', 'local_entrega' => 'local de entrega', 'conta_disponibilidade' => 'conta de caixa/banco', 'plano_pagamentos' => 'plano de pagamentos',
         ];
     }
 }

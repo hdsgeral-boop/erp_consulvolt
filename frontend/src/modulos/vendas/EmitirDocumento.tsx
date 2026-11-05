@@ -72,6 +72,8 @@ interface ValoresForm {
   valido_ate?: Dayjs | null;
   observacoes?: string;
   condicoes_pagamento?: string;
+  data_entrega?: Dayjs | null;
+  local_entrega?: string;
   codigo_moeda?: string;
   taxa_cambio?: number | null;
   unidade_negocio_id?: number;
@@ -156,6 +158,7 @@ export function EmitirDocumento() {
         tipo_documento: (TIPOS_EMITIVEIS as readonly string[]).includes(copia.tipo_documento) && copia.tipo_documento !== 'NC' ? copia.tipo_documento : 'FT',
         cliente_id: copia.cliente_id, codigo_moeda: copia.codigo_moeda || 'AOA', observacoes: copia.observacoes ?? undefined,
         condicoes_pagamento: (copia.condicoes_pagamento as string | null) ?? undefined,
+        local_entrega: (copia.local_entrega as string | null) ?? undefined,
         unidade_negocio_id: (copia.unidade_negocio_id as number | null) ?? undefined, centro_custo_id: (copia.centro_custo_id as number | null) ?? undefined,
         projeto_id: (copia.projeto_id as number | null) ?? undefined,
         unidades_alocadas: alocacaoDeApi(copia.unidades_alocadas),
@@ -265,6 +268,7 @@ export function EmitirDocumento() {
         venda_origem_id: v.venda_origem_id, motivo_nota_credito: v.motivo_nota_credito, devolucao_mercadoria: v.devolucao_mercadoria,
         conta_disponibilidade: v.conta_disponibilidade, meio_pagamento: v.meio_pagamento, referencia_pagamento: v.referencia_pagamento,
         observacoes: v.observacoes, condicoes_pagamento: v.condicoes_pagamento,
+        ...(tipo !== 'NC' ? { data_entrega: dataApi(v.data_entrega), local_entrega: v.local_entrega?.trim() || undefined } : {}),
         unidade_negocio_id: v.unidade_negocio_id, centro_custo_id: v.centro_custo_id, projeto_id: v.projeto_id,
         // sem repartição não se envia o campo: numa NC/conversão o servidor herda a do documento de origem
         ...(alocacaoParaApi(v.unidades_alocadas) ? { unidades_alocadas: alocacaoParaApi(v.unidades_alocadas) } : {}),
@@ -705,6 +709,23 @@ export function EmitirDocumento() {
             </Col>
           </Row>
         </Card>
+
+        {tipo !== 'NC' && (
+          <Card style={{ marginBottom: 16 }}>
+            <Row gutter={16}>
+              <Col xs={24} md={8}>
+                <Form.Item name="data_entrega" label={<><IconeFa nome="truck" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 6 }} />Data de entrega (opcional)</>}>
+                  <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={16}>
+                <Form.Item name="local_entrega" label={<><IconeFa nome="map-marker-alt" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 6 }} />Local de entrega (opcional)</>}>
+                  <Input maxLength={500} placeholder="Morada ou local onde a mercadoria/serviço é entregue" />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Card>
+        )}
 
         {comMeios && (
           <MeiosPagamentoDocumento

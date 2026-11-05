@@ -130,6 +130,7 @@ export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null, 
       ['Plano de pagamentos', textoPlano(d)],
       ['Contravalor em Kz', textoContravalor(d)],
       ['Condições de pagamento', typeof d.condicoes_pagamento === 'string' ? d.condicoes_pagamento : null],
+      ['Entrega', [typeof d.data_entrega === 'string' && d.data_entrega ? `Data: ${d.data_entrega.split('-').reverse().join('/')}` : null, typeof d.local_entrega === 'string' && d.local_entrega ? `Local: ${d.local_entrega}` : null].filter(Boolean).join(' · ') || null],
       ['Observações', d.observacoes],
     ],
     fiscal:

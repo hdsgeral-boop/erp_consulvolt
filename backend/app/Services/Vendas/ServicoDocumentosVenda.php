@@ -167,6 +167,7 @@ final class ServicoDocumentosVenda
                 'motivo_nota_credito' => $tipo === 'NC' ? $d['motivo_nota_credito'] : null,
                 'meio_pagamento' => $tipo === 'FR' ? ($d['meio_pagamento'] ?? 'NUMERARIO') : null,
                 'observacoes' => $d['observacoes'] ?? null, 'condicoes_pagamento' => $d['condicoes_pagamento'] ?? null,
+                'data_entrega' => $tipo === 'NC' ? null : ($d['data_entrega'] ?? null), 'local_entrega' => $tipo === 'NC' ? null : ($d['local_entrega'] ?? null),
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
                 'contas_pagamento' => $contasPagamento, 'ocultar_meios_pagamento' => ! empty($d['ocultar_meios_pagamento']),
                 'unidades_alocadas' => $alocacao,
@@ -310,6 +311,7 @@ final class ServicoDocumentosVenda
                 'linhas' => array_map(fn ($l) => array_diff_key($l, ['_origem' => 1]), $linhas),
                 'unidade_negocio_id' => $origem->unidade_negocio_id, 'centro_custo_id' => $origem->centro_custo_id, 'projeto_id' => $origem->projeto_id,
                 'condicoes_pagamento' => $origem->condicoes_pagamento,
+                'data_entrega' => $origem->data_entrega?->toDateString(), 'local_entrega' => $origem->local_entrega,
                 'venda_origem_id' => $destino === 'NC' ? $origem->id : null,
                 // a moeda passa ao documento gerado; o câmbio reavalia-se na nova data, salvo se era manual (cambioParaConversao)
                 'codigo_moeda' => $origem->codigo_moeda ?: ServicoCambios::BASE,

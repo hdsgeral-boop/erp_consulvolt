@@ -274,6 +274,8 @@ export function DetalheDocumento() {
           {plano && <Descriptions.Item label="Plano de pagamentos" span="filled"><span style={{ whiteSpace: 'pre-line' }}>{plano.split('\n').slice(1).join('\n')}</span></Descriptions.Item>}
           {contravalor && <Descriptions.Item label="Contravalor em Kz" span="filled">{contravalor}</Descriptions.Item>}
           {d.motivo_nota_credito && <Descriptions.Item label="Motivo da NC" span="filled">{d.motivo_nota_credito}</Descriptions.Item>}
+          {d.data_entrega && <Descriptions.Item label="Data de entrega">{formatarData(d.data_entrega)}</Descriptions.Item>}
+          {d.local_entrega && <Descriptions.Item label="Local de entrega" span="filled">{d.local_entrega}</Descriptions.Item>}
           {d.observacoes && <Descriptions.Item label="Observações" span="filled">{d.observacoes}</Descriptions.Item>}
         </Descriptions>
       </Card>

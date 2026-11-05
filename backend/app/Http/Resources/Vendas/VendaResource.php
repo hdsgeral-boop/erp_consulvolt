@@ -46,6 +46,8 @@ final class VendaResource extends JsonResource
             'motivo_nota_credito' => $this->motivo_nota_credito,
             'observacoes' => $this->observacoes,
             'condicoes_pagamento' => $this->condicoes_pagamento,
+            'data_entrega' => $this->data_entrega?->toDateString(),
+            'local_entrega' => $this->local_entrega,
             'unidade_negocio_id' => $this->unidade_negocio_id,
             'centro_custo_id' => $this->centro_custo_id,
             'projeto_id' => $this->projeto_id,

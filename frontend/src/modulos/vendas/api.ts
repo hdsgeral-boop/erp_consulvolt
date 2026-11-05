@@ -35,6 +35,9 @@ export interface DocumentoVenda {
   meio_pagamento: string | null;
   motivo_nota_credito: string | null;
   observacoes: string | null;
+  /** entrega prevista e local de entrega do documento (vendas.data_entrega / local_entrega) */
+  data_entrega?: string | null;
+  local_entrega?: string | null;
   data_vencimento: string | null;
   valido_ate: string | null;
   /** moeda estrangeira: câmbio e totais na moeda (VendaResource) */
