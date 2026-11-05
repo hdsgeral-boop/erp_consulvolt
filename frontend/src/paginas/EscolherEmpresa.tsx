@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Collapse, Empty, Input, List, Tag, Typography, theme } from 'antd';
+import { Avatar, Button, Card, Empty, Input, List, Tag, Typography, theme } from 'antd';
 import { LogoutOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -100,8 +100,11 @@ export function EscolherEmpresa() {
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
           {naRotaPortal() ? 'Portal do Colaborador — escolha a empresa.' : 'Escolha a empresa com que vai trabalhar.'}
         </Typography.Paragraph>
-        {empresas.length === 0 ? (
-          ehContaRoot(utilizador) ? null : <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
+        {/* conta root global (ADR-084): uma só lista, com as empresas de todos os clientes (logótipo, nome, NIF e cliente), 10 por página */}
+        {ehContaRoot(utilizador) ? (
+          <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} />
+        ) : empresas.length === 0 ? (
+          <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
         ) : (
           <>
             {empresas.length > 1 && (
@@ -162,15 +165,6 @@ export function EscolherEmpresa() {
               />
             </div>
           </>
-        )}
-        {/* conta root global (ADR-084): as empresas de outros clientes ficam à parte, recolhidas, para o ecrã ser o de sempre */}
-        {ehContaRoot(utilizador) && (
-          <Collapse
-            ghost
-            style={{ marginTop: 8 }}
-            defaultActiveKey={empresas.length === 0 ? ['root'] : []}
-            items={[{ key: 'root', label: 'Empresas de outros clientes (conta root)', children: <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} /> }]}
-          />
         )}
       </Card>
     </main>

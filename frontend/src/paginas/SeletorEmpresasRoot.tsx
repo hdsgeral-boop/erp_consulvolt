@@ -1,19 +1,39 @@
-import { Button, Empty, Input, List, Pagination, Tag, Typography } from 'antd';
+import { Avatar, Button, Empty, Input, List, Pagination, Tag, Typography, theme } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obterPagina } from '@/api/cliente';
+import { iniciais } from '@/layout/marca';
 
-/** Empresa de qualquer cliente, como devolvida por GET /plataforma/root/empresas (só metadados, sem dados pessoais). */
+/** Empresa de qualquer cliente, como devolvida por GET /plataforma/root/empresas (nome, NIF, logótipo e cliente; sem dados pessoais). */
 export interface EmpresaDeCliente {
   id: number;
   nome: string;
+  nif?: string | null;
+  logotipo?: string | null;
   estado: string;
   cliente_id: number;
   cliente_nome: string | null;
 }
 
-const POR_PAGINA = 25;
+const POR_PAGINA = 10;
+
+/** Logótipo da empresa (data URI vindo na própria lista); as iniciais se não houver. */
+function LogotipoLinha({ empresa }: { empresa: EmpresaDeCliente }) {
+  const { token } = theme.useToken();
+  if (empresa.logotipo && empresa.logotipo.startsWith('data:image/')) {
+    return (
+      <span className="erp-logo-escolha" aria-hidden>
+        <img src={empresa.logotipo} alt="" />
+      </span>
+    );
+  }
+  return (
+    <Avatar shape="square" size={44} style={{ background: token.colorPrimary, fontWeight: 600, flexShrink: 0 }} aria-hidden>
+      {iniciais(empresa.nome)}
+    </Avatar>
+  );
+}
 
 /**
  * Selector de empresas de TODOS os clientes para a conta root global (ADR-084), que não pertence a nenhum: pesquisa
@@ -54,7 +74,7 @@ export function SeletorEmpresasRoot({ aEscolher, escolher }: { aEscolher: number
       <Input
         allowClear
         prefix={<SearchOutlined />}
-        placeholder="Pesquisar por empresa ou cliente"
+        placeholder="Pesquisar por empresa, NIF ou cliente"
         aria-label="Pesquisar empresa de qualquer cliente"
         value={pesquisa}
         onChange={(ev) => setPesquisa(ev.target.value)}
@@ -76,6 +96,7 @@ export function SeletorEmpresasRoot({ aEscolher, escolher }: { aEscolher: number
             >
               <List.Item.Meta
                 style={{ minWidth: 0 }}
+                avatar={<LogotipoLinha empresa={e} />}
                 title={
                   <>
                     {e.nome}
@@ -84,7 +105,12 @@ export function SeletorEmpresasRoot({ aEscolher, escolher }: { aEscolher: number
                     )}
                   </>
                 }
-                description={e.cliente_nome ? `Cliente: ${e.cliente_nome}` : undefined}
+                description={
+                  <>
+                    {e.nif ? <span style={{ display: 'block' }}>{`NIF ${e.nif}`}</span> : null}
+                    {e.cliente_nome ? <span style={{ display: 'block' }}>{`Cliente: ${e.cliente_nome}`}</span> : null}
+                  </>
+                }
               />
             </List.Item>
           )}

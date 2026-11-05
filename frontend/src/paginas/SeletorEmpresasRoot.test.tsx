@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { iniciais } from '@/layout/marca';
 import { EscolherEmpresa } from './EscolherEmpresa';
 
 const obterPagina = vi.fn();
@@ -39,10 +40,24 @@ describe('escolher empresa — conta root', () => {
     expect(await screen.findByText('Alfa, Lda')).toBeInTheDocument();
     expect(screen.getByText('Cliente: Cliente B')).toBeInTheDocument();
     expect(screen.queryByText(/Não tem acesso a nenhuma empresa/)).toBeNull();
-    expect(obterPagina).toHaveBeenCalledWith('/plataforma/root/empresas', expect.objectContaining({ pagina: 1, por_pagina: 25 }));
+    expect(obterPagina).toHaveBeenCalledWith('/plataforma/root/empresas', expect.objectContaining({ pagina: 1, por_pagina: 10 }));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Entrar' })[1]);
     await waitFor(() => expect(escolherEmpresa).toHaveBeenCalledWith(22));
+  });
+
+  it('mostra logótipo, nome, NIF e cliente numa só lista de 10 por página', async () => {
+    obterPagina.mockResolvedValue(pagina([
+      { id: 11, nome: 'Alfa, Lda', nif: '5000000001', logotipo: 'data:image/png;base64,AAAA', estado: 'ATIVO', cliente_id: 2, cliente_nome: 'Cliente A' },
+      { id: 22, nome: 'Beta, SA', nif: null, logotipo: null, estado: 'ATIVO', cliente_id: 3, cliente_nome: 'Cliente B' },
+    ]));
+    const { container } = montar();
+    expect(await screen.findByText('NIF 5000000001')).toBeInTheDocument();
+    expect(container.querySelector('.erp-logo-escolha img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+    expect(screen.getByText(iniciais('Beta, SA'))).toBeInTheDocument(); // iniciais quando não há logótipo
+    expect(screen.getAllByTestId('seletor-root')).toHaveLength(1); // uma só lista
+    expect(screen.queryByText(/Empresas de outros clientes/)).toBeNull();
+    expect(obterPagina).toHaveBeenCalledWith('/plataforma/root/empresas', expect.objectContaining({ por_pagina: 10 }));
   });
 
   it('a pesquisa vai ao servidor (nome da empresa ou do cliente)', async () => {
