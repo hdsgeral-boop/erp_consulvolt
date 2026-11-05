@@ -1,0 +1,111 @@
+{
+  "_nota": "Único ficheiro de configuração do índice da pesquisa «Procurar» (Ctrl+K). É lido pelo gerador (gerar_indice_pesquisa.mjs), que o incorpora em frontend/src/layout/indicePesquisa.gerado.ts, e pelo teste indicePesquisa.test.ts. Os sinónimos são grupos de palavras equivalentes (sem acentos, minúsculas): escrever qualquer uma encontra todas. As permissões continuam a vir do servidor (GET /sistema/menu + useSessao().pode): este ficheiro só descreve.",
+
+  "sinonimos": [
+    ["retencao", "retencao na fonte", "irt", "imposto sobre o rendimento do trabalho", "imposto rendimento trabalho", "taxa liberatoria"],
+    ["inss", "seguranca social", "contribuicao social", "previdencia"],
+    ["nif", "numero de identificacao fiscal", "contribuinte", "numero fiscal"],
+    ["saft", "saf-t", "saft-ao", "saf-t ao", "ficheiro fiscal", "auditoria fiscal"],
+    ["agt", "administracao geral tributaria", "autoridade tributaria", "fisco"],
+    ["ferias", "ausencias", "faltas", "licenca", "licencas", "gozo de ferias", "subsidio de ferias"],
+    ["recibo", "recibo de vencimento", "recibo de salario", "recibo de ordenado", "folha de pagamento", "folha de salarios"],
+    ["salario", "vencimento", "ordenado", "remuneracao", "remuneracoes", "processamento salarial"],
+    ["extracto", "extrato", "movimentos bancarios", "extracto bancario", "extrato bancario"],
+    ["reconciliacao", "conciliacao", "reconciliar", "conciliar", "conciliacao bancaria"],
+    ["factura", "fatura", "faturacao", "facturacao", "documento de venda"],
+    ["delegar", "delegacao", "delegacoes", "substituicao", "substituto", "delegado"],
+    ["multa", "multas", "penalizacao", "penalidade", "coima", "sancao"],
+    ["utilizador", "utilizadores", "usuario", "usuarios", "conta de acesso", "acessos"],
+    ["perfil", "perfis", "permissoes", "permissao", "papeis", "acessos e permissoes", "privilegios"],
+    ["licenca", "licenciamento", "subscricao", "assinatura", "plano", "plano e licenca", "conta e subscricao"],
+    ["sessao", "sessoes", "as minhas sessoes", "dispositivos", "iniciar sessao", "terminar sessao"],
+    ["palavra-passe", "password", "senha", "palavra passe", "credenciais"],
+    ["iva", "imposto sobre o valor acrescentado", "imposto de consumo"],
+    ["armazem", "stock", "inventario", "existencias", "mercadorias"],
+    ["fornecedor", "fornecedores", "compras", "aprovisionamento"],
+    ["cliente", "clientes", "cartao de cliente", "devedor", "devedores"],
+    ["pagamento", "pagamentos", "pagar", "ordem de pagamento", "transferencia bancaria"],
+    ["ativo", "activo", "activos", "ativos", "imobilizado", "patrimonio", "amortizacao", "amortizacoes"],
+    ["lancamento", "lancamentos", "diario", "movimento contabilistico"],
+    ["balancete", "balanco", "demonstracao de resultados", "demonstracoes financeiras", "dre"],
+    ["colaborador", "colaboradores", "funcionario", "funcionarios", "trabalhador", "trabalhadores", "empregado"],
+    ["contrato", "contratos", "vinculo", "vinculos"],
+    ["entregavel", "entregaveis", "entrega", "entregas", "tarefa", "tarefas", "tarefas e entregaveis"],
+    ["organigrama", "organograma", "estrutura organica", "hierarquia"],
+    ["assuntos", "metodo de trabalho", "5w1h", "5w2h", "plano de accao", "plano de acao"],
+    ["elegibilidade", "atribuicao em massa", "atribuir em massa", "selecao em massa"],
+    ["assistente", "assistente ia", "inteligencia artificial", "ia", "chat ia", "regras do assistente"],
+    ["copia de seguranca", "backup", "exportar copia", "restaurar"],
+    ["notificacao", "notificacoes", "alertas", "avisos", "lembretes"],
+    ["ajuda", "manual", "suporte", "tutorial", "como fazer"],
+    ["moeda", "moedas", "cambio", "cambios", "taxa de cambio", "kwanza", "kz"],
+    ["imprimir", "impressao", "pdf", "exportar pdf"],
+    ["excel", "xlsx", "csv", "folha de calculo", "exportar excel"],
+    ["caixa", "pos", "ponto de venda", "frente de caixa", "terminal"],
+    ["emprestimo", "emprestimos", "adiantamento", "adiantamentos"],
+    ["avaliacao", "avaliacao de desempenho", "desempenho", "360"],
+    ["encomenda", "encomendas", "pedido", "pedidos", "nota de encomenda"],
+    ["projecto", "projectos", "projeto", "projetos", "obra", "obras"],
+    ["orcamento", "orcamentos", "previsao", "cenario", "cenarios"],
+    ["acrescimo", "acrescimos", "diferimento", "diferimentos", "especializacao"]
+  ],
+
+  "palavrasEcras": {
+    "rh_rel_irt": "mapa de irt retencao na fonte agt modelo 2 liquidacao mensal imposto rendimento trabalho",
+    "rh_rel_inss": "mapa de inss seguranca social contribuicoes mensais",
+    "rh_rel_remuneracoes": "mapa de remuneracoes agt template irt a2.1 modelo oficial",
+    "rh_rel_recibos": "recibo de vencimento recibo de salario recibos com retencao na fonte",
+    "rh_rel_banco": "ordem de pagamento bancaria transferencias salarios ficheiro do banco",
+    "rh_rel_pagamentos": "salarios a pagar liquidos pagamento de salarios",
+    "rh_ferias": "ferias ausencias faltas licencas marcacao de ferias subsidio de ferias gozo",
+    "rh_portal": "portal do colaborador projectos entregaveis delegacoes aprovacoes recibos ferias os meus dados pedidos",
+    "rh_portal_gestao": "pedidos do portal aprovar ferias ausencias declaracoes pedidos dos colaboradores",
+    "est_estrutura": "estrutura organica unidades cargos tarefas entregaveis multas delegacoes importar entregas afectacao",
+    "est_organigrama": "organigrama organograma hierarquia estrutura organica",
+    "est_mapa": "mapa de pessoal quadro de pessoal estrutura organica",
+    "mt_assuntos": "metodo de trabalho assuntos 5w1h plano de accao pendencias",
+    "config_geral": "configuracoes gerais backup copia de seguranca exportar importar dados da empresa unidades de negocio",
+    "config_licenca": "licenca plano subscricao conta e subscricao renovar licenca limites do plano",
+    "minha_conta": "minha conta conta e subscricao perfil dados pessoais palavra-passe sessoes",
+    "ia_assistente": "assistente ia regras do assistente lancamento assistido inteligencia artificial configuracao",
+    "config_utilizadores": "utilizadores contas de acesso convidar utilizador palavra-passe desbloquear",
+    "config_perfis": "perfis permissoes acessos privilegios elegibilidade atribuicao em massa modelos de perfil",
+    "config_empresas": "empresas filiais holding consolidacao nif empresa activa",
+    "teso_gestao_conciliacao": "reconciliacao conciliacao bancaria extracto bancario movimentos",
+    "teso_reconciliacao": "reconciliacao conciliacao bancaria extracto bancario",
+    "fluxo_processos": "fluxo de processos pilulas etapas documentos encadeados cotacao encomenda factura recibo",
+    "dashboard": "dashboard global painel indicadores graficos resumo",
+    "relatorios_gestao": "relatorios de gestao indicadores kpi analise",
+    "vendas_faturacao": "faturacao facturas recibos notas de credito proformas guias de remessa saft retencao na fonte",
+    "vendas_relatorios": "relatorios de vendas mapas de vendas exportar excel pdf",
+    "relatorios_contabeis": "mapas e relatorios balancete balanco razao diario demonstracao de resultados saft",
+    "saft_contabilidade": "saft ao exportar ficheiro fiscal contabilidade agt xml",
+    "inventario_agt": "inventario agt exportar csv validar stock fiscal",
+    "notificacoes_centro": "notificacoes alertas avisos lembretes centro de notificacoes"
+  },
+
+  "palavrasTarefas": {
+    "est_multas_gerir": "multa multas penalizacao entregavel atraso",
+    "est_delegar": "delegar delegacao substituicao ausencia ferias",
+    "rh_funcoes_gerir": "cargo cargos funcoes categorias profissionais"
+  },
+
+  "paginas": [
+    { "rota": "/dados-pessoais", "rotulo": "Dados pessoais", "palavras": "perfil conta dados da conta nome email telefone fotografia" },
+    { "rota": "/dados-pessoais", "rotulo": "Alterar a palavra-passe", "palavras": "senha password credenciais seguranca trocar" },
+    { "rota": "/dados-pessoais", "rotulo": "As minhas sessões", "palavras": "sessoes dispositivos terminar sessao iniciar sessao acessos recentes seguranca" },
+    { "rota": "/inicio", "rotulo": "Início", "palavras": "pagina inicial home painel de modulos atalhos" }
+  ],
+
+  "classificacao": {
+    "_nota": "Rótulos de botões que pertencem a «Relatórios e exportações» e de botões/separadores que são «Configurações». Expressões regulares sobre o rótulo sem acentos.",
+    "relatorio": "\\b(exportar|descarregar|excel|pdf|csv|xml|saf-?t|extracto|extrato|mapas?|relatorios?|balancete|balanco|razao|imprimir lista|inss|irt)\\b",
+    "configuracao": "\\b(definicoes|definir|configuracao|configuracoes|configurar|parametros?|parametrizacao|preferencias|modelos? de|series)\\b"
+  },
+
+  "ecrasSemPesquisa": {
+    "ia_chat": "Chat flutuante do assistente: só transporta permissões, nunca é um ecrã de menu (ECRAS_SEM_MENU do servidor).",
+    "plataforma_*": "Consola /admin da plataforma SaaS: não faz parte do ERP do cliente; o servidor nunca os devolve no menu da empresa.",
+    "suporte_tickets_*": "Consola /suporte dos agentes de suporte: fora do ERP do cliente."
+  }
+}
