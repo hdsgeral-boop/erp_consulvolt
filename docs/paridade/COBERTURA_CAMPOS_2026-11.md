@@ -27,8 +27,8 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | :--- | :--- | :--- |
 | INFRA | 1297 | 32.5% |
 | LEGADO_TECNICO | 78 | 2.0% |
-| FUNCIONAL_COBERTO | 1930 | 48.4% |
-| FUNCIONAL_SO_BACKEND | 319 | 8.0% |
+| FUNCIONAL_COBERTO | 1932 | 48.4% |
+| FUNCIONAL_SO_BACKEND | 317 | 7.9% |
 | FUNCIONAL_SEM_API | 355 | 8.9% |
 | ORFA | 11 | 0.3% |
 
@@ -39,7 +39,7 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | Vendas | 9 | 225 | 38 | 7 | 122 | 31 | 23 | 4 |
 | Compras | 11 | 212 | 45 | 8 | 119 | 36 | 4 | 0 |
 | Logística | 9 | 182 | 41 | 4 | 116 | 18 | 3 | 0 |
-| Tesouraria | 10 | 197 | 41 | 10 | 102 | 31 | 12 | 1 |
+| Tesouraria | 10 | 197 | 41 | 10 | 104 | 29 | 12 | 1 |
 | Contabilidade | 11 | 181 | 48 | 5 | 72 | 3 | 50 | 3 |
 | RH | 43 | 711 | 201 | 20 | 398 | 28 | 63 | 1 |
 | Activos | 16 | 285 | 70 | 3 | 156 | 33 | 23 | 0 |
@@ -95,13 +95,13 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | itens_ordem_manutencao | Activos | 6 | 19 |
 | linhas_revisao_projeto | Projectos | 6 | 14 |
 | modelos_documentos_rh | RH | 6 | 14 |
-| movimentos_caixa | Tesouraria | 6 | 34 |
 | multas_entregavel | Estrutura | 6 | 23 |
 | produtos | Logística | 6 | 59 |
 | subscricoes_empresa | Plataforma | 6 | 28 |
 | utilizadores | Sistema | 6 | 28 |
+| anexos_comprovativo_pagamento | Plataforma | 5 | 11 |
 
-## Lista priorizada de lacunas (685)
+## Lista priorizada de lacunas (683)
 
 Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(s) e ecrã(s) do âmbito da tabela.
 
@@ -291,11 +291,9 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `valor_kz_documento` (numeric) SO_BACKEND
 - `venda_id` (bigint) SO_BACKEND
 **movimentos_caixa** — controllers: OperacoesTesourariaController; ecrãs: frontend/src/modulos/pos/Desvios.tsx, frontend/src/modulos/pos/Prestacao.tsx, frontend/src/modulos/pos/Relatorios.tsx
-- `contra_moeda` (character varying) SO_BACKEND
-- `contravalor_kz` (numeric) SO_BACKEND
-- `contravalor_moeda` (character varying) SO_BACKEND
+- `contra_moeda` (character varying) SO_BACKEND — só nos tipos TypeScript
+- `contravalor_moeda` (character varying) SO_BACKEND — só nos tipos TypeScript
 - `fatura_compra_id` (bigint) SO_BACKEND — só nos tipos TypeScript
-- `taxa_cambio` (numeric) SO_BACKEND — só nos tipos TypeScript
 - `taxa_cambio_id` (bigint) SO_BACKEND
 **reconciliacoes_bancarias** — controllers: —; ecrãs: —
 - `data` (timestamp with time zone) SEM_API — usada só internamente (serviço/modelo)
@@ -1048,8 +1046,11 @@ Campos `nome:`/`<Form.Item name>` que não são coluna de nenhuma tabela e que n
 | `codigo_serie` | frontend/src/modulos/vendas/series/SeriesNumeracao.tsx |
 | `contingencia_sn` | frontend/src/modulos/vendas/series/SeriesNumeracao.tsx |
 
-### Chamadas do frontend a rotas inexistentes — 404 latente (2)
+### Chamadas do frontend a rotas inexistentes — 404 latente (5)
 
+- `/tesouraria/caixa/saldos` — frontend/src/modulos/teso/Conferencia.tsx
+- `/tesouraria/caixa/moedas` — frontend/src/modulos/teso/caixa/MoedasCaixa.tsx
+- `/tesouraria/caixa/saldos` — frontend/src/modulos/teso/caixa/MoedasCaixa.tsx
 - `/plataforma/root/empresas` — frontend/src/paginas/SeletorEmpresasRoot.tsx
 - `POST /autenticacao/reautenticar` — frontend/src/sessao/PedidoReautenticacao.tsx
 

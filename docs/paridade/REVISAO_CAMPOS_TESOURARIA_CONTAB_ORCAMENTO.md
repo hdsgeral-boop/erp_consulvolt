@@ -49,7 +49,7 @@ asserções novas em `OrcamentoTest` (`versao_origem_id`, `substituido_em`, `con
 | `itens_documento_tesouraria.{taxa_cambio_id,taxa_cambio_manual,cambial_*,valor_kz_documento}`, `documentos_tesouraria.taxa_cambio_id` | **Legado sem uso**: 0–1 % de preenchimento no legado; o câmbio do documento vive em `taxa_cambio`/`codigo_moeda` do cabeçalho. |
 | `reconciliacoes_bancarias.*` | Escrita pelas compensações (`ServicoCompensacoes`); estado interno. `importacao_codigo` já estava como legado. |
 | `correspondencias_reconciliacao.*` | **Legado sem uso**: o vínculo extracto↔lançamento vive em `reconciliacao_codigo` das duas linhas. |
-| `movimentos_caixa.{taxa_cambio,taxa_cambio_id,contravalor_kz,contra_moeda,contravalor_moeda}` | **Decisão pendente** (ver abaixo). |
+| `movimentos_caixa.{taxa_cambio,taxa_cambio_id,contravalor_kz,contra_moeda,contravalor_moeda}` | **Implementado** (caixa em moeda estrangeira, ver secção própria). |
 | `movimentos_caixa.fatura_compra_id` | **Falso positivo** (validada e gravada em `registarMovimento`, usada na liquidação de facturas). |
 
 ### Contabilidade
@@ -72,8 +72,22 @@ asserções novas em `OrcamentoTest` (`versao_origem_id`, `substituido_em`, `con
 Confirmado no código do ecrã: `conferencias_caixa.{justificacao,saldo_externo,nome_gerente,assinado_gerente_em}` (`Conferencia.tsx`), `movimentos_caixa.{referencia,numero_documento,UN,CC,notas}` (`FolhaCaixa.tsx`),
 `documentos_tesouraria.url_documento` (`DetalheDocumento.tsx`, coluna «Ver Doc.») e `orcamentos_anuais.{responsavel,prazo_contributo,rejeicoes}` (`DetalheOrcamento.tsx`). Sem falsos negativos encontrados.
 
+## Caixa em moeda estrangeira (decisão do utilizador: implementar)
+
+Implementada a caixa em moeda estrangeira da Folha de Caixa, configurável por empresa e com permissão própria; usa as colunas que já existiam
+(`movimentos_caixa.{codigo_moeda,taxa_cambio,taxa_cambio_id,valor_kz,contravalor_kz,contra_moeda,contravalor_moeda}`), por isso **sem migrações**.
+
+- **Configuração por empresa:** `GET/PUT /tesouraria/caixa/moedas` (botão «Moedas da caixa» na Folha de Caixa). Lista de moedas estrangeiras habilitadas em `configuracoes_sistema`
+  (chave `caixa_moedas_habilitadas`); por omissão nenhuma (Kz inalterado). Valida que a moeda existe e está activa, recusa o Kz e impede desabilitar uma moeda com sessão aberta; cada alteração fica na auditoria.
+- **Permissões** (catálogo `teso_folha_caixa`, editado à mão, incluídas nos modelos Contabilista, Tesoureiro e Direcção): `teso_caixa_multimoeda_gerir` (configurar as moedas) e
+  `teso_caixa_multimoeda_liquidar` (abrir/operar/ver/conferir caixas em moeda). Verificadas no servidor em cada pedido; sem elas a sessão, a conferência e o saldo em moeda não aparecem (403/ocultos).
+- **Liquidação:** a sessão toma a moeda da conta de caixa (45 com `codigo_moeda` no plano). O câmbio do movimento é o da tabela na data ou manual dentro da tolerância configurável (`ServicoCambios`).
+  Documento na moeda da caixa: sai pelo valor histórico em Kz (proporção do saldo) e a diferença para o Kz ao câmbio do dia é lançada como ganho/perda cambial realizada nas contas já configuradas
+  (`diferencas_cambio_favoraveis/desfavoraveis`; sem elas o movimento é recusado com `CONFIG_TESOURARIA_EM_FALTA`, nada se inventa); documento em Kz: contravalor = Kz da caixa; outra moeda: `MOEDAS_DIFERENTES`.
+  Os pendentes passam a descontar o contravalor (Kz e moeda) dos movimentos por contabilizar.
+- **Saldo, fecho e conferência por moeda:** o saldo da sessão é na moeda; `GET /tesouraria/caixa/saldos` devolve o saldo por caixa (moeda e Kz); a sobra/quebra do fecho e da conferência é na moeda, lançada em Kz ao câmbio do dia;
+  a conferência de uma caixa em moeda conta-se pelo total na moeda (`total_contado`), sem notas do Kz. Impressão e exportação com a moeda.
+- Testes: `TesourariaCaixaMultimoedaTest` (7), vitest `caixaMoedas.test.tsx` (4).
+
 ## Decisões pendentes para o utilizador
-1. **Caixa em moeda estrangeira** (`movimentos_caixa.taxa_cambio`, `taxa_cambio_id`, `contravalor_kz`, `contra_moeda`, `contravalor_moeda`): o legado (`v_boss/js/moedas_tesouraria.js:355-420`, `caixaFxLiquidacao`/`caixaFxPartidas`)
-   liquida documentos em moeda pela caixa com contravalor histórico e lança a diferença de câmbio. A Folha de Caixa v2 só opera em Kz (`codigo_moeda = 'AOA'`). É uma funcionalidade completa (taxas por sessão,
-   saldo do documento em moeda, lançamento de diferenças), não um campo: implementar só com confirmação de que as empresas usam caixas em USD/EUR.
-2. Nada mais bloqueia: o resto é legado sem dados ou estado interno, documentado em `docs/dicionario/DICIONARIO_DADOS.md` (secção «Estado de exposição na API/UI»).
+Nenhuma: o resto é legado sem dados ou estado interno, documentado em `docs/dicionario/DICIONARIO_DADOS.md` (secção «Estado de exposição na API/UI»).

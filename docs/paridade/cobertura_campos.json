@@ -5,8 +5,8 @@
   "colunas": 3990,
   "INFRA": 1297,
   "LEGADO_TECNICO": 78,
-  "FUNCIONAL_COBERTO": 1930,
-  "FUNCIONAL_SO_BACKEND": 319,
+  "FUNCIONAL_COBERTO": 1932,
+  "FUNCIONAL_SO_BACKEND": 317,
   "FUNCIONAL_SEM_API": 355,
   "ORFA": 11
  },
@@ -126,8 +126,8 @@
    "colunas": 197,
    "INFRA": 41,
    "LEGADO_TECNICO": 10,
-   "FUNCIONAL_COBERTO": 102,
-   "FUNCIONAL_SO_BACKEND": 31,
+   "FUNCIONAL_COBERTO": 104,
+   "FUNCIONAL_SO_BACKEND": 29,
    "FUNCIONAL_SEM_API": 12,
    "ORFA": 1
   },
@@ -1758,8 +1758,8 @@
    "colunas": 34,
    "INFRA": 4,
    "LEGADO_TECNICO": 2,
-   "FUNCIONAL_COBERTO": 22,
-   "FUNCIONAL_SO_BACKEND": 6,
+   "FUNCIONAL_COBERTO": 24,
+   "FUNCIONAL_SO_BACKEND": 4,
    "FUNCIONAL_SEM_API": 0,
    "ORFA": 0
   },
@@ -3013,6 +3013,18 @@
   }
  ],
  "chamadas_frontend_sem_rota": [
+  {
+   "ficheiro": "frontend/src/modulos/teso/Conferencia.tsx",
+   "url": "/tesouraria/caixa/saldos"
+  },
+  {
+   "ficheiro": "frontend/src/modulos/teso/caixa/MoedasCaixa.tsx",
+   "url": "/tesouraria/caixa/moedas"
+  },
+  {
+   "ficheiro": "frontend/src/modulos/teso/caixa/MoedasCaixa.tsx",
+   "url": "/tesouraria/caixa/saldos"
+  },
   {
    "ficheiro": "frontend/src/paginas/SeletorEmpresasRoot.tsx",
    "url": "/plataforma/root/empresas"
@@ -22410,6 +22422,7 @@
    "ficheiros_front": [
     "frontend/src/modulos/teso/Conferencia.tsx",
     "frontend/src/modulos/teso/comum.tsx",
+    "frontend/src/modulos/contab/comum/dados.ts",
     "frontend/src/modulos/teso/regras.ts"
    ],
    "onde_ligar": {
@@ -22463,7 +22476,7 @@
    "api_leitura": true,
    "api_escrita": true,
    "frontend_ui": true,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 1,
    "ficheiros_back": [
@@ -22474,7 +22487,8 @@
    ],
    "ficheiros_front": [
     "frontend/src/modulos/teso/Conferencia.tsx",
-    "frontend/src/modulos/teso/comum.tsx"
+    "frontend/src/modulos/teso/comum.tsx",
+    "frontend/src/modulos/contab/comum/dados.ts"
    ],
    "onde_ligar": {
     "controllers": [
@@ -22902,6 +22916,7 @@
    "ficheiros_front": [
     "frontend/src/modulos/teso/Conferencia.tsx",
     "frontend/src/modulos/contab/comum/Componentes.tsx",
+    "frontend/src/modulos/contab/comum/dados.ts",
     "frontend/src/modulos/teso/regras.ts"
    ],
    "onde_ligar": {
@@ -45154,7 +45169,7 @@
    "api_leitura": false,
    "api_escrita": true,
    "frontend_ui": true,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
@@ -48288,8 +48303,8 @@
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Compras/ComprasController.php",
     "backend/app/Http/Controllers/Api/Simulacoes/PreVisualizacaoContabilizacaoController.php",
-    "backend/app/Services/Compras/ServicoContabilizacaoCompras.php",
-    "backend/app/Services/Compras/ServicoFaturasCompra.php"
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
+    "backend/app/Services/Compras/ServicoContabilizacaoCompras.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/compras/comum/ModaisEncomenda.tsx",
@@ -48331,9 +48346,9 @@
    "preenchimento_legado": 0.0385,
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Compras/ComprasController.php",
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
     "backend/app/Http/Controllers/Api/Tesouraria/TesourariaController.php",
-    "backend/app/Services/Compras/ServicoContabilizacaoCompras.php",
-    "backend/app/Services/Compras/ServicoFaturasCompra.php"
+    "backend/app/Services/Compras/ServicoContabilizacaoCompras.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/compras/comum/ModaisEncomenda.tsx",
@@ -60533,7 +60548,7 @@
     "frontend/src/modulos/compras/comum/Rececoes.tsx",
     "frontend/src/modulos/stock/Guias.tsx",
     "frontend/src/modulos/stock/PosArmazem.tsx",
-    "frontend/src/modulos/compras/comum/impressao.ts"
+    "frontend/src/modulos/teso/FolhaCaixa.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -77723,9 +77738,9 @@
    "preenchimento_legado": 1,
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Terceiros/ContasBancariasTerceiroController.php",
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
     "backend/app/Services/Contabilidade/ServicoRelatoriosContabeis.php",
-    "backend/app/Services/Gestao/Fluxos/Avaliadores/FluxoCaixa.php",
-    "backend/app/Services/Gestao/Paineis/Cubo/CatalogoCubo.php"
+    "backend/app/Services/Gestao/Fluxos/Avaliadores/FluxoCaixa.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77738,7 +77753,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77766,7 +77782,7 @@
     "backend/app/Http/Controllers/Api/Sistema/MoedaController.php",
     "backend/app/Http/Controllers/Api/Terceiros/ContasBancariasTerceiroController.php",
     "backend/app/Http/Controllers/Api/Terceiros/ParidadeTerceirosController.php",
-    "backend/app/Http/Requests/Terceiros/GuardarTerceiroRequest.php"
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/Migracao.tsx",
@@ -77779,7 +77795,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77820,7 +77837,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77841,23 +77859,26 @@
    "api_leitura": true,
    "api_escrita": true,
    "frontend_ui": true,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 1,
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Sistema/MoedaController.php",
-    "backend/app/Services/Sistema/ServicoMoedas.php"
+    "backend/app/Services/Sistema/ServicoMoedas.php",
+    "backend/app/Services/Tesouraria/ServicoCaixaMoedas.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/config/Moedas.tsx",
-    "frontend/src/modulos/vendas/EmitirDocumento.tsx"
+    "frontend/src/modulos/vendas/EmitirDocumento.tsx",
+    "frontend/src/modulos/teso/api.ts"
    ],
    "onde_ligar": {
     "controllers": [
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77893,7 +77914,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77926,15 +77948,16 @@
    "ficheiros_front": [
     "frontend/src/modulos/config/Moedas.tsx",
     "frontend/src/modulos/contab/lancamentos/NovoLancamento.tsx",
-    "frontend/src/modulos/vendas/agt/FaturacaoEletronica.tsx",
-    "frontend/src/modulos/vendas/series/SeriesNumeracao.tsx"
+    "frontend/src/modulos/teso/comum.tsx",
+    "frontend/src/modulos/vendas/agt/FaturacaoEletronica.tsx"
    ],
    "onde_ligar": {
     "controllers": [
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77971,7 +77994,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -77996,7 +78020,8 @@
    "fk": null,
    "preenchimento_legado": null,
    "ficheiros_back": [
-    "backend/app/Services/Integracoes/Cambios/ServicoCambiosBAIAutomaticos.php"
+    "backend/app/Services/Integracoes/Cambios/ServicoCambiosBAIAutomaticos.php",
+    "backend/app/Services/Tesouraria/ServicoCaixaMoedas.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -78004,7 +78029,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -78031,8 +78057,8 @@
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Terceiros/ContasBancariasTerceiroController.php",
     "backend/app/Http/Controllers/Api/Terceiros/ParidadeTerceirosController.php",
-    "backend/app/Http/Requests/Terceiros/GuardarTerceiroRequest.php",
-    "backend/app/Services/Contabilidade/ServicoRelatoriosContabeis.php"
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
+    "backend/app/Http/Requests/Terceiros/GuardarTerceiroRequest.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -78040,7 +78066,8 @@
      "CambiosBAIAutomaticosController",
      "MoedaController",
      "ContasBancariasTerceiroController",
-     "ParidadeTerceirosController"
+     "ParidadeTerceirosController",
+     "OperacoesTesourariaController"
     ],
     "frontend": [
      "frontend/src/modulos/compras/comum/ModaisTerceiros.tsx",
@@ -78786,16 +78813,16 @@
    "motivo": "",
    "backend": true,
    "api_leitura": true,
-   "api_escrita": false,
+   "api_escrita": true,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 0.0048,
    "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
     "backend/app/Services/Gestao/Fluxos/Avaliadores/FluxoCaixa.php",
     "backend/app/Services/POS/ServicoPrestacaoContasPOS.php",
-    "backend/app/Services/Terceiros/ServicoTerceiros.php",
-    "backend/app/Services/Tesouraria/ServicoCaixa.php"
+    "backend/app/Services/Terceiros/ServicoTerceiros.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/teso/FolhaCaixa.tsx",
@@ -78820,17 +78847,21 @@
    "tipo": "numeric",
    "nulo": true,
    "modulo": "Tesouraria",
-   "classe": "FUNCIONAL_SO_BACKEND",
-   "motivo": "só nos tipos TypeScript",
-   "backend": false,
+   "classe": "FUNCIONAL_COBERTO",
+   "motivo": "",
+   "backend": true,
    "api_leitura": true,
-   "api_escrita": false,
-   "frontend_ui": false,
+   "api_escrita": true,
+   "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 0.0048,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
+    "backend/app/Services/Tesouraria/ServicoCaixa.php"
+   ],
    "ficheiros_front": [
+    "frontend/src/modulos/teso/FolhaCaixa.tsx",
     "frontend/src/modulos/teso/impressao.ts"
    ],
    "onde_ligar": {
@@ -78852,14 +78883,16 @@
    "modulo": "Tesouraria",
    "classe": "FUNCIONAL_SO_BACKEND",
    "motivo": "",
-   "backend": false,
+   "backend": true,
    "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
    "fk": "taxas_cambio",
    "preenchimento_legado": 0.0048,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Tesouraria/ServicoCaixa.php"
+   ],
    "ficheiros_front": [],
    "onde_ligar": {
     "controllers": [
@@ -78897,7 +78930,7 @@
     "frontend/src/modulos/compras/comum/Rececoes.tsx",
     "frontend/src/modulos/stock/Guias.tsx",
     "frontend/src/modulos/stock/PosArmazem.tsx",
-    "frontend/src/modulos/compras/comum/impressao.ts"
+    "frontend/src/modulos/teso/FolhaCaixa.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -79027,17 +79060,23 @@
    "tipo": "numeric",
    "nulo": true,
    "modulo": "Tesouraria",
-   "classe": "FUNCIONAL_SO_BACKEND",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
-   "backend": false,
+   "backend": true,
    "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
-   "frontend_tipo": false,
+   "frontend_ui": true,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
-   "ficheiros_front": [],
+   "ficheiros_back": [
+    "backend/app/Services/Tesouraria/ServicoCaixa.php",
+    "backend/app/Services/Tesouraria/ServicoPendentes.php"
+   ],
+   "ficheiros_front": [
+    "frontend/src/modulos/teso/FolhaCaixa.tsx",
+    "frontend/src/modulos/teso/api.ts"
+   ],
    "onde_ligar": {
     "controllers": [
      "OperacoesTesourariaController"
@@ -79056,16 +79095,21 @@
    "nulo": true,
    "modulo": "Tesouraria",
    "classe": "FUNCIONAL_SO_BACKEND",
-   "motivo": "",
-   "backend": false,
+   "motivo": "só nos tipos TypeScript",
+   "backend": true,
    "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
-   "ficheiros_front": [],
+   "ficheiros_back": [
+    "backend/app/Services/Tesouraria/ServicoCaixa.php",
+    "backend/app/Services/Tesouraria/ServicoPendentes.php"
+   ],
+   "ficheiros_front": [
+    "frontend/src/modulos/teso/api.ts"
+   ],
    "onde_ligar": {
     "controllers": [
      "OperacoesTesourariaController"
@@ -79084,16 +79128,21 @@
    "nulo": true,
    "modulo": "Tesouraria",
    "classe": "FUNCIONAL_SO_BACKEND",
-   "motivo": "",
-   "backend": false,
+   "motivo": "só nos tipos TypeScript",
+   "backend": true,
    "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
-   "frontend_tipo": false,
+   "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
-   "ficheiros_front": [],
+   "ficheiros_back": [
+    "backend/app/Services/Tesouraria/ServicoCaixa.php",
+    "backend/app/Services/Tesouraria/ServicoPendentes.php"
+   ],
+   "ficheiros_front": [
+    "frontend/src/modulos/teso/api.ts"
+   ],
    "onde_ligar": {
     "controllers": [
      "OperacoesTesourariaController"
@@ -117256,12 +117305,13 @@
    "motivo": "",
    "backend": true,
    "api_leitura": true,
-   "api_escrita": false,
+   "api_escrita": true,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": 0.5263,
    "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
     "backend/app/Services/Gestao/Fluxos/Avaliadores/FluxoCaixa.php",
     "backend/app/Services/POS/ServicoPrestacaoContasPOS.php",
     "backend/app/Services/Tesouraria/ServicoCaixa.php"
@@ -117441,14 +117491,16 @@
    "modulo": "Tesouraria",
    "classe": "INFRA",
    "motivo": "",
-   "backend": false,
+   "backend": true,
    "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Tesouraria/ServicoCaixaMoedas.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/pos/frente/mesas.ts"
    ],
@@ -135484,8 +135536,8 @@
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Metodo/AssuntosMetodoController.php",
     "backend/app/Http/Controllers/Api/Simulacoes/PreVisualizacaoContabilizacaoController.php",
-    "backend/app/Http/Requests/Vendas/EmitirDocumentoRequest.php",
-    "backend/app/Http/Resources/Vendas/VendaResource.php"
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
+    "backend/app/Http/Requests/Vendas/EmitirDocumentoRequest.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/metodo/FormularioAssunto.tsx",
@@ -135540,16 +135592,16 @@
    "fk": null,
    "preenchimento_legado": 0.0625,
    "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Tesouraria/OperacoesTesourariaController.php",
     "backend/app/Http/Controllers/Api/Tesouraria/TesourariaController.php",
     "backend/app/Http/Requests/Vendas/EmitirDocumentoRequest.php",
-    "backend/app/Http/Resources/Vendas/VendaResource.php",
-    "backend/app/Services/Vendas/ServicoContabilizacaoVendas.php"
+    "backend/app/Http/Resources/Vendas/VendaResource.php"
    ],
    "ficheiros_front": [
+    "frontend/src/modulos/teso/FolhaCaixa.tsx",
     "frontend/src/modulos/teso/pagamentos/DetalheDocumento.tsx",
     "frontend/src/modulos/vendas/DetalheDocumento.tsx",
-    "frontend/src/modulos/vendas/EmitirDocumento.tsx",
-    "frontend/src/modulos/teso/pagamentos/FormularioDocumento.tsx"
+    "frontend/src/modulos/vendas/EmitirDocumento.tsx"
    ],
    "onde_ligar": {
     "controllers": [
