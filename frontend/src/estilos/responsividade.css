@@ -61,8 +61,8 @@
 .erp-resumo-valores {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--erp-resumo-min, 150px)), 1fr));
-  gap: 1px;
-  background: var(--ant-color-border-secondary, #e2e8f0);
+  gap: 0;
+  background: var(--ant-color-bg-container, #fff);
   border: 1px solid var(--ant-color-border-secondary, #e2e8f0);
   border-radius: 8px;
   overflow: hidden;
@@ -78,6 +78,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* divisórias no lado direito e por baixo (cortadas pelo overflow do contentor nas margens) */
+  box-shadow: 1px 0 0 0 var(--ant-color-border-secondary, #e2e8f0), 0 1px 0 0 var(--ant-color-border-secondary, #e2e8f0);
 }
 .erp-resumo-valores__item--destaque { background: var(--ant-color-primary-bg, #eff6ff); }
 .erp-resumo-valores__rotulo {
@@ -118,4 +120,39 @@
 /* ── Cabeçalho do ERP em 992–1199 px: o nome e o papel do utilizador cedem lugar ao nome da empresa ── */
 @media (min-width: 576px) and (max-width: 1199.98px) {
   :root .erp-cabecalho .erp-utilizador-textos { display: none; }
+}
+/* 1200–1599 px: pesquisa mais estreita para sobrar espaço ao nome da empresa */
+@media (min-width: 1200px) and (max-width: 1599.98px) {
+  :root .erp-cabecalho .erp-cabecalho-pesquisa { flex: 0 1 240px; min-width: 170px; margin-inline: 6px; }
+}
+
+/* ── Col com «span» fixo e sem «xs» (62 ocorrências no código): em telemóvel empilham em largura total ──
+   Para manter colunas lado a lado em xs (ex.: dois números curtos), acrescente a classe «erp-col-fixa» ou use xs={12}. */
+@media (max-width: 575.98px) {
+:root .ant-row > .ant-col-1:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-2:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-3:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-4:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-5:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-6:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-7:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-8:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-9:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-10:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-11:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-12:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-13:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-14:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-15:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-16:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-17:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-18:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-19:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-20:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-21:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-22:not([class*="ant-col-xs-"]):not(.erp-col-fixa),
+:root .ant-row > .ant-col-23:not([class*="ant-col-xs-"]):not(.erp-col-fixa) {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
 }

@@ -26,7 +26,7 @@
 .fluxo-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem; }
 .fluxo-kpi { background: #fff; border: 1px solid var(--fx-borda); border-radius: 4px; padding: .7rem 1rem; min-width: 0; }
 .fluxo-kpi span { display: block; font-size: .7rem; color: var(--fx-cinza); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
-.fluxo-kpi strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--fx-tinta); overflow-wrap: anywhere; }
+.fluxo-kpi strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--fx-tinta); overflow-wrap: normal; white-space: nowrap; }
 .fluxo-kpi.bloq strong { color: #b91c1c; }
 
 /* Períodos em falta (RH) */
@@ -115,7 +115,7 @@
 .fluxo-factos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .5rem; }
 .fluxo-facto { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 4px; padding: .45rem .7rem; min-width: 0; }
 .fluxo-facto span { display: block; font-size: .7rem; color: var(--fx-cinza); }
-.fluxo-facto strong { font-size: .9rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fluxo-facto strong { font-size: .9rem; font-variant-numeric: tabular-nums; overflow-wrap: normal; white-space: nowrap; }
 .fluxo-problemas { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
 .fluxo-problemas li { display: flex; gap: .5rem; align-items: flex-start; font-size: .84rem; line-height: 1.45; padding: .45rem .65rem; border-radius: 4px; border: 1px solid; }
 .fluxo-problemas li.erro { background: #fef2f2; border-color: #fecaca; color: #991b1b; }

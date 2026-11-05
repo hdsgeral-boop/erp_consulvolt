@@ -22,7 +22,7 @@
 .fluxo-periodo-topo.quebra { flex-wrap: wrap; justify-content: flex-start; gap: .35rem .5rem; }
 .fluxo-periodo-mes { font-weight: 700; font-size: .95rem; font-variant-numeric: tabular-nums; }
 .fluxo-periodo-mes.pequeno { font-size: .85rem; line-height: 1.3; overflow-wrap: anywhere; }
-.fluxo-periodo-sub { font-size: .75rem; color: #475569; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fluxo-periodo-sub { font-size: .75rem; color: #475569; font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 .fluxo-periodo-info { font-size: .72rem; color: #64748b; }
 .fluxo-periodo .fluxo-mini { min-width: 0; }
 

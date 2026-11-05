@@ -25,7 +25,7 @@ export function CabecalhoPagina({ titulo, subtitulo, accoes, impressao, impressa
   return (
     <Flex justify="space-between" align="center" wrap gap={12} style={{ marginBottom: 16 }} className="cabecalho-pagina">
       <div style={{ minWidth: 0, flex: '1 1 260px' }}>
-        <Typography.Title level={3} className="erp-titulo-pagina" style={{ margin: 0, overflowWrap: 'anywhere' }}>
+        <Typography.Title level={3} className="erp-titulo-pagina" style={{ margin: 0, overflowWrap: 'break-word' }}>
           {titulo}
         </Typography.Title>
         {subtitulo && <Typography.Text type="secondary">{subtitulo}</Typography.Text>}

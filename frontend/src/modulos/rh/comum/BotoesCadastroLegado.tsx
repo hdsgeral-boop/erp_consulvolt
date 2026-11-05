@@ -83,7 +83,7 @@ function ModalCopiar({ entidade, aoFechar }: { entidade: EntidadeCadastro; aoFec
       {rel && (
         <Alert style={{ marginTop: 12 }} type={rel.simulacao ? 'info' : 'success'} showIcon title={rel.simulacao ? 'Simulação (nada foi gravado)' : 'Cópia concluída'}
           description={
-            <Descriptions size="small" column={2}>
+            <Descriptions size="small" column={{ xs: 1, sm: 2 }}>
               <Descriptions.Item label={rel.simulacao ? 'A copiar' : 'Copiados'}>{rel.criados}</Descriptions.Item>
               <Descriptions.Item label="Já existiam">{rel.ignorados}</Descriptions.Item>
             </Descriptions>

@@ -5,7 +5,7 @@
  *  - a página tiver barra horizontal (documentElement.scrollWidth > innerWidth);
  *  - o contentor do conteúdo (.erp-conteudo) tiver excesso horizontal;
  *  - houver valores (.erp-valor, .ant-statistic-content, células numéricas) com texto cortado (scrollWidth > clientWidth).
- * Uso (a partir da raiz do repo): node ferramentas/qualidade/responsividade.mjs [--capturas=pasta] [--larguras=360,768]
+ * Uso (a partir da raiz do repo): node ferramentas/qualidade/responsividade.mjs [--capturas=pasta] [--larguras=360,768] [--urls=/,/portal]
  * Variáveis: E2E_URL (omissão http://127.0.0.1:8081), E2E_PALAVRA_PASSE (omissão a do seeder E2E, fictícia).
  */
 import { createRequire } from 'node:module';
@@ -21,13 +21,14 @@ const SENHA = process.env.E2E_PALAVRA_PASSE ?? 'E2e#Teste2026';
 const LARGURAS = (args.larguras ?? '360,414,768,1024,1366,1920,2560').split(',').map(Number);
 const ALTURA = { 360: 740, 414: 800, 768: 1024, 1024: 768, 1366: 768, 1920: 1080, 2560: 1440 };
 const CAPTURAS = args.capturas;
-const ECRAS = [
+const TODOS = [
   '/', '/m/geral/dashboard', '/m/config/config_licenca', '/m/vendas/vendas_faturacao', '/m/vendas/vendas_clientes',
   '/m/stock/armazem_stock', '/m/rh/colaboradores', '/m/contab/lancamentos', '/m/teso/teso_gestao_pagamentos',
   '/m/compras/compras_pedidos', '/m/crm/crm_pipeline', '/m/config/config_geral', '/m/suporte/suporte_tickets_geral',
   '/admin/login', '/portal',
 ];
 
+const ECRAS = args.urls ? args.urls.split(',') : TODOS;
 if (CAPTURAS) mkdirSync(CAPTURAS, { recursive: true });
 const browser = await chromium.launch();
 const falhas = [];
@@ -59,7 +60,8 @@ for (const w of LARGURAS) {
     });
     const erros = [];
     if (m.doc > m.janela + 1) erros.push(`página com scroll horizontal (${m.doc} > ${m.janela})`);
-    if (m.conteudo > 1) erros.push(`conteúdo excede em ${m.conteudo}px`);
+    // as Row com gutter [16,16] saem 8 px do conteúdo (só preenchimento das colunas); só se avisa acima disso
+    if (m.conteudo > 16) erros.push(`conteúdo excede em ${m.conteudo}px`);
     if (m.cortados.length) erros.push(`valores cortados: ${m.cortados.join(' | ')}`);
     if (CAPTURAS) await page.screenshot({ path: path.join(CAPTURAS, `${w}_${url.replace(/[^a-z0-9]+/gi, '_')}.png`), fullPage: false });
     if (erros.length) falhas.push(`${w}px ${url}: ${erros.join('; ')}`);

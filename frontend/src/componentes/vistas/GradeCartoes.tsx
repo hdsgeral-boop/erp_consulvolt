@@ -143,11 +143,11 @@ export function GradeCartoes<T>({ linhas, colunas, rowKey, carregando, paginacao
                     )}
                     <div style={{ minWidth: 0, flex: 1 }}>
                       {estrutura.subtitulo && (
-                        <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', overflowWrap: 'anywhere' }}>
+                        <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', overflowWrap: 'break-word' }}>
                           {conteudoCelula(estrutura.subtitulo, linha, indice)}
                         </Typography.Text>
                       )}
-                      <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{conteudoVazio(tituloNo) ? '—' : tituloNo}</div>
+                      <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.35, overflowWrap: 'break-word' }}>{conteudoVazio(tituloNo) ? '—' : tituloNo}</div>
                     </div>
                   </Flex>
                   {estrutura.etiquetas.length > 0 && (
@@ -166,8 +166,8 @@ export function GradeCartoes<T>({ linhas, colunas, rowKey, carregando, paginacao
                       const v = conteudoCelula(c, linha, indice);
                       return (
                         <div key={k} style={{ display: 'contents' }}>
-                          <dt style={{ color: token.colorTextSecondary, overflowWrap: 'anywhere' }}>{c.rotuloCartao ?? tituloColuna(c)}</dt>
-                          <dd style={{ margin: 0, overflowWrap: 'anywhere', textAlign: c.align === 'right' ? 'right' : 'left', fontVariantNumeric: 'tabular-nums' }}>
+                          <dt style={{ color: token.colorTextSecondary, overflowWrap: 'break-word' }}>{c.rotuloCartao ?? tituloColuna(c)}</dt>
+                          <dd style={{ margin: 0, overflowWrap: 'break-word', textAlign: c.align === 'right' ? 'right' : 'left', fontVariantNumeric: 'tabular-nums', whiteSpace: c.align === 'right' ? 'nowrap' : undefined }}>
                             {conteudoVazio(v) ? '—' : v}
                           </dd>
                         </div>

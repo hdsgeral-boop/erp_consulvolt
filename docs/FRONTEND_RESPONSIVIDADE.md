@@ -30,6 +30,11 @@ Complementa `frontend/src/componentes/responsivo/README.md` (grelhas, `BarraFilt
 7. **Modais/gavetas**: `larguraModal(px)` / `larguraGaveta(px)`; nunca maiores do que o ecrã.
 8. **Larguras fixas**: `maxWidth` + `width: '100%'`; nada de `width`/`minWidth` > 340 px em contentores.
 
+9. **`Col span={N}` sem `xs`**: em < 576 px empilha em largura total (regra global). Para manter lado a lado em telemóvel,
+   use `xs={12}` ou a classe `erp-col-fixa`.
+10. **Cabeçalho do ERP**: pesquisa por extenso e rótulos dos botões («Menu no topo», «Trocar empresa», «Ajuda») só em ≥ 1600 px;
+    abaixo só ícones (a pesquisa passa a botão); o nome/papel do utilizador esconde-se < 1200 px.
+
 ## Utilitários
 
 | O quê | Onde |
@@ -57,7 +62,9 @@ Só existe em ecrãs ≥ 992 px; abaixo disso o menu é a gaveta. A estrutura e 
 
 - Unitário: `cd frontend && npx vitest run src/componentes/responsivo`.
 - Auditoria multi-largura (360, 414, 768, 1024, 1366, 1920, 2560): `npm run build` em `frontend/`, depois, na raiz do repo,
-  `node ferramentas/qualidade/responsividade.mjs [--larguras=360,1366] [--capturas=pasta]`.
+  `node ferramentas/qualidade/responsividade.mjs [--larguras=360,1366] [--urls=/,/portal] [--capturas=pasta]`.
+  Ignora o excesso ≤ 16 px do `.erp-conteudo` (margem negativa das `Row` com gutter); os falsos positivos de `Tabs` com
+  deslocamento próprio não contam.
   Usa o utilizador fictício do ambiente E2E (`docker exec erp_app_e2e php artisan erp:e2e:preparar --force` prepara a base
   `erp_consulvolt_e2e`); URL por `E2E_URL` (omissão `http://127.0.0.1:8081`). Falha se a página tiver scroll horizontal,
   o `.erp-conteudo` exceder a largura ou houver valores cortados.

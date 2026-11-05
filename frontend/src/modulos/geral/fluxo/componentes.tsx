@@ -36,7 +36,7 @@ export function CabecalhoFluxo({ subtitulo, accoes }: { subtitulo?: ReactNode; a
   return (
     <div className="fluxo-cabecalho cabecalho-pagina">
       <div className="fluxo-cabecalho-textos">
-        <Typography.Title level={3} className="erp-titulo-pagina" style={{ margin: 0, overflowWrap: 'anywhere' }}>
+        <Typography.Title level={3} className="erp-titulo-pagina" style={{ margin: 0, overflowWrap: 'break-word' }}>
           Fluxo de Processos
         </Typography.Title>
         {subtitulo && <p className="fluxo-sub">{subtitulo}</p>}
