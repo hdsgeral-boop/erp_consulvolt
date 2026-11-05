@@ -1,0 +1,361 @@
+{
+ "paginasAnalisadas": 50,
+ "total": {
+  "critical": 7,
+  "serious": 53,
+  "moderate": 59,
+  "minor": 19
+ },
+ "regras": [
+  {
+   "impacto": "critical",
+   "id": "aria-required-children",
+   "ajuda": "Certain ARIA roles must contain particular children",
+   "ocorrencias": 5,
+   "ecras": 4,
+   "exemplo": ".ant-tabs-nav",
+   "html": "<div role=\"tablist\" aria-orientation=\"horizontal\" class=\"ant-tabs-nav\">",
+   "alvos": [
+    [
+     ".ant-tabs-nav",
+     5
+    ]
+   ],
+   "urls": [
+    "/m/config/config_empresas",
+    "/m/config/config_geral",
+    "/m/config/config_licenca",
+    "/m/activos/activos"
+   ]
+  },
+  {
+   "impacto": "critical",
+   "id": "label",
+   "ajuda": "Form elements must have labels",
+   "ocorrencias": 2,
+   "ecras": 1,
+   "exemplo": ".ant-input-disabled",
+   "html": "<input disabled=\"\" class=\"ant-input ant-input-disabled css-1y106cm ant-input-outlined css-var-_r_0_ ant-input-",
+   "alvos": [
+    [
+     ".ant-input-disabled",
+     2
+    ]
+   ],
+   "urls": [
+    "/dados-pessoais"
+   ]
+  },
+  {
+   "impacto": "serious",
+   "id": "color-contrast",
+   "ajuda": "Elements must meet minimum color contrast ratio thresholds",
+   "ocorrencias": 21,
+   "ecras": 8,
+   "exemplo": ".ant-tag",
+   "html": "<span class=\"ant-tag ant-tag-filled ant-tag-green css-1y106cm css-var-_r_0_\">Esta sessão</span>",
+   "alvos": [
+    [
+     ".ant-tag",
+     2
+    ],
+    [
+     ".ant-space-item:nth-child(4) > .ant-btn-color-primary.ant-btn-primary.ant-btn-va",
+     2
+    ],
+    [
+     "tr[data-row-key=\"2\"] > td:nth-child(7) > .rh-pilula",
+     1
+    ],
+    [
+     "tr[data-row-key=\"2\"] > td:nth-child(9) > .rh-pilula",
+     1
+    ],
+    [
+     "tr[data-row-key=\"1\"] > td:nth-child(7) > .rh-pilula",
+     1
+    ],
+    [
+     "tr[data-row-key=\"1\"] > td:nth-child(9) > .rh-pilula",
+     1
+    ],
+    [
+     "tr[data-row-key=\"3\"] > td:nth-child(7) > .rh-pilula",
+     1
+    ],
+    [
+     "tr[data-row-key=\"3\"] > td:nth-child(9) > .rh-pilula",
+     1
+    ]
+   ],
+   "urls": [
+    "/dados-pessoais",
+    "/m/rh/colaboradores",
+    "/m/contab/lancamentos",
+    "/m/activos/activos",
+    "/m/config/config_geral",
+    "/m/config/config_licenca",
+    "/m/config/config_empresas",
+    "/m/pos/pos"
+   ]
+  },
+  {
+   "impacto": "serious",
+   "id": "target-size",
+   "ajuda": "All touch targets must be 24px large, or leave sufficient space",
+   "ocorrencias": 16,
+   "ecras": 4,
+   "exemplo": "input[placeholder=\"Data...\"]",
+   "html": "<input class=\"erp-input-filtro\" size=\"1\" maxlength=\"220\" placeholder=\"Data...\" aria-label=\"Filtrar Data\" type=",
+   "alvos": [
+    [
+     "input[placeholder=\"UN...\"]",
+     3
+    ],
+    [
+     "input[placeholder=\"CC...\"]",
+     3
+    ],
+    [
+     "input[placeholder=\"Data...\"]",
+     2
+    ],
+    [
+     "input[placeholder=\"D/C...\"]",
+     2
+    ],
+    [
+     "input[placeholder=\"Cliente...\"]",
+     1
+    ],
+    [
+     "input[placeholder=\"Pago...\"]",
+     1
+    ],
+    [
+     "input[placeholder=\"Ref....\"]",
+     1
+    ],
+    [
+     "input[placeholder=\"Dem....\"]",
+     1
+    ]
+   ],
+   "urls": [
+    "/m/vendas/vendas_faturacao",
+    "/m/rh/colaboradores",
+    "/m/contab/lancamentos",
+    "/m/teso/teso_gestao_pagamentos"
+   ]
+  },
+  {
+   "impacto": "serious",
+   "id": "label-content-name-mismatch",
+   "ajuda": "Elements must have their visible text as part of their accessible name",
+   "ocorrencias": 15,
+   "ecras": 15,
+   "exemplo": ".erp-utilizador",
+   "html": "<button type=\"button\" class=\"ant-dropdown-trigger erp-utilizador erp-utilizador-botao\" aria-label=\"Opções do u",
+   "alvos": [
+    [
+     ".erp-utilizador",
+     15
+    ]
+   ],
+   "urls": [
+    "/",
+    "/inicio",
+    "/dados-pessoais",
+    "/m/geral/dashboard",
+    "/m/vendas/vendas_faturacao",
+    "/m/vendas/vendas_clientes",
+    "/m/stock/armazem_stock",
+    "/m/rh/colaboradores",
+    "/m/contab/lancamentos",
+    "/m/teso/teso_gestao_pagamentos",
+    "/m/compras/compras_pedidos",
+    "/m/config/config_empresas"
+   ]
+  },
+  {
+   "impacto": "serious",
+   "id": "scrollable-region-focusable",
+   "ajuda": "Scrollable region must have keyboard access",
+   "ocorrencias": 1,
+   "ecras": 1,
+   "exemplo": ".ant-table-content",
+   "html": "<div class=\"ant-table-content\" style=\"overflow: auto hidden;\">",
+   "alvos": [
+    [
+     ".ant-table-content",
+     1
+    ]
+   ],
+   "urls": [
+    "/m/config/config_licenca"
+   ]
+  },
+  {
+   "impacto": "moderate",
+   "id": "page-has-heading-one",
+   "ajuda": "Page should contain a level-one heading",
+   "ocorrencias": 36,
+   "ecras": 18,
+   "exemplo": "html",
+   "html": "<html lang=\"pt\" data-tema=\"claro\">",
+   "alvos": [
+    [
+     "html",
+     36
+    ]
+   ],
+   "urls": [
+    "/dados-pessoais",
+    "/m/geral/dashboard",
+    "/m/vendas/vendas_faturacao",
+    "/m/vendas/vendas_clientes",
+    "/m/stock/armazem_stock",
+    "/m/rh/colaboradores",
+    "/m/contab/lancamentos",
+    "/m/teso/teso_gestao_pagamentos",
+    "/m/compras/compras_pedidos",
+    "/m/crm/crm_pipeline",
+    "/m/config/config_geral",
+    "/m/config/config_licenca"
+   ]
+  },
+  {
+   "impacto": "moderate",
+   "id": "region",
+   "ajuda": "All page content should be contained by landmarks",
+   "ocorrencias": 9,
+   "ecras": 6,
+   "exemplo": ".erp-saltar",
+   "html": "<a class=\"erp-saltar\" href=\"#conteudo-principal\">Saltar para o conteúdo</a>",
+   "alvos": [
+    [
+     "a",
+     5
+    ],
+    [
+     ".erp-saltar",
+     2
+    ],
+    [
+     "section",
+     2
+    ]
+   ],
+   "urls": [
+    "/termos",
+    "/m/crm/crm_pipeline",
+    "/m/config/config_geral",
+    "/m/config/config_licenca",
+    "/m/orcamento/orc_orcamentos",
+    "/m/pos/pos"
+   ]
+  },
+  {
+   "impacto": "moderate",
+   "id": "landmark-one-main",
+   "ajuda": "Document should have one main landmark",
+   "ocorrencias": 7,
+   "ecras": 6,
+   "exemplo": "html",
+   "html": "<html lang=\"pt\">",
+   "alvos": [
+    [
+     "html",
+     7
+    ]
+   ],
+   "urls": [
+    "/termos",
+    "/m/crm/crm_pipeline",
+    "/m/config/config_geral",
+    "/m/config/config_licenca",
+    "/m/orcamento/orc_orcamentos",
+    "/m/pos/pos"
+   ]
+  },
+  {
+   "impacto": "moderate",
+   "id": "skip-link",
+   "ajuda": "The skip-link target should exist and be focusable",
+   "ocorrencias": 7,
+   "ecras": 6,
+   "exemplo": ".erp-saltar",
+   "html": "<a class=\"erp-saltar\" href=\"#conteudo-principal\">Saltar para o conteúdo</a>",
+   "alvos": [
+    [
+     "a",
+     5
+    ],
+    [
+     ".erp-saltar",
+     2
+    ]
+   ],
+   "urls": [
+    "/termos",
+    "/m/crm/crm_pipeline",
+    "/m/config/config_geral",
+    "/m/config/config_licenca",
+    "/m/orcamento/orc_orcamentos",
+    "/m/pos/pos"
+   ]
+  },
+  {
+   "impacto": "minor",
+   "id": "empty-table-header",
+   "ajuda": "Table header text should not be empty",
+   "ocorrencias": 19,
+   "ecras": 11,
+   "exemplo": "th[aria-label=\"Acções\"]",
+   "html": "<th class=\"ant-table-cell\" style=\"text-align: right;\" aria-label=\"Acções\"></th>",
+   "alvos": [
+    [
+     "th[aria-label=\"Filtro da coluna\"]:nth-child(1)",
+     6
+    ],
+    [
+     "th[aria-label=\"Filtro da coluna\"][scope=\"col\"]",
+     4
+    ],
+    [
+     "th[aria-label=\"Acções\"]",
+     3
+    ],
+    [
+     "th[aria-label=\"Filtro da coluna\"]",
+     3
+    ],
+    [
+     "th[aria-label=\"Filtro da coluna\"][scope=\"col\"]:nth-child(12)",
+     1
+    ],
+    [
+     "th[aria-label=\"Filtro da coluna\"][scope=\"col\"]:nth-child(14)",
+     1
+    ],
+    [
+     "th[aria-label=\"Filtro da coluna\"]:nth-child(5)",
+     1
+    ]
+   ],
+   "urls": [
+    "/dados-pessoais",
+    "/m/vendas/vendas_faturacao",
+    "/m/vendas/vendas_clientes",
+    "/m/rh/colaboradores",
+    "/m/contab/lancamentos",
+    "/m/teso/teso_gestao_pagamentos",
+    "/m/compras/compras_pedidos",
+    "/m/config/config_empresas",
+    "/m/activos/activos",
+    "/m/projectos/projectos_carteira",
+    "/m/config/config_geral"
+   ]
+  }
+ ]
+}

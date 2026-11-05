@@ -187,3 +187,4 @@
 :root .ant-tag-geekblue:not(.ant-tag-solid) { color: #3730a3; }
 :root .ant-tag-blue:not(.ant-tag-solid) { color: #1d4ed8; }
 :root .ant-tag-cyan:not(.ant-tag-solid) { color: #155e75; }
+:root .erp-linha-filtros input:not([type='checkbox']), :root .erp-linha-filtros .ant-input, :root .erp-linha-filtros .ant-select-content { min-height: 24px; }

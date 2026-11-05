@@ -69,3 +69,36 @@ Só existe em ecrãs ≥ 992 px; abaixo disso o menu é a gaveta. A estrutura e 
   `erp_consulvolt_e2e`); URL por `E2E_URL` (omissão `http://127.0.0.1:8081`). Falha se a página tiver scroll horizontal,
   o `.erp-conteudo` exceder a largura ou houver valores cortados.
 - E2E existente: `frontend/e2e/responsivo.e2e.ts` (375 px, todos os ecrãs do catálogo).
+
+## Ronda 2 — varrimento completo (12 larguras, retrato e paisagem)
+
+`ferramentas/qualidade/responsividade.mjs` percorre agora **154 ecrãs** (login/portal/`/admin/login`/`/suporte/login`/termos/recuperar,
+`/`, `/inicio`, `/dados-pessoais` e os 145 ecrãs do catálogo `/m/{módulo}/{ecrã}`) nas 12 larguras do Implementar.txt
+(320, 360, 375, 390, 430, 768, 820, 1024, 1280, 1366, 1440, 1920) e, nas ≤ 1024 px, também em paisagem: **20 combinações,
+3080 execuções**. Falha com: scroll horizontal da página, `.erp-conteudo` com excesso, valores cortados, botões/campos
+fora do viewport ou cortados por um contentor `overflow:hidden`, e texto cortado sem reticências. Capturas representativas
+(24, ~5 MB) em `docs/qualidade/capturas/`; resultado em `docs/qualidade/responsividade_resultado.json`.
+
+| | Antes (320/360 retrato e paisagem, amostra de 640 execuções) | Depois (3080 execuções) |
+|---|---|---|
+| Falhas | 7 (`teso_gestao_mapas`, `tabelas_aux`: controlos no título de `Card` cortados; `relatorio_contas`: +19 px a 320) | **0** |
+
+Correcção: título de cartão com `overflow: visible` e controlos que quebram linha (`responsividade.css`); o excesso de
+`relatorio_contas` desapareceu com a mesma regra. Excluídos da medição por serem acessíveis por outro meio: separadores do
+`Tabs` (menu «…») e o «⋯» do menu (aparece ao passar). Tabela em cartões opt-in para telemóvel: `CLASSE_TABELA_CARTOES` +
+`comRotulosDeCartao` (ver `UI_DESIGN_SYSTEM.md`). Não foi feita a conversão de cada `Table` sem `scroll`: o CSS global já dá
+deslocamento horizontal dentro do contentor e o varrimento não encontrou páginas a transbordar.
+
+Não coberto: modais/gavetas abertos (só os ecrãs em repouso); POS em modo ecrã inteiro; consola `/admin` autenticada (precisa de
+conta de plataforma, só se mediu o `/admin/login`); resumo da renovação (Conta e Subscrição) com plano.
+
+## Performance do frontend (secção 10)
+
+- Bundle (`npm run build`): JS inicial 52 ficheiros, 1985 KB (648 KB gzip) antes; 53 ficheiros, 1992 KB (651 KB gzip) depois
+  (+7 KB = ajudas de acessibilidade e trabalho de outros agentes). Total 381 → 383 chunks, ~6,2 MB. Os módulos já são
+  `React.lazy` (registo por módulo) e o AntD está partido em fragmentos partilhados; não havia ganho a fazer sem risco.
+- React Query: `staleTime` global de 30 s, `refetchOnWindowFocus: false` e `staleTime` próprio nas listas de referência; os 8
+  `refetchInterval` (notificações, sessões, monitor AGT, senhas, mesas, quartos, restauro) usam `obterAutomatico`.
+- **Pedidos automáticos**: `api/cliente.ts` exporta `obterAutomatico()` e `CABECALHO_AUTOMATICO` (`X-Erp-Automatico: 1`, só GET),
+  contrato do backend (`PedidoAutomatico`): não renovam a inactividade de 15 min. Todo o novo polling deve usá-lo.
+- Não se fez perfil com o React Profiler (sem hotspots reportados; os gráficos usam `ResizeObserver` e os ecrãs grandes `useMemo`).

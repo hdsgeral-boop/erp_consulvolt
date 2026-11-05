@@ -1,0 +1,119 @@
+{
+ "paginasAnalisadas": 50,
+ "total": {
+  "critical": 44,
+  "serious": 267,
+  "moderate": 40,
+  "minor": 23
+ },
+ "regras": [
+  {
+   "impacto": "critical",
+   "id": "label",
+   "ajuda": "Form elements must have labels",
+   "ocorrencias": 38,
+   "ecras": 11,
+   "exemplo": ".ant-input-disabled",
+   "html": "<input disabled=\"\" class=\"ant-input ant-input-disabled css-1y106cm ant-input-outlined css-var-_r_0_ ant-input-"
+  },
+  {
+   "impacto": "critical",
+   "id": "aria-required-children",
+   "ajuda": "Certain ARIA roles must contain particular children",
+   "ocorrencias": 6,
+   "ecras": 4,
+   "exemplo": ".ant-tabs-nav",
+   "html": "<div role=\"tablist\" aria-orientation=\"horizontal\" class=\"ant-tabs-nav\">"
+  },
+  {
+   "impacto": "serious",
+   "id": "target-size",
+   "ajuda": "All touch targets must be 24px large, or leave sufficient space",
+   "ocorrencias": 160,
+   "ecras": 16,
+   "exemplo": ".ant-input-password-icon",
+   "html": "<span role=\"button\" tabindex=\"0\" class=\"ant-input-password-icon\" aria-disabled=\"false\" aria-pressed=\"false\" ar"
+  },
+  {
+   "impacto": "serious",
+   "id": "color-contrast",
+   "ajuda": "Elements must meet minimum color contrast ratio thresholds",
+   "ocorrencias": 77,
+   "ecras": 15,
+   "exemplo": ".cv-footer-bottom > div:nth-child(1)",
+   "html": "<div>© 2026 Consulvolt ERP. Todos os direitos reservados.</div>"
+  },
+  {
+   "impacto": "serious",
+   "id": "label-content-name-mismatch",
+   "ajuda": "Elements must have their visible text as part of their accessible name",
+   "ocorrencias": 20,
+   "ecras": 20,
+   "exemplo": ".erp-utilizador",
+   "html": "<button type=\"button\" class=\"ant-dropdown-trigger erp-utilizador erp-utilizador-botao\" aria-label=\"Opções do u"
+  },
+  {
+   "impacto": "serious",
+   "id": "link-in-text-block",
+   "ajuda": "Links must be distinguishable without relying on color",
+   "ocorrencias": 6,
+   "ecras": 1,
+   "exemplo": "a[href$=\"privacidade\"]",
+   "html": "<a href=\"/privacidade\">Política de Privacidade</a>"
+  },
+  {
+   "impacto": "serious",
+   "id": "scrollable-region-focusable",
+   "ajuda": "Scrollable region must have keyboard access",
+   "ocorrencias": 3,
+   "ecras": 2,
+   "exemplo": ".erp-deslocar-x",
+   "html": "<div class=\"erp-deslocar-x\" role=\"list\" aria-label=\"Etapas do funil\" style=\"display: flex; gap: 12px; padding-"
+  },
+  {
+   "impacto": "serious",
+   "id": "aria-hidden-focus",
+   "ajuda": "ARIA hidden element must not be focusable or contain focusable elements",
+   "ocorrencias": 1,
+   "ecras": 1,
+   "exemplo": ".ant-table-measure-row",
+   "html": "<tr aria-hidden=\"true\" class=\"ant-table-measure-row\" style=\"height: 0px;\">"
+  },
+  {
+   "impacto": "moderate",
+   "id": "page-has-heading-one",
+   "ajuda": "Page should contain a level-one heading",
+   "ocorrencias": 36,
+   "ecras": 18,
+   "exemplo": "html",
+   "html": "<html lang=\"pt\" data-tema=\"claro\">"
+  },
+  {
+   "impacto": "moderate",
+   "id": "landmark-one-main",
+   "ajuda": "Document should have one main landmark",
+   "ocorrencias": 2,
+   "ecras": 1,
+   "exemplo": "html",
+   "html": "<html lang=\"pt\">"
+  },
+  {
+   "impacto": "moderate",
+   "id": "region",
+   "ajuda": "All page content should be contained by landmarks",
+   "ocorrencias": 2,
+   "ecras": 1,
+   "exemplo": "section",
+   "html": "<section style=\"padding: 64px 24px 96px;\">"
+  },
+  {
+   "impacto": "minor",
+   "id": "empty-table-header",
+   "ajuda": "Table header text should not be empty",
+   "ocorrencias": 23,
+   "ecras": 12,
+   "exemplo": "th:nth-child(5)",
+   "html": "<th class=\"ant-table-cell\" style=\"text-align: right;\"></th>"
+  }
+ ]
+}
