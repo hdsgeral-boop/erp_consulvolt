@@ -134,7 +134,7 @@ const unidadeDoModo = (u: unknown, r: Record<string, unknown>) => {
 };
 
 /** Formulário do plano (formularioPlano, UI :173-318). */
-function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFechar: () => void }) {
+export function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFechar: () => void }) {
   const [form] = Form.useForm<ValoresPlano>();
   const accao = useAccao({ invalidar: [['activos']], aoSucesso: aoFechar });
   const aberto = plano !== undefined;
@@ -154,7 +154,8 @@ function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFe
   const aplica = Form.useWatch('aplica', form);
   const modo = Form.useWatch('modo', form);
   const gravar = (v: ValoresPlano) => {
-    const dados = dadosPlano(v as unknown as Record<string, unknown>);
+    // o `v.itens` do onFinish só traz os subcampos com Form.Item (tipo, produto_id, quantidade): a descrição do material lê-se do store completo
+    const dados = dadosPlano({ ...(v as unknown as Record<string, unknown>), itens: form.getFieldValue('itens') ?? v.itens });
     accao.mutate(plano ? { metodo: 'put', url: `/ativos/manutencao/planos/${plano.id}`, dados } : { url: '/ativos/manutencao/planos', dados });
   };
   // Vista Linhas: um plano por linha (sem tarefas nem material, que se acrescentam depois na grade)
