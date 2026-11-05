@@ -7,9 +7,9 @@ Método: para cada coluna `FUNCIONAL_SO_BACKEND`, `FUNCIONAL_SEM_API` e `ORFA` v
 | Módulo | COBERTO | SO_BACKEND | SEM_API | ORFA |
 | :--- | ---: | ---: | ---: | ---: |
 | Activos | 156 → 156 | 33 → 33 | 23 → 23 | 0 |
-| Projectos | 151 → 151 | 17 → 17 | 9 → 9 | 4 → 4 |
+| Projectos | 151 → 152 | 17 → 20 (colunas novas de apoio: hash, caminho, grupo…) | 9 → 9 | 4 → 0 |
 | Projetos (2 tabelas) | 4 → 4 | 0 | 0 | 0 |
-| RH | 379 → 388 | 45 → 37 | 65 → 64 | 1 → 1 |
+| RH | 379 → 398 | 45 → 28 | 65 → 63 | 1 → 1 |
 
 A auditoria é um limite superior: as colunas abaixo classificadas como falso positivo continuam a constar na lista porque a heurística (nome literal) não as vê.
 
@@ -32,12 +32,14 @@ A auditoria é um limite superior: as colunas abaixo classificadas como falso po
 - `linhas_folha_salarial.origem_efetividade/origem_produtividade` (1 % de preenchimento): o legado marcava assim as linhas lançadas da efectividade/produtividade; no Laravel essa função é da coluna `origem`. Não accionar.
 - Colunas de auditoria e estado interno de Activos/Projectos (`cancelado_*`, `concluido_*`, `reaberta_*`, `plano_antes`, `satisfeita_em`, `contado_em`, `quantidade_armazem/compra`, `mapa(s)_quantidades`, `razao_analitico_projetos.{modulo,tipo_documento,documento}_origem`, `transferencias_centros_custo_ativos.*`): usadas pelos serviços (reversão, rastreio, migração), já em `tipos.ts` onde interessa; sem valor de edição.
 
-## Decisões pendentes para o utilizador
+## Decisões do utilizador — implementadas (2.ª ronda)
 
-1. `configuracoes_assiduidade.minimo_dia_horas` (RH): mantida sem uso; semântica por decidir (não ligada).
-2. Documentos do projecto (`documentos_projeto`): implementar upload com `ValidadorUploadSeguro` e tipos de documento? O legado não define a funcionalidade.
-3. `faturacao_projetos` (facturação por projecto): o legado só tem o esquema; confirmar se se pretende o ecrã.
-4. Auditoria de RH ainda não visível no ecrã (`fechos_mensais_assiduidade.lancado_por/reaberto_por`, `periodos_produtividade_rh.lancado_por/reaberto_por`, `ciclos_avaliacao_360.fechado_por`, `bonificacoes_avaliacao_rh.calculado_por/aprovado_por`): disponíveis na API; mostrar se desejado.
+1. `configuracoes_assiduidade.minimo_dia_horas`: ligada. Configurável no ecrã de configuração da assiduidade («Mínimo de horas por dia», 0–24, permissão `rh_assid_config`, auditado). Regra (o legado só a normalizava, `assiduidade.js:74`; aplicou-se a mais conservadora): 0 = desactivado (comportamento anterior); com valor > 0, num dia útil com registo, sem férias nem ausência remunerada, e com menos horas do que o mínimo, a falta parcial conta mesmo dentro da tolerância; não altera a contagem de faltas de dia inteiro (art.º 230.º). Teste de apuração antes/depois em `AssiduidadeTest`.
+2. `documentos_projeto`: separador «Documentos» (PDF até 10 MB via `ValidadorUploadSeguro`, perfil novo `pdf`; tipos por empresa editáveis; versões; descarga autenticada `attachment` + `nosniff`; eliminação lógica; auditoria). Ficheiro no disco de objectos (R2 se configurado, senão disco privado local); na BD só caminho, nome, tamanho, SHA-256 e MIME. Permissões reutilizadas: ver = leitura de projectos; carregar/editar = `proj_gerir`/`proj_execucao`; eliminar = `proj_eliminar`/`proj_gerir`; tipos = `proj_gerir`. Nota: se o bucket R2 for público, os objectos têm nome UUID não adivinhável e nunca se expõe o URL; recomenda-se bucket privado para documentos.
+3. Auditoria de RH visível: fechos mensais (lançado/reaberto por), períodos de produtividade, ciclo 360 (fechado por), bonificações (calculada/aprovada por). Os campos `*_por` já guardam o nome do utilizador (texto), sem N+1.
+4. `faturacao_projetos`: separador «Financeiro» (ver `docs/PROJECTOS_FINANCEIRO.md`): indicadores, EVM, curva S, custos por rubrica, plano de facturação ligado às facturas de venda do projecto, fluxo previsto e alertas.
+
+Migrações novas (ensaiar antes da produção): `2026_11_30_090000_documentos_projeto_ficheiros`, `2026_11_30_090100_faturacao_projetos_plano`.
 
 ## Verificação
 

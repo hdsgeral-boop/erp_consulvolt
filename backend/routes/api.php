@@ -567,6 +567,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         require __DIR__.'/api/fa_tesouraria.php';  // Fase A: dados bancários 42/43 e tesouraria só por bancos
         require __DIR__.'/api/fa_vendas.php';      // Fase A: séries com número inicial, cancelar recebimentos antes da NC, anulação com motivo
         require __DIR__.'/api/fb_rh.php';          // Fase B (Versão Actual): RH — cessação/suspensão, horário e escala, empréstimos, portal
+        require __DIR__.'/api/projetos_documentos.php';   // Projectos: documentos (PDF, versões, tipos)
         require __DIR__.'/api/fe_projectos.php';   // Fase E: Projectos — metas, execução, dependências, orçamento por quantidades
         require __DIR__.'/api/r3_rh_proj.php';     // Ronda 3: folha de medição por pessoa (modelo e importação)
         require __DIR__.'/api/r4_rh_proj.php';     // Ronda 4: organigrama — mover membros entre posições

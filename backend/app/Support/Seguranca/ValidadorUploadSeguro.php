@@ -55,6 +55,7 @@ final class ValidadorUploadSeguro
         'imagem' => ['ext' => ['jpg', 'jpeg', 'png', 'webp'], 'max_kb' => 5120],
         'imagem_gif' => ['ext' => ['jpg', 'jpeg', 'png', 'webp', 'gif'], 'max_kb' => 5120],
         'documento' => ['ext' => ['jpg', 'jpeg', 'png', 'webp', 'pdf'], 'max_kb' => 5120],
+        'pdf' => ['ext' => ['pdf'], 'max_kb' => 10240],
         'folha' => ['ext' => ['xlsx', 'xls', 'csv', 'txt'], 'max_kb' => 20480],
         'texto' => ['ext' => ['json', 'txt', 'csv', 'md', 'xml'], 'max_kb' => 51200],
         'copia' => ['ext' => ['json'], 'max_kb' => 512000],

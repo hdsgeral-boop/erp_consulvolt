@@ -26,6 +26,8 @@ import { SeparadorRequisicoes } from './separadores/Requisicoes';
 import { SeparadorRevisoes } from './separadores/Revisoes';
 import { SeparadorExecucao } from './separadores/Execucao';
 import { SeparadorActividade } from './separadores/Actividade';
+import { SeparadorDocumentos } from './separadores/Documentos';
+import { SeparadorFinanceiro } from './separadores/Financeiro';
 import { SeparadorConfiguracao } from './separadores/Configuracao';
 
 export interface PropsSeparador {
@@ -175,6 +177,8 @@ export function DetalheProjecto() {
           { key: 'backlog', label: <span><IconeFa nome="layer-group" /> Backlog</span>, children: <SeparadorBacklog {...props} /> },
           { key: 'horas', label: <span><IconeFa nome="clock" /> Horas e equipamentos</span>, children: <SeparadorHoras {...props} /> },
           // auditoria backend×frontend: registo de actividade (GET /projetos/{id}/atividade) e configuração dos projectos (GET/PUT /projetos/configuracao)
+          { key: 'financeiro', label: <span><IconeFa nome="coins" /> Financeiro</span>, children: <SeparadorFinanceiro {...props} /> },
+          { key: 'documentos', label: <span><IconeFa nome="file-pdf" /> Documentos</span>, children: <SeparadorDocumentos {...props} /> },
           { key: 'actividade', label: <span><IconeFa nome="history" /> Actividade</span>, children: <SeparadorActividade {...props} /> },
           { key: 'configuracao', label: <span><IconeFa nome="cog" /> Configuração</span>, children: <SeparadorConfiguracao {...props} /> },
         ]}

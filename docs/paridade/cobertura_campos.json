@@ -5,10 +5,10 @@
   "colunas": 3990,
   "INFRA": 1297,
   "LEGADO_TECNICO": 78,
-  "FUNCIONAL_COBERTO": 1928,
-  "FUNCIONAL_SO_BACKEND": 316,
-  "FUNCIONAL_SEM_API": 356,
-  "ORFA": 15
+  "FUNCIONAL_COBERTO": 1930,
+  "FUNCIONAL_SO_BACKEND": 319,
+  "FUNCIONAL_SEM_API": 355,
+  "ORFA": 11
  },
  "por_modulo": {
   "Activos": {
@@ -26,10 +26,10 @@
    "colunas": 272,
    "INFRA": 87,
    "LEGADO_TECNICO": 4,
-   "FUNCIONAL_COBERTO": 151,
-   "FUNCIONAL_SO_BACKEND": 17,
+   "FUNCIONAL_COBERTO": 152,
+   "FUNCIONAL_SO_BACKEND": 20,
    "FUNCIONAL_SEM_API": 9,
-   "ORFA": 4
+   "ORFA": 0
   },
   "Vendas": {
    "tabelas": 9,
@@ -116,9 +116,9 @@
    "colunas": 224,
    "INFRA": 96,
    "LEGADO_TECNICO": 4,
-   "FUNCIONAL_COBERTO": 93,
+   "FUNCIONAL_COBERTO": 94,
    "FUNCIONAL_SO_BACKEND": 11,
-   "FUNCIONAL_SEM_API": 18,
+   "FUNCIONAL_SEM_API": 17,
    "ORFA": 2
   },
   "Tesouraria": {
@@ -878,9 +878,9 @@
    "colunas": 11,
    "INFRA": 4,
    "LEGADO_TECNICO": 0,
-   "FUNCIONAL_COBERTO": 0,
+   "FUNCIONAL_COBERTO": 1,
    "FUNCIONAL_SO_BACKEND": 0,
-   "FUNCIONAL_SEM_API": 6,
+   "FUNCIONAL_SEM_API": 5,
    "ORFA": 1
   },
   "documentos_projeto": {
@@ -888,10 +888,10 @@
    "colunas": 8,
    "INFRA": 4,
    "LEGADO_TECNICO": 0,
-   "FUNCIONAL_COBERTO": 1,
-   "FUNCIONAL_SO_BACKEND": 0,
+   "FUNCIONAL_COBERTO": 2,
+   "FUNCIONAL_SO_BACKEND": 2,
    "FUNCIONAL_SEM_API": 0,
-   "ORFA": 3
+   "ORFA": 0
   },
   "documentos_tesouraria": {
    "modulo": "Tesouraria",
@@ -1079,9 +1079,9 @@
    "INFRA": 4,
    "LEGADO_TECNICO": 0,
    "FUNCIONAL_COBERTO": 4,
-   "FUNCIONAL_SO_BACKEND": 0,
+   "FUNCIONAL_SO_BACKEND": 1,
    "FUNCIONAL_SEM_API": 0,
-   "ORFA": 1
+   "ORFA": 0
   },
   "faturas_compra": {
    "modulo": "Compras",
@@ -3667,10 +3667,10 @@
     "backend/app/Services/Projetos/ServicoOrcamentoProjetos.php"
    ],
    "ficheiros_front": [
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Horas.tsx",
     "frontend/src/modulos/projectos/separadores/Orcamento.tsx",
-    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx",
-    "frontend/src/modulos/projectos/separadores/OrganigramaAccoes.tsx"
+    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -4512,7 +4512,7 @@
     "backend/app/Http/Controllers/Api/CRM/OportunidadesCRMController.php",
     "backend/app/Http/Controllers/Api/Contabilidade/ImportacaoLancamentosController.php",
     "backend/app/Http/Controllers/Api/Contabilidade/TabelasAuxiliaresController.php",
-    "backend/app/Http/Controllers/Api/RH/PortalColaboradorController.php"
+    "backend/app/Http/Controllers/Api/Projetos/DocumentoProjetoController.php"
    ],
    "ficheiros_front": [
     "frontend/src/componentes/tour/TourBoasVindas.tsx",
@@ -5598,7 +5598,7 @@
     "backend/app/Http/Controllers/Api/CRM/OportunidadesCRMController.php",
     "backend/app/Http/Controllers/Api/Contabilidade/ImportacaoLancamentosController.php",
     "backend/app/Http/Controllers/Api/Contabilidade/TabelasAuxiliaresController.php",
-    "backend/app/Http/Controllers/Api/RH/PortalColaboradorController.php"
+    "backend/app/Http/Controllers/Api/Projetos/DocumentoProjetoController.php"
    ],
    "ficheiros_front": [
     "frontend/src/componentes/tour/TourBoasVindas.tsx",
@@ -34886,15 +34886,17 @@
    "nulo": true,
    "modulo": "Sistema",
    "classe": "FUNCIONAL_SEM_API",
-   "motivo": "sem uso em código; o legado tinha dados",
-   "backend": false,
+   "motivo": "usada só internamente (serviço/modelo)",
+   "backend": true,
    "api_leitura": false,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
    "fk": "tipos_documento",
    "preenchimento_legado": 1,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Models/DocumentoProjeto.php"
+   ],
    "ficheiros_front": [],
    "onde_ligar": {
     "controllers": [],
@@ -34963,17 +34965,19 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "Sistema",
-   "classe": "FUNCIONAL_SEM_API",
-   "motivo": "sem uso em código; o legado tinha dados",
+   "classe": "FUNCIONAL_COBERTO",
+   "motivo": "só frontend (sem referência explícita no backend)",
    "backend": false,
    "api_leitura": false,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": 1,
    "ficheiros_back": [],
-   "ficheiros_front": [],
+   "ficheiros_front": [
+    "frontend/src/modulos/projectos/separadores/Documentos.tsx"
+   ],
    "onde_ligar": {
     "controllers": [],
     "frontend": [
@@ -35042,15 +35046,18 @@
    "nulo": true,
    "modulo": "Sistema",
    "classe": "FUNCIONAL_SEM_API",
-   "motivo": "sem uso em código; o legado tinha dados",
-   "backend": false,
+   "motivo": "usada só internamente (serviço/modelo)",
+   "backend": true,
    "api_leitura": false,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": 1,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Models/DocumentoProjeto.php",
+    "backend/app/Services/Projetos/ServicoDocumentosProjeto.php"
+   ],
    "ficheiros_front": [],
    "onde_ligar": {
     "controllers": [],
@@ -35126,24 +35133,29 @@
    "modulo": "Projectos",
    "classe": "INFRA",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoDocumentosProjeto.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+    "frontend/src/modulos/projectos/separadores/Documentos.tsx",
     "frontend/src/modulos/contab/comum/Seletores.tsx",
-    "frontend/src/modulos/compras/comum/Seletores.tsx",
-    "frontend/src/modulos/activos/comum/componentes.tsx"
+    "frontend/src/modulos/compras/comum/Seletores.tsx"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35155,19 +35167,24 @@
    "modulo": "Projectos",
    "classe": "INFRA",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
    "fk": "empresas",
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoDocumentosProjeto.php"
+   ],
    "ficheiros_front": [],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35178,24 +35195,30 @@
    "nulo": true,
    "modulo": "Projectos",
    "classe": "FUNCIONAL_COBERTO",
-   "motivo": "só frontend (sem referência explícita no backend)",
-   "backend": false,
-   "api_leitura": false,
-   "api_escrita": false,
+   "motivo": "",
+   "backend": true,
+   "api_leitura": true,
+   "api_escrita": true,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": "projetos",
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Projetos/DocumentoProjetoController.php",
+    "backend/app/Services/Projetos/ServicoDocumentosProjeto.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/Extracto.tsx",
     "frontend/src/modulos/projectos/comum/tipos.ts",
     "frontend/src/modulos/activos/comum/tipos.ts"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35205,21 +35228,26 @@
    "tipo": "bigint",
    "nulo": true,
    "modulo": "Projectos",
-   "classe": "ORFA",
+   "classe": "FUNCIONAL_SO_BACKEND",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
    "fk": "tipos_documento",
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Models/DocumentoProjeto.php"
+   ],
    "ficheiros_front": [],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35229,21 +35257,28 @@
    "tipo": "character varying",
    "nulo": true,
    "modulo": "Projectos",
-   "classe": "ORFA",
+   "classe": "FUNCIONAL_COBERTO",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
-   "frontend_ui": false,
+   "frontend_ui": true,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
-   "ficheiros_front": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoDocumentosProjeto.php"
+   ],
+   "ficheiros_front": [
+    "frontend/src/modulos/projectos/separadores/Documentos.tsx"
+   ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35253,21 +35288,27 @@
    "tipo": "date",
    "nulo": true,
    "modulo": "Projectos",
-   "classe": "ORFA",
+   "classe": "FUNCIONAL_SO_BACKEND",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Models/DocumentoProjeto.php",
+    "backend/app/Services/Projetos/ServicoDocumentosProjeto.php"
+   ],
    "ficheiros_front": [],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35280,7 +35321,7 @@
    "classe": "INFRA",
    "motivo": "",
    "backend": false,
-   "api_leitura": false,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
@@ -35292,9 +35333,12 @@
     "frontend/src/modulos/projectos/comum/tipos.ts"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -35307,7 +35351,7 @@
    "classe": "INFRA",
    "motivo": "",
    "backend": false,
-   "api_leitura": false,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
@@ -35316,9 +35360,12 @@
    "ficheiros_back": [],
    "ficheiros_front": [],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "DocumentoProjetoController"
+    ],
     "frontend": [
-     "frontend/src/modulos/projectos/ModalProjecto.tsx"
+     "frontend/src/modulos/projectos/ModalProjecto.tsx",
+     "frontend/src/modulos/projectos/separadores/Documentos.tsx"
     ]
    }
   },
@@ -47265,14 +47312,16 @@
    "modulo": "Projectos",
    "classe": "INFRA",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
+   ],
    "ficheiros_front": [
     "frontend/src/componentes/icones/iconesModulos.tsx",
     "frontend/src/modulos/projectos/separadores/Revisoes.tsx",
@@ -47280,7 +47329,9 @@
     "frontend/src/modulos/projectos/DetalheProjecto.tsx"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47295,8 +47346,8 @@
    "modulo": "Projectos",
    "classe": "INFRA",
    "motivo": "",
-   "backend": false,
-   "api_leitura": false,
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
@@ -47305,7 +47356,9 @@
    "ficheiros_back": [],
    "ficheiros_front": [],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47318,21 +47371,26 @@
    "tipo": "bigint",
    "nulo": true,
    "modulo": "Projectos",
-   "classe": "ORFA",
-   "motivo": "",
-   "backend": false,
-   "api_leitura": false,
-   "api_escrita": false,
+   "classe": "FUNCIONAL_SO_BACKEND",
+   "motivo": "só nos tipos TypeScript",
+   "backend": true,
+   "api_leitura": true,
+   "api_escrita": true,
    "frontend_ui": false,
    "frontend_tipo": true,
    "fk": "projetos",
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Projetos/FinanceiroProjetoController.php",
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/comum/tipos.ts"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47346,15 +47404,17 @@
    "nulo": true,
    "modulo": "Projectos",
    "classe": "FUNCIONAL_COBERTO",
-   "motivo": "só frontend (sem referência explícita no backend)",
-   "backend": false,
-   "api_leitura": false,
+   "motivo": "",
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/separadores/Revisoes.tsx",
     "frontend/src/modulos/projectos/DetalheProjecto.tsx",
@@ -47362,7 +47422,9 @@
     "frontend/src/modulos/projectos/separadores/Resumo.tsx"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47376,15 +47438,17 @@
    "nulo": true,
    "modulo": "Projectos",
    "classe": "FUNCIONAL_COBERTO",
-   "motivo": "só frontend (sem referência explícita no backend)",
-   "backend": false,
-   "api_leitura": false,
+   "motivo": "",
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/separadores/Revisoes.tsx",
     "frontend/src/modulos/contab/comum/Componentes.tsx",
@@ -47392,7 +47456,9 @@
     "frontend/src/modulos/projectos/DetalheProjecto.tsx"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47406,23 +47472,28 @@
    "nulo": true,
    "modulo": "Projectos",
    "classe": "FUNCIONAL_COBERTO",
-   "motivo": "só frontend (sem referência explícita no backend)",
-   "backend": false,
-   "api_leitura": false,
-   "api_escrita": false,
+   "motivo": "",
+   "backend": true,
+   "api_leitura": true,
+   "api_escrita": true,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Http/Controllers/Api/Projetos/FinanceiroProjetoController.php",
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/separadores/Orcamento.tsx",
     "frontend/src/modulos/projectos/separadores/Horas.tsx",
-    "frontend/src/modulos/projectos/comum/tipos.ts",
-    "frontend/src/modulos/projectos/comum/regras.ts"
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
+    "frontend/src/modulos/projectos/comum/tipos.ts"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47436,15 +47507,17 @@
    "nulo": true,
    "modulo": "Projectos",
    "classe": "FUNCIONAL_COBERTO",
-   "motivo": "só frontend (sem referência explícita no backend)",
-   "backend": false,
-   "api_leitura": false,
+   "motivo": "",
+   "backend": true,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
    "fk": null,
    "preenchimento_legado": null,
-   "ficheiros_back": [],
+   "ficheiros_back": [
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
+   ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/separadores/Revisoes.tsx",
     "frontend/src/modulos/contab/comum/Componentes.tsx",
@@ -47452,7 +47525,9 @@
     "frontend/src/modulos/projectos/ModalProjecto.tsx"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47468,7 +47543,7 @@
    "classe": "INFRA",
    "motivo": "",
    "backend": false,
-   "api_leitura": false,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": true,
    "frontend_tipo": true,
@@ -47480,7 +47555,9 @@
     "frontend/src/modulos/projectos/comum/tipos.ts"
    ],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -47496,7 +47573,7 @@
    "classe": "INFRA",
    "motivo": "",
    "backend": false,
-   "api_leitura": false,
+   "api_leitura": true,
    "api_escrita": false,
    "frontend_ui": false,
    "frontend_tipo": false,
@@ -47505,7 +47582,9 @@
    "ficheiros_back": [],
    "ficheiros_front": [],
    "onde_ligar": {
-    "controllers": [],
+    "controllers": [
+     "FinanceiroProjetoController"
+    ],
     "frontend": [
      "frontend/src/componentes/icones/iconesModulos.tsx",
      "frontend/src/modulos/projectos/separadores/Revisoes.tsx"
@@ -67690,9 +67769,9 @@
    ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/Extracto.tsx",
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Orcamento.tsx",
-    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx",
-    "frontend/src/modulos/projectos/separadores/OrganigramaAccoes.tsx"
+    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -67728,10 +67807,10 @@
     "backend/app/Services/Projetos/ServicoOrcamentoProjetos.php"
    ],
    "ficheiros_front": [
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Horas.tsx",
     "frontend/src/modulos/projectos/separadores/Orcamento.tsx",
-    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx",
-    "frontend/src/modulos/projectos/separadores/OrganigramaAccoes.tsx"
+    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -74724,7 +74803,7 @@
     "backend/app/Http/Controllers/Api/Projetos/ExecucaoMedidaController.php",
     "backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php",
     "backend/app/Services/Projetos/ServicoAnaliticoProjetos.php",
-    "backend/app/Services/Projetos/ServicoHierarquiaProjetos.php"
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/activos/ModaisActivos.tsx",
@@ -74794,7 +74873,7 @@
     "backend/app/Http/Controllers/Api/Projetos/ExecucaoMedidaController.php",
     "backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php",
     "backend/app/Services/Projetos/ServicoAnaliticoProjetos.php",
-    "backend/app/Services/Projetos/ServicoHierarquiaProjetos.php"
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/activos/ModaisActivos.tsx",
@@ -74833,7 +74912,7 @@
     "backend/app/Http/Controllers/Api/Projetos/ExecucaoMedidaController.php",
     "backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php",
     "backend/app/Services/Projetos/ServicoAnaliticoProjetos.php",
-    "backend/app/Services/Projetos/ServicoHierarquiaProjetos.php"
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/activos/ModaisActivos.tsx",
@@ -74872,7 +74951,7 @@
     "backend/app/Http/Controllers/Api/Projetos/ExecucaoMedidaController.php",
     "backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php",
     "backend/app/Services/Projetos/ServicoAnaliticoProjetos.php",
-    "backend/app/Services/Projetos/ServicoHierarquiaProjetos.php"
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/activos/ModaisActivos.tsx",
@@ -74910,8 +74989,8 @@
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php",
     "backend/app/Services/Projetos/ServicoAnaliticoProjetos.php",
-    "backend/app/Services/Projetos/ServicoHierarquiaProjetos.php",
-    "backend/app/Services/Projetos/ServicoMetasProjetos.php"
+    "backend/app/Services/Projetos/ServicoFinanceiroProjetos.php",
+    "backend/app/Services/Projetos/ServicoHierarquiaProjetos.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/activos/ModaisActivos.tsx",
@@ -103521,9 +103600,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103569,9 +103650,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103622,9 +103705,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103660,7 +103745,7 @@
     "backend/app/Http/Controllers/Api/Acrescimos/AcrescimosController.php",
     "backend/app/Http/Controllers/Api/Compras/ComprasController.php",
     "backend/app/Http/Controllers/Api/Orcamento/OrcamentoController.php",
-    "backend/app/Http/Controllers/Api/Projetos/ExecucaoMedidaController.php"
+    "backend/app/Http/Controllers/Api/Projetos/DocumentoProjetoController.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/acrescimos/ModalItem.tsx",
@@ -103675,9 +103760,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103728,9 +103815,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103766,7 +103855,7 @@
     "backend/app/Http/Controllers/Api/Acrescimos/AcrescimosController.php",
     "backend/app/Http/Controllers/Api/Logistica/GuiasRemessaArmazemController.php",
     "backend/app/Http/Controllers/Api/Orcamento/OrcamentoController.php",
-    "backend/app/Http/Controllers/Api/Projetos/EquipaController.php"
+    "backend/app/Http/Controllers/Api/Projetos/DocumentoProjetoController.php"
    ],
    "ficheiros_front": [
     "frontend/src/modulos/acrescimos/DetalheItem.tsx",
@@ -103781,9 +103870,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103834,9 +103925,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103887,9 +103980,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103940,9 +104035,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -103993,9 +104090,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104046,9 +104145,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104099,9 +104200,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104152,9 +104255,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104202,9 +104307,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104255,9 +104362,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104300,9 +104409,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -104336,9 +104447,9 @@
    "preenchimento_legado": null,
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Logistica/GuiasRemessaArmazemController.php",
+    "backend/app/Http/Controllers/Api/Projetos/DocumentoProjetoController.php",
     "backend/app/Http/Requests/Contabilidade/CriarLancamentoRequest.php",
-    "backend/app/Http/Requests/Vendas/EmitirDocumentoRequest.php",
-    "backend/app/Services/Ativos/ServicoAtivos.php"
+    "backend/app/Http/Requests/Vendas/EmitirDocumentoRequest.php"
    ],
    "ficheiros_front": [],
    "onde_ligar": {
@@ -104348,9 +104459,11 @@
      "RotinasController",
      "GuiasRemessaArmazemController",
      "OrcamentoController",
+     "DocumentoProjetoController",
      "EquipaController",
      "ExecucaoController",
      "ExecucaoMedidaController",
+     "FinanceiroProjetoController",
      "FolhaMedicaoController",
      "OrcamentoQuantidadesController",
      "OrganigramaMoverController",
@@ -105076,9 +105189,9 @@
    ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/Extracto.tsx",
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Orcamento.tsx",
-    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx",
-    "frontend/src/modulos/projectos/separadores/OrganigramaAccoes.tsx"
+    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -105353,10 +105466,10 @@
     "backend/app/Services/Projetos/ServicoRevisoesProjetos.php"
    ],
    "ficheiros_front": [
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Horas.tsx",
     "frontend/src/modulos/projectos/separadores/Orcamento.tsx",
-    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx",
-    "frontend/src/modulos/projectos/separadores/OrganigramaAccoes.tsx"
+    "frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -111757,6 +111870,7 @@
    "ficheiros_front": [
     "frontend/src/modulos/projectos/separadores/Requisicoes.tsx",
     "frontend/src/modulos/projectos/separadores/Backlog.tsx",
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/comum/tipos.ts"
    ],
    "onde_ligar": {
@@ -114033,9 +114147,9 @@
    ],
    "ficheiros_front": [
     "frontend/src/modulos/projectos/comum/PonteProdutividade.tsx",
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Revisoes.tsx",
-    "frontend/src/modulos/projectos/separadores/planeamento/MapaQuantidades.tsx",
-    "frontend/src/modulos/rh/Produtividade.tsx"
+    "frontend/src/modulos/projectos/separadores/planeamento/MapaQuantidades.tsx"
    ],
    "onde_ligar": {
     "controllers": [
@@ -121167,15 +121281,15 @@
    "preenchimento_legado": 0.9114,
    "ficheiros_back": [
     "backend/app/Http/Controllers/Api/Projetos/ExecucaoMedidaController.php",
+    "backend/app/Http/Controllers/Api/Projetos/FinanceiroProjetoController.php",
     "backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php",
-    "backend/app/Services/Metodo/ServicoIntegracoesMetodo.php",
-    "backend/app/Services/Projetos/ServicoAnaliticoProjetos.php"
+    "backend/app/Models/FaturacaoProjeto.php"
    ],
    "ficheiros_front": [
+    "frontend/src/modulos/projectos/separadores/Financeiro.tsx",
     "frontend/src/modulos/projectos/separadores/Planeamento.tsx",
     "frontend/src/modulos/projectos/separadores/planeamento/ModaisHierarquia.tsx",
-    "frontend/src/modulos/projectos/separadores/planeamento/ModaisMetas.tsx",
-    "frontend/src/modulos/projectos/comum/arrastar.ts"
+    "frontend/src/modulos/projectos/separadores/planeamento/ModaisMetas.tsx"
    ],
    "onde_ligar": {
     "controllers": [

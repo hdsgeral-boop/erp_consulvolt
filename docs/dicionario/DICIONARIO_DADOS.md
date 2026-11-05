@@ -3492,8 +3492,9 @@ Linhas reais: **12** · fictícias descartadas: 0
 | :--- | :--- | :--- |
 | `vendas.data_entrega`, `vendas.local_entrega` | exposto na API e na UI (novo) | `EmitirDocumentoRequest`, `VendaResource`, `EmitirDocumento.tsx`, `DetalheDocumento.tsx`, impressão |
 | `colaboradores.data_cessacao` | exposto na UI, só leitura (novo) | `Colaboradores.tsx` (tabela, ficha, impressão); preenchida por `ServicoEstadoContrato` |
-| `configuracoes_assiduidade.minimo_dia_horas` | mantida sem uso (legado) — semântica por decidir | — |
-| `documentos_projeto.*`, `faturacao_projetos.projeto_id` | mantida sem uso (tabelas sem funcionalidade; o legado só declarava o esquema em `v_boss/js/db_v2.js`, sem ecrã nem regra — nada a implementar sem decisão do utilizador) | — |
+| `configuracoes_assiduidade.minimo_dia_horas` | exposto na API e na UI (novo) — 0 desactiva; abaixo do mínimo a falta parcial conta sem tolerância | `AssiduidadeController`, `ServicoAssiduidade`, `Assiduidade.tsx` |
+| `documentos_projeto.*` | exposto na API e na UI (novo): PDF, tipo, versão, hash; novas colunas `tipo_projeto_id`, `titulo`, `versao`, `grupo_uid`, `caminho`, `mime`, `tamanho_bytes`, `hash_sha256`, `eliminado_*` (`tipo_documento_id` fica sem uso) | `DocumentoProjetoController`, `Documentos.tsx` |
+| `faturacao_projetos.*` | exposto na API e na UI (novo): plano de facturação (`descricao`, `data_prevista`, `retencao_pct`, `marco_projeto_id`, `venda_id`) | `FinanceiroProjetoController`, `Financeiro.tsx` |
 | `emprestimos_colaboradores.{aprovado_por,decidido_em,lancado_por,lancado_em,liquidado_em,cancelado_em,cancelado_por}`, `prestacoes_emprestimos.descontado_em` | exposto na UI (novo), só leitura | `Emprestimos.tsx` (detalhe), `TabelaPlano.tsx` (coluna «Descontada em») |
 | `ausencias_faltas_colaboradores.{justificada_em,justificada_por}` | exposto na UI (novo), só leitura | `Assiduidade.tsx` (dica na coluna «Motivo / decisão») |
 | `linhas_folha_salarial.{origem_efetividade,origem_produtividade}` | mantida sem uso (legado) — substituída pela coluna `origem` (`ORIGEM_LANCAMENTO`) | `ServicoAssiduidade`, `ServicoProdutividade` |

@@ -27,10 +27,10 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | :--- | :--- | :--- |
 | INFRA | 1297 | 32.5% |
 | LEGADO_TECNICO | 78 | 2.0% |
-| FUNCIONAL_COBERTO | 1928 | 48.3% |
-| FUNCIONAL_SO_BACKEND | 316 | 7.9% |
-| FUNCIONAL_SEM_API | 356 | 8.9% |
-| ORFA | 15 | 0.4% |
+| FUNCIONAL_COBERTO | 1930 | 48.4% |
+| FUNCIONAL_SO_BACKEND | 319 | 8.0% |
+| FUNCIONAL_SEM_API | 355 | 8.9% |
+| ORFA | 11 | 0.3% |
 
 ## Por módulo
 
@@ -44,13 +44,13 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | RH | 43 | 711 | 201 | 20 | 398 | 28 | 63 | 1 |
 | Activos | 16 | 285 | 70 | 3 | 156 | 33 | 23 | 0 |
 | CRM | 8 | 109 | 37 | 2 | 64 | 6 | 0 | 0 |
-| Projectos | 21 | 272 | 87 | 4 | 151 | 17 | 9 | 4 |
+| Projectos | 21 | 272 | 87 | 4 | 152 | 20 | 9 | 0 |
 | Orçamento | 8 | 145 | 40 | 4 | 98 | 1 | 2 | 0 |
 | Estrutura | 7 | 142 | 41 | 0 | 61 | 40 | 0 | 0 |
 | Terceiros | 3 | 42 | 13 | 1 | 23 | 1 | 4 | 0 |
 | POS | 11 | 254 | 54 | 4 | 165 | 29 | 2 | 0 |
 | Acréscimos | 3 | 53 | 15 | 0 | 36 | 0 | 2 | 0 |
-| Sistema | 15 | 224 | 96 | 4 | 93 | 11 | 18 | 2 |
+| Sistema | 15 | 224 | 96 | 4 | 94 | 11 | 17 | 2 |
 | Autenticacao | 3 | 42 | 24 | 0 | 15 | 3 | 0 | 0 |
 | Outros | 51 | 547 | 355 | 0 | 48 | 3 | 141 | 0 |
 | Plataforma | 14 | 155 | 43 | 2 | 85 | 25 | 0 | 0 |
@@ -79,7 +79,6 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | resultados_folha_salarial | Outros | 9 | 25 |
 | notificacoes_sistema | Outros | 8 | 13 |
 | avaliacoes_desempenho_rh | RH | 7 | 34 |
-| documentos_anexos | Sistema | 7 | 11 |
 | ia_consumo | Outros | 7 | 12 |
 | ia_mensagens | Outros | 7 | 10 |
 | itens_guia_saida | Logística | 7 | 17 |
@@ -90,6 +89,7 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | assuntos_metodo_trabalho | Projectos | 6 | 41 |
 | correspondencias_reconciliacao | Tesouraria | 6 | 11 |
 | delegacoes_chefia | Estrutura | 6 | 15 |
+| documentos_anexos | Sistema | 6 | 11 |
 | faturas_compra | Compras | 6 | 29 |
 | inventarios_fisicos_ativos | Activos | 6 | 22 |
 | itens_ordem_manutencao | Activos | 6 | 19 |
@@ -101,7 +101,7 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | subscricoes_empresa | Plataforma | 6 | 28 |
 | utilizadores | Sistema | 6 | 28 |
 
-## Lista priorizada de lacunas (687)
+## Lista priorizada de lacunas (685)
 
 Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(s) e ecrã(s) do âmbito da tabela.
 
@@ -582,12 +582,11 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `responsavel_principal_ref` (integer) SO_BACKEND
 **configuracoes_projetos** — controllers: —; ecrãs: frontend/src/componentes/icones/iconesModulos.tsx, frontend/src/modulos/projectos/separadores/Configuracao.tsx, frontend/src/modulos/registo.tsx
 - `projeto_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
-**documentos_projeto** — controllers: —; ecrãs: frontend/src/modulos/projectos/ModalProjecto.tsx
-- `data_carregamento` (date) ORFA
-- `nome_ficheiro` (character varying) ORFA
-- `tipo_documento_id` (bigint) ORFA
-**faturacao_projetos** — controllers: —; ecrãs: frontend/src/componentes/icones/iconesModulos.tsx, frontend/src/modulos/projectos/separadores/Revisoes.tsx
-- `projeto_id` (bigint) ORFA
+**documentos_projeto** — controllers: DocumentoProjetoController; ecrãs: frontend/src/modulos/projectos/ModalProjecto.tsx, frontend/src/modulos/projectos/separadores/Documentos.tsx
+- `data_carregamento` (date) SO_BACKEND
+- `tipo_documento_id` (bigint) SO_BACKEND
+**faturacao_projetos** — controllers: FinanceiroProjetoController; ecrãs: frontend/src/componentes/icones/iconesModulos.tsx, frontend/src/modulos/projectos/separadores/Revisoes.tsx
+- `projeto_id` (bigint) SO_BACKEND — só nos tipos TypeScript
 **linhas_orcamento_projeto** — controllers: ExecucaoController, OrcamentoQuantidadesController; ecrãs: frontend/src/modulos/activos/ModaisActivos.tsx, frontend/src/modulos/activos/comum/componentes.tsx, frontend/src/modulos/projectos/Carteira.tsx
 - `mapa_quantidades` (jsonb) SO_BACKEND
 - `mapas_quantidades` (jsonb) SO_BACKEND
@@ -735,10 +734,9 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `linhas` (jsonb) SO_BACKEND
 **documentos_anexos** — controllers: —; ecrãs: frontend/src/modulos/pos/Relatorios.tsx, frontend/src/modulos/pos/comum/DetalheSessao.tsx, frontend/src/modulos/pos/frente/FechoZ.tsx
 - `conteudo_ficheiro` (text) SEM_API — sem uso em código; o legado tinha dados
-- `data_carregamento` (timestamp with time zone) SEM_API — sem uso em código; o legado tinha dados
+- `data_carregamento` (timestamp with time zone) SEM_API — usada só internamente (serviço/modelo)
 - `entidade_id` (text) ORFA
-- `nome_ficheiro` (character varying) SEM_API — sem uso em código; o legado tinha dados
-- `tipo_documento_id` (bigint) SEM_API — sem uso em código; o legado tinha dados
+- `tipo_documento_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
 - `tipo_entidade` (character varying) SEM_API — sem uso em código; o legado tinha dados
 - `tipo_mime` (character varying) SEM_API — sem uso em código; o legado tinha dados
 **empresas** — controllers: AutenticacaoController, RegistoEmpresaController, PaineisController, ClientesController, MinhaContaController, PainelController, PlataformaSaasController, FolhaSalarialController, ParidadeCadastrosRHController, CopiaEmpresaController, EmpresaController, IdentidadeEmpresaController, SubstituicaoContaController, UtilizadorController, LigacaoAgtController; ecrãs: frontend/src/modulos/config/ConfigGeral.tsx, frontend/src/modulos/config/Empresas.tsx, frontend/src/modulos/config/MinhaConta.tsx
