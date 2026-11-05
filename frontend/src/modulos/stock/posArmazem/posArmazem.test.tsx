@@ -10,6 +10,7 @@ const obter = vi.fn(async (url: string) => respostas[url] ?? []);
 const enviar = vi.fn(async (_m: string, _u: string, _d?: unknown) => ({ dados: {}, mensagem: 'Feito.' }));
 vi.mock('@/api/cliente', () => ({
   obter: (url: string) => obter(url),
+  obterAutomatico: (url: string) => obter(url),
   obterPagina: vi.fn(async () => ({ dados: [], meta: { total: 0 } })),
   enviar: (m: string, u: string, d?: unknown) => enviar(m, u, d),
 }));
