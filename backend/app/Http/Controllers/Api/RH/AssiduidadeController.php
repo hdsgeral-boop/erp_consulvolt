@@ -39,7 +39,7 @@ final class AssiduidadeController extends Controller
         $d = $r->validate([
             'dias_uteis' => ['required', 'array', 'min:1'], 'dias_uteis.*' => ['integer', 'between:0,6'],
             'tolerancia_min' => ['required', 'integer', 'between:0,120'], 'arredondamento_min' => ['required', Rule::in(ServicoCalendarioRH::ARREDONDAMENTOS)],
-            'extras_min_minutos' => ['required', 'integer', 'between:0,240'], 'feriados' => ['nullable', 'array'], 'feriados.*' => ['date_format:Y-m-d'],
+            'extras_min_minutos' => ['required', 'integer', 'between:0,240'], 'minimo_dia_horas' => ['nullable', 'numeric', 'between:0,24'], 'feriados' => ['nullable', 'array'], 'feriados.*' => ['date_format:Y-m-d'],
             'relogio' => ['nullable', 'array'], 'relogio.url' => ['nullable', 'string', 'max:500'], 'relogio.formato' => ['nullable', 'in:CSV,JSON'],
             'modo_compensacao' => ['required', Rule::in(ServicoCalendarioRH::MODOS_COMPENSACAO)], 'limite_compensacao_h' => ['nullable', 'numeric', 'between:0,200'],
             'extra_nao_util_exige_autorizacao' => ['required', 'boolean'],
@@ -134,7 +134,7 @@ final class AssiduidadeController extends Controller
         $this->exigir('rh_assiduidade_view');
 
         return RespostaApi::sucesso(FechoMensalAssiduidade::query()->orderByDesc('mes')->get(['id', 'mes', 'estado', 'dias_uteis', 'totais', 'apurado_ate', 'fechado_em',
-            'fechado_por', 'lancado_em', 'periodo_processamento_salarial_id', 'ausencias_geradas']), 'Fechos mensais da efectividade.');
+            'fechado_por', 'lancado_em', 'lancado_por', 'reaberto_em', 'reaberto_por', 'periodo_processamento_salarial_id', 'ausencias_geradas']), 'Fechos mensais da efectividade.');
     }
 
     /** POST /api/rh/salarios/periodos/{id}/importar-efectividade — ecrã Calcular («Importar Efectividade»). */

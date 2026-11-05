@@ -425,6 +425,8 @@ export interface ConfigAssiduidade {
   tolerancia_min: number;
   arredondamento_min: number;
   extras_min_minutos: number;
+  /** 0 = desactivado. Abaixo deste número de horas num dia útil com registo, a falta parcial conta sem tolerância. */
+  minimo_dia_horas?: number;
   feriados: string[];
   relogio: { url?: string | null; formato?: string | null } | null;
   modo_compensacao: 'DIA' | 'MENSAL' | 'LIMITE';
@@ -490,7 +492,7 @@ export interface ApuramentoMes {
   linhas: LinhaApuramento[];
   totais: { diasFalta: number; horasExtra: number; horasFalta: number };
   estado: 'ABERTO' | 'FECHADO' | 'REABERTO';
-  fecho: { id: number; fechado_em: string | null; fechado_por: string | null; reaberto_em: string | null; motivo_reabertura: string | null; lancado_em: string | null; periodo_processamento_salarial_id: number | null; ausencias_geradas: number | null } | null;
+  fecho: { id: number; fechado_em: string | null; fechado_por: string | null; reaberto_em: string | null; motivo_reabertura: string | null; lancado_em: string | null; periodo_processamento_salarial_id: number | null; ausencias_geradas: number | null; lancado_por?: string | null; reaberto_por?: string | null } | null;
 }
 
 export interface FechoMensal {
@@ -503,6 +505,8 @@ export interface FechoMensal {
   fechado_em: string | null;
   fechado_por: string | null;
   lancado_em: string | null;
+  lancado_por?: string | null;
+  reaberto_por?: string | null;
   periodo_processamento_salarial_id: number | null;
   ausencias_geradas: number | null;
 }
@@ -610,6 +614,8 @@ export interface PeriodoProdutividade {
   total_fecho: string | null;
   registos_fecho: number | null;
   lancado_em: string | null;
+  lancado_por?: string | null;
+  reaberto_por?: string | null;
   periodo_processamento_salarial_id: number | null;
   motivo_reabertura: string | null;
 }
@@ -826,6 +832,7 @@ export interface Ciclo360 {
   aberto_em: string | null;
   aberto_por: string | null;
   fechado_em: string | null;
+  fechado_por?: string | null;
 }
 
 export interface Bonificacao {
@@ -841,6 +848,8 @@ export interface Bonificacao {
   estado: 'PROPOSTA' | 'APROVADA' | 'LANCADA';
   calculado_por: string | null;
   aprovado_por: string | null;
+  aprovado_em?: string | null;
+  lancado_por?: string | null;
   lancado_em: string | null;
   periodo_processamento_salarial_id: number | null;
 }

@@ -218,7 +218,7 @@ function ListaPeriodos({ aoAbrir }: { aoAbrir: (id: number) => void }) {
     { title: 'Janela de medição', render: (_, p) => `${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)}` },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
     { title: 'Total no fecho', dataIndex: 'total_fecho', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : '—') },
-    { title: 'Lançado', dataIndex: 'lancado_em', render: (v: string | null) => (v ? formatarDataHora(v) : '—') },
+    { title: 'Lançado', dataIndex: 'lancado_em', render: (v: string | null, r) => (v ? `${formatarDataHora(v)}${r.lancado_por ? ` · ${r.lancado_por}` : ''}` : '—') },
   ];
   return (
     <Card>
@@ -456,8 +456,8 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
           <Card style={{ marginTop: 12 }} title={`Produtividade de ${mesPorExtenso(p.mes)}`}>
             <Descriptions size="small" column={{ xs: 1, md: 3 }} style={{ marginBottom: 8 }}>
               <Descriptions.Item label="Total no fecho">{p.total_fecho ? formatarKz(p.total_fecho, true) : '—'}</Descriptions.Item>
-              {p.lancado_em && <Descriptions.Item label="Lançado no processamento">{formatarDataHora(p.lancado_em)}</Descriptions.Item>}
-              {p.motivo_reabertura && <Descriptions.Item label="Motivo da reabertura">{p.motivo_reabertura}</Descriptions.Item>}
+              {p.lancado_em && <Descriptions.Item label="Lançado no processamento">{formatarDataHora(p.lancado_em)}{p.lancado_por ? ` · ${p.lancado_por}` : ''}</Descriptions.Item>}
+              {p.motivo_reabertura && <Descriptions.Item label="Motivo da reabertura">{p.motivo_reabertura}{p.reaberto_por ? ` · ${p.reaberto_por}` : ''}</Descriptions.Item>}
             </Descriptions>
             <TabelaComModos<LinhaResumoProdutividade> idVista="resumo-produtividade" rowKey="colaborador_id" size="small" columns={colResumo} dataSource={resumo} scroll={scrollTabela()} modos={false}
               impressao={{ titulo: `Subsídio de produtividade — ${mesPorExtenso(p.mes)}`, subtitulo: `Medição de ${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)} · ${p.estado === 'FECHADO' ? 'Fechado' : 'Aberto'}`, orientacao: 'paisagem' }}

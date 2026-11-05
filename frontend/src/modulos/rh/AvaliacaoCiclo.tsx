@@ -63,7 +63,7 @@ export default function AvaliacaoCiclo() {
         <>
           <Card style={{ marginBottom: 16 }}>
             <Descriptions size="small" column={{ xs: 1, md: 4 }}>
-              <Descriptions.Item label="Estado"><EstadoTag estado={ciclo.estado} /></Descriptions.Item>
+              <Descriptions.Item label="Estado"><EstadoTag estado={ciclo.estado} />{ciclo.estado === 'FECHADO' && ciclo.fechado_em ? <Typography.Text type="secondary"> {formatarData(ciclo.fechado_em)}{ciclo.fechado_por ? ` · ${ciclo.fechado_por}` : ''}</Typography.Text> : null}</Descriptions.Item>
               <Descriptions.Item label="Período">{PERIODOS_AVALIACAO.find((p) => p.value === ciclo.periodo)?.label} {ciclo.ano} ({formatarData(ciclo.data_inicio)} a {formatarData(ciclo.data_fim)})</Descriptions.Item>
               <Descriptions.Item label="Prazos">360º até {formatarData(ciclo.prazos?.respostas_ate)} · chefia até {formatarData(ciclo.prazos?.chefia_ate)} · contestação {ciclo.prazos?.dias_contestacao ?? 10} dias</Descriptions.Item>
             </Descriptions>
@@ -213,6 +213,7 @@ function Bonificacoes({ ciclo }: { ciclo: Ciclo360 }) {
         { title: 'Base', dataIndex: 'base', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarKz(v) : '—') },
         { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong>, totalImpressao: (ls) => formatarKz(somar(ls.map((b) => b.valor))) },
         { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+        { title: 'Calculada / aprovada por', responsive: ['lg'], render: (_, b) => [b.calculado_por && `calc. ${b.calculado_por}`, b.aprovado_por && `aprov. ${b.aprovado_por}${b.aprovado_em ? ` (${formatarData(b.aprovado_em)})` : ''}`].filter(Boolean).join(' · ') || '—' },
         {
           title: '',
           key: 'accoes',

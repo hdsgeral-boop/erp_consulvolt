@@ -4,6 +4,7 @@ namespace App\Services\RH;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\ConfigAssiduidade;
+use App\Services\Sistema\ServicoAuditoria;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -19,6 +20,8 @@ final class ServicoCalendarioRH
 
     /** Valores por omissão do legado (CONFIG_PADRAO). */
     public const PADRAO = ['dias_uteis' => [1, 2, 3, 4, 5], 'tolerancia_min' => 10, 'arredondamento_min' => 15, 'extras_min_minutos' => 15,
+        // Mínimo de horas trabalhadas por dia útil com registo; 0 = desactivado (legado: assiduidade.js:37/74). Abaixo dele a falta parcial conta mesmo dentro da tolerância.
+        'minimo_dia_horas' => 0,
         'feriados' => [], 'relogio' => ['url' => '', 'formato' => 'CSV'], 'modo_compensacao' => 'DIA', 'limite_compensacao_h' => 0,
         'extra_nao_util_exige_autorizacao' => false,
         // Versão Actual (assiduidade.js:41): regime de picagem por omissão da empresa (1 = período corrido, 2 = dois períodos)
@@ -42,6 +45,7 @@ final class ServicoCalendarioRH
         $cfg['dias_uteis'] = array_values(array_map('intval', (array) $cfg['dias_uteis']));
         $cfg['feriados'] = array_values(array_map('strval', (array) $cfg['feriados']));
         $cfg['limite_compensacao_h'] = (float) $cfg['limite_compensacao_h'];
+        $cfg['minimo_dia_horas'] = max(0.0, min(24.0, (float) $cfg['minimo_dia_horas']));
         $cfg['periodos_padrao'] = (int) $cfg['periodos_padrao'] === 2 ? 2 : 1;
 
         return $cfg;
@@ -62,7 +66,12 @@ final class ServicoCalendarioRH
         sort($d['dias_uteis']);
         $d['feriados'] = array_values(array_unique($d['feriados'] ?? []));
         sort($d['feriados']);
+        $d['minimo_dia_horas'] = max(0.0, min(24.0, (float) ($d['minimo_dia_horas'] ?? 0)));
+        $antes = (float) $this->config()['minimo_dia_horas'];
         ConfigAssiduidade::query()->updateOrCreate([], $d + ['atualizado_por' => Auth::user()?->nome_utilizador]);
+        if ($antes !== $d['minimo_dia_horas']) {
+            app(ServicoAuditoria::class)->registar('RH', 'Assiduidade: mínimo diário alterado', "Mínimo de horas por dia: {$antes} → {$d['minimo_dia_horas']}", 'configuracoes_assiduidade', null);
+        }
 
         return $this->config();
     }

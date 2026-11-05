@@ -79,6 +79,31 @@ final class AssiduidadeTest extends TestCase
     }
 
     #[Test]
+    public function minimo_diario_configuravel_conta_a_falta_parcial_dentro_da_tolerancia(): void
+    {
+        $cfg = fn (float $min) => $this->putJson('/api/rh/assiduidade/configuracao', ['dias_uteis' => [1, 2, 3, 4, 5], 'tolerancia_min' => 60, 'arredondamento_min' => 0,
+            'extras_min_minutos' => 15, 'modo_compensacao' => 'DIA', 'extra_nao_util_exige_autorizacao' => false, 'minimo_dia_horas' => $min], $this->s);
+        $faltaAna = function () {
+            $r = $this->getJson('/api/rh/assiduidade/meses/2025-06', $this->s)->assertOk()->json('dados.linhas');
+
+            return (float) collect($r)->firstWhere('colaborador_id', $this->ids['ana'])['horas_falta'];
+        };
+
+        // por omissão (0 = desactivado) o comportamento não muda: 7,9 h está dentro da tolerância de 60 min
+        $this->assertEquals(0, $cfg(0)->assertOk()->json('dados.minimo_dia_horas'));
+        $this->assertEqualsWithDelta(26.0, $faltaAna(), 0.001);
+        // mínimo abaixo das horas dos dias com registo: sem efeito
+        $cfg(6)->assertOk();
+        $this->assertEqualsWithDelta(26.0, $faltaAna(), 0.001);
+        // mínimo de 8 h: o dia de 7,9 h passa a contar 0,1 h de falta parcial
+        $this->assertEquals(8, $cfg(8)->assertOk()->json('dados.minimo_dia_horas'));
+        $this->assertEqualsWithDelta(26.1, $faltaAna(), 0.001);
+        // validação
+        $cfg(25)->assertStatus(422);
+        $this->assertDatabaseHas('logs_auditoria', ['acao' => 'Assiduidade: mínimo diário alterado']);
+    }
+
+    #[Test]
     public function apuramento_fecho_justificacao_e_lancamento_no_processamento(): void
     {
         $r = $this->getJson('/api/rh/assiduidade/meses/2025-06', $this->s)->assertOk()->assertJsonPath('dados.estado', 'ABERTO')->assertJsonPath('dados.dias_uteis', 21)->json('dados');

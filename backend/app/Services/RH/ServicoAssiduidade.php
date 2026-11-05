@@ -596,7 +596,7 @@ final class ServicoAssiduidade
             $desde = max(array_filter([$inicio, $e->data_admissao?->toDateString(), $contrato?->data_inicio?->toDateString()]));
             $ate = min(array_filter([$ateDia, $contrato?->data_fim?->toDateString()]));
             $porDia = ($registos[$e->id] ?? collect())->keyBy(fn ($r) => $r->data->toDateString());
-            $t = ['trab' => 0.0, 'extra' => 0.0, 'falta' => 0.0, 'comRegisto' => 0, 'diasFalta' => 0, 'feriasAus' => 0, 'naoAut' => 0.0,
+            $t = ['trab' => 0.0, 'extra' => 0.0, 'falta' => 0.0, 'comRegisto' => 0, 'abaixoMinimo' => 0, 'diasFalta' => 0, 'feriasAus' => 0, 'naoAut' => 0.0,
                 'atraso' => 0.0, 'antecipada' => 0.0, 'diasAtraso' => 0, 'diasEscala' => 0, 'diasPrioritaria' => 0, 'semIntervalo' => 0, 'suspenso' => 0];
             $ocorrencias = [];
             $diasFaltaLista = [];
@@ -655,8 +655,14 @@ final class ServicoAssiduidade
                     }
                     if ($util) {
                         $extra = $h - $horasDoDia;
+                        $abaixoMinimo = (float) ($cfg['minimo_dia_horas'] ?? 0) > 0 && $h < (float) $cfg['minimo_dia_horas'] && $extra < 0;
                         if ($extra > 0 && $extra * 60 >= (int) $cfg['extras_min_minutos']) {
                             $t['extra'] += $extra;
+                        } elseif ($extra < 0 && $abaixoMinimo && ! $deFerias && ! $ausente) {
+                            // dia abaixo do mínimo diário configurado: a falta parcial conta mesmo dentro da tolerância
+                            $t['falta'] += abs($extra);
+                            $t['abaixoMinimo']++;
+                            $ocorrencias[] = ['data' => $dia, 'tipo' => 'PARCIAL', 'horas' => round(abs($extra), 2)];
                         } elseif ($extra < 0 && abs($extra) * 60 > (int) $cfg['tolerancia_min'] && ! $deFerias && ! $ausente) {
                             $t['falta'] += abs($extra);
                             $ocorrencias[] = ['data' => $dia, 'tipo' => 'PARCIAL', 'horas' => round(abs($extra), 2)];
@@ -693,6 +699,9 @@ final class ServicoAssiduidade
             $avisos = [];
             if ($comp > 0) {
                 $avisos[] = self::h($comp).' h de falta compensadas com horas extra.';
+            }
+            if ($t['abaixoMinimo'] > 0) {
+                $avisos[] = "{$t['abaixoMinimo']} dia(s) com menos de ".self::h((float) $cfg['minimo_dia_horas']).' h trabalhadas: a falta parcial foi contada sem tolerância.';
             }
             if ($t['naoAut'] > 0) {
                 $avisos[] = self::h($t['naoAut']).' h em dias não úteis sem autorização de trabalho extra: não contam como horas extra.';

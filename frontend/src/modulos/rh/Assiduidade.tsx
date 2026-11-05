@@ -422,9 +422,9 @@ function Apuramento({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
           {a.fecho && (
             <Descriptions size="small" column={{ xs: 1, md: 2, xl: 3 }} style={{ marginBottom: 12 }}>
               <Descriptions.Item label="Fechado">{a.fecho.fechado_em ? `${formatarDataHora(a.fecho.fechado_em)} · ${a.fecho.fechado_por ?? ''}` : '—'}</Descriptions.Item>
-              <Descriptions.Item label="Lançado no processamento">{a.fecho.lancado_em ? formatarDataHora(a.fecho.lancado_em) : 'Não'}</Descriptions.Item>
+              <Descriptions.Item label="Lançado no processamento">{a.fecho.lancado_em ? `${formatarDataHora(a.fecho.lancado_em)}${a.fecho.lancado_por ? ` · ${a.fecho.lancado_por}` : ''}` : 'Não'}</Descriptions.Item>
               <Descriptions.Item label="Faltas geradas">{a.fecho.ausencias_geradas ?? 0}</Descriptions.Item>
-              {a.fecho.motivo_reabertura && <Descriptions.Item label="Última reabertura" span="filled">{formatarDataHora(a.fecho.reaberto_em)} — {a.fecho.motivo_reabertura}</Descriptions.Item>}
+              {a.fecho.motivo_reabertura && <Descriptions.Item label="Última reabertura" span="filled">{formatarDataHora(a.fecho.reaberto_em)}{a.fecho.reaberto_por ? ` · ${a.fecho.reaberto_por}` : ''} — {a.fecho.motivo_reabertura}</Descriptions.Item>}
             </Descriptions>
           )}
           {!fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`Apuramento provisório até ${formatarData(a.apurado_ate)} (o mês ainda não está fechado).`} />}
@@ -618,7 +618,7 @@ function Fechos() {
         { title: 'Horas extra', align: 'right', render: (_, f) => formatarHoras(f.totais?.horasExtra) },
         { title: 'Horas de falta', align: 'right', render: (_, f) => formatarHoras(f.totais?.horasFalta) },
         { title: 'Fechado', render: (_, f) => (f.fechado_em ? `${formatarDataHora(f.fechado_em)} · ${f.fechado_por ?? ''}` : '—') },
-        { title: 'Lançado', render: (_, f) => (f.lancado_em ? formatarDataHora(f.lancado_em) : '—') },
+        { title: 'Lançado', render: (_, f) => (f.lancado_em ? `${formatarDataHora(f.lancado_em)}${f.lancado_por ? ` · ${f.lancado_por}` : ''}` : '—') },
         { title: 'Faltas geradas', dataIndex: 'ausencias_geradas', align: 'right' },
   ];
   return (
@@ -668,6 +668,7 @@ function Configuracao() {
           <Col xs={24} md={8}><Form.Item name="tolerancia_min" label="Tolerância (minutos)" rules={[{ required: true }]}><InputNumber min={0} max={120} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="arredondamento_min" label="Arredondamento (minutos)" rules={[{ required: true }]}><Select options={ARREDONDAMENTOS.map((a) => ({ value: a, label: a === 0 ? 'Sem arredondamento' : `${a} min` }))} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="extras_min_minutos" label="Mínimo para horas extra (min)" rules={[{ required: true }]}><InputNumber min={0} max={240} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="minimo_dia_horas" label="Mínimo de horas por dia" tooltip="0 desactiva. Num dia útil com registo e menos horas do que o mínimo, a falta parcial conta mesmo dentro da tolerância."><InputNumber min={0} max={24} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} md={8}>
             <Form.Item name="modo_compensacao" label="Compensação de horas" rules={[{ required: true }]}>
               <Select options={[{ value: 'DIA', label: 'No próprio dia' }, { value: 'MENSAL', label: 'No mês' }, { value: 'LIMITE', label: 'No mês, até um limite' }]} />
