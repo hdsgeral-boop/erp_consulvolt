@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Models\TokenAcesso;
 use App\Services\Autenticacao\ServicoAutenticacao;
+use App\Services\Autenticacao\ServicoReautenticacao;
 use App\Services\Autenticacao\ServicoTotp;
 use App\Support\Api\RespostaApi;
 use App\Support\Autenticacao\CookiesSessao;
@@ -24,8 +25,8 @@ final class MfaController extends Controller
     public function __construct(
         private readonly ServicoTotp $totp,
         private readonly ServicoAutenticacao $autenticacao,
-    ) {}
         private readonly ServicoReautenticacao $reautenticacao,
+    ) {}
 
     /** POST /api/autenticacao/mfa/iniciar — gera um novo segredo (ainda inactivo) e o URI para o QR code. */
     public function iniciarSetup(Request $request): JsonResponse
@@ -70,11 +71,11 @@ final class MfaController extends Controller
     public function desactivar(Request $request): JsonResponse
     {
         $utilizador = $request->user();
-        $d = $request->validate(['palavra_passe' => ['required', 'string']]);
         // Conta ROOT global (ADR-084): o MFA da conta mestra não se desactiva pela API.
         if ($utilizador->eRoot()) {
             throw new ErroNegocio('O MFA da conta root não pode ser desactivado.', 'ROOT_MFA_OBRIGATORIO', 403);
         }
+        $d = $request->validate(['palavra_passe' => ['required', 'string']]);
 
         if (! $this->autenticacao->palavraPasseCorrecta($utilizador, $d['palavra_passe'])) {
             throw new ErroNegocio('Palavra-passe incorrecta.', 'PALAVRA_PASSE_INCORRETA', 422);
@@ -129,10 +130,10 @@ final class MfaController extends Controller
         if (! $token instanceof TokenAcesso || ! $token->can('*')) {
             throw new ErroNegocio('Sem sessão completa para reautenticar.', 'SESSAO_INVALIDA', 403);
         }
-
-        return false;
-    }
-}
         $d = $request->validate(['codigo' => ['nullable', 'string', 'max:32'], 'palavra_passe' => ['nullable', 'string', 'max:200']]);
 
         $this->reautenticacao->confirmar($utilizador, $token, $d['codigo'] ?? null, $d['palavra_passe'] ?? null);
+
+        return RespostaApi::sucesso(['valido_minutos' => (int) config('erp.sessao.stepup_minutos')], 'Identidade confirmada.');
+    }
+}

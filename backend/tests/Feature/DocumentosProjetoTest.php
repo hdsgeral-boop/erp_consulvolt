@@ -87,6 +87,17 @@ final class DocumentosProjetoTest extends TestCase
     }
 
     #[Test]
+    public function recusa_pdf_acima_de_300_kb_e_aceita_ate_ao_limite(): void
+    {
+        $url = "/api/projetos/{$this->p}/documentos";
+        $demasiado = $this->pdf('grande.pdf', '% '.str_repeat('x', 301 * 1024));
+        $this->post($url, ['ficheiro' => $demasiado], $this->s)->assertStatus(422);
+        $this->assertDatabaseCount('documentos_projeto', 0);
+        $tipo = $this->getJson($url, $this->s)->json('dados.tipos.0.id');
+        $this->post($url, ['ficheiro' => $this->pdf('ok.pdf', '% '.str_repeat('x', 200 * 1024)), 'titulo' => 'Dentro do limite', 'tipo_projeto_id' => $tipo], $this->s)->assertCreated();
+    }
+
+    #[Test]
     public function permissoes_e_isolamento_por_empresa_e_tipos_editaveis(): void
     {
         $leitor = $this->sessao(['projectos_carteira_view']);

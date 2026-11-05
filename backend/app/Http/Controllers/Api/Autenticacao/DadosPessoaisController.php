@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Autenticacao;
 
 use App\Http\Controllers\Controller;
 use App\Services\Autenticacao\ServicoDadosPessoais;
+use App\Services\Autenticacao\ServicoReautenticacao;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,12 +31,12 @@ final class DadosPessoaisController extends Controller
             'telefone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+()\s.-]*$/'],
             'email' => ['nullable', 'email', 'max:150'],
         ], ['telefone.regex' => 'O telefone só pode ter algarismos, espaços e os sinais + ( ) - .']);
-        $u = $this->servico->atualizar($r->user(), $d);
         // Trocar o e-mail (canal de recuperação e de avisos) é crítico: exige autenticação recente (ADR-085)
         $novoEmail = isset($d['email']) ? mb_strtolower(trim((string) $d['email'])) : null;
         if ($novoEmail !== null && $novoEmail !== '' && $novoEmail !== mb_strtolower((string) $r->user()->email)) {
             $this->reautenticacao->exigirRecente($r->user());
         }
+        $u = $this->servico->atualizar($r->user(), $d);
 
         return RespostaApi::sucesso($this->servico->obter($u), 'Dados pessoais gravados.');
     }

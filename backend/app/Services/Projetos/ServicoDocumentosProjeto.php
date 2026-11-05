@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Documentos do projecto: só PDF (finfo real, sem JavaScript/acção de arranque, até 10 MB — `ValidadorUploadSeguro`,
+ * Documentos do projecto: só PDF (finfo real, sem JavaScript/acção de arranque, até 300 KB — `ValidadorUploadSeguro`,
  * perfil `pdf`), com tipo, título, versão, data, autor e observações. O ficheiro vai para o disco de objectos
  * (Cloudflare R2 quando configurado, disco privado local nos restantes casos) sob `empresas/{empresa}/projetos/{projecto}/documentos/`;
  * na base ficam o caminho, o nome original, o tamanho, o SHA-256 e o MIME. Nunca há URL público: a descarga é sempre
@@ -110,7 +110,7 @@ final class ServicoDocumentosProjeto
         if ((int) $projeto->empresa_id !== $empresa) {
             throw new ErroNegocio('Projecto de outra empresa.', 'PROJECTO_INVALIDO', 403);
         }
-        ValidadorUploadSeguro::validarOu($ficheiro, 'pdf', 'DOCUMENTO_TIPO_INVALIDO', 'Só são aceites ficheiros PDF até 10 MB.');
+        ValidadorUploadSeguro::validarOu($ficheiro, 'pdf', 'DOCUMENTO_TIPO_INVALIDO', 'Só são aceites ficheiros PDF até 300 KB.');
         $tipo = $d['tipo_projeto_id'] ?? $anterior?->tipo_projeto_id;
         if ($tipo && ! TipoDocumentoProjeto::query()->whereKey($tipo)->exists()) {
             throw new ErroNegocio('Tipo de documento inválido.', 'TIPO_DOCUMENTO_INVALIDO', 422);

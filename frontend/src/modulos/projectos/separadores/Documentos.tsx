@@ -38,10 +38,10 @@ export function tamanhoLegivel(bytes: number | null | undefined): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** O PDF é validado no servidor (conteúdo real); aqui só se evita o envio óbvio de outro tipo ou acima de 10 MB. */
+/** O PDF é validado no servidor (conteúdo real); aqui só se evita o envio óbvio de outro tipo ou acima de 300 KB. */
 export function erroDoFicheiro(f: { name: string; size?: number }): string | null {
   if (!/\.pdf$/i.test(f.name)) return 'Só são aceites ficheiros PDF.';
-  if ((f.size ?? 0) > 10 * 1024 * 1024) return 'O ficheiro excede o máximo de 10 MB.';
+  if ((f.size ?? 0) > 300 * 1024) return 'O ficheiro excede o máximo de 300 KB.';
   return null;
 }
 
@@ -122,7 +122,7 @@ export function SeparadorDocumentos({ projecto }: PropsSeparador) {
 
       <Modal open={envio !== null} title={envio?.versaoDe ? `Nova versão de «${envio.versaoDe.titulo ?? envio.versaoDe.nome_ficheiro}»` : 'Carregar documento (PDF)'} okText="Carregar" cancelText="Cancelar"
         okButtonProps={{ disabled: ficheiros.length === 0 }} confirmLoading={accao.isPending} onCancel={fechar} onOk={() => form.submit()} destroyOnHidden>
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Só PDF, até 10 MB. O conteúdo é verificado (sem JavaScript nem acções automáticas)." />
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Só PDF, até 300 KB. O conteúdo é verificado (sem JavaScript nem acções automáticas)." />
         <Form form={form} layout="vertical" onFinish={(v) => void enviar(v)} initialValues={{ data_documento: dayjs() }}>
           <Form.Item label="Ficheiro" required>
             <Upload.Dragger accept=".pdf,application/pdf" maxCount={1} fileList={ficheiros} beforeUpload={(f) => { const e = erroDoFicheiro(f); if (e) { Modal.error({ title: e }); return Upload.LIST_IGNORE; } return false; }}

@@ -9,9 +9,9 @@ use App\Http\Middleware\CabecalhosSemCache;
 use App\Http\Middleware\CacheCondicional;
 use App\Http\Middleware\ExigirAdministradorCliente;
 use App\Http\Middleware\ExigirAreaPortal;
+use App\Http\Middleware\ExigirMfaRecente;
 use App\Http\Middleware\ExigirPlataforma;
 use App\Http\Middleware\ExigirRoot;
-use App\Http\Middleware\ExigirMfaRecente;
 use App\Http\Middleware\ExigirSuporte;
 use App\Http\Middleware\ExigirTrocaPassword;
 use App\Http\Middleware\ForcarRespostaJson;
@@ -65,12 +65,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'suporte' => ExigirSuporte::class,
             'licenca_exportacao' => BloquearExportacaoComLicencaExpirada::class,
             'area_portal' => ExigirAreaPortal::class,
+            'mfa_recente' => ExigirMfaRecente::class,
             'cache_condicional' => CacheCondicional::class,
         ]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);
     })
-            'mfa_recente' => ExigirMfaRecente::class,
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
         $exceptions->render(function (Throwable $e, Request $request) {

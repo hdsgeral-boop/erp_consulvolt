@@ -13,9 +13,9 @@ use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Autenticacao\ServicoRecuperacaoPassword;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
-use App\Support\Tenancy\ContextoTenant;
 use App\Support\Api\RespostaApi;
 use App\Support\Autenticacao\CookiesSessao;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,7 +78,6 @@ final class AutenticacaoController extends Controller
         return CookiesSessao::limpar(RespostaApi::sucesso(null, 'Sessão terminada com sucesso.'), $request);
     }
 
-    /** GET /api/autenticacao/eu */
     /** POST /api/autenticacao/sair-de-todas — logout global: termina todas as sessões do utilizador, incluindo esta. */
     public function sairDeTodas(Request $request): JsonResponse
     {
@@ -87,6 +86,7 @@ final class AutenticacaoController extends Controller
         return CookiesSessao::limpar(RespostaApi::sucesso(['terminadas' => $n], 'Todas as sessões foram terminadas.'), $request);
     }
 
+    /** GET /api/autenticacao/eu */
     public function eu(Request $request): JsonResponse
     {
         $activa = $this->empresaActivaDaSessao($request);
