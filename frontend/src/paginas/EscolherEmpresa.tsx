@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Empty, Input, List, Tag, Typography, theme } from 'antd';
+import { Avatar, Button, Card, Collapse, Empty, Input, List, Tag, Typography, theme } from 'antd';
 import { LogoutOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -71,10 +71,10 @@ export function EscolherEmpresa() {
   const { empresas, escolherEmpresa, sair, utilizador, ultimaEmpresaId } = useSessao();
   const [aEscolher, setAEscolher] = useState<number | null>(null);
   const [pesquisa, setPesquisa] = useState('');
-  // lida uma vez ao abrir: serve só para assinalar a empresa usada por último
+  // lidas uma vez ao abrir: a ordem não muda enquanto se escolhe
   const [recentes] = useState<number[]>(() => (ultimaEmpresaId != null ? [ultimaEmpresaId] : []));
-  // ordem alfabética (a «usada por último» fica assinalada na própria linha, sem saltar para o topo)
-  const ordenadas = useMemo(() => ordenarAlfabeticamente(empresas), [empresas]);
+  // a usada por último primeiro (como sempre foi) e as restantes por ordem alfabética
+  const ordenadas = useMemo(() => ordenarPorRecentes(ordenarAlfabeticamente(empresas), recentes), [empresas, recentes]);
   const visiveis = useMemo(() => filtrarEmpresas(ordenadas, pesquisa), [ordenadas, pesquisa]);
   const ultimaUsada = recentes.find((id) => empresas.some((e) => e.id === id));
 
@@ -100,10 +100,8 @@ export function EscolherEmpresa() {
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
           {naRotaPortal() ? 'Portal do Colaborador — escolha a empresa.' : 'Escolha a empresa com que vai trabalhar.'}
         </Typography.Paragraph>
-        {/* conta root global (ADR-084): não pertence a nenhum cliente — uma só lista, com as empresas de todos eles por ordem alfabética */}
-        {ehContaRoot(utilizador) && <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} />}
-        {ehContaRoot(utilizador) ? null : empresas.length === 0 ? (
-          <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
+        {empresas.length === 0 ? (
+          ehContaRoot(utilizador) ? null : <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
         ) : (
           <>
             {empresas.length > 1 && (
@@ -164,6 +162,15 @@ export function EscolherEmpresa() {
               />
             </div>
           </>
+        )}
+        {/* conta root global (ADR-084): as empresas de outros clientes ficam à parte, recolhidas, para o ecrã ser o de sempre */}
+        {ehContaRoot(utilizador) && (
+          <Collapse
+            ghost
+            style={{ marginTop: 8 }}
+            defaultActiveKey={empresas.length === 0 ? ['root'] : []}
+            items={[{ key: 'root', label: 'Empresas de outros clientes (conta root)', children: <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} /> }]}
+          />
         )}
       </Card>
     </main>
