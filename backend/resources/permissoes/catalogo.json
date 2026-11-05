@@ -923,6 +923,16 @@
               "chave": "teso_caixa_eliminar",
               "rotulo": "Eliminar sessão fechada",
               "sensivel": true
+            },
+            {
+              "chave": "teso_caixa_multimoeda_gerir",
+              "rotulo": "Gerir as moedas estrangeiras da caixa",
+              "sensivel": true
+            },
+            {
+              "chave": "teso_caixa_multimoeda_liquidar",
+              "rotulo": "Operar e liquidar documentos pela caixa em moeda estrangeira",
+              "sensivel": true
             }
           ]
         },
@@ -3012,6 +3022,8 @@
       "nome": "Contabilista",
       "permissoes": {
         "_v2": true,
+        "teso_caixa_multimoeda_gerir": true,
+        "teso_caixa_multimoeda_liquidar": true,
         "vendas_categorias_contas": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
@@ -3086,6 +3098,8 @@
       "nome": "Tesoureiro",
       "permissoes": {
         "_v2": true,
+        "teso_caixa_multimoeda_gerir": true,
+        "teso_caixa_multimoeda_liquidar": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
         "rh_portal_view": true,
@@ -3478,6 +3492,8 @@
       "nome": "Direcção",
       "permissoes": {
         "_v2": true,
+        "teso_caixa_multimoeda_gerir": true,
+        "teso_caixa_multimoeda_liquidar": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
         "rh_portal_view": true,

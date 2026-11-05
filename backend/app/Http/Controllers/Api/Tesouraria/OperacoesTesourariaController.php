@@ -11,6 +11,7 @@ use App\Services\Compras\RelacoesNomes;
 use App\Services\Logistica\ServicoProdutos;
 use App\Services\Tesouraria\ServicoCaixa;
 use App\Services\Tesouraria\ServicoCaixaAjustes;
+use App\Services\Tesouraria\ServicoCaixaMoedas;
 use App\Services\Tesouraria\ServicoConferenciaCaixa;
 use App\Services\Tesouraria\ServicoConfigTesouraria;
 use App\Services\Tesouraria\ServicoReconciliacaoBancaria;
@@ -20,6 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /** /api/tesouraria — reconciliação bancária, folha de caixa, conferência de caixa e contas de tesouraria. */
 final class OperacoesTesourariaController extends Controller
@@ -31,6 +33,7 @@ final class OperacoesTesourariaController extends Controller
         private readonly ServicoConfigTesouraria $config,
         private readonly ServicoCaixaAjustes $ajustesCaixa,
         private readonly ServicoProdutos $produtos,
+        private readonly ServicoCaixaMoedas $moedasCaixa,
     ) {}
 
     // ─────────── Reconciliação bancária ───────────
@@ -159,6 +162,7 @@ final class OperacoesTesourariaController extends Controller
         $this->exigir('teso_folha_caixa_view');
 
         $sessoes = SessaoCaixa::query()->when($r->string('codigo_conta')->toString(), fn ($q, $v) => $q->where('codigo_conta', $v))
+            ->when(! ($this->moedasCaixa->podeLiquidar() || $this->moedasCaixa->podeGerir()), fn ($q) => $q->where(fn ($w) => $w->whereNull('codigo_moeda')->orWhere('codigo_moeda', 'AOA')))
             ->select('sessoes_caixa.*')
             // colunas da lista do legado (Conta + descrição, Entradas, Saídas): subconsultas correlacionadas na mesma consulta (sem N+1)
             ->selectSub(DB::table('plano_contas as pc')->select('pc.descricao')->whereColumn('pc.empresa_id', 'sessoes_caixa.empresa_id')
@@ -179,8 +183,12 @@ final class OperacoesTesourariaController extends Controller
     public function sessao(int $id): JsonResponse
     {
         $this->exigir('teso_folha_caixa_view');
+        $s = SessaoCaixa::query()->findOrFail($id);
+        if (ServicoCaixaMoedas::eEstrangeira($s->codigo_moeda) && ! ($this->moedasCaixa->podeLiquidar() || $this->moedasCaixa->podeGerir())) {
+            throw new AccessDeniedHttpException;   // sem a permissão a caixa em moeda estrangeira não existe para o utilizador
+        }
 
-        return RespostaApi::sucesso($this->sessaoArray(SessaoCaixa::query()->findOrFail($id)), 'Sessão de caixa.');
+        return RespostaApi::sucesso($this->sessaoArray($s), 'Sessão de caixa.');
     }
 
     public function abrirSessao(Request $r): JsonResponse
@@ -213,6 +221,7 @@ final class OperacoesTesourariaController extends Controller
             'venda_id' => ['nullable', 'integer', $daEmpresa('vendas')], 'fatura_compra_id' => ['nullable', 'integer', $daEmpresa('faturas_compra')],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'nota_demonstracao_id' => ['nullable', 'integer'], 'nota_fluxo_caixa_id' => ['nullable', 'integer'],
+            'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],   // câmbio manual do dia (só caixas em moeda estrangeira, dentro da tolerância)
             // ligação ao documento de suporte (digitalização/ERP externo), como nos documentos de tesouraria
             'url_documento' => ['nullable', 'string', 'max:150', 'url:http,https']], [], ['url_documento' => 'URL do documento']);
         // As notas (DEMO/fluxo) gravam-se na mesma transacção, logo a seguir ao movimento (A-11: o ServicoCaixa ainda não as recebe).
@@ -295,7 +304,12 @@ final class OperacoesTesourariaController extends Controller
     {
         $this->exigir('teso_gestao_conferencia_view');
 
-        return RespostaApi::sucesso(ConferenciaCaixa::query()->orderByDesc('data_conferencia')->limit(200)->get(), 'Conferências de caixa.');
+        $veEstrangeira = $this->moedasCaixa->podeLiquidar() || $this->moedasCaixa->podeGerir();
+        $lista = ConferenciaCaixa::query()->orderByDesc('data_conferencia')->limit(200)->get()
+            ->map(fn (ConferenciaCaixa $c) => $this->conferenciaArray($c))
+            ->filter(fn (array $c) => $veEstrangeira || ! ServicoCaixaMoedas::eEstrangeira($c['codigo_moeda']))->values();
+
+        return RespostaApi::sucesso($lista, 'Conferências de caixa.');
     }
 
     public function gravarConferencia(Request $r, ?int $id = null): JsonResponse
@@ -303,11 +317,12 @@ final class OperacoesTesourariaController extends Controller
         $this->exigir('teso_conf_registar');
         $d = $r->validate(['codigo_conta' => ['required', 'string', 'max:20'], 'data_conferencia' => ['required', 'date_format:Y-m-d'],
             'nome_operador' => ['nullable', 'string', 'max:255'],
-            'denominacoes' => ['required', 'array'], 'denominacoes.*' => ['integer', 'min:0'], 'saldo_externo' => ['nullable', 'numeric'],
+            'denominacoes' => ['required_without:total_contado', 'array'], 'denominacoes.*' => ['integer', 'min:0'], 'total_contado' => ['nullable', 'numeric', 'min:0'],
+            'saldo_externo' => ['nullable', 'numeric'],
             'justificacao' => ['nullable', 'string', 'max:4000']]);
         $c = $this->conferencia->gravar($d, $id ? ConferenciaCaixa::query()->findOrFail($id) : null);
 
-        return $id ? RespostaApi::sucesso($c, 'Conferência actualizada.') : RespostaApi::criado($c, 'Conferência registada (rascunho).');
+        return $id ? RespostaApi::sucesso($this->conferenciaArray($c), 'Conferência actualizada.') : RespostaApi::criado($this->conferenciaArray($c), 'Conferência registada (rascunho).');
     }
 
     public function finalizarConferencia(Request $r, int $id): JsonResponse
@@ -315,21 +330,21 @@ final class OperacoesTesourariaController extends Controller
         $this->exigir('teso_conf_registar');
         $d = $r->validate(['regularizar' => ['nullable', 'boolean']]);
 
-        return RespostaApi::sucesso($this->conferencia->finalizar(ConferenciaCaixa::query()->findOrFail($id), (bool) ($d['regularizar'] ?? false)), 'Conferência finalizada.');
+        return RespostaApi::sucesso($this->conferenciaArray($this->conferencia->finalizar($this->conferenciaVisivel(ConferenciaCaixa::query()->findOrFail($id)), (bool) ($d['regularizar'] ?? false))), 'Conferência finalizada.');
     }
 
     public function assinarConferencia(int $id): JsonResponse
     {
         $this->exigir('teso_conf_assinar');
 
-        return RespostaApi::sucesso($this->conferencia->assinar(ConferenciaCaixa::query()->findOrFail($id)), 'Conferência assinada.');
+        return RespostaApi::sucesso($this->conferenciaArray($this->conferencia->assinar($this->conferenciaVisivel(ConferenciaCaixa::query()->findOrFail($id)))), 'Conferência assinada.');
     }
 
     public function reabrirConferencia(Request $r, int $id): JsonResponse
     {
         $this->exigir('teso_conf_reabrir');
 
-        return RespostaApi::sucesso($this->conferencia->reabrir(ConferenciaCaixa::query()->findOrFail($id), $this->motivo($r)), 'Conferência reaberta.');
+        return RespostaApi::sucesso($this->conferenciaArray($this->conferencia->reabrir($this->conferenciaVisivel(ConferenciaCaixa::query()->findOrFail($id)), $this->motivo($r))), 'Conferência reaberta.');
     }
 
     // ─────────── Contas de tesouraria ───────────
@@ -361,6 +376,49 @@ final class OperacoesTesourariaController extends Controller
             'diferenca' => $s->saldo_fisico !== null && $s->saldo_fecho !== null ? bcsub((string) $s->saldo_fisico, (string) $s->saldo_fecho, 2) : null,
             'movimentos' => MovimentoCaixa::query()->where('sessao_caixa_id', $s->id)->with(RelacoesNomes::terceiro())
                 ->orderBy('data_documento')->orderBy('id')->get()->toArray()];
+    }
+
+    /** Conferência com a moeda da conta de caixa (para o ecrã e a impressão). */
+    private function conferenciaArray(ConferenciaCaixa $c): array
+    {
+        return $c->toArray() + ['codigo_moeda' => $this->conferencia->moedaDaConta((string) $c->codigo_conta)];
+    }
+
+    /** Uma conferência de caixa em moeda estrangeira só existe para quem tem a permissão da caixa multi-moeda. */
+    private function conferenciaVisivel(ConferenciaCaixa $c): ConferenciaCaixa
+    {
+        $this->moedasCaixa->exigirDisponivel($this->conferencia->moedaDaConta((string) $c->codigo_conta));
+
+        return $c;
+    }
+
+    // ─────────── Caixa em moeda estrangeira ───────────
+
+    /** GET caixa/moedas — estado da funcionalidade para o utilizador (desligada sem as permissões) + moedas do sistema para gerir. */
+    public function moedasDaCaixa(): JsonResponse
+    {
+        $this->exigir('teso_folha_caixa_view', 'teso_caixa_multimoeda_gerir');
+
+        return RespostaApi::sucesso($this->moedasCaixa->estado(), 'Moedas da caixa.');
+    }
+
+    /** PUT caixa/moedas — moedas estrangeiras habilitadas para a caixa da empresa (só quem gere). */
+    public function definirMoedasCaixa(Request $r): JsonResponse
+    {
+        $this->exigir('teso_caixa_multimoeda_gerir');
+        $d = $r->validate(['moedas' => ['present', 'array', 'max:20'], 'moedas.*' => ['string', 'size:3']], [], ['moedas' => 'moedas da caixa']);
+        $this->moedasCaixa->definir($d['moedas']);
+
+        return RespostaApi::sucesso($this->moedasCaixa->estado(), 'Moedas da caixa actualizadas.');
+    }
+
+    /** GET caixa/saldos — saldo das caixas por moeda (Kz e, nas caixas em moeda, o saldo na moeda). */
+    public function saldosCaixa(Request $r): JsonResponse
+    {
+        $this->exigir('teso_folha_caixa_view');
+        $d = $r->validate(['ate' => ['nullable', 'date_format:Y-m-d']]);
+
+        return RespostaApi::sucesso($this->moedasCaixa->saldos($d['ate'] ?? null), 'Saldos das caixas por moeda.');
     }
 
     private function motivo(Request $r): string

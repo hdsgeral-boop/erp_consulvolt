@@ -51,19 +51,24 @@ final class ServicoPendentes
                 SUM(CASE WHEN i.tipo_dc = 'D' AND NULLIF(i.codigo_moeda, 'AOA') IS NOT NULL THEN COALESCE(i.valor_moeda, 0) ELSE 0 END) as debito_moeda,
                 SUM(CASE WHEN i.tipo_dc = 'C' AND NULLIF(i.codigo_moeda, 'AOA') IS NOT NULL THEN COALESCE(i.valor_moeda, 0) ELSE 0 END) as credito_moeda")
             ->get()->keyBy(fn ($p) => "{$p->terceiro_id}|{$p->codigo_conta}|{$p->numero_documento}");
-        // movimentos de caixa ainda por contabilizar (o legado só descontava a sessão aberta: permitia pagar em duplicado)
+        // movimentos de caixa ainda por contabilizar (o legado só descontava a sessão aberta: permitia pagar em duplicado).
+        // Numa caixa em moeda estrangeira conta o contravalor do documento liquidado (Kz histórico e, se em moeda, o montante na moeda).
+        $estrangeira = "m.codigo_moeda IS NOT NULL AND m.codigo_moeda <> 'AOA'";
+        $kz = "(CASE WHEN {$estrangeira} THEN COALESCE(m.contravalor_kz, m.valor_kz, m.valor) ELSE m.valor END)";
+        $moeda = "(CASE WHEN {$estrangeira} AND m.contra_moeda IS NOT NULL AND m.contra_moeda <> 'AOA' THEN COALESCE(CAST(NULLIF(m.contravalor_moeda, '') AS numeric), 0) ELSE 0 END)";
         $caixa = DB::table('movimentos_caixa as m')->join('sessoes_caixa as s', 's.id', '=', 'm.sessao_caixa_id')
             ->where('m.empresa_id', $empresa)->where(fn ($q) => $q->whereNull('m.contabilizado')->orWhere('m.contabilizado', false))
             ->whereNotNull('m.terceiro_id')->whereNotNull('m.numero_documento')
             ->when($f['excluir_movimento_id'] ?? null, fn ($q, $v) => $q->where('m.id', '<>', $v))
             ->selectRaw("m.terceiro_id, CASE WHEN m.tipo = 'REC' THEN m.conta_credito ELSE m.conta_debito END AS codigo_conta, m.numero_documento,
-                SUM(CASE WHEN m.tipo = 'PAG' THEN m.valor ELSE 0 END) AS debito, SUM(CASE WHEN m.tipo = 'REC' THEN m.valor ELSE 0 END) AS credito")
+                SUM(CASE WHEN m.tipo = 'PAG' THEN {$kz} ELSE 0 END) AS debito, SUM(CASE WHEN m.tipo = 'REC' THEN {$kz} ELSE 0 END) AS credito,
+                SUM(CASE WHEN m.tipo = 'PAG' THEN {$moeda} ELSE 0 END) AS debito_moeda, SUM(CASE WHEN m.tipo = 'REC' THEN {$moeda} ELSE 0 END) AS credito_moeda")
             ->groupBy('m.terceiro_id', DB::raw("CASE WHEN m.tipo = 'REC' THEN m.conta_credito ELSE m.conta_debito END"), 'm.numero_documento')->get();
         foreach ($caixa as $c) {
             $k = "{$c->terceiro_id}|{$c->codigo_conta}|{$c->numero_documento}";
             $p = $pendentes[$k] ?? (object) ['debito' => 0, 'credito' => 0, 'debito_moeda' => 0, 'credito_moeda' => 0];
             $pendentes[$k] = (object) ['debito' => (float) $p->debito + (float) $c->debito, 'credito' => (float) $p->credito + (float) $c->credito,
-                'debito_moeda' => $p->debito_moeda ?? 0, 'credito_moeda' => $p->credito_moeda ?? 0];   // a caixa é só em Kz
+                'debito_moeda' => (float) ($p->debito_moeda ?? 0) + (float) $c->debito_moeda, 'credito_moeda' => (float) ($p->credito_moeda ?? 0) + (float) $c->credito_moeda];
         }
 
         $terceiros = DB::table('terceiros')->where('empresa_id', $empresa)->whereIn('id', $diario->pluck('terceiro_id')->unique())->pluck('nome', 'id');

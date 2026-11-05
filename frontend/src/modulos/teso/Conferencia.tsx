@@ -11,9 +11,10 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ValorKz } from '../contab/comum/Componentes';
+import { usePlanoContas } from '../contab/comum/dados';
 import { DENOMINACOES, type ConferenciaCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
-import { accoesConferencia, lerDenominacoes, totalContado } from './regras';
+import { accoesConferencia, lerDenominacoes, simboloMoeda, totalContado } from './regras';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
@@ -24,14 +25,14 @@ export function pedidoConferencia(c: ConferenciaCaixa) {
   return {
     titulo: 'Auto de conferência de caixa',
     periodo: formatarData(c.data_conferencia),
-    filtros: [`Conta ${c.codigo_conta}${c.nome_conta ? ` — ${c.nome_conta}` : ''}`, `Estado: ${c.estado === 'FINALIZADO' ? 'Finalizado' : 'Rascunho'}`],
+    filtros: [`Conta ${c.codigo_conta}${c.nome_conta ? ` — ${c.nome_conta}` : ''}${c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` (${c.codigo_moeda})` : ''}`, `Estado: ${c.estado === 'FINALIZADO' ? 'Finalizado' : 'Rascunho'}`],
     orientacao: 'retrato' as const,
     conteudo:
       pares(
         [
-          ['Total contado', `${formatarKz(c.total_fisico)} Kz`],
-          ['Saldo do sistema', `${formatarKz(c.total_sistema)} Kz`],
-          ['Diferença', `${formatarKz(c.diferenca)} Kz`],
+          ['Total contado', `${formatarKz(c.total_fisico)} ${simboloMoeda(c.codigo_moeda)}`],
+          ['Saldo do sistema', `${formatarKz(c.total_sistema)} ${simboloMoeda(c.codigo_moeda)}`],
+          ['Diferença', `${formatarKz(c.diferenca)} ${simboloMoeda(c.codigo_moeda)}`],
           ['Saldo externo', c.saldo_externo ? `${formatarKz(c.saldo_externo)} Kz` : '—'],
           ['Operador', c.nome_operador ?? '—'],
           ['Regularização', c.referencia_lancamento ?? '—'],
@@ -61,6 +62,8 @@ interface ValoresConferencia {
   data_conferencia: Dayjs;
   nome_operador?: string;
   denominacoes: Record<string, number | null>;
+  /** caixa em moeda estrangeira: total contado na moeda (sem notas do Kz) */
+  total_contado?: number;
   saldo_externo?: number;
   justificacao?: string;
 }
@@ -94,6 +97,10 @@ export default function Conferencia() {
   const [formMotivo] = Form.useForm<{ motivo: string }>();
   const quantidades = Form.useWatch('denominacoes', form) ?? {};
   const conta = Form.useWatch('codigo_conta', form);
+  const plano = usePlanoContas();
+  const moedaConta = (plano.data ?? []).find((c) => c.codigo === conta)?.codigo_moeda ?? null;
+  const emMoeda = !!moedaConta && moedaConta !== 'AOA';
+  const totalMoeda = Form.useWatch('total_contado', form);
   const dataConf = Form.useWatch('data_conferencia', form) as Dayjs | undefined;
   const externo = Form.useWatch('saldo_externo', form);
   const nome = utilizador?.nome_utilizador;
@@ -105,11 +112,18 @@ export default function Conferencia() {
   const saldo = useQuery({
     queryKey: ['teso', 'conferencia', 'saldo', conta, dia],
     queryFn: () => obter<{ saldo_final: string }>('/tesouraria/extrato-conta', { codigo_conta: conta, data_inicio: dia, data_fim: dia }),
-    enabled: !!conta && !!dia && separador === 'nova',
+    enabled: !!conta && !!dia && separador === 'nova' && !emMoeda,
     retry: false,
   });
-  const total = totalContado(quantidades);
-  const sistema = saldo.data?.saldo_final ?? edicao?.total_sistema ?? null;
+  // caixa em moeda estrangeira: o saldo do sistema é o saldo na moeda (o servidor recalcula ao gravar)
+  const saldosMoeda = useQuery({
+    queryKey: ['teso', 'caixa', 'saldos', dia],
+    queryFn: () => obter<{ conta: string; saldo_moeda: string | null }[]>('/tesouraria/caixa/saldos', { ate: dia }),
+    enabled: emMoeda && !!dia && separador === 'nova',
+    retry: false,
+  });
+  const total = emMoeda ? Number(totalMoeda ?? 0) : totalContado(quantidades);
+  const sistema = emMoeda ? saldosMoeda.data?.find((x) => x.conta === conta)?.saldo_moeda ?? edicao?.total_sistema ?? null : saldo.data?.saldo_final ?? edicao?.total_sistema ?? null;
   const diferenca = sistema === null ? null : deCentimos(paraCentimos(total) - paraCentimos(sistema));
   const leitura = leituraDiferenca(diferenca);
 
@@ -154,7 +168,9 @@ export default function Conferencia() {
       codigo_conta: v.codigo_conta,
       data_conferencia: dataApi(v.data_conferencia),
       nome_operador: v.nome_operador?.trim() || undefined,
-      denominacoes: Object.fromEntries(DENOMINACOES.map((d) => [d.chave, Math.max(0, Math.trunc(v.denominacoes?.[d.chave] ?? 0))])),
+      ...(emMoeda
+        ? { total_contado: Math.max(0, v.total_contado ?? 0) }
+        : { denominacoes: Object.fromEntries(DENOMINACOES.map((d) => [d.chave, Math.max(0, Math.trunc(v.denominacoes?.[d.chave] ?? 0))])) }),
       saldo_externo: v.saldo_externo ?? undefined,
       justificacao: v.justificacao || undefined,
     };
@@ -212,6 +228,11 @@ export default function Conferencia() {
       <Row gutter={12}>
         <Col xs={24} lg={14}>
           <Card size="small" style={cartaoNumerado('#0891b2')} title={<><IconeFa nome="money-bill-wave" /> 2. Contagem Física do Numerário</>}>
+            {emMoeda ? (
+              <Form.Item name="total_contado" label={`Total contado em ${moedaConta}`} rules={[{ required: true, message: 'Indique o total contado.' }]} extra="As notas e moedas do Kz não se aplicam: conta-se o total na moeda da caixa.">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} aria-label={`Total contado em ${moedaConta}`} />
+              </Form.Item>
+            ) : (
             <Table<(typeof linhasContagem)[number]>
               rowKey="chave" size="small" pagination={false} dataSource={linhasContagem} data-testid="tabela-contagem"
               onRow={(l) => ({ style: l.grupo ? { background: token.colorFillAlter, fontWeight: 700 } : undefined })}
@@ -237,17 +258,18 @@ export default function Conferencia() {
                 </Table.Summary>
               )}
             />
+            )}
           </Card>
         </Col>
         <Col xs={24} lg={10}>
           <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="balance-scale" /> 3. Comparação</>}>
             <Space orientation="vertical" style={{ width: '100%' }} size={10}>
-              <CartaoKpi rotulo="Total Físico Conferido" valor={formatarKz(total)} unidade="Kz" icone="hand-holding-usd" cor="#7c3aed" corValor="#7c3aed" />
-              <CartaoKpi rotulo="Saldo em Sistema (Cont.)" valor={sistema === null ? '—' : formatarKz(sistema)} unidade="Kz" icone="database" cor="#0891b2" corValor="#0891b2"
+              <CartaoKpi rotulo="Total Físico Conferido" valor={formatarKz(total)} unidade={simboloMoeda(moedaConta)} icone="hand-holding-usd" cor="#7c3aed" corValor="#7c3aed" />
+              <CartaoKpi rotulo="Saldo em Sistema (Cont.)" valor={sistema === null ? '—' : formatarKz(sistema)} unidade={simboloMoeda(moedaConta)} icone="database" cor="#0891b2" corValor="#0891b2"
                 secundaria={!conta ? 'Escolha a conta de caixa' : saldo.isFetching ? 'A calcular…' : 'Saldo no Diário à data (o servidor recalcula ao gravar)'} />
               <CartaoKpi rotulo="Saldo Sistema Externo (manual)" valor={externo === undefined || externo === null ? '—' : formatarKz(externo)} unidade="Kz" icone="building" cor="#0d9488"
                 secundaria={<Form.Item name="saldo_externo" noStyle><InputNumber precision={2} size="small" style={{ width: '100%', borderColor: '#0d9488' }} placeholder="Opcional" aria-label="Saldo Sistema Externo" /></Form.Item>} />
-              <CartaoKpi rotulo="Diferença (Físico vs Sistema)" valor={diferenca === null ? '—' : formatarKz(diferenca)} unidade="Kz" icone="arrows-alt-v" cor={leitura.cor} corValor={leitura.cor}
+              <CartaoKpi rotulo="Diferença (Físico vs Sistema)" valor={diferenca === null ? '—' : formatarKz(diferenca)} unidade={simboloMoeda(moedaConta)} icone="arrows-alt-v" cor={leitura.cor} corValor={leitura.cor}
                 secundaria={diferenca === null ? undefined : leitura.texto.toUpperCase()} />
             </Space>
           </Card>
@@ -286,12 +308,12 @@ export default function Conferencia() {
           { title: 'Data/Hora', dataIndex: 'data_conferencia', render: formatarDataHora },
           { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, c) => <><strong>{v}</strong>{c.nome_conta && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{c.nome_conta}</Typography.Text>}</> },
           { title: 'Operador', dataIndex: 'nome_operador', responsive: ['lg'] },
-          { title: 'Total Físico', dataIndex: 'total_fisico', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
-          { title: 'Saldo Sistema', dataIndex: 'total_sistema', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
+          { title: 'Total Físico', dataIndex: 'total_fisico', align: 'right', responsive: ['md'], render: (v: string, c) => (c.codigo_moeda && c.codigo_moeda !== 'AOA' ? `${formatarKz(v)} ${simboloMoeda(c.codigo_moeda)}` : <ValorKz valor={v} />) },
+          { title: 'Saldo Sistema', dataIndex: 'total_sistema', align: 'right', responsive: ['md'], render: (v: string, c) => (c.codigo_moeda && c.codigo_moeda !== 'AOA' ? `${formatarKz(v)} ${simboloMoeda(c.codigo_moeda)}` : <ValorKz valor={v} />) },
           {
             title: 'Diferença', dataIndex: 'diferenca', align: 'right',
             render: (v: string, c) => (c.estado !== 'FINALIZADO' && !paraCentimos(v) ? '—'
-              : <strong style={{ color: leituraDiferenca(v).cor, whiteSpace: 'nowrap' }}>{paraCentimos(v) >= 0 ? '+' : ''}{formatarKz(v)}</strong>),
+              : <strong style={{ color: leituraDiferenca(v).cor, whiteSpace: 'nowrap' }}>{paraCentimos(v) >= 0 ? '+' : ''}{formatarKz(v)}{c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` ${simboloMoeda(c.codigo_moeda)}` : ''}</strong>),
           },
           {
             title: 'Regularização', key: 'regularizacao', responsive: ['lg'],

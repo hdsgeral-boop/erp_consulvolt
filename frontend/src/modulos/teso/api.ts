@@ -240,6 +240,32 @@ export interface MovimentoCaixa {
   fatura_compra_id?: number | null;
   /** ligação ao documento de suporte (http/https) */
   url_documento?: string | null;
+  /** caixa em moeda estrangeira: moeda, câmbio e Kz do movimento; contravalor histórico do documento liquidado */
+  codigo_moeda?: string | null;
+  taxa_cambio?: string | null;
+  valor_kz?: string | null;
+  contravalor_kz?: string | null;
+  contra_moeda?: string | null;
+  contravalor_moeda?: string | null;
+}
+
+/** GET /tesouraria/caixa/moedas: com `activo` falso a funcionalidade não existe para o utilizador. */
+export interface EstadoMoedasCaixa {
+  activo: boolean;
+  pode_gerir: boolean;
+  pode_liquidar: boolean;
+  habilitadas: string[];
+  moedas: { codigo: string; nome: string | null; simbolo: string | null }[];
+  tolerancia_pct: string;
+}
+
+/** GET /tesouraria/caixa/saldos */
+export interface SaldoCaixaMoeda {
+  conta: string;
+  descricao: string | null;
+  moeda: string;
+  saldo_moeda: string | null;
+  saldo_kz: string;
 }
 
 export interface SessaoCaixa {
@@ -288,6 +314,8 @@ export interface ConferenciaCaixa {
   referencia_lancamento: string | null;
   conta_regularizacao: string | null;
   nome_conta_regularizacao?: string | null;
+  /** moeda da conta de caixa (a contagem e o saldo são nesta moeda) */
+  codigo_moeda?: string | null;
   nome_gerente: string | null;
   assinado_gerente_em: string | null;
 }

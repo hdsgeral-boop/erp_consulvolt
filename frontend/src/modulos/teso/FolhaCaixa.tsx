@@ -22,7 +22,8 @@ import type { ModoLiquidacao } from './caixaLiquidacao';
 import type { MovimentoCaixa, ProdutoDespesa, SessaoCaixa } from './api';
 import { urlSegura } from './colunasLegado';
 import { SeletorContaFinanceira } from './comum';
-import { accoesSessao, sessaoAbertaRecente, valorComMoeda } from './regras';
+import { accoesSessao, sessaoAbertaRecente, simboloMoeda, valorComMoeda } from './regras';
+import { ModalMoedasCaixa, SaldosPorMoeda } from './caixa/MoedasCaixa';
 import { eContaCaixa, PREFIXOS_CAIXA } from './ronda3';
 import { descarregarModeloCaixa, ModalImportacaoCaixa } from './caixa/ModalImportacaoCaixa';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -42,10 +43,11 @@ export function pedidoFolhaCaixa(s: SessaoCaixa) {
     conteudo:
       pares(
         [
-          ['Saldo de abertura', `${formatarKz(s.saldo_abertura)} Kz`],
-          ['Saldo do sistema', `${formatarKz(s.saldo_sistema)} Kz`],
-          ['Saldo contado', s.saldo_fisico !== null ? `${formatarKz(s.saldo_fisico)} Kz` : '—'],
-          ['Diferença', s.diferenca !== null && s.diferenca !== undefined ? `${formatarKz(s.diferenca)} Kz` : '—'],
+          ['Moeda', s.codigo_moeda ?? 'AOA'],
+          ['Saldo de abertura', valorComMoeda(s.saldo_abertura, s.codigo_moeda)],
+          ['Saldo do sistema', valorComMoeda(s.saldo_sistema, s.codigo_moeda)],
+          ['Saldo contado', s.saldo_fisico !== null ? valorComMoeda(s.saldo_fisico, s.codigo_moeda) : '—'],
+          ['Diferença', s.diferenca !== null && s.diferenca !== undefined ? valorComMoeda(s.diferenca, s.codigo_moeda) : '—'],
           ['Operador', s.operador ?? '—'],
           ['Lançamentos', s.numeros_lan_contabilizacao ?? '—'],
         ],
@@ -139,6 +141,7 @@ function ListaSessoes() {
   const [conta, setConta] = useState<string>();
   const [abrir, setAbrir] = useState(false);
   const [importar, setImportar] = useState(false);
+  const [moedas, setMoedas] = useState(false);
   const [form] = Form.useForm<{ codigo_conta: string; data: Dayjs; saldo_abertura?: number }>();
   const sessoes = useQuery({ queryKey: ['teso', 'caixa', 'sessoes', conta], queryFn: () => obter<SessaoCaixa[]>('/tesouraria/caixa/sessoes', { codigo_conta: conta }) });
   const pequeno = useEcraPequeno();
@@ -167,6 +170,7 @@ function ListaSessoes() {
             colunas: [
               { titulo: 'Sessão', valor: (r: SessaoCaixa) => `#${r.id}` },
               { titulo: 'Conta', valor: (r) => r.codigo_conta },
+              { titulo: 'Moeda', valor: (r) => r.codigo_moeda ?? 'AOA' },
               { titulo: 'Abertura', valor: (r) => r.data_abertura, formato: 'data' },
               { titulo: 'Fecho', valor: (r) => r.data_fecho, formato: 'data' },
               { titulo: 'Operador', valor: (r) => r.operador ?? '' },
@@ -192,7 +196,9 @@ function ListaSessoes() {
       <Card title={<><IconeFa nome="history" /> Histórico de Sessões</>}>
         <Space wrap style={{ marginBottom: 16 }}>
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear prefixos={PREFIXOS_CAIXA} estrito placeholder="Conta de caixa" />
+          {pode('teso_caixa_multimoeda_gerir') && <Button icon={<IconeFa nome="coins" />} onClick={() => setMoedas(true)}>Moedas da caixa</Button>}
         </Space>
+        <SaldosPorMoeda />
         <TabelaComModos<SessaoCaixa> idVista="sessoes"
           rowKey="id"
           loading={sessoes.isLoading}
@@ -253,6 +259,7 @@ function ListaSessoes() {
           </Form.Item>
         </Form>
       </Modal>
+      <ModalMoedasCaixa aberto={moedas} aoFechar={() => setMoedas(false)} />
       {importar && aberta && <ModalImportacaoCaixa sessao={aberta} aoFechar={() => setImportar(false)} />}
     </>
   );
@@ -445,6 +452,7 @@ function DetalheSessao() {
   if (!s) return <Alert type="error" title="Sessão não encontrada." />;
   const a = accoesSessao(s, pode);
   const totais = totaisMovimentos(s.movimentos ?? []);
+  const emMoeda = !!s.codigo_moeda && s.codigo_moeda !== 'AOA';
   const registar = (tipo: 'REC' | 'PAG') => { formMov.setFieldsValue({ tipo, data_documento: dayjs(s.data_abertura) }); setModoContrapartida('manual'); setMovimento(true); };
   const diferencaFecho = contado !== undefined && contado !== null && s.saldo_sistema !== undefined ? deCentimos(paraCentimos(contado) - paraCentimos(s.saldo_sistema)) : null;
 
@@ -472,13 +480,13 @@ function DetalheSessao() {
       <Card style={{ marginBottom: 16 }}>
         {/* resumo da sessão do legado (ui_folha_caixa.js:147-175 e 1246-1263): saldo inicial, entradas, saídas, saldo actual / diferença */}
         <GrelhaKpi larguraMinima={180}>
-          <CartaoKpi rotulo="Saldo Inicial" valor={formatarKz(s.saldo_abertura)} unidade="Kz" cor="cinzento" />
-          <CartaoKpi rotulo="Entradas" valor={`+${formatarKz(totais.entradas)}`} unidade="Kz" cor="sucesso" corValor="#059669" />
-          <CartaoKpi rotulo="Saídas" valor={`-${formatarKz(totais.saidas)}`} unidade="Kz" cor="#dc2626" corValor="#dc2626" />
-          <CartaoKpi rotulo="Saldo Actual" valor={formatarKz(s.saldo_sistema)} unidade="Kz" cor="primario" corValor={paraCentimos(s.saldo_sistema ?? 0) < 0 ? '#dc2626' : '#2563eb'} />
-          {s.saldo_fisico !== null && <CartaoKpi rotulo="Saldo contado" valor={formatarKz(s.saldo_fisico)} unidade="Kz" cor="roxo" />}
+          <CartaoKpi rotulo="Saldo Inicial" valor={formatarKz(s.saldo_abertura)} unidade={simboloMoeda(s.codigo_moeda)} cor="cinzento" />
+          <CartaoKpi rotulo="Entradas" valor={`+${formatarKz(totais.entradas)}`} unidade={simboloMoeda(s.codigo_moeda)} cor="sucesso" corValor="#059669" />
+          <CartaoKpi rotulo="Saídas" valor={`-${formatarKz(totais.saidas)}`} unidade={simboloMoeda(s.codigo_moeda)} cor="#dc2626" corValor="#dc2626" />
+          <CartaoKpi rotulo="Saldo Actual" valor={formatarKz(s.saldo_sistema)} unidade={simboloMoeda(s.codigo_moeda)} cor="primario" corValor={paraCentimos(s.saldo_sistema ?? 0) < 0 ? '#dc2626' : '#2563eb'} />
+          {s.saldo_fisico !== null && <CartaoKpi rotulo="Saldo contado" valor={formatarKz(s.saldo_fisico)} unidade={simboloMoeda(s.codigo_moeda)} cor="roxo" />}
           {s.diferenca !== null && s.diferenca !== undefined && (
-            <CartaoKpi rotulo="Diferença" valor={formatarKz(s.diferenca)} unidade="Kz" cor={paraCentimos(s.diferenca) === 0 ? '#059669' : '#f59e0b'} corValor={paraCentimos(s.diferenca) === 0 ? '#059669' : '#f59e0b'}
+            <CartaoKpi rotulo="Diferença" valor={formatarKz(s.diferenca)} unidade={simboloMoeda(s.codigo_moeda)} cor={paraCentimos(s.diferenca) === 0 ? '#059669' : '#f59e0b'} corValor={paraCentimos(s.diferenca) === 0 ? '#059669' : '#f59e0b'}
               secundaria={paraCentimos(s.diferenca) === 0 ? 'Sem desvio' : paraCentimos(s.diferenca) > 0 ? 'Sobra' : 'Quebra'} />
           )}
         </GrelhaKpi>
@@ -542,9 +550,14 @@ function DetalheSessao() {
             { title: 'Nota DEMO', dataIndex: 'nota_demonstracao_id', responsive: ['lg'], render: (v: number | null) => (v ? notasDemo.get(v) ?? `#${v}` : <Typography.Text type="warning">—</Typography.Text>) },
             { title: 'Nota Fluxo', dataIndex: 'nota_fluxo_caixa_id', responsive: ['lg'], render: (v: number | null) => (v ? notasFluxo.get(v) ?? `#${v}` : <Typography.Text type="warning">—</Typography.Text>) },
             {
-              title: 'Valor', dataIndex: 'valor', align: 'right', valorImpressao: (m) => `${m.tipo === 'REC' ? '+' : '-'}${formatarKz(m.valor)}`,
+              title: `Valor${emMoeda ? ` (${s.codigo_moeda})` : ''}`, dataIndex: 'valor', align: 'right', valorImpressao: (m) => `${m.tipo === 'REC' ? '+' : '-'}${formatarKz(m.valor)}`,
               render: (v: string, m) => <strong style={{ color: m.tipo === 'REC' ? '#059669' : '#dc2626', whiteSpace: 'nowrap' }}>{m.tipo === 'REC' ? '+' : '-'}{formatarKz(v)}</strong>,
             },
+            ...(emMoeda ? [
+              { title: 'Câmbio', dataIndex: 'taxa_cambio', align: 'right' as const, responsive: ['lg' as const], render: (v: string | null | undefined) => (v ? Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 6 }) : '—'), valorImpressao: (m: MovimentoCaixa) => m.taxa_cambio ?? '' },
+              { title: 'Valor Kz', dataIndex: 'valor_kz', align: 'right' as const, responsive: ['lg' as const], render: (v: string | null | undefined) => (v ? <span style={{ whiteSpace: 'nowrap' }}>{formatarKz(v)} Kz</span> : '—'), valorImpressao: (m: MovimentoCaixa) => m.valor_kz ?? '' },
+              { title: 'Contravalor (histórico)', dataIndex: 'contravalor_kz', align: 'right' as const, responsive: ['xl' as const], render: (v: string | null | undefined) => (v ? <span style={{ whiteSpace: 'nowrap' }}>{formatarKz(v)} Kz</span> : '—'), valorImpressao: (m: MovimentoCaixa) => m.contravalor_kz ?? '' },
+            ] : []),
             { title: 'Débito', dataIndex: 'conta_debito', ocultaPorOmissao: true },
             { title: 'Crédito', dataIndex: 'conta_credito', ocultaPorOmissao: true },
             { title: 'Origem', dataIndex: 'tipo_origem', ocultaPorOmissao: true, render: (v: string | null) => (v ? <Tag>{v}</Tag> : 'Manual') },
@@ -582,10 +595,17 @@ function DetalheSessao() {
               </Form.Item>
             </Col>
             <Col xs={24} sm={7}>
-              <Form.Item name="valor" label="Valor (Kz)" rules={[{ required: true }]}>
+              <Form.Item name="valor" label={`Valor (${emMoeda ? s.codigo_moeda : 'Kz'})`} rules={[{ required: true }]}>
                 <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
+            {emMoeda && (
+              <Col xs={24}>
+                <Form.Item name="taxa_cambio" label={`Câmbio do dia ${s.codigo_moeda}/Kz (opcional)`} extra="Em branco usa o câmbio da tabela na data; um câmbio manual tem de estar dentro da tolerância configurada.">
+                  <InputNumber min={0.000001} precision={6} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            )}
           </Row>
           {tipoAtual === 'PAG' && (
             <Form.Item label="Contrapartida por">
@@ -657,15 +677,15 @@ function DetalheSessao() {
 
       <Modal width={larguraModal(480)} title="Fechar sessão (contagem)" open={fecho} onCancel={() => setFecho(false)} okText="Fechar sessão" confirmLoading={accao.isPending} onOk={() => formFecho.submit()}>
         <Form form={formFecho} layout="vertical" onFinish={(v) => accao.mutate({ id: id!, caminho: '/fechar', dados: { saldo_fisico: v.saldo_fisico, data: dataApi(v.data) } })}>
-          <Typography.Paragraph>Saldo do sistema: <strong>{formatarKz(s.saldo_sistema, true)}</strong></Typography.Paragraph>
-          <Form.Item name="saldo_fisico" label="Saldo contado (Kz)" rules={[{ required: true }]}>
+          <Typography.Paragraph>Saldo do sistema: <strong>{formatarKz(s.saldo_sistema, true)} {simboloMoeda(s.codigo_moeda)}</strong></Typography.Paragraph>
+          <Form.Item name="saldo_fisico" label={`Saldo contado (${emMoeda ? s.codigo_moeda : 'Kz'})`} rules={[{ required: true }]}>
             <InputNumber min={0} precision={2} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="data" label="Data de fecho" rules={[{ required: true }]}>
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>
           {diferencaFecho && paraCentimos(diferencaFecho) !== 0 && (
-            <Alert type="warning" showIcon title={`Diferença de ${formatarKz(diferencaFecho, true)} (${paraCentimos(diferencaFecho) > 0 ? 'sobra' : 'quebra'} de caixa).`} />
+            <Alert type="warning" showIcon title={`Diferença de ${formatarKz(diferencaFecho, true)} ${simboloMoeda(s.codigo_moeda)} (${paraCentimos(diferencaFecho) > 0 ? 'sobra' : 'quebra'} de caixa).`} />
           )}
         </Form>
       </Modal>

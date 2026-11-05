@@ -12,6 +12,8 @@ use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoPlanoContas;
 use App\Services\Logistica\ContasProduto;
+use App\Services\Sistema\ServicoCambios;
+use App\Services\Vendas\CalculadoraDocumento;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -37,15 +39,17 @@ final class ServicoCaixa
         private readonly ServicoPendentes $pendentes,
         private readonly ServicoLiquidacoes $liquidacoes,
         private readonly ServicoConfigTesouraria $config,
+        private readonly ServicoCaixaMoedas $moedas,
+        private readonly ServicoCambios $cambios,
     ) {}
 
     public function abrir(string $conta, string $data, ?string $saldoAbertura = null): array
     {
         $empresa = $this->contexto->obrigatorio();
-        $this->exigirContaCaixa($conta);
+        $moeda = $this->exigirContaCaixa($conta);
         $this->exercicios->exigirAberto($empresa, $data);
 
-        return DB::transaction(function () use ($conta, $data, $saldoAbertura, $empresa) {
+        return DB::transaction(function () use ($conta, $data, $saldoAbertura, $empresa, $moeda) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ["caixa:{$empresa}:{$conta}"]);
             if (SessaoCaixa::query()->where('codigo_conta', $conta)->where('estado', 'ABERTA')->exists()) {
                 throw new ErroNegocio("Já existe uma sessão aberta na caixa {$conta}: feche-a primeiro.", 'SESSAO_JA_ABERTA', 422);
@@ -54,7 +58,7 @@ final class ServicoCaixa
             $sugerido = number_format((float) ($ultima?->saldo_fisico ?? $ultima?->saldo_fecho ?? 0), 2, '.', '');
             $abertura = $saldoAbertura !== null ? number_format((float) $saldoAbertura, 2, '.', '') : $sugerido;
             $sessao = SessaoCaixa::create(['codigo_conta' => $conta, 'operador' => Auth::user()?->nome_utilizador, 'data_abertura' => $data,
-                'saldo_abertura' => $abertura, 'estado' => 'ABERTA', 'codigo_moeda' => 'AOA']);
+                'saldo_abertura' => $abertura, 'estado' => 'ABERTA', 'codigo_moeda' => $moeda]);
             $aviso = bccomp($abertura, $sugerido, 2) !== 0 ? "O saldo de abertura ({$abertura}) difere da contagem do último fecho ({$sugerido})." : null;
 
             return ['sessao' => $sessao, 'aviso' => $aviso];
@@ -88,16 +92,28 @@ final class ServicoCaixa
             if ($data < $sessao->data_abertura->toDateString()) {
                 throw new ErroNegocio('A data do movimento é anterior à abertura da sessão.', 'DATA_INVALIDA', 422);
             }
+            $moeda = $sessao->codigo_moeda ?: ServicoCambios::BASE;
+            $estrangeira = ServicoCaixaMoedas::eEstrangeira($moeda);
+            if ($estrangeira) {
+                $this->moedas->exigirDisponivel($moeda);   // permissão e moeda habilitada, em cada pedido
+                $taxa = $this->moedas->taxa($moeda, $data, $d['taxa_cambio'] ?? null, 'Folha de caixa '.$sessao->codigo_conta);
+            }
+            $cambial = $estrangeira
+                ? ['codigo_moeda' => $moeda, 'taxa_cambio' => $taxa['taxa'], 'taxa_cambio_id' => $taxa['taxa_id'], 'valor_kz' => ServicoCaixaMoedas::kz($valor, $taxa['taxa'])]
+                : ['codigo_moeda' => 'AOA', 'valor_kz' => $valor];
             $rec = $d['tipo'] === 'REC';
             if ($numero && ! empty($d['terceiro_id'])) {
                 $aberto = $this->pendentes->saldo((int) $d['terceiro_id'], $d['conta_contrapartida'], $numero);
                 $this->liquidacoes->exigirPendente($aberto, isset($d['venda_id']) ? (int) $d['venda_id'] : null,
                     isset($d['fatura_compra_id']) ? (int) $d['fatura_compra_id'] : null, (string) $numero, 'Movimento:');
-                if ($aberto && bccomp($valor, bcadd($aberto['saldo'], '0.01', 2), 2) > 0) {
+                if ($aberto && ! $estrangeira && bccomp($valor, bcadd($aberto['saldo'], '0.01', 2), 2) > 0) {
                     throw new ErroNegocio("O valor ({$valor}) excede o saldo em aberto do documento {$numero} ({$aberto['saldo']}).", 'VALOR_SUPERIOR_EM_ABERTO', 422);
                 }
                 if ($aberto && $aberto['liquidar_a'] !== ($rec ? 'C' : 'D')) {
                     throw new ErroNegocio("O documento {$numero} é ".($aberto['natureza'] === 'A_RECEBER' ? 'a receber' : 'a pagar').': sentido do movimento errado.', 'SENTIDO_INVALIDO', 422);
+                }
+                if ($aberto && $estrangeira) {
+                    $cambial += $this->contravalor($aberto, $moeda, $valor, $cambial['valor_kz'], (string) $numero);
                 }
             }
 
@@ -107,9 +123,46 @@ final class ServicoCaixa
                 'conta_credito' => $rec ? $d['conta_contrapartida'] : $sessao->codigo_conta, 'descricao' => $d['descricao'], 'valor' => $valor,
                 'produto_id' => $d['produto_id'] ?? null, 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null,
                 'tipo_origem' => ($d['venda_id'] ?? null) || ($d['fatura_compra_id'] ?? null) ? 'CONTABILIDADE' : 'MANUAL', 'contabilizado' => false,
-                'codigo_moeda' => 'AOA', 'valor_kz' => $valor, 'url_documento' => ($u = trim((string) ($d['url_documento'] ?? ''))) !== '' ? mb_substr($u, 0, 150) : null, 'venda_id' => $d['venda_id'] ?? null, 'fatura_compra_id' => $d['fatura_compra_id'] ?? null,
-            ]);
+                'url_documento' => ($u = trim((string) ($d['url_documento'] ?? ''))) !== '' ? mb_substr($u, 0, 150) : null, 'venda_id' => $d['venda_id'] ?? null,
+                'fatura_compra_id' => $d['fatura_compra_id'] ?? null,
+            ] + $cambial);
         });
+    }
+
+    /**
+     * Contravalor de um documento liquidado por uma caixa em moeda estrangeira (caixaFxLiquidacao do legado):
+     *   - documento na moeda da caixa: o valor liquidado sai pelo VALOR HISTÓRICO em Kz (proporção do saldo) e a diferença
+     *     para o Kz ao câmbio do dia é a diferença de câmbio realizada;
+     *   - documento em Kz: o contravalor é o próprio Kz da caixa, sem diferença;
+     *   - documento noutra moeda: recusado (use a caixa nessa moeda ou em Kz).
+     * A diferença de câmbio exige as contas configuradas ANTES de aceitar o movimento.
+     *
+     * @return array{contravalor_kz: string, contra_moeda: string, contravalor_moeda: string}
+     */
+    private function contravalor(array $aberto, string $moeda, string $valor, string $valorKz, string $numero): array
+    {
+        $moedaDoc = (string) ($aberto['codigo_moeda'] ?? ServicoCambios::BASE);
+        if ($moedaDoc === ServicoCambios::BASE || bccomp((string) ($aberto['saldo_moeda'] ?? '0'), '0', 2) <= 0) {
+            if (bccomp($valorKz, bcadd((string) $aberto['saldo'], '0.01', 2), 2) > 0) {
+                throw new ErroNegocio("O valor ({$valorKz} Kz) excede o saldo em aberto do documento {$numero} ({$aberto['saldo']}).", 'VALOR_SUPERIOR_EM_ABERTO', 422);
+            }
+
+            return ['contravalor_kz' => $valorKz, 'contra_moeda' => ServicoCambios::BASE, 'contravalor_moeda' => $valorKz];
+        }
+        if ($moedaDoc !== $moeda) {
+            throw new ErroNegocio("O documento {$numero} é em {$moedaDoc} e a caixa em {$moeda}: use a caixa em {$moedaDoc} ou em Kz.", 'MOEDAS_DIFERENTES', 422);
+        }
+        $saldoMoeda = (string) $aberto['saldo_moeda'];
+        if (bccomp($valor, bcadd($saldoMoeda, '0.01', 2), 2) > 0) {
+            throw new ErroNegocio("O valor ({$valor} {$moeda}) excede o saldo em aberto do documento {$numero} ({$saldoMoeda} {$moeda}).", 'VALOR_SUPERIOR_EM_ABERTO', 422, ['saldo_moeda' => $saldoMoeda]);
+        }
+        $total = bccomp(ltrim(bcsub($valor, $saldoMoeda, 2), '-'), '0.005', 3) <= 0;
+        $historico = $total ? (string) $aberto['saldo'] : CalculadoraDocumento::arredondar(bcdiv(bcmul($valor, (string) $aberto['saldo'], 8), $saldoMoeda, 8));
+        if (bccomp($historico, $valorKz, 2) !== 0) {
+            $this->config->exigir(bccomp($valorKz, $historico, 2) > 0 ? 'diferencas_cambio_favoraveis' : 'diferencas_cambio_desfavoraveis', 'Há uma diferença de câmbio a lançar.');
+        }
+
+        return ['contravalor_kz' => $historico, 'contra_moeda' => $moeda, 'contravalor_moeda' => $valor];
     }
 
     /** Remove um movimento de uma sessão ABERTA (rascunho; fica no registo de auditoria). */
@@ -163,6 +216,11 @@ final class ServicoCaixa
             foreach ($movimentos->groupBy(fn ($m) => $m->data_documento->toDateString()) as $data => $grupo) {
                 $linhas = [];
                 foreach ($grupo as $m) {
+                    if (ServicoCaixaMoedas::eEstrangeira($m->codigo_moeda)) {
+                        array_push($linhas, ...$this->linhasEmMoeda($m, $notas));
+
+                        continue;
+                    }
                     $comum = ['valor' => $m->valor, 'descricao' => mb_substr((string) $m->descricao, 0, 1000), 'terceiro_id' => $m->terceiro_id,
                         'unidade_negocio_id' => $m->unidade_negocio_id, 'centro_custo_id' => $m->centro_custo_id, 'url_documento' => $m->url_documento];
                     $linhas[] = ['codigo_conta' => $m->conta_debito, 'tipo_dc' => 'D', 'numero_documento' => $m->tipo === 'PAG' ? $m->numero_documento : null]
@@ -174,14 +232,25 @@ final class ServicoCaixa
                     'descricao' => "Folha de caixa {$sessao->codigo_conta} — sessão {$sessao->id}", 'tipo_origem' => 'CAIXA', 'linhas' => $linhas])->first()->numero_lan;
             }
             $diferenca = bcsub((string) $sessao->saldo_fisico, (string) $sessao->saldo_fecho, 2);
+            $moedaSessao = ServicoCaixaMoedas::eEstrangeira($sessao->codigo_moeda) ? $sessao->codigo_moeda : null;
+            if ($moedaSessao) {
+                $this->moedas->exigirDisponivel($moedaSessao);
+            }
             if (bccomp($diferenca, '0', 2) !== 0) {
                 $sobra = bccomp($diferenca, '0', 2) > 0;
                 $valor = ltrim($diferenca, '-');
+                // sobra/quebra no fecho de uma caixa em moeda: o Kz é a diferença na moeda ao câmbio do dia do fecho
+                $campos = [];
+                if ($moedaSessao) {
+                    $taxa = $this->moedas->taxa($moedaSessao, $sessao->data_fecho->toDateString(), null, 'Fecho da caixa '.$sessao->codigo_conta);
+                    $campos = ['codigo_moeda' => $moedaSessao, 'valor_moeda' => $valor, 'taxa_cambio' => $taxa['taxa']];
+                    $valor = ServicoCaixaMoedas::kz($valor, $taxa['taxa']);
+                }
                 $contra = $sobra ? $this->config->exigir('caixa_sobras', 'Há uma sobra de caixa a lançar.') : $this->config->exigir('caixa_quebras', 'Há uma quebra de caixa a lançar.');
                 $numeros[] = $this->lancamentos->criar(['diario_id' => $diario->id, 'data_documento' => $sessao->data_fecho->toDateString(),
                     'numero_documento' => "CX-{$sessao->id}-DIF", 'descricao' => ($sobra ? 'Sobra' : 'Quebra')." de caixa no fecho da sessão {$sessao->id}", 'tipo_origem' => 'CAIXA',
-                    'linhas' => [['codigo_conta' => $sobra ? $sessao->codigo_conta : $contra, 'tipo_dc' => 'D', 'valor' => $valor] + $notas(null, $sobra ? $sessao->codigo_conta : $contra),
-                        ['codigo_conta' => $sobra ? $contra : $sessao->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor] + $notas(null, $sobra ? $contra : $sessao->codigo_conta)]])->first()->numero_lan;
+                    'linhas' => [['codigo_conta' => $sobra ? $sessao->codigo_conta : $contra, 'tipo_dc' => 'D', 'valor' => $valor] + ($sobra ? $campos : []) + $notas(null, $sobra ? $sessao->codigo_conta : $contra),
+                        ['codigo_conta' => $sobra ? $contra : $sessao->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor] + ($sobra ? [] : $campos) + $notas(null, $sobra ? $contra : $sessao->codigo_conta)]])->first()->numero_lan;
             }
             MovimentoCaixa::query()->where('sessao_caixa_id', $sessao->id)->update(['contabilizado' => true]);
             $sessao->update(['estado' => 'CONTABILIZADA', 'numeros_lan_contabilizacao' => $numeros, 'contabilizado_em' => now()]);
@@ -228,10 +297,53 @@ final class ServicoCaixa
         return bcadd((string) $sessao->saldo_abertura, number_format((float) $s, 2, '.', ''), 2);
     }
 
+    /**
+     * Partidas de um movimento de caixa em moeda estrangeira (caixaFxPartidas do legado): a linha da caixa leva o Kz ao câmbio
+     * do dia e os campos de moeda; a contrapartida, o contravalor (histórico do documento liquidado) e, se for em moeda, os
+     * seus campos; a diferença entre as duas é a diferença de câmbio realizada (ganho a crédito, perda a débito).
+     *
+     * @param  callable(?MovimentoCaixa, string): array<string, mixed>  $notas
+     * @return list<array<string, mixed>>
+     */
+    private function linhasEmMoeda(MovimentoCaixa $m, callable $notas): array
+    {
+        $kzCaixa = (string) ($m->valor_kz ?? ServicoCaixaMoedas::kz((string) $m->valor, (string) $m->taxa_cambio));
+        $kzContra = (string) ($m->contravalor_kz ?? $kzCaixa);
+        $camposCaixa = ['codigo_moeda' => $m->codigo_moeda, 'valor_moeda' => (string) $m->valor, 'taxa_cambio' => $m->taxa_cambio];
+        $camposContra = [];
+        if (ServicoCaixaMoedas::eEstrangeira($m->contra_moeda) && bccomp((string) $m->contravalor_moeda, '0', 2) > 0) {
+            $camposContra = ['codigo_moeda' => $m->contra_moeda, 'valor_moeda' => (string) $m->contravalor_moeda,
+                'taxa_cambio' => bcdiv($kzContra, (string) $m->contravalor_moeda, 6)];
+        }
+        $rec = $m->tipo === 'REC';
+        $comum = ['descricao' => mb_substr((string) $m->descricao, 0, 1000), 'terceiro_id' => $m->terceiro_id, 'unidade_negocio_id' => $m->unidade_negocio_id,
+            'centro_custo_id' => $m->centro_custo_id, 'url_documento' => $m->url_documento];
+        $debito = $rec ? ['conta' => $m->conta_debito, 'valor' => $kzCaixa, 'campos' => $camposCaixa] : ['conta' => $m->conta_debito, 'valor' => $kzContra, 'campos' => $camposContra];
+        $credito = $rec ? ['conta' => $m->conta_credito, 'valor' => $kzContra, 'campos' => $camposContra] : ['conta' => $m->conta_credito, 'valor' => $kzCaixa, 'campos' => $camposCaixa];
+        $linhas = [
+            ['codigo_conta' => $debito['conta'], 'tipo_dc' => 'D', 'valor' => $debito['valor'], 'numero_documento' => $m->tipo === 'PAG' ? $m->numero_documento : null]
+            + $debito['campos'] + $notas($m, (string) $debito['conta']) + $comum,
+            ['codigo_conta' => $credito['conta'], 'tipo_dc' => 'C', 'valor' => $credito['valor'], 'numero_documento' => $m->tipo === 'REC' ? $m->numero_documento : null]
+            + $credito['campos'] + $notas($m, (string) $credito['conta']) + $comum,
+        ];
+        $dc = bcsub($debito['valor'], $credito['valor'], 2);
+        if (bccomp($dc, '0', 2) !== 0) {
+            $ganho = bccomp($dc, '0', 2) > 0;
+            $conta = $this->config->exigir($ganho ? 'diferencas_cambio_favoraveis' : 'diferencas_cambio_desfavoraveis',
+                'Há uma diferença de câmbio '.($ganho ? 'favorável' : 'desfavorável').' a lançar.');
+            $linhas[] = ['codigo_conta' => $conta, 'tipo_dc' => $ganho ? 'C' : 'D', 'valor' => ltrim($dc, '-'), 'terceiro_id' => $m->terceiro_id,
+                'descricao' => mb_substr('Diferença de câmbio — '.($m->numero_documento ?? $m->descricao), 0, 1000)];
+        }
+
+        return $linhas;
+    }
+
     private function ligacoes($movimentos): array
     {
         return $movimentos->filter(fn ($m) => $m->venda_id || $m->fatura_compra_id)
-            ->map(fn ($m) => ['venda_id' => $m->venda_id, 'fatura_compra_id' => $m->fatura_compra_id, 'tipo_dc' => $m->tipo === 'REC' ? 'C' : 'D', 'valor' => $m->valor])->values()->all();
+            ->map(fn ($m) => ['venda_id' => $m->venda_id, 'fatura_compra_id' => $m->fatura_compra_id, 'tipo_dc' => $m->tipo === 'REC' ? 'C' : 'D',
+                // em moeda estrangeira a liquidação do documento conta pelo contravalor (histórico) em Kz
+                'valor' => ServicoCaixaMoedas::eEstrangeira($m->codigo_moeda) ? ($m->contravalor_kz ?? $m->valor_kz) : $m->valor])->values()->all();
     }
 
     /** Conta de custo (classe 7) herdada do bem/serviço — categoria > produto (ContasProduto::de) —, para a despesa da folha de caixa. */
@@ -246,14 +358,16 @@ final class ServicoCaixa
         return $conta;
     }
 
-    private function exigirContaCaixa(string $conta): void
+    /** Valida a conta de caixa e devolve a sua moeda; numa moeda estrangeira exige a permissão e a moeda habilitada na empresa. */
+    private function exigirContaCaixa(string $conta): string
     {
         $c = $this->plano->contaDeMovimento($conta);
         if (! str_starts_with($conta, '45')) {
             throw new ErroNegocio('A folha de caixa usa contas de caixa (45).', 'CONTA_NAO_CAIXA', 422);
         }
-        if (($c['codigo_moeda'] ?? null) && $c['codigo_moeda'] !== 'AOA') {
-            throw new ErroNegocio("A caixa {$conta} é em {$c['codigo_moeda']}: caixas em moeda estrangeira chegam com a multi-moeda.", 'MOEDA_NAO_SUPORTADA', 422);
-        }
+        $moeda = ($c['codigo_moeda'] ?? null) ?: ServicoCambios::BASE;
+        $this->moedas->exigirDisponivel($moeda);
+
+        return $moeda;
     }
 }

@@ -335,6 +335,9 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
             Route::get('reconciliacao/mapa', 'mapa')->name('reconciliacao.mapa');
 
             Route::get('caixa/produtos-despesa', 'produtosDespesa')->name('caixa.produtos_despesa');
+            Route::get('caixa/moedas', 'moedasDaCaixa')->name('caixa.moedas');
+            Route::put('caixa/moedas', 'definirMoedasCaixa')->name('caixa.moedas.definir');
+            Route::get('caixa/saldos', 'saldosCaixa')->name('caixa.saldos');
             Route::get('caixa/sessoes', 'sessoes')->name('caixa.sessoes');
             Route::post('caixa/sessoes', 'abrirSessao')->name('caixa.abrir');
             Route::get('caixa/sessoes/{id}', 'sessao')->whereNumber('id')->name('caixa.sessao');
