@@ -7,7 +7,7 @@ use App\Mail\AgenteSuporteCriadoMail;
 use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
-use App\Services\Sistema\ServicoPerfis;
+use App\Services\Plataforma\ServicoEspecializacoesSuporte;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +27,7 @@ use Illuminate\Validation\Rule;
  */
 final class AgentesSuporteController extends Controller
 {
-    public function __construct(private readonly ServicoPerfis $perfis) {}
+    public function __construct(private readonly ServicoEspecializacoesSuporte $especializacoes) {}
 
     public function index(): JsonResponse
     {
@@ -36,12 +36,15 @@ final class AgentesSuporteController extends Controller
         return RespostaApi::sucesso($this->consulta()->orderBy('id')->get()->map(fn (Utilizador $u) => $this->apresentar($u))->all(), 'Agentes de suporte obtidos com sucesso.');
     }
 
-    /** Perfis de especialização do backoffice (ADR-077), para o selector do formulário de agente. */
+    /**
+     * Especializações do backoffice (ADR-077), para o selector do formulário de agente: só as activas, com as
+     * categorias de cada uma. Se não existir nenhuma, cria as base (lazy e idempotente) — o selector nunca fica vazio.
+     */
     public function perfis(): JsonResponse
     {
         $this->exigir('plataforma_suporte_view', 'plataforma_suporte_gerir');
 
-        return RespostaApi::sucesso($this->perfis->listar(soSuporte: true), 'Perfis de suporte obtidos com sucesso.');
+        return RespostaApi::sucesso($this->especializacoes->listar(soActivas: true), 'Perfis de suporte obtidos com sucesso.');
     }
 
     public function store(Request $r): JsonResponse
@@ -51,7 +54,7 @@ final class AgentesSuporteController extends Controller
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
             'email' => ['nullable', 'email', 'max:150'],
-            'perfil_utilizador_id' => ['required', 'integer', Rule::exists('perfis_utilizador', 'id')->where('restrito_plataforma', true)],
+            'perfil_utilizador_id' => ['required', 'integer', Rule::exists('perfis_utilizador', 'id')->where('restrito_plataforma', true)->where('ativo', true)],
         ]);
 
         // A palavra-passe nunca é escolhida por um humano: é sempre gerada aleatoriamente e enviada por email, com
@@ -92,7 +95,9 @@ final class AgentesSuporteController extends Controller
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
             'email' => ['sometimes', 'nullable', 'email', 'max:150'],
-            'perfil_utilizador_id' => ['sometimes', 'required', 'integer', Rule::exists('perfis_utilizador', 'id')->where('restrito_plataforma', true)],
+            // activa, ou a que o agente já tem (desactivar uma especialização não impede de editar os agentes que a usam)
+            'perfil_utilizador_id' => ['sometimes', 'required', 'integer', Rule::exists('perfis_utilizador', 'id')->where('restrito_plataforma', true)
+                ->where(fn ($q) => $q->where('ativo', true)->orWhere('id', $alvo->perfil_utilizador_id))],
         ]);
 
         $alteracoes = [];
@@ -137,7 +142,7 @@ final class AgentesSuporteController extends Controller
 
     private function consulta()
     {
-        return Utilizador::query()->with('perfil:id,nome')
+        return Utilizador::query()->with('perfil:id,nome,descricao,permissoes,ativo')
             ->where('tenant_id', (int) config('erp.dominio.plataforma_tenant_id'))
             ->where('papel', Utilizador::PAPEL_AGENTE_SUPORTE);
     }
@@ -145,12 +150,14 @@ final class AgentesSuporteController extends Controller
     /** @return array<string, mixed> */
     private function apresentar(Utilizador $u): array
     {
-        $p = $u->relationLoaded('perfil') ? $u->perfil : $u->perfil()->first(['id', 'nome']);
+        $p = $u->relationLoaded('perfil') ? $u->perfil : $u->perfil()->first(['id', 'nome', 'descricao', 'permissoes', 'ativo']);
+
+        $esp = $p instanceof PerfilUtilizador ? $this->especializacoes->apresentar($p) : null;
 
         return [
             'id' => $u->id, 'nome_utilizador' => $u->nome_utilizador, 'nome_completo' => $u->nome_completo, 'email' => $u->email,
             'ativo' => (bool) $u->ativo, 'ultimo_acesso_em' => $u->ultimo_acesso_em,
-            'perfil' => $p instanceof PerfilUtilizador ? ['id' => $p->id, 'nome' => $p->nome] : null,
+            'perfil' => $esp ? ['id' => $p->id, 'nome' => $p->nome, 'categorias' => $esp['categorias'], 'grupos_rotulos' => $esp['grupos_rotulos']] : null,
         ];
     }
 }

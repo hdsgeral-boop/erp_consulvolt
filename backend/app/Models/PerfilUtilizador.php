@@ -16,11 +16,11 @@ class PerfilUtilizador extends ModeloBase
 
     protected string $moduloAuditoria = 'Sistema/Perfis';
 
-    protected $fillable = ['nome', 'descricao', 'permissoes', 'restrito_plataforma'];
+    protected $fillable = ['nome', 'descricao', 'permissoes', 'restrito_plataforma', 'ativo'];
 
     protected function casts(): array
     {
-        return ['permissoes' => 'array', 'restrito_plataforma' => 'boolean'];
+        return ['permissoes' => 'array', 'restrito_plataforma' => 'boolean', 'ativo' => 'boolean'];
     }
 
     public function utilizadores(): HasMany

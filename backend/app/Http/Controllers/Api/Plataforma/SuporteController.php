@@ -7,8 +7,8 @@ use App\Models\Tenant;
 use App\Models\TicketSuporte;
 use App\Models\Utilizador;
 use App\Services\Plataforma\MaquinaEstadosTicket;
+use App\Services\Plataforma\ServicoEspecializacoesSuporte;
 use App\Services\Plataforma\ServicoSlaSuporte;
-use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,9 +23,9 @@ use Illuminate\Validation\Rule;
 final class SuporteController extends Controller
 {
     public function __construct(
-        private readonly ServicoPermissoes $permissoes,
         private readonly MaquinaEstadosTicket $estadosTicket,
         private readonly ServicoSlaSuporte $sla,
+        private readonly ServicoEspecializacoesSuporte $especializacoes,
     ) {}
 
     public function index(Request $r): JsonResponse
@@ -67,15 +67,13 @@ final class SuporteController extends Controller
     /** null = sem filtro (super-administrador, vê tudo); senão, as categorias cujas chaves o perfil do agente concede. */
     private function categoriasPermitidas(Request $r): ?array
     {
-        $u = $r->user();
-        if ($u->eSuperAdministrador()) {
-            return null;
-        }
+        return $this->especializacoes->categoriasPermitidas($r->user());
+    }
 
-        return array_values(array_unique(array_keys(array_filter(
-            TicketSuporte::CHAVE_POR_CATEGORIA,
-            fn ($chave) => $this->permissoes->tem($u, $chave),
-        ))));
+    /** As categorias (e a especialização) do próprio utilizador — «As suas categorias: …» no painel /suporte. */
+    public function eu(Request $r): JsonResponse
+    {
+        return RespostaApi::sucesso($this->especializacoes->minhasCategorias($r->user()), 'Categorias do agente obtidas com sucesso.');
     }
 
     public function store(Request $r): JsonResponse

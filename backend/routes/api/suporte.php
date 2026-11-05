@@ -21,6 +21,7 @@ Route::prefix('suporte')->name('suporte_agente.')->middleware('suporte')->group(
     Route::post('tickets/{ticket}/mensagens', [ConversaSuportePlataformaController::class, 'responder'])->whereNumber('ticket')->name('tickets.responder');
     Route::get('anexos/{anexo}', [ConversaSuportePlataformaController::class, 'baixarAnexo'])->whereNumber('anexo')->name('anexos.show');
     Route::get('agentes', [SuporteController::class, 'agentes'])->name('agentes.index');
+    Route::get('eu', [SuporteController::class, 'eu'])->name('eu');
     Route::get('metricas', [DashboardSuporteController::class, 'metricas'])->name('metricas');
     Route::get('tickets/{ticket}/notas', [NotaInternaSuporteController::class, 'index'])->whereNumber('ticket')->name('tickets.notas.index');
     Route::post('tickets/{ticket}/notas', [NotaInternaSuporteController::class, 'store'])->whereNumber('ticket')->name('tickets.notas.store');

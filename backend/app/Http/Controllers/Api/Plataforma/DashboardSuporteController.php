@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Plataforma;
 use App\Http\Controllers\Controller;
 use App\Models\TicketSuporte;
 use App\Models\Utilizador;
-use App\Services\Sistema\ServicoPermissoes;
+use App\Services\Plataforma\ServicoEspecializacoesSuporte;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 /** Métricas do backoffice de suporte: tickets por estado, tempo médio de primeira resposta, atrasos e por agente. */
 final class DashboardSuporteController extends Controller
 {
-    public function __construct(private readonly ServicoPermissoes $permissoes) {}
+    public function __construct(private readonly ServicoEspecializacoesSuporte $especializacoes) {}
 
     public function metricas(Request $r): JsonResponse
     {
@@ -40,14 +40,6 @@ final class DashboardSuporteController extends Controller
     /** null = sem filtro (super-administrador, vê tudo); senão, as categorias cujas chaves o perfil do agente concede. */
     private function categoriasPermitidas(Request $r): ?array
     {
-        $u = $r->user();
-        if ($u->eSuperAdministrador()) {
-            return null;
-        }
-
-        return array_values(array_unique(array_keys(array_filter(
-            TicketSuporte::CHAVE_POR_CATEGORIA,
-            fn ($chave) => $this->permissoes->tem($u, $chave),
-        ))));
+        return $this->especializacoes->categoriasPermitidas($r->user());
     }
 }

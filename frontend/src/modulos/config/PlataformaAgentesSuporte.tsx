@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Alert, Avatar, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from 'antd';
-import { CustomerServiceOutlined, DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
+import { CustomerServiceOutlined, DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, TagsOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora } from '@/utilitarios/formatacao';
+import { EspecializacoesSuporte, TEXTO_ESPECIALIZACAO } from './EspecializacoesSuporte';
 
 interface Agente {
   id: number;
@@ -14,13 +15,17 @@ interface Agente {
   email: string | null;
   ativo: boolean;
   ultimo_acesso_em: string | null;
-  perfil: { id: number; nome: string } | null;
+  perfil: { id: number; nome: string; categorias?: string[]; grupos_rotulos?: string[] } | null;
 }
 
-/** Perfis de especialização do backoffice (ADR-077): técnico, financeiro, marketing — GET /plataforma/perfis-suporte. */
+interface PerfilSuporte { id: number; nome: string; descricao?: string | null; categorias?: string[]; grupos_rotulos?: string[] }
+
+/** Especializações activas do backoffice (ADR-077) com as categorias de tickets de cada uma — GET /plataforma/perfis-suporte. */
 function usePerfisSuporte() {
-  return useQuery({ queryKey: ['plataforma', 'perfis_suporte'], queryFn: () => obter<{ id: number; nome: string }[]>('/plataforma/perfis-suporte'), staleTime: 300_000 });
+  return useQuery({ queryKey: ['plataforma', 'perfis_suporte'], queryFn: () => obter<PerfilSuporte[]>('/plataforma/perfis-suporte'), staleTime: 60_000 });
 }
+
+const nomeGrupo = (r: string) => r.split(' (')[0];
 
 const CHAVE = ['plataforma', 'agentes_suporte'];
 
@@ -31,6 +36,7 @@ const CHAVE = ['plataforma', 'agentes_suporte'];
 export default function PlataformaAgentesSuporte() {
   const qc = useQueryClient();
   const [aberto, setAberto] = useState<Agente | 'novo' | null>(null);
+  const [especializacoes, setEspecializacoes] = useState(false);
   const [form] = Form.useForm();
   const lista = useQuery({ queryKey: CHAVE, queryFn: () => obter<Agente[]>('/plataforma/agentes-suporte') });
   const perfis = usePerfisSuporte();
@@ -69,6 +75,10 @@ export default function PlataformaAgentesSuporte() {
   };
   const abrirCriacao = () => {
     form.resetFields();
+    // por omissão, a especialização mais restrita (menor privilégio): a única, ou a «Geral»
+    const lista = perfis.data ?? [];
+    const omissao = lista.length === 1 ? lista[0] : lista.find((p) => /geral/i.test(p.nome));
+    if (omissao) form.setFieldsValue({ perfil_utilizador_id: omissao.id });
     setAberto('novo');
   };
   const confirmar = () =>
@@ -79,8 +89,13 @@ export default function PlataformaAgentesSuporte() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Agentes de suporte" subtitulo="Backoffice de suporte isolado — só veem e respondem a tickets, nunca clientes, planos ou definições" />
-      <Card extra={<Button type="primary" icon={<PlusOutlined />} onClick={abrirCriacao}>Novo agente</Button>}>
+      <CabecalhoPagina titulo="Agentes de suporte" subtitulo={TEXTO_ESPECIALIZACAO} />
+      <Card extra={(
+        <Space>
+          <Button icon={<TagsOutlined />} onClick={() => setEspecializacoes(true)}>Especializações</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={abrirCriacao}>Novo agente</Button>
+        </Space>
+      )}>
         <Table<Agente>
           rowKey="id"
           size="middle"
@@ -102,7 +117,12 @@ export default function PlataformaAgentesSuporte() {
             },
             {
               title: 'Especialização',
-              render: (_, a) => (a.perfil ? <Tag color="purple">{a.perfil.nome}</Tag> : <Typography.Text type="danger">Por definir</Typography.Text>),
+              render: (_, a) => (a.perfil ? (
+                <div>
+                  <Tag color="purple">{a.perfil.nome}</Tag>
+                  <div>{(a.perfil.grupos_rotulos ?? []).map((r) => <Tag key={r}>{nomeGrupo(r)}</Tag>)}</div>
+                </div>
+              ) : <Typography.Text type="danger">Por definir</Typography.Text>),
             },
             {
               title: 'Estado',
@@ -154,11 +174,20 @@ export default function PlataformaAgentesSuporte() {
           <Form.Item name="email" label="Email (recomendado — é por aqui que recebe a palavra-passe gerada pelo sistema)" rules={[{ type: 'email', message: 'Email inválido.' }]}>
             <Input maxLength={150} autoComplete="off" />
           </Form.Item>
-          <Form.Item name="perfil_utilizador_id" label="Especialização" tooltip="Decide que categorias de tickets este agente vê e pode responder (técnico, financeiro, marketing)" rules={[{ required: true, message: 'Escolha a especialização.' }]}>
-            <Select showSearch optionFilterProp="label" loading={perfis.isLoading} options={(perfis.data ?? []).map((p) => ({ value: p.id, label: p.nome }))} placeholder="Escolha a especialização" />
+          <Form.Item name="perfil_utilizador_id" label="Especialização" tooltip={TEXTO_ESPECIALIZACAO} extra="Pode criar ou ajustar especializações em «Especializações»." rules={[{ required: true, message: 'Escolha a especialização.' }]}>
+            <Select
+              showSearch optionFilterProp="label" loading={perfis.isLoading} placeholder="Escolha a especialização"
+              options={(perfis.data ?? []).map((p) => ({
+                value: p.id,
+                label: p.nome,
+                desc: (p.grupos_rotulos ?? []).map(nomeGrupo).join(' · '),
+              }))}
+              optionRender={(o) => (<div><strong>{o.label}</strong><div style={{ fontSize: 12, opacity: 0.7 }}>{(o.data as { desc?: string }).desc}</div></div>)}
+            />
           </Form.Item>
         </Form>
       </Modal>
+      <EspecializacoesSuporte aberto={especializacoes} aoFechar={() => setEspecializacoes(false)} />
     </>
   );
 }

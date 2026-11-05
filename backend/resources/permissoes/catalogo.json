@@ -3842,7 +3842,7 @@
       }
     },
     {
-      "nome": "Agente de Suporte Técnico",
+      "nome": "Agente de Suporte Geral",
       "permissoes": {
         "_v2": true,
         "suporte_tickets_geral_view": true,

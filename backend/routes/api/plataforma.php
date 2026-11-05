@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
 use App\Http\Controllers\Api\Plataforma\CupoesController;
 use App\Http\Controllers\Api\Plataforma\DashboardSuporteController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
+use App\Http\Controllers\Api\Plataforma\EspecializacoesSuporteController;
 use App\Http\Controllers\Api\Plataforma\IAPlataformaController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
 use App\Http\Controllers\Api\Plataforma\MonitorizacaoController;
@@ -113,6 +114,13 @@ Route::prefix('plataforma')->name('plataforma.')->middleware(['plataforma', 'mfa
         Route::put('agentes-suporte/{agente}', 'atualizar')->whereNumber('agente')->name('agentes_suporte.atualizar');
         Route::post('agentes-suporte/{agente}/palavra-passe', 'reporPalavraPasse')->whereNumber('agente')->name('agentes_suporte.palavra_passe');
         Route::delete('agentes-suporte/{agente}', 'eliminar')->whereNumber('agente')->name('agentes_suporte.eliminar');
+    });
+
+    Route::controller(EspecializacoesSuporteController::class)->prefix('especializacoes-suporte')->name('especializacoes_suporte.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('{perfil}', 'atualizar')->whereNumber('perfil')->name('atualizar');
+        Route::delete('{perfil}', 'eliminar')->whereNumber('perfil')->name('eliminar');
     });
 
     Route::controller(OperadoresPlataformaController::class)->group(function () {

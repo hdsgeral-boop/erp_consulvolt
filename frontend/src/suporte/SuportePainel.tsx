@@ -15,6 +15,7 @@ interface Ticket {
   tempo_atendimento_minutos: number | null;
 }
 interface Agente { id: number; nome: string }
+interface MinhasCategorias { todas: boolean; categorias: string[]; grupos: { id: string; rotulo: string; categorias: string[] }[]; especializacao: string | null }
 
 // Fase 6 da extensão SaaS (segurança.txt, secção 13.3): os 11 estados — ver TicketSuporte::ESTADOS.
 const ESTADOS = [
@@ -45,6 +46,8 @@ export default function SuportePainel() {
     queryKey: [...CHAVE, estado, pesquisa],
     queryFn: () => obter<Ticket[]>('/suporte/tickets', { estado, pesquisa: pesquisa || undefined }),
   });
+  // As categorias do próprio utilizador (especialização, ADR-077) — a mesma fonte que o servidor usa para filtrar os tickets.
+  const eu = useQuery({ queryKey: ['suporte_agente', 'eu'], queryFn: () => obter<MinhasCategorias>('/suporte/eu'), staleTime: 300_000 });
   const agentes = useQuery({ queryKey: ['suporte_agente', 'agentes'], queryFn: () => obter<Agente[]>('/suporte/agentes') });
   const mudar = useMutation({
     mutationFn: (p: { id: number; dados: Record<string, unknown> }) => enviar('put', `/suporte/tickets/${p.id}`, p.dados),
@@ -61,10 +64,21 @@ export default function SuportePainel() {
         subtitulo="Pedidos de suporte de todos os clientes Consulvolt"
         accoes={<Link to="dashboard"><Button icon={<DashboardOutlined />}>Dashboard</Button></Link>}
       />
+      {eu.data && (
+        <Typography.Paragraph data-testid="minhas-categorias" style={{ marginBottom: 12 }}>
+          As suas categorias:{' '}
+          {eu.data.todas
+            ? <Tag color="purple">Todas</Tag>
+            : eu.data.grupos.length === 0
+              ? <Typography.Text type="danger">nenhuma — peça a atribuição de uma especialização</Typography.Text>
+              : eu.data.grupos.map((g) => <Tooltip key={g.id} title={g.categorias.join(', ')}><Tag color="purple">{g.rotulo.split(' (')[0]}</Tag></Tooltip>)}
+          {eu.data.especializacao && <Typography.Text type="secondary"> · especialização «{eu.data.especializacao}»</Typography.Text>}
+        </Typography.Paragraph>
+      )}
       <Card extra={
         <Space wrap>
           <Input.Search allowClear placeholder="Pesquisar" style={{ width: 200 }} onSearch={setPesquisa} />
-          <Select allowClear placeholder="Categoria" style={{ width: 160 }} options={opcoes(CATEGORIAS)} value={categoria} onChange={setCategoria} />
+          <Select allowClear placeholder="Categoria" style={{ width: 160 }} options={opcoes(eu.data?.categorias ?? CATEGORIAS)} value={categoria} onChange={setCategoria} />
           <Select allowClear placeholder="Estado" style={{ width: 160 }} options={opcoes(ESTADOS)} value={estado} onChange={setEstado} />
         </Space>
       }>
