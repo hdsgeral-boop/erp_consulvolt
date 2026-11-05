@@ -15,6 +15,7 @@ import { ReciboSalario, useEmpresaRecibo } from '../comum/ReciboSalario';
 import { colunasRubricas, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
 import { AvisoNaoValidado, MolduraMapa, useDadosColaborador, usePeriodoMapa } from './comum';
 import { linhaInss, linhaIrtOficial } from './estruturaMapas';
+import { AvisoMapaAgt, BotaoMapaAgt } from './BotaoMapaAgt';
 import { TabelaInss, TabelaIrtOficial } from './TabelasMapasOficiais';
 
 /** M-13: filtro Colaboradores / Avençados nos mapas (o legado tinha folhas separadas, folha_salarios.js:262-298). */
@@ -109,9 +110,10 @@ export function MapaIrt({ periodoId }: PropsMapa = {}) {
   const exportarB = () => descarregar(`mapa-irt-grupo-b-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(['NIF', 'Nome', 'Valor bruto', 'Matéria colectável', 'IRT retido'],
     grupoB.map((r) => { const d = dados(r.colaborador_id, r); return [d.nif, d.nome, kzCsv(r.bruto), kzCsv(r.base_irt), kzCsv(r.irt)]; })));
   return (
-    <MolduraMapa embutido={embutido} titulo="Mapa Fiscal de IRT (Modelo Oficial - Angola)" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+    <MolduraMapa embutido={embutido} titulo="Mapa Fiscal de IRT (Modelo Oficial - Angola)" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<><AvisoNaoValidado periodo={mapa.periodo} /><AvisoMapaAgt periodoId={mapa.id} validado={mapa.periodo?.estado === 'VALIDADO'} /></>}
       accoes={<>
         <Button icon={<DownloadOutlined />} disabled={!grupoB.length} onClick={exportarB}>Exportar CSV (Grupo B)</Button>
+        <BotaoMapaAgt periodoId={mapa.id} validado={mapa.periodo?.estado === 'VALIDADO'} />
       </>}>
       <AreaImpressao paisagem>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa Fiscal de IRT (Modelo Oficial - Angola) — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />

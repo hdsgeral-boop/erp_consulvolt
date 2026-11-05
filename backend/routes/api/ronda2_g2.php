@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\RH\AvaliacaoEquipaController;
 use App\Http\Controllers\Api\RH\ConfiguracaoRHController;
 use App\Http\Controllers\Api\RH\FolhaSalarialController;
 use App\Http\Controllers\Api\RH\ImportacaoRHController;
+use App\Http\Controllers\Api\RH\MapaRemuneracoesAgtController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('rh/salarios')->name('rh.salarios.')->group(function () {
@@ -20,6 +21,8 @@ Route::prefix('rh/salarios')->name('rh.salarios.')->group(function () {
     Route::post('periodos/{id}/importar-excel', [ImportacaoRHController::class, 'calculo'])->whereNumber('id')->middleware('throttle:pesado')->name('periodos.importar-excel');
     Route::get('periodos/{id}/recibos/{colaborador}/pdf', [ConfiguracaoRHController::class, 'reciboPdf'])->whereNumber(['id', 'colaborador'])->middleware('licenca_exportacao')->name('recibos.pdf');
     Route::get('periodos/{id}/recibos-zip', [ConfiguracaoRHController::class, 'recibosZip'])->whereNumber('id')->middleware(['throttle:pesado', 'licenca_exportacao', 'mfa_recente'])->name('recibos.zip');
+    Route::get('periodos/{id}/mapa-agt/verificacao', [MapaRemuneracoesAgtController::class, 'verificacao'])->whereNumber('id')->name('mapa-agt.verificacao');
+    Route::get('periodos/{id}/mapa-agt', [MapaRemuneracoesAgtController::class, 'descarregar'])->whereNumber('id')->middleware(['throttle:pesado', 'licenca_exportacao', 'mfa_recente'])->name('mapa-agt');
 });
 
 Route::prefix('rh')->name('rh.')->group(function () {
