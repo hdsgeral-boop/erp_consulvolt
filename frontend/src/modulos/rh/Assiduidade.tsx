@@ -513,7 +513,10 @@ function Ausencias({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
     { title: 'Remunerada', dataIndex: 'remunerada', responsive: ['md'], render: (v: string | null) => (v === 'SIM' ? 'Sim' : v === 'NAO' ? 'Não' : v ?? '—') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
     { title: 'Origem', responsive: ['lg'], render: (_, a) => (a.pedido_portal_colaborador_id ? <Tag>Portal</Tag> : a.detectada ? <Tag>Detectada</Tag> : <Tag>RH</Tag>) },
-    { title: 'Motivo / decisão', responsive: ['md'], ellipsis: true, render: (_, a) => [a.motivo, a.nota_decisao].filter(Boolean).join(' — ') || '' },
+    { title: 'Motivo / decisão', responsive: ['md'], ellipsis: true, render: (_, a) => {
+      const t = [a.motivo, a.nota_decisao].filter(Boolean).join(' — ') || '';
+      return a.justificada_em ? <Tooltip title={`Justificada em ${formatarDataHora(a.justificada_em)}${a.justificada_por ? ` por ${a.justificada_por}` : ''}`}>{t || 'Justificada'}</Tooltip> : t;
+    } },
     {
       title: '',
       key: 'accoes',

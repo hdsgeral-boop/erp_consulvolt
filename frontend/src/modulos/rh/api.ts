@@ -539,6 +539,8 @@ export interface Ausencia {
   pedido_portal_colaborador_id: number | null;
   nota_decisao: string | null;
   decidido_por: string | null;
+  justificada_em?: string | null;
+  justificada_por?: string | null;
 }
 
 // ───────────── Férias e produtividade ─────────────

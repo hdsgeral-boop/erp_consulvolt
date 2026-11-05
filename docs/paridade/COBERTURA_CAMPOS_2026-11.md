@@ -27,9 +27,9 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | :--- | :--- | :--- |
 | INFRA | 1297 | 32.5% |
 | LEGADO_TECNICO | 78 | 2.0% |
-| FUNCIONAL_COBERTO | 1894 | 47.5% |
-| FUNCIONAL_SO_BACKEND | 348 | 8.7% |
-| FUNCIONAL_SEM_API | 358 | 9.0% |
+| FUNCIONAL_COBERTO | 1918 | 48.1% |
+| FUNCIONAL_SO_BACKEND | 325 | 8.1% |
+| FUNCIONAL_SEM_API | 357 | 8.9% |
 | ORFA | 15 | 0.4% |
 
 ## Por módulo
@@ -39,13 +39,13 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | Vendas | 9 | 225 | 38 | 7 | 122 | 31 | 23 | 4 |
 | Compras | 11 | 212 | 45 | 8 | 119 | 36 | 4 | 0 |
 | Logística | 9 | 182 | 41 | 4 | 116 | 18 | 3 | 0 |
-| Tesouraria | 10 | 197 | 41 | 10 | 97 | 36 | 12 | 1 |
+| Tesouraria | 10 | 197 | 41 | 10 | 102 | 31 | 12 | 1 |
 | Contabilidade | 11 | 181 | 48 | 5 | 72 | 3 | 50 | 3 |
-| RH | 43 | 711 | 201 | 20 | 379 | 45 | 65 | 1 |
+| RH | 43 | 711 | 201 | 20 | 388 | 37 | 64 | 1 |
 | Activos | 16 | 285 | 70 | 3 | 156 | 33 | 23 | 0 |
 | CRM | 8 | 109 | 37 | 2 | 64 | 6 | 0 | 0 |
 | Projectos | 21 | 272 | 87 | 4 | 151 | 17 | 9 | 4 |
-| Orçamento | 8 | 145 | 40 | 4 | 88 | 11 | 2 | 0 |
+| Orçamento | 8 | 145 | 40 | 4 | 98 | 1 | 2 | 0 |
 | Estrutura | 7 | 142 | 41 | 0 | 61 | 40 | 0 | 0 |
 | Terceiros | 3 | 42 | 13 | 1 | 23 | 1 | 4 | 0 |
 | POS | 11 | 254 | 54 | 4 | 165 | 29 | 2 | 0 |
@@ -71,13 +71,12 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | itens_compra | Compras | 14 | 36 |
 | impedimentos_entregavel | Estrutura | 12 | 20 |
 | contas_mesa_pos | Outros | 11 | 17 |
-| prestacoes_emprestimos | RH | 11 | 17 |
 | utilizacoes_assistente_ia | Outros | 11 | 18 |
 | itens_carta_pagamento | RH | 10 | 15 |
+| prestacoes_emprestimos | RH | 10 | 17 |
 | ia_accoes | Outros | 9 | 13 |
 | ordens_manutencao_ativos | Activos | 9 | 32 |
 | resultados_folha_salarial | Outros | 9 | 25 |
-| emprestimos_colaboradores | RH | 8 | 27 |
 | notificacoes_sistema | Outros | 8 | 13 |
 | avaliacoes_desempenho_rh | RH | 7 | 34 |
 | bonificacoes_avaliacao_rh | RH | 7 | 21 |
@@ -86,12 +85,10 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | ia_mensagens | Outros | 7 | 10 |
 | itens_guia_saida | Logística | 7 | 17 |
 | linhas_requisicao_manutencao | Activos | 7 | 12 |
-| movimentos_caixa | Tesouraria | 7 | 34 |
 | reconciliacoes_bancarias | Tesouraria | 7 | 12 |
 | registos_conversao_contas_produtos | Outros | 7 | 11 |
 | senhas_pos_armazem | Outros | 7 | 13 |
 | assuntos_metodo_trabalho | Projectos | 6 | 41 |
-| ausencias_faltas_colaboradores | RH | 6 | 31 |
 | correspondencias_reconciliacao | Tesouraria | 6 | 11 |
 | delegacoes_chefia | Estrutura | 6 | 15 |
 | faturas_compra | Compras | 6 | 29 |
@@ -99,9 +96,12 @@ A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerce
 | itens_ordem_manutencao | Activos | 6 | 19 |
 | linhas_revisao_projeto | Projectos | 6 | 14 |
 | modelos_documentos_rh | RH | 6 | 14 |
+| movimentos_caixa | Tesouraria | 6 | 34 |
 | multas_entregavel | Estrutura | 6 | 23 |
+| produtos | Logística | 6 | 59 |
+| subscricoes_empresa | Plataforma | 6 | 28 |
 
-## Lista priorizada de lacunas (721)
+## Lista priorizada de lacunas (697)
 
 Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(s) e ecrã(s) do âmbito da tabela.
 
@@ -256,10 +256,6 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 
 ### Tesouraria
 
-**conferencias_caixa** — controllers: OperacoesTesourariaController; ecrãs: frontend/src/modulos/teso/Conferencia.tsx
-- `conta_regularizacao` (text) SO_BACKEND — só nos tipos TypeScript
-- `nome_conta_regularizacao` (text) SO_BACKEND
-- `registado_por` (character varying) SO_BACKEND — só nos tipos TypeScript
 **correspondencias_reconciliacao** — controllers: —; ecrãs: —
 - `data` (timestamp with time zone) SEM_API — usada só internamente (serviço/modelo)
 - `lancamento_contabil_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
@@ -294,8 +290,6 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `valor` (numeric) SO_BACKEND
 - `valor_kz_documento` (numeric) SO_BACKEND
 - `venda_id` (bigint) SO_BACKEND
-**linhas_extrato_bancario** — controllers: OperacoesTesourariaController; ecrãs: frontend/src/modulos/teso/Conciliacao.tsx, frontend/src/modulos/teso/ReconciliacaoExtras.tsx
-- `lote_codigo` (character varying) SO_BACKEND — só nos tipos TypeScript
 **movimentos_caixa** — controllers: OperacoesTesourariaController; ecrãs: frontend/src/modulos/pos/Desvios.tsx, frontend/src/modulos/pos/Prestacao.tsx, frontend/src/modulos/pos/Relatorios.tsx
 - `contra_moeda` (character varying) SO_BACKEND
 - `contravalor_kz` (numeric) SO_BACKEND
@@ -303,7 +297,6 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `fatura_compra_id` (bigint) SO_BACKEND — só nos tipos TypeScript
 - `taxa_cambio` (numeric) SO_BACKEND — só nos tipos TypeScript
 - `taxa_cambio_id` (bigint) SO_BACKEND
-- `url_documento` (character varying) SO_BACKEND
 **reconciliacoes_bancarias** — controllers: —; ecrãs: —
 - `data` (timestamp with time zone) SEM_API — usada só internamente (serviço/modelo)
 - `detalhes` (text) SEM_API — usada só internamente (serviço/modelo)
@@ -384,8 +377,6 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `decidido_em` (timestamp with time zone) SO_BACKEND
 - `decidido_por` (character varying) SO_BACKEND
 - `fecho_mensal_assiduidade_id` (bigint) SO_BACKEND
-- `justificada_em` (timestamp with time zone) SO_BACKEND
-- `justificada_por` (character varying) SO_BACKEND
 - `pendente_no_fecho` (boolean) SO_BACKEND
 **avaliacoes_desempenho_rh** — controllers: AvaliacaoController, AvaliacaoEquipaController; ecrãs: frontend/src/modulos/rh/Avaliacao.tsx, frontend/src/modulos/rh/AvaliacaoCiclo.tsx, frontend/src/modulos/rh/comum/AMinhaEquipa.tsx
 - `atualizado_360_em` (timestamp with time zone) SO_BACKEND
@@ -419,13 +410,7 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `origem` (character varying) SEM_API — usada só internamente (serviço/modelo)
 - `sexo` (character varying) SEM_API — usada só internamente (serviço/modelo)
 **emprestimos_colaboradores** — controllers: EmprestimosController; ecrãs: frontend/src/modulos/rh/Emprestimos.tsx, frontend/src/modulos/rh/calcular/ImportarEmprestimos.tsx, frontend/src/modulos/rh/portal/PortalFaseB.tsx
-- `aprovado_por` (character varying) SO_BACKEND
-- `cancelado_em` (timestamp with time zone) SO_BACKEND
-- `cancelado_por` (character varying) SO_BACKEND
 - `decidido_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
-- `lancado_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
-- `lancado_por` (character varying) SO_BACKEND
-- `liquidado_em` (timestamp with time zone) SO_BACKEND
 - `pedido_portal_colaborador_id` (bigint) SO_BACKEND
 **fechos_mensais_assiduidade** — controllers: AssiduidadeController; ecrãs: frontend/src/modulos/rh/Assiduidade.tsx
 - `lancado_por` (character varying) SO_BACKEND
@@ -483,7 +468,7 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `uid` (character varying) SEM_API — usada só internamente (serviço/modelo)
 **pedidos_portal_colaborador** — controllers: PortalColaboradorController, PortalEntregaveisController; ecrãs: frontend/src/modulos/rh/Portal.tsx, frontend/src/modulos/rh/PortalGestao.tsx, frontend/src/modulos/rh/portal/Aprovacoes.tsx
 - `ausencia_falta_id` (bigint) SO_BACKEND
-- `cancelado_em` (timestamp with time zone) SO_BACKEND
+- `cancelado_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
 - `plano_ferias_colaborador_id` (bigint) SO_BACKEND
 **periodos_produtividade_rh** — controllers: EntregaveisController, FeriasProdutividadeController, FiRhController, ImportacaoRHController, ProdutividadeProjetosController; ecrãs: frontend/src/modulos/estrutura/tarefas/api.ts, frontend/src/modulos/projectos/comum/PonteProdutividade.tsx, frontend/src/modulos/rh/Calcular.tsx
 - `lancado_por` (character varying) SO_BACKEND
@@ -492,7 +477,6 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 - `registos_fecho` (integer) SO_BACKEND — só nos tipos TypeScript
 **prestacoes_emprestimos** — controllers: —; ecrãs: —
 - `colaborador_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
-- `descontado_em` (timestamp with time zone) SEM_API — usada só internamente (serviço/modelo)
 - `descontado_por` (character varying) SEM_API — usada só internamente (serviço/modelo)
 - `estado` (character varying) SEM_API — usada só internamente (serviço/modelo)
 - `juro` (numeric) SEM_API — usada só internamente (serviço/modelo)
@@ -648,19 +632,7 @@ Ordenada por módulo central → tabela → coluna. «Onde ligar» = controller(
 **linhas_previsao_orcamental** — controllers: —; ecrãs: —
 - `previsao_orcamental_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
 - `rubrica_orcamental_id` (bigint) SEM_API — usada só internamente (serviço/modelo)
-**orcamentos_anuais** — controllers: OrcamentoController, ParidadeOrcamentoController, PlaneamentoOrcamentalController; ecrãs: frontend/src/modulos/orcamento/Cenarios.tsx, frontend/src/modulos/orcamento/Controlo.tsx, frontend/src/modulos/orcamento/DetalheOrcamento.tsx
-- `consolidado_ids` (jsonb) SO_BACKEND
-- `consolidado_por` (character varying) SO_BACKEND
-- `substituido_em` (timestamp with time zone) SO_BACKEND
-- `substituido_por_id` (bigint) SO_BACKEND — só nos tipos TypeScript
-- `versao_origem_id` (bigint) SO_BACKEND — só nos tipos TypeScript
-**pedidos_extrapolacao_orcamento** — controllers: OrcamentoController; ecrãs: frontend/src/componentes/orcamento/DialogoExcesso.tsx, frontend/src/modulos/orcamento/Alertas.tsx
-- `decidido_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
-- `utilizado_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
-- `valor_consumido` (numeric) SO_BACKEND — só nos tipos TypeScript
 **previsoes_orcamentais** — controllers: PlaneamentoOrcamentalController; ecrãs: frontend/src/modulos/orcamento/Previsoes.tsx
-- `publicado_em` (timestamp with time zone) SO_BACKEND — só nos tipos TypeScript
-- `publicado_por` (character varying) SO_BACKEND — só nos tipos TypeScript
 - `revisao_origem_id` (bigint) SO_BACKEND
 
 ### Estrutura

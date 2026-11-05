@@ -1,5 +1,5 @@
 import { Table } from 'antd';
-import { formatarKz } from '@/utilitarios/formatacao';
+import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EstadoTag } from '../comum/componentes';
 import type { PrestacaoPlano } from './tipos';
 
@@ -14,6 +14,7 @@ export function TabelaPlano({ plano, comJuro }: { plano: PrestacaoPlano[]; comJu
       { title: 'Prestação', dataIndex: 'total', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong> },
       { title: 'Em dívida', dataIndex: 'saldo', align: 'right', render: (v: string) => formatarKz(v) },
       { title: 'Estado', dataIndex: 'estado', render: (v?: string) => (v ? <EstadoTag estado={v} /> : '—') },
+      ...(plano.some((p) => p.descontado_em) ? [{ title: 'Descontada em', dataIndex: 'descontado_em', render: (v?: string | null) => (v ? formatarData(v) : '') }] : []),
     ]} />
   );
 }

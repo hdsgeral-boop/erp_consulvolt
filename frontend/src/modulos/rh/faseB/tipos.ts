@@ -190,6 +190,12 @@ export interface Emprestimo {
   lancamento_referencia?: string | null;
   lancado_em?: string | null;
   motivo_cancelamento?: string | null;
+  aprovado_por?: string | null;
+  decidido_em?: string | null;
+  lancado_por?: string | null;
+  liquidado_em?: string | null;
+  cancelado_em?: string | null;
+  cancelado_por?: string | null;
   criado_em?: string | null;
   em_divida?: string;
   descontadas?: number;

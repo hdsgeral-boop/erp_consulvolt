@@ -11,7 +11,7 @@ import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsi
 import { TabelaComModos } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
+import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos } from './comum/consultas';
 import type { ConfiguracaoEmprestimos, Emprestimo } from './faseB/tipos';
@@ -137,7 +137,10 @@ function Lista({ aoConfigurar }: { aoConfigurar?: () => void }) {
               <Descriptions.Item label="Capital">{formatarKz(detalhe.data.capital, true)}</Descriptions.Item>
               <Descriptions.Item label="Total a pagar">{formatarKz(detalhe.data.total_a_pagar, true)}{Number(detalhe.data.total_juros) > 0 ? ` (juros ${formatarKz(detalhe.data.total_juros)})` : ''}</Descriptions.Item>
               <Descriptions.Item label="Em dívida">{formatarKz(detalhe.data.em_divida, true)}</Descriptions.Item>
-              <Descriptions.Item label="Aprovado em">{formatarData(detalhe.data.aprovado_em)}</Descriptions.Item>
+              <Descriptions.Item label="Aprovado em">{formatarData(detalhe.data.aprovado_em)}{detalhe.data.aprovado_por ? ` · ${detalhe.data.aprovado_por}` : ''}</Descriptions.Item>
+              {detalhe.data.lancado_em && <Descriptions.Item label="Lançado na conta corrente">{formatarDataHora(detalhe.data.lancado_em)}{detalhe.data.lancado_por ? ` · ${detalhe.data.lancado_por}` : ''}</Descriptions.Item>}
+              {detalhe.data.liquidado_em && <Descriptions.Item label="Liquidado em">{formatarDataHora(detalhe.data.liquidado_em)}</Descriptions.Item>}
+              {detalhe.data.cancelado_em && <Descriptions.Item label="Cancelado em">{formatarDataHora(detalhe.data.cancelado_em)}{detalhe.data.cancelado_por ? ` · ${detalhe.data.cancelado_por}` : ''}</Descriptions.Item>}
               <Descriptions.Item label="Motivo" span={2}>{detalhe.data.motivo}</Descriptions.Item>
               {detalhe.data.motivo_cancelamento && <Descriptions.Item label="Cancelamento" span={2}>{detalhe.data.motivo_cancelamento}</Descriptions.Item>}
             </Descriptions>
