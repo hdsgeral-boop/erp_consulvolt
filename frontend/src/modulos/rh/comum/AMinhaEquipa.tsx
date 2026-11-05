@@ -109,6 +109,7 @@ export function AMinhaEquipa() {
                 <Col xs={24} md={10}><Typography.Text>{i?.nome}</Typography.Text></Col>
                 <Col xs={8} md={4}><Form.Item name={[name, 'nota']} rules={[{ required: true, message: 'Nota' }]}><Select options={NOTAS} placeholder="Nota" /></Form.Item></Col>
                 <Col xs={16} md={10}><Form.Item name={[name, 'comentario']}><Input placeholder="Comentário" maxLength={2000} /></Form.Item></Col>
+                <Form.Item name={[name, 'chave']} hidden><Input /></Form.Item>
               </Row>
             );
           })}</Form.List>
@@ -124,6 +125,7 @@ export function AMinhaEquipa() {
                     : <Form.Item name={[name, 'atingido']}><InputNumber placeholder="Atingido" style={{ width: '100%' }} /></Form.Item>}
                 </Col>
                 <Col xs={16} md={10}><Form.Item name={[name, 'comentario']}><Input placeholder="Comentário" maxLength={2000} /></Form.Item></Col>
+                <Form.Item name={[name, 'chave']} hidden><Input /></Form.Item>
               </Row>
             );
           })}</Form.List>
