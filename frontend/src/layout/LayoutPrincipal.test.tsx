@@ -494,14 +494,14 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     const { container } = montar('/');
     fireEvent.click(screen.getByRole('button', { name: 'Mudar para menu no topo' }));
     const barra = await waitFor(() => {
-      const b = container.querySelector('.erp-barra-menu-topo') as HTMLElement | null;
+      const b = container.querySelector('.erp-barra-topo') as HTMLElement | null;
       expect(b).not.toBeNull();
       return b as HTMLElement;
     });
     expect(container.querySelector('.erp-sider')).toBeNull();
     // «Vendas» (módulo de «Menu Geral», rótulo do legado) passa a dropdown solto na barra — na lateral estava escondido dentro de «Menu Geral» fechado
     expect(within(barra).getByText('Vendas')).toBeInTheDocument();
-    // «Favoritos» continua como o seu próprio dropdown (a lógica de achatar só mexe no grupo «Menu Geral» — ver achatarGrupoNaBarra.test)
+    // «Favoritos» tem linha própria por baixo da barra (como na produção)
     expect(await within(barra).findByText('Favoritos')).toBeInTheDocument();
     expect(localStorage.getItem(`erp.menu.modo.${idOpaco(1)}`)).toBe('topo');
 

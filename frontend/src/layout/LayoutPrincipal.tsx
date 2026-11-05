@@ -279,7 +279,13 @@ function Estrutura() {
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
   // modo «menu no topo»: os módulos do grupo «Menu Geral» passam a dropdowns soltos na barra (Favoritos e Sistema mantêm-se como grupo).
   // Parte de `base` (sem os pontos «⋮» do menu de contexto dos favoritos, que não têm espaço numa dropdown horizontal estreita).
-  const itensBarraTopo = useMemo(() => achatarGrupoNaBarra(base, CHAVE_MENU_GERAL), [base]);
+  // Como na produção: os favoritos têm linha própria por baixo da barra e as listas que abrem usam a classe compacta escura.
+  const itensBarraTopo = useMemo(() => {
+    const compactos = (lista: ItemMenuLateral[]): ItemMenuLateral[] =>
+      lista.map((it) => (temFilhos(it) ? ({ ...it, popupClassName: 'erp-menu-barra-topo-popup', children: compactos((it as { children: ItemMenuLateral[] }).children) } as ItemMenuLateral) : it));
+    const semFavoritos = base.filter((it) => !(it && typeof it === 'object' && (it as { key?: string }).key === 'grupo:favoritos'));
+    return compactos(achatarGrupoNaBarra(semFavoritos, CHAVE_MENU_GERAL));
+  }, [base]);
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const [, , moduloActual, ecraActual] = local.pathname.split('/');
   const noEcra = local.pathname.startsWith('/m/') && !!moduloActual && !!ecraActual;
@@ -341,10 +347,12 @@ function Estrutura() {
     largarEmpresa();
   };
   const irPara = (chave: string) => navegar(chave.startsWith(PREFIXO_FAVORITO) ? chave.slice(PREFIXO_FAVORITO.length) : chave);
+  // Cabeçalho «largo» (rótulos nos botões): só com espaço (≥ 1600 px); abaixo disso botões só com ícone. A pesquisa por extenso aparece a partir de 1200 px.
+  const cabecalhoLargo = ecra.xxl;
   const botaoTrocarEmpresa = (
     <Space.Compact className="erp-trocar-empresa">
-      <Button icon={<IconeFa nome="exchange-alt" />} onClick={voltarEscolhaEmpresa} title="Trocar de empresa">
-        Trocar empresa
+      <Button icon={<IconeFa nome="exchange-alt" />} onClick={voltarEscolhaEmpresa} title="Trocar de empresa" aria-label="Trocar empresa">
+        {cabecalhoLargo ? 'Trocar empresa' : null}
       </Button>
       {empresas.length > 1 && (
         <Dropdown
@@ -391,12 +399,12 @@ function Estrutura() {
   const menuTopo = itensTopo.length > 0 && <Menu {...propsMenu} className={`${classeMenu} erp-menu-lista-topo`} items={itensTopo} />;
   const menuBarraTopo = (
     <Menu
-      theme="dark"
+      {...propsMenu}
       mode="horizontal"
-      selectedKeys={[seleccionado, `${PREFIXO_FAVORITO}${seleccionado}`]}
-      onClick={(i) => irPara(i.key)}
+      disabledOverflow
+      triggerSubMenuAction="click"
+      className={`${classeMenu} erp-menu-barra-topo`}
       items={itensBarraTopo}
-      style={{ borderBottom: 'none', background: 'transparent', flex: '1 1 auto', minWidth: 0 }}
     />
   );
   const menuGrupos = itensGrupos.length > 0 && (
@@ -498,10 +506,28 @@ function Estrutura() {
 
         <Layout className="erp-layout-coluna">
           {!ecra.pequeno && modoMenu === 'topo' && (
-            <div className="erp-barra-menu-topo" style={{ background: '#121212', display: 'flex', alignItems: 'center', gap: 20, padding: '0 20px', height: 56 }}>
-              <MarcaEmpresa tamanho={30} comProduto escuro />
-              {menuBarraTopo}
-            </div>
+            <nav className="erp-barra-topo" aria-label="Menu principal">
+              <div className="erp-barra-topo-marca">
+                <MarcaEmpresa soIcone tamanho={36} escuro />
+              </div>
+              <div className="erp-barra-topo-corpo">
+                {menuBarraTopo}
+                <div className="erp-barra-topo-favoritos">
+                  <span className="erp-barra-topo-favoritos-rotulo">
+                    <StarFilled style={{ color: '#f59e0b' }} aria-hidden /> Favoritos
+                  </span>
+                  {favoritos.length ? (
+                    favoritos.map((f) => (
+                      <button key={f.rota} type="button" className={`erp-barra-topo-atalho${f.rota === seleccionado ? ' activo' : ''}`} title={`${f.nome} (${f.nomeModulo})`} onClick={() => navegar(f.rota)}>
+                        {f.nome}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="erp-barra-topo-dica">Sem atalhos — clique em «⋮» numa operação do menu e escolha «Adicionar aos Favoritos».</span>
+                  )}
+                </div>
+              </div>
+            </nav>
           )}
           <Layout.Header
             className="erp-cabecalho"
@@ -534,7 +560,7 @@ function Estrutura() {
                   {nif && <span className="erp-cracha-nif">NIF: {nif}</span>}
                 </div>
               </Flex>
-              {ecra.lg && (
+              {ecra.xl && (
                 <div className="erp-cabecalho-pesquisa">
                   <PesquisaCabecalho idUtilizador={idUtilizador} />
                 </div>
@@ -545,7 +571,7 @@ function Estrutura() {
                   <Button className="erp-botao-tema" icon={escuro ? <SunOutlined /> : <MoonOutlined />} aria-label="Tela nocturna" aria-pressed={escuro} onClick={alternarTema} />
                 </Tooltip>
                 {!ecra.pequeno && (
-                  <Tooltip title={ecra.lg ? undefined : modoMenu === 'lateral' ? 'Menu no topo' : 'Menu ao lado'}>
+                  <Tooltip title={cabecalhoLargo ? undefined : modoMenu === 'lateral' ? 'Menu no topo' : 'Menu ao lado'}>
                     <Button
                       className="erp-botao-modo-menu"
                       icon={modoMenu === 'lateral' ? <LayoutOutlined /> : <MenuOutlined />}
@@ -553,12 +579,12 @@ function Estrutura() {
                       aria-pressed={modoMenu === 'topo'}
                       onClick={() => definirModoMenu(modoMenu === 'lateral' ? 'topo' : 'lateral')}
                     >
-                      {ecra.lg ? (modoMenu === 'lateral' ? 'Menu no topo' : 'Menu ao lado') : null}
+                      {cabecalhoLargo ? (modoMenu === 'lateral' ? 'Menu no topo' : 'Menu ao lado') : null}
                     </Button>
                   </Tooltip>
                 )}
-                <BotaoAjuda compacto={!ecra.xl} />
-                {!ecra.lg && <PesquisaCabecalho compacto />}
+                <BotaoAjuda compacto={!cabecalhoLargo} />
+                {!ecra.xl && <PesquisaCabecalho compacto />}
                 {ecra.md && noEcra && (
                   <Tooltip title={textoFavorito}>
                     <Button
