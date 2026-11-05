@@ -6,7 +6,7 @@ import type { ModuloMenu } from '@/api/tipos';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
 import { iconeModulo } from '@/componentes/icones/iconesModulos';
 import { useSessao } from '@/sessao/SessaoContexto';
-import type { EntradaIndicePesquisa } from './indicePesquisa.gerado';
+import type { EntradaIndicePesquisa, TipoEntradaPesquisa } from './indicePesquisa.gerado';
 import { nomeModulo, rotuloEcra } from './menuLegado';
 import { temPosicaoFlutuante, usePosicaoFlutuante } from './posicaoFlutuante';
 
@@ -63,8 +63,15 @@ export interface ResultadoFuncao {
 }
 
 /** Botão/acção ou separador de um ecrã (índice gerado a partir do código). */
+export type TipoAccao = 'botao' | 'janela' | 'separador' | 'config' | 'relatorio' | 'ajuda' | 'pagina';
+
+/** Grupo (secção da lista) onde cada tipo de entrada do índice aparece. */
+export type GrupoAccao = 'accoes' | 'config' | 'relatorios' | 'ajuda';
+export const GRUPO_DO_TIPO: Readonly<Record<TipoAccao, GrupoAccao>> = { botao: 'accoes', janela: 'accoes', separador: 'accoes', config: 'config', relatorio: 'relatorios', ajuda: 'ajuda', pagina: 'ajuda' };
+const TIPO_DA_LETRA: Readonly<Partial<Record<TipoEntradaPesquisa, TipoAccao>>> = { b: 'botao', d: 'janela', s: 'separador', c: 'config', r: 'relatorio', a: 'ajuda', p: 'pagina' };
+
 export interface ResultadoAccao {
-  tipo: 'botao' | 'separador';
+  tipo: TipoAccao;
   nome: string;
   modulo: string;
   ecra: string;
@@ -84,18 +91,51 @@ export interface ResultadosPesquisa {
 const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const palavrasDe = (termo: string) => normalizar(termo).split(/\s+/).filter(Boolean);
 
+/** Grupos de palavras equivalentes (indice.config.json -> SINONIMOS_PESQUISA). */
+export type Sinonimos = readonly (readonly string[])[];
+/** Palavra escrita -> ela própria e os membros dos grupos que a contêm (por igualdade ou, com 3+ letras, por prefixo). */
+export function variantesDe(palavra: string, sinonimos?: Sinonimos): string[] {
+  const r = new Set([palavra]);
+  if (sinonimos)
+    for (const g of sinonimos) {
+      const ng = g.map(normalizar);
+      // membros curtos (irt, nif, inss…) só valem no início de uma palavra do texto (marca INICIO): evita «irt» em «virtual»
+      if (ng.some((m) => m === palavra || (palavra.length >= 3 && m.startsWith(palavra)))) ng.forEach((m) => r.add(m.length <= 4 && m !== palavra ? `${INICIO}${m}` : m));
+    }
+  return [...r];
+}
+/** Uma lista de variantes por palavra do termo; o texto tem de conter, de cada lista, pelo menos uma. */
+const LIGACOES = new Set(['e', 'a', 'o', 'as', 'os', 'de', 'da', 'do', 'das', 'dos', 'na', 'no', 'nas', 'nos', 'em', 'para', 'por', 'com']);
+/** «conta e subscrição»: as palavras de ligação não restringem a procura (a menos que sejam a única palavra). */
+const gruposDe = (palavras: string[], sinonimos?: Sinonimos): string[][] => {
+  const uteis = palavras.filter((p) => !LIGACOES.has(p));
+  return (uteis.length ? uteis : palavras).map((p) => variantesDe(p, sinonimos));
+};
+const INICIO = '\u0001';
+const regexInicio = new Map<string, RegExp>();
+const contem = (texto: string, v: string): boolean => {
+  if (!v.startsWith(INICIO)) return texto.includes(v);
+  let re = regexInicio.get(v);
+  if (!re) regexInicio.set(v, (re = new RegExp(`(^|[^a-z0-9])${v.slice(1).replace(/[^a-z0-9 ]/g, '\\$&')}`)));
+  return re.test(texto);
+};
+const casa = (texto: string, grupos: string[][]) => grupos.every((g) => g.some((v) => contem(texto, v)));
+const casaAlguma = (texto: string, grupos: string[][]) => grupos.some((g) => g.some((v) => contem(texto, v)));
+
 /** Ecrãs do menu que correspondem a todas as palavras do termo (favoritos primeiro; sem termo, só os favoritos e o resto do menu). */
-export function procurarEcras(menu: ModuloMenu[], termo: string, eFavorito: (m: string, e: string) => boolean, limite = 30): ResultadoEcra[] {
+export function procurarEcras(menu: ModuloMenu[], termo: string, eFavorito: (m: string, e: string) => boolean, limite = 30, extra?: { sinonimos?: Sinonimos; palavras?: Readonly<Record<string, string>> }): ResultadoEcra[] {
   const palavras = palavrasDe(termo);
+  const grupos = gruposDe(palavras, extra?.sinonimos);
   // rótulos do menu do legado (menuLegado.ts); a pesquisa também encontra pelo nome do catálogo e do módulo no catálogo
   const todos = menu.flatMap((m) =>
     m.ecras.map((e) => ({
       modulo: m.id, ecra: e.id, nome: rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/m/${m.id}/${e.id}`, favorito: eFavorito(m.id, e.id),
-      procura: normalizar(`${rotuloEcra(m.id, e.id, e.nome)} ${e.nome} ${nomeModulo(m.id, m.nome)} ${m.nome} ${e.id}`),
+      procura: normalizar(`${rotuloEcra(m.id, e.id, e.nome)} ${e.nome} ${nomeModulo(m.id, m.nome)} ${m.nome} ${e.id} ${extra?.palavras?.[e.id] ?? ''}`),
     })),
   );
-  const filtrados = palavras.length ? todos.filter((r) => palavras.every((p) => r.procura.includes(p))) : todos;
-  return filtrados.sort((a, b) => Number(b.favorito) - Number(a.favorito) || (palavras.length ? Number(normalizar(b.nome).startsWith(palavras[0])) - Number(normalizar(a.nome).startsWith(palavras[0])) : 0)).slice(0, limite).map(({ procura: _p, ...r }) => r);
+  const filtrados = palavras.length ? todos.filter((r) => casa(r.procura, grupos)) : todos;
+  const noNome = (r: { nome: string }) => (palavras.length ? Number(casa(normalizar(r.nome), grupos)) : 0);
+  return filtrados.sort((a, b) => Number(b.favorito) - Number(a.favorito) || noNome(b) - noNome(a) || (palavras.length ? Number(normalizar(b.nome).startsWith(palavras[0])) - Number(normalizar(a.nome).startsWith(palavras[0])) : 0)).slice(0, limite).map(({ procura: _p, ...r }) => r);
 }
 
 export interface OpcoesPesquisa {
@@ -106,14 +146,21 @@ export interface OpcoesPesquisa {
   funcoes?: readonly FuncaoSistema[];
   /** botões e separadores dos ecrãs do menu (prepararIndiceAccoes); sem ele não há este grupo */
   accoes?: readonly AccaoIndexada[];
+  /** sinónimos (SINONIMOS_PESQUISA): escrever «irt» encontra também «retenção na fonte» */
+  sinonimos?: Sinonimos;
+  /** palavras-chave extra por ecrã e por tarefa (PALAVRAS_PESQUISA) */
+  palavras?: Readonly<Record<string, string>>;
   limiteEcras?: number;
   limiteFuncoes?: number;
+  /** no grupo dos botões e separadores (12 por omissão) */
   limiteAccoes?: number;
+  /** em cada um dos outros grupos: configurações, relatórios, ajuda e páginas (6 por omissão) */
+  limiteOutros?: number;
 }
 
 /** Entrada do índice já ligada ao menu do utilizador e normalizada (preparada uma vez por menu). */
 export interface AccaoIndexada {
-  tipo: 'botao' | 'separador';
+  tipo: TipoAccao;
   nome: string;
   modulo: string;
   ecra: string;
@@ -124,6 +171,8 @@ export interface AccaoIndexada {
   permissoes: string[][];
   /** rótulo sem acentos */
   nomeNormal: string;
+  /** rótulo e palavras-chave extra (resumo da ajuda, sinónimos da página), sem acentos */
+  chaves: string;
   /** rótulo, ecrã e módulo sem acentos */
   procura: string;
 }
@@ -142,30 +191,42 @@ export function consultaSeparador(separador: string | undefined): string {
  * permissões); o texto de procura fica normalizado em memória para a pesquisa ser rápida a cada tecla.
  */
 export function prepararIndiceAccoes(indice: readonly EntradaIndicePesquisa[], menu: ModuloMenu[]): AccaoIndexada[] {
-  const ecras = new Map<string, { modulo: string; nomeModulo: string; nomeEcra: string; procura: string }>();
+  const ecras = new Map<string, { modulo: string; nomeModulo: string; nomeEcra: string; nomeCatalogo: string; procura: string }>();
   for (const m of menu)
     for (const e of m.ecras) {
       const nm = nomeModulo(m.id, m.nome);
       const ne = rotuloEcra(m.id, e.id, e.nome);
-      ecras.set(e.id, { modulo: m.id, nomeModulo: nm, nomeEcra: ne, procura: normalizar(`${ne} ${e.nome} ${nm} ${m.nome}`) });
+      ecras.set(e.id, { modulo: m.id, nomeModulo: nm, nomeEcra: ne, nomeCatalogo: e.nome, procura: normalizar(`${ne} ${e.nome} ${nm} ${m.nome}`) });
     }
   const r: AccaoIndexada[] = [];
-  for (const [ecraId, tipo, rotulo, permissoes, separador] of indice) {
+  for (const [ecraId, letra, rotulo, permissoes, separador, palavras] of indice) {
+    const tipo = TIPO_DA_LETRA[letra];
+    if (!tipo) continue;   // 'e' (ecrã) não é um resultado: os ecrãs vêm do menu
+    const nomeNormal = normalizar(rotulo);
+    const chaves = palavras ? `${nomeNormal} ${normalizar(palavras)}` : nomeNormal;
+    const consulta = consultaSeparador(separador);
+    const perms = permissoes ? permissoes.split(';').map((g) => g.split('|').filter(Boolean)).filter((g) => g.length) : [];
+    if (letra === 'p') {
+      // página fora de /m/…: basta ter sessão (a própria página decide o resto)
+      r.push({ tipo, nome: rotulo, modulo: 'geral', ecra: ecraId, nomeModulo: 'Sistema', nomeEcra: rotulo, rota: `${ecraId}${consulta ? `?${consulta}` : ''}`, permissoes: perms, nomeNormal, chaves, procura: chaves });
+      continue;
+    }
     const e = ecras.get(ecraId);
     if (!e) continue;
-    const nomeNormal = normalizar(rotulo);
-    const consulta = consultaSeparador(separador);
+    // a ajuda com o mesmo título do ecrã seria um duplicado do próprio ecrã
+    if (letra === 'a' && (nomeNormal === normalizar(e.nomeEcra) || nomeNormal === normalizar(e.nomeCatalogo)) && !palavras) continue;
     r.push({
-      tipo: tipo === 's' ? 'separador' : 'botao',
+      tipo,
       nome: rotulo,
       modulo: e.modulo,
       ecra: ecraId,
       nomeModulo: e.nomeModulo,
       nomeEcra: e.nomeEcra,
       rota: `/m/${e.modulo}/${ecraId}${consulta ? `?${consulta}` : ''}`,
-      permissoes: permissoes ? permissoes.split(';').map((g) => g.split('|').filter(Boolean)).filter((g) => g.length) : [],
+      permissoes: perms,
       nomeNormal,
-      procura: `${nomeNormal} ${e.procura}`,
+      chaves,
+      procura: `${chaves} ${e.procura}`,
     });
   }
   return r;
@@ -179,17 +240,23 @@ export function prepararIndiceAccoes(indice: readonly EntradaIndicePesquisa[], m
 export function procurarAccoes(termo: string, o: OpcoesPesquisa): ResultadoAccao[] {
   const palavras = palavrasDe(termo);
   if (!palavras.length || !o.accoes?.length) return [];
+  const grupos = gruposDe(palavras, o.sinonimos);
   const achados: (ResultadoAccao & { peso: number; ordem: number })[] = [];
   o.accoes.forEach((a, ordem) => {
-    if (!palavras.every((p) => a.procura.includes(p)) || !palavras.some((p) => a.nomeNormal.includes(p))) return;
+    if (!casa(a.procura, grupos) || !casaAlguma(a.chaves, grupos)) return;
     if (!a.permissoes.every((g) => g.some((c) => o.pode(c)))) return;
     const favorito = o.eFavorito(a.modulo, a.ecra);
-    const peso = (favorito ? 8 : 0) + (palavras.every((p) => a.nomeNormal.includes(p)) ? 4 : 0) + (a.nomeNormal.startsWith(palavras[0]) ? 2 : 0) + (a.tipo === 'separador' ? 1 : 0);
+    const peso = (favorito ? 8 : 0) + (casa(a.nomeNormal, grupos) ? 4 : 0) + (a.nomeNormal.startsWith(palavras[0]) ? 2 : 0) + (a.tipo === 'separador' ? 1 : 0) - (a.tipo === 'ajuda' || a.tipo === 'pagina' ? 1 : 0);
     achados.push({ tipo: a.tipo, nome: a.nome, modulo: a.modulo, ecra: a.ecra, nomeModulo: a.nomeModulo, nomeEcra: a.nomeEcra, rota: a.rota, favorito, peso, ordem });
   });
+  // limite por grupo (um grupo cheio não esconde os outros); dentro do grupo, por peso e depois pela ordem do índice
+  const usados: Record<GrupoAccao, number> = { accoes: 0, config: 0, relatorios: 0, ajuda: 0 };
   return achados
     .sort((a, b) => b.peso - a.peso || a.ordem - b.ordem)
-    .slice(0, o.limiteAccoes ?? 12)
+    .filter((a) => {
+      const g = GRUPO_DO_TIPO[a.tipo];
+      return ++usados[g] <= (g === 'accoes' ? (o.limiteAccoes ?? 12) : (o.limiteOutros ?? 6));
+    })
     .map(({ peso: _p, ordem: _o, ...r }) => r);
 }
 
@@ -201,6 +268,7 @@ export function procurarAccoes(termo: string, o: OpcoesPesquisa): ResultadoAccao
 export function procurarFuncoes(menu: ModuloMenu[], termo: string, o: OpcoesPesquisa): ResultadoFuncao[] {
   const palavras = palavrasDe(termo);
   if (!palavras.length) return [];
+  const grupos = gruposDe(palavras, o.sinonimos);
   const ecras = new Map<string, { nomeModulo: string; nomeEcra: string; procura: string }>();
   for (const m of menu)
     for (const e of m.ecras) {
@@ -213,10 +281,10 @@ export function procurarFuncoes(menu: ModuloMenu[], termo: string, o: OpcoesPesq
     const ecra = ecras.get(`${f.modulo}/${f.ecra}`);
     if (!ecra || !o.pode(f.chave)) return;
     const nome = normalizar(f.rotulo);
-    const texto = `${nome} ${normalizar(f.chave)} ${ecra.procura}`;
-    if (!palavras.every((p) => texto.includes(p))) return;
+    const texto = `${nome} ${normalizar(f.chave)} ${normalizar(o.palavras?.[f.chave] ?? '')} ${ecra.procura}`;
+    if (!casa(texto, grupos)) return;
     const favorito = o.eFavorito(f.modulo, f.ecra);
-    const peso = (favorito ? 4 : 0) + (palavras.every((p) => nome.includes(p)) ? 2 : 0) + (nome.startsWith(palavras[0]) ? 1 : 0);
+    const peso = (favorito ? 4 : 0) + (casa(nome, grupos) ? 2 : 0) + (nome.startsWith(palavras[0]) ? 1 : 0);
     achados.push({ chave: f.chave, nome: f.rotulo, modulo: f.modulo, ecra: f.ecra, nomeModulo: ecra.nomeModulo, nomeEcra: ecra.nomeEcra, rota: `/m/${f.modulo}/${f.ecra}`, favorito, peso, ordem });
   });
   return achados
@@ -229,7 +297,7 @@ export function procurarFuncoes(menu: ModuloMenu[], termo: string, o: OpcoesPesq
 export function pesquisarSistema(menu: ModuloMenu[], termo: string, o: OpcoesPesquisa): ResultadosPesquisa {
   const limite = o.limiteEcras ?? 8;
   const ecras = palavrasDe(termo).length
-    ? procurarEcras(menu, termo, o.eFavorito, limite)
+    ? procurarEcras(menu, termo, o.eFavorito, limite, { sinonimos: o.sinonimos, palavras: o.palavras })
     : procurarEcras(menu, '', o.eFavorito, Number.MAX_SAFE_INTEGER).filter((r) => r.favorito).slice(0, limite);
   return { ecras, funcoes: procurarFuncoes(menu, termo, o), accoes: procurarAccoes(termo, o) };
 }
@@ -289,7 +357,15 @@ function Opcao({ modulo, nome, caminho, favorito, termo }: { modulo: string; nom
 
 const eMac = () => typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent || '');
 const PREFIXOS = ['ecra:', 'funcao:', 'accao:'];
-const ROTULO_TIPO = { botao: 'Botão', separador: 'Separador' } as const;
+const ROTULO_TIPO: Readonly<Record<TipoAccao, string>> = { botao: 'Botão', janela: 'Janela', separador: 'Separador', config: 'Configuração', relatorio: 'Relatório', ajuda: 'Ajuda', pagina: 'Página' };
+const TITULO_GRUPO: Readonly<Record<GrupoAccao, string>> = { accoes: 'Botões e separadores', config: 'Configurações', relatorios: 'Relatórios e exportações', ajuda: 'Ajuda e outras páginas' };
+const GRUPOS_ORDEM: readonly GrupoAccao[] = ['accoes', 'config', 'relatorios', 'ajuda'];
+/** «Botão › abre em Ecrã › Módulo»: as acções que só existem numa janela ou botão abrem o ecrã onde se executam. */
+function caminhoAccao(r: ResultadoAccao): string {
+  if (r.tipo === 'pagina') return `${ROTULO_TIPO.pagina} › ${r.nomeModulo}`;
+  const abre = r.tipo === 'separador' || r.tipo === 'ajuda' ? '' : 'abre em ';
+  return `${ROTULO_TIPO[r.tipo]} › ${abre}${r.nomeEcra} › ${r.nomeModulo}`;
+}
 
 /**
  * Campo «Procurar» da barra superior. `compacto` (ecrãs estreitos): só o ícone, que abre o mesmo campo por cima da barra.
@@ -313,12 +389,16 @@ export function PesquisaCabecalho({ compacto = false, idUtilizador }: { compacto
 
   // índice dos botões e separadores (≈ 90 kB): só se carrega quando o utilizador usa a pesquisa
   const [indice, setIndice] = useState<readonly EntradaIndicePesquisa[] | null>(null);
+  const [vocabulario, setVocabulario] = useState<{ sinonimos: Sinonimos; palavras: Readonly<Record<string, string>> } | undefined>(undefined);
   const aCarregarIndice = useRef(false);
   const carregarIndice = useCallback(() => {
     if (aCarregarIndice.current) return;
     aCarregarIndice.current = true;
     import('./indicePesquisa.gerado')
-      .then((m) => setIndice(m.INDICE_PESQUISA))
+      .then((m) => {
+        setVocabulario({ sinonimos: m.SINONIMOS_PESQUISA, palavras: m.PALAVRAS_PESQUISA });
+        setIndice(m.INDICE_PESQUISA);
+      })
       .catch(() => {
         aCarregarIndice.current = false;   // tenta de novo na próxima vez (sem o índice ficam os ecrãs e as funções)
       });
@@ -328,7 +408,7 @@ export function PesquisaCabecalho({ compacto = false, idUtilizador }: { compacto
   }, [termo, carregarIndice]);
   const accoes = useMemo(() => (indice ? prepararIndiceAccoes(indice, menu) : undefined), [indice, menu]);
 
-  const resultados = useMemo(() => pesquisarSistema(menu, termo, { eFavorito, pode: (c) => !!pode?.(c), accoes }), [menu, termo, eFavorito, pode, accoes]);
+  const resultados = useMemo(() => pesquisarSistema(menu, termo, { eFavorito, pode: (c) => !!pode?.(c), accoes, sinonimos: vocabulario?.sinonimos, palavras: vocabulario?.palavras }), [menu, termo, eFavorito, pode, accoes, vocabulario]);
 
   const focar = useCallback(() => {
     if (compacto) setAberta(true);
@@ -373,15 +453,18 @@ export function PesquisaCabecalho({ compacto = false, idUtilizador }: { compacto
           return { value: valor, label: <Opcao modulo={r.modulo} nome={r.nome} caminho={`${r.nomeModulo} › ${r.nomeEcra}`} favorito={r.favorito} termo={termo} /> };
         }),
       });
-    if (resultados.accoes.length)
+    for (const grupo of GRUPOS_ORDEM) {
+      const doGrupo = resultados.accoes.filter((r) => GRUPO_DO_TIPO[r.tipo] === grupo);
+      if (!doGrupo.length) continue;
       opcoes.push({
-        label: <span className="erp-pesquisa-grupo">Botões e separadores</span>,
-        options: resultados.accoes.map((r) => {
+        label: <span className="erp-pesquisa-grupo">{TITULO_GRUPO[grupo]}</span>,
+        options: doGrupo.map((r) => {
           const valor = `accao:${r.tipo}:${r.rota}:${r.nome}`;
           rotas.set(valor, r.rota);
-          return { value: valor, label: <Opcao modulo={r.modulo} nome={r.nome} caminho={`${ROTULO_TIPO[r.tipo]} › ${r.nomeEcra} › ${r.nomeModulo}`} favorito={r.favorito} termo={termo} /> };
+          return { value: valor, label: <Opcao modulo={r.modulo} nome={r.nome} caminho={caminhoAccao(r)} favorito={r.favorito} termo={termo} /> };
         }),
       });
+    }
     return { opcoes, rotas };
   }, [resultados, termo]);
 
@@ -420,6 +503,9 @@ export function PesquisaCabecalho({ compacto = false, idUtilizador }: { compacto
           </span>
         </Tooltip>
       )}
+      <span className="sr-only" role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+        {termo.trim() ? `${resultados.ecras.length + resultados.funcoes.length + resultados.accoes.length} resultados` : ''}
+      </span>
       <AutoComplete
         value={termo}
         options={opcoes}
@@ -443,7 +529,7 @@ export function PesquisaCabecalho({ compacto = false, idUtilizador }: { compacto
           ref={entrada}
           prefix={<SearchOutlined aria-hidden className="erp-pesquisa-lupa" />}
           suffix={!termo && !compacto ? <kbd className="erp-pesquisa-atalho">{atalho}</kbd> : <span />}
-          placeholder="Procurar ecrãs, funções e botões…"
+          placeholder="Procurar ecrãs, funções, relatórios e botões…"
           aria-label="Procurar no sistema"
           title={`Procurar ecrãs, funções, botões e separadores a que tem acesso (${atalho})`}
           maxLength={80}
