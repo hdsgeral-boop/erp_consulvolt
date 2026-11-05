@@ -3,6 +3,7 @@
 namespace App\Services\Sistema;
 
 use App\Models\LogAuditoria;
+use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -32,6 +33,10 @@ final class ServicoAuditoria
         ?string $nomeUtilizador = null,
     ): LogAuditoria {
         $utilizador = Auth::user();
+        // Conta ROOT global (ADR-084): toda a alteração auditada por ela leva a marca root e a empresa alvo.
+        if ($utilizador instanceof Utilizador && $utilizador->eRoot() && ! ($novos['root'] ?? false)) {
+            $novos = ($novos ?? []) + ['root' => true, 'empresa_alvo_id' => $empresaId ?? $this->contexto->id()];
+        }
         $pedido = app()->runningInConsole() ? null : app(Request::class);
 
         // A escrita do log nunca é bloqueada pelo isolamento (pode não haver empresa activa).

@@ -13,6 +13,7 @@ use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Autenticacao\ServicoRecuperacaoPassword;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
+use App\Support\Tenancy\ContextoTenant;
 use App\Support\Api\RespostaApi;
 use App\Support\Autenticacao\CookiesSessao;
 use Illuminate\Http\JsonResponse;
@@ -88,8 +89,10 @@ final class AutenticacaoController extends Controller
 
     public function eu(Request $request): JsonResponse
     {
-        return RespostaApi::sucesso($this->perfilSessao($request->user()) + [
-            'empresa_ativa_id' => $this->empresaActivaDaSessao($request),
+        $activa = $this->empresaActivaDaSessao($request);
+
+        return RespostaApi::sucesso($this->perfilSessao($request->user(), $activa) + [
+            'empresa_ativa_id' => $activa,
             'ultima_empresa_id' => $request->user()->ultima_empresa_id,   // ordena o ecrã de escolha (já não vem do navegador)
         ],
             'Dados da sessão obtidos com sucesso.');
@@ -104,17 +107,28 @@ final class AutenticacaoController extends Controller
 
         if ($empresaId !== null) {
             $utilizador = $request->user();
-            $empresa = Empresa::query()->find($empresaId);
-            if (! $this->empresas->podeAceder($utilizador, (int) $empresaId)) {
-                // mesma distinção de ResolverEmpresaAtiva: «inactiva» só para quem teria acesso a ela
-                if ($empresa && ! $empresa->estaAtiva() && ($utilizador->eSuperAdministrador() || $utilizador->acesso_todas_empresas
-                    || $utilizador->empresas()->where('empresas.id', $empresaId)->exists())) {
+            if ($utilizador->eRoot()) {
+                // conta ROOT global (ADR-084): qualquer empresa activa de qualquer cliente
+                $alvo = $this->empresas->empresaDoRoot((int) $empresaId);
+                if ($alvo === null) {
+                    throw ErroContextoEmpresa::semAcesso();
+                }
+                if ($alvo->estado !== Empresa::ESTADO_ATIVO) {
                     throw ErroContextoEmpresa::inativa();
                 }
-                throw ErroContextoEmpresa::semAcesso();
-            }
-            if (! $empresa || ! $empresa->estaAtiva()) {
-                throw ErroContextoEmpresa::inativa();
+            } else {
+                $empresa = Empresa::query()->find($empresaId);
+                if (! $this->empresas->podeAceder($utilizador, (int) $empresaId)) {
+                    // mesma distinção de ResolverEmpresaAtiva: «inactiva» só para quem teria acesso a ela
+                    if ($empresa && ! $empresa->estaAtiva() && ($utilizador->eSuperAdministrador() || $utilizador->acesso_todas_empresas
+                        || $utilizador->empresas()->where('empresas.id', $empresaId)->exists())) {
+                        throw ErroContextoEmpresa::inativa();
+                    }
+                    throw ErroContextoEmpresa::semAcesso();
+                }
+                if (! $empresa || ! $empresa->estaAtiva()) {
+                    throw ErroContextoEmpresa::inativa();
+                }
             }
         }
         if ($token instanceof TokenAcesso) {
@@ -154,15 +168,26 @@ final class AutenticacaoController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function perfilSessao($utilizador): array
+    private function perfilSessao($utilizador, ?int $empresaActivaId = null): array
     {
         $utilizador->loadMissing('perfil');
+        $empresas = EmpresaResource::collection($this->empresas->acessiveis($utilizador))->resolve();
+        // Conta ROOT (ADR-084): a empresa activa pode ser de OUTRO cliente (a lista acima só traz a do seu tenant de origem);
+        // junta-a, lida no contexto do tenant dela, para o frontend a poder mostrar sem ela «pertencer» à root.
+        if ($utilizador->eRoot() && $empresaActivaId !== null && ! in_array($empresaActivaId, array_column($empresas, 'id'), true)) {
+            $alvo = $this->empresas->empresaDoRoot($empresaActivaId);
+            $empresa = $alvo === null ? null : app(ContextoTenant::class)->executarComo($alvo->tenant_id, fn () => Empresa::query()->find($empresaActivaId));
+            if ($empresa !== null) {
+                $empresas[] = EmpresaResource::make($empresa)->resolve();
+            }
+        }
 
         return [
-            'utilizador' => UtilizadorResource::make($utilizador)->resolve(),
+            // `conta_root` (ADR-084) só se revela ao próprio titular: no login o pedido ainda não tem utilizador, por isso força-se aqui.
+            'utilizador' => array_merge(UtilizadorResource::make($utilizador)->resolve(), ['conta_root' => $utilizador->eRoot()]),
             'permissoes' => $this->permissoes->efectivas($utilizador),
             'perfil_formato_v2' => $this->permissoes->formatoV2($utilizador),
-            'empresas' => EmpresaResource::collection($this->empresas->acessiveis($utilizador))->resolve(),
+            'empresas' => $empresas,
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Empresa;
 use App\Models\TokenAcesso;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use Closure;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ final class ResolverEmpresaAtiva
     public function __construct(
         private readonly ContextoEmpresa $contexto,
         private readonly ServicoEmpresas $empresas,
+        private readonly ContextoTenant $tenant,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -48,6 +50,10 @@ final class ResolverEmpresaAtiva
         $empresaId = (int) $valor;
         $utilizador = $request->user();
 
+        if ($utilizador?->eRoot()) {
+            return $this->comoRoot($request, $utilizador, $empresaId, $next);
+        }
+
         if (! $utilizador || ! $this->empresas->podeAceder($utilizador, $empresaId)) {
             // Distinguir "inactiva" de "sem acesso" só para quem teria acesso a ela.
             $empresa = Empresa::query()->find($empresaId);
@@ -66,6 +72,36 @@ final class ResolverEmpresaAtiva
             return $next($request);
         } finally {
             $this->contexto->limpar();
+        }
+    }
+
+    /**
+     * Conta ROOT global (ADR-084): entra em qualquer empresa activa de qualquer cliente, sem lhe pertencer. O servidor
+     * deduz o tenant da empresa escolhida (nunca de um cabeçalho de tenant) e muda o contexto da RLS para ele durante
+     * o pedido — a RLS fica activa e só mostra o que é dessa empresa/cliente. O alvo fica no pedido para a auditoria.
+     */
+    private function comoRoot(Request $request, $utilizador, int $empresaId, Closure $next): Response
+    {
+        $alvo = $this->empresas->empresaDoRoot($empresaId);
+        if ($alvo === null) {
+            throw ErroContextoEmpresa::semAcesso();
+        }
+        if ($alvo->estado !== Empresa::ESTADO_ATIVO) {
+            throw ErroContextoEmpresa::inativa();
+        }
+
+        $request->attributes->set('root_empresa_alvo', $empresaId);
+        $request->attributes->set('root_tenant_alvo', $alvo->tenant_id);
+
+        $tenantAnterior = $this->tenant->id();
+        $this->tenant->definir($alvo->tenant_id);
+        $this->contexto->definir($empresaId);
+
+        try {
+            return $next($request);
+        } finally {
+            $this->contexto->limpar();
+            $this->tenant->definir($tenantAnterior);
         }
     }
 
@@ -94,7 +130,7 @@ final class ResolverEmpresaAtiva
      */
     public function licencaBloqueada(Request $request, $utilizador, int $empresaId): bool
     {
-        if (! DefinicoesPlataforma::licencasAtivas() || $utilizador->eSuperAdministrador()) {
+        if (! DefinicoesPlataforma::licencasAtivas() || $utilizador->eSuperAdministrador() || $utilizador->eRoot()) {
             return false;
         }
 

@@ -7,6 +7,7 @@ use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Limites do plano do cliente (empresas e utilizadores).
@@ -82,6 +83,9 @@ final class ServicoLimitesPlano
 
     private function exigir(int $tenantId, string $chave, string $usado, string $codigo, string $rotulo): void
     {
+        if (Auth::user()?->eRoot()) {
+            return;   // conta ROOT global (ADR-084): os limites do plano de um cliente não a travam
+        }
         $cliente = Tenant::query()->find($tenantId);
         if ($cliente === null) {
             return;

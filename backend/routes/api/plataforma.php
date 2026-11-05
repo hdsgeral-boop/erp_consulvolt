@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Plataforma\PainelController;
 use App\Http\Controllers\Api\Plataforma\PlanosPlataformaController;
 use App\Http\Controllers\Api\Plataforma\PlataformaSaasController;
 use App\Http\Controllers\Api\Plataforma\RespostaRapidaSuporteController;
+use App\Http\Controllers\Api\Plataforma\RootEmpresasController;
 use App\Http\Controllers\Api\Plataforma\SessoesController;
 use App\Http\Controllers\Api\Plataforma\SuporteController;
 use App\Http\Controllers\Api\Plataforma\TransferenciasBancariasController;
@@ -157,6 +158,12 @@ Route::prefix('plataforma')->name('plataforma.')->middleware(['plataforma', 'mfa
 
     Route::get('pagamentos/config', [GatewayPagamentoController::class, 'obterConfig'])->name('pagamentos.config');
     Route::put('pagamentos/config', [GatewayPagamentoController::class, 'guardarConfig'])->name('pagamentos.config.guardar');
+});
+
+// Conta ROOT global (ADR-084): selector de empresas de todos os clientes. Fora do grupo `plataforma.` de propósito:
+// o super-administrador da plataforma NÃO a vê (middleware `root`).
+Route::prefix('plataforma/root')->name('root.')->middleware(['plataforma', 'root'])->group(function () {
+    Route::get('empresas', RootEmpresasController::class)->name('empresas');
 });
 
 // "Minha conta" do cliente SaaS: só o super-administrador do próprio cliente (middleware dmin_cliente).

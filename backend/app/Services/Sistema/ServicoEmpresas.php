@@ -70,7 +70,24 @@ final class ServicoEmpresas
 
     public function podeAceder(Utilizador $utilizador, int $empresaId): bool
     {
+        // Conta ROOT global (ADR-084): qualquer empresa activa de qualquer cliente. O contexto de empresa continua a ser
+        // definido pelo servidor (ResolverEmpresaAtiva) e a RLS continua activa dentro do tenant dessa empresa.
+        if ($utilizador->eRoot()) {
+            return ($this->empresaDoRoot($empresaId)->estado ?? null) === Empresa::ESTADO_ATIVO;
+        }
+
         return in_array($empresaId, $this->idsAcessiveis($utilizador), true);
+    }
+
+    /**
+     * Empresa (de qualquer tenant) para a conta ROOT: id, tenant_id e estado, pela função SECURITY DEFINER
+     * `plataforma_empresas()` (a RLS esconderia as empresas de outros clientes). Só devolve estes metadados.
+     */
+    public function empresaDoRoot(int $empresaId): ?object
+    {
+        $e = DB::selectOne('SELECT id, tenant_id, estado FROM plataforma_empresas() WHERE id = ?', [$empresaId]);
+
+        return $e === null ? null : (object) ['id' => (int) $e->id, 'tenant_id' => (int) $e->tenant_id, 'estado' => (string) $e->estado];
     }
 
     /** Agora e depois do commit (R2): a versão é lida em cada momento. */

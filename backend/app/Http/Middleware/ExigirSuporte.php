@@ -26,6 +26,10 @@ final class ExigirSuporte
 
     public static function exigir(?Utilizador $utilizador): void
     {
+        // Conta ROOT global (ADR-084): atravessa o tenant da plataforma.
+        if ($utilizador?->eRoot()) {
+            return;
+        }
         $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
         $elegivel = $utilizador && (int) $utilizador->tenant_id === $plataforma && ($utilizador->eSuperAdministrador() || $utilizador->eAgenteSuporte());
 

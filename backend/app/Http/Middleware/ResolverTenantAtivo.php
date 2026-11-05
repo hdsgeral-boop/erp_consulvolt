@@ -43,7 +43,7 @@ final class ResolverTenantAtivo
 
         $utilizador = $request->user('sanctum');
 
-        if ($utilizador === null || $utilizador->tenant_id === null) {
+        if ($utilizador === null || ($utilizador->tenant_id === null && ! $utilizador->eRoot())) {
             return $next($request);
         }
 
@@ -53,14 +53,25 @@ final class ResolverTenantAtivo
                 : ErroContextoEmpresa::contaDeOutroCliente();
         }
 
-        $cliente = Tenant::query()->find($utilizador->tenant_id);
-        if ($cliente === null || ! $cliente->estaAtivo()) {
-            throw ErroContextoEmpresa::tenantSuspenso();
+        // Conta ROOT global (ADR-084): não pertence a nenhum cliente. Nas áreas da plataforma e do suporte opera como o
+        // tenant da plataforma (é o que essas áreas esperam); no resto fica no seu tenant de origem até escolher uma
+        // empresa (ResolverEmpresaAtiva muda o contexto para o tenant dessa empresa). Um cliente suspenso não a trava.
+        $root = $utilizador->eRoot();
+        $tenantDoPedido = (int) $utilizador->tenant_id;   // 0 só para uma root sem tenant (definir(0) = sem empresas)
+        if ($root) {
+            if ($request->is('api/plataforma', 'api/plataforma/*', 'api/suporte', 'api/suporte/*')) {
+                $tenantDoPedido = (int) config('erp.dominio.plataforma_tenant_id', 1);
+            }
+        } else {
+            $cliente = Tenant::query()->find($utilizador->tenant_id);
+            if ($cliente === null || ! $cliente->estaAtivo()) {
+                throw ErroContextoEmpresa::tenantSuspenso();
+            }
         }
 
         // Repõe o tenant anterior (em produção é nulo; em testes e chamadas aninhadas, não apaga o contexto de quem chamou).
         $anterior = $this->tenant->id();
-        $this->tenant->definir((int) $utilizador->tenant_id);
+        $this->tenant->definir($tenantDoPedido);
 
         try {
             return $next($request);

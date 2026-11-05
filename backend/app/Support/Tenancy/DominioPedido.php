@@ -95,6 +95,11 @@ final class DominioPedido
     /** Verdadeiro quando o utilizador pode entrar/usar esta área. */
     public function permite(Utilizador $utilizador): bool
     {
+        // Conta ROOT global (ADR-084): entra em qualquer área e em qualquer endereço de cliente (o desconhecido já foi recusado antes).
+        if ($utilizador->eRoot() && $this->area !== self::DESCONHECIDA) {
+            return true;
+        }
+
         return match ($this->area) {
             self::LIVRE, self::SITE => true,
             // Super-administrador, operador do back-office OU agente de suporte (ADR-076): o backoffice de suporte vive na mesma área de

@@ -105,7 +105,7 @@ final class ServicoPermissoes
 
     public function total(Utilizador $utilizador): bool
     {
-        return $utilizador->eSuperAdministrador() || ($this->permissoes($utilizador)['all'] ?? null) === true;
+        return $utilizador->eRoot() || $utilizador->eSuperAdministrador() || ($this->permissoes($utilizador)['all'] ?? null) === true;
     }
 
     /**
@@ -135,6 +135,10 @@ final class ServicoPermissoes
 
     public function tem(Utilizador $utilizador, string $chave, ?int $empresaId = null): bool
     {
+        // Conta ROOT global (ADR-084): tudo, incluindo permissões que ainda não existem no catálogo.
+        if ($utilizador->eRoot()) {
+            return true;
+        }
         $k = self::norm($chave);
         if ($this->ePlataforma($k) && ! $this->elegivelPlataforma($utilizador)) {
             return false;
@@ -165,7 +169,7 @@ final class ServicoPermissoes
      */
     public function elegivelPlataforma(Utilizador $utilizador): bool
     {
-        return ($utilizador->eSuperAdministrador() || $utilizador->eOperadorPlataforma())
+        return $utilizador->eRoot() || ($utilizador->eSuperAdministrador() || $utilizador->eOperadorPlataforma())
             && (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
     }
 
@@ -185,7 +189,7 @@ final class ServicoPermissoes
      */
     public function elegivelSuporte(Utilizador $utilizador): bool
     {
-        return (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1)
+        return $utilizador->eRoot() || (int) $utilizador->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1)
             && ($utilizador->eSuperAdministrador() || $utilizador->eAgenteSuporte());
     }
 
@@ -307,7 +311,7 @@ final class ServicoPermissoes
     {
         $menu = [];
         $holding = $this->eHolding($empresaId);
-        $modulosPermitidos = $this->modulosDoTenant($utilizador->tenant_id);
+        $modulosPermitidos = $utilizador->eRoot() ? null : $this->modulosDoTenant($utilizador->tenant_id);
         foreach (CatalogoPermissoes::completo()['modulos'] as $m) {
             if ($modulosPermitidos !== null && ! in_array($m['id'], ModulosPlano::SEMPRE_DISPONIVEIS, true) && ! in_array($m['id'], $modulosPermitidos, true)) {
                 continue; // módulo inteiro fora do plano do cliente (ModulosPlano)
@@ -372,6 +376,9 @@ final class ServicoPermissoes
      */
     public function bloqueadaPeloPlano(Utilizador $utilizador, string $chave): bool
     {
+        if ($utilizador->eRoot()) {
+            return false;   // conta ROOT global (ADR-084): o plano de um cliente não a limita
+        }
         $permitidos = $this->modulosDoTenant($utilizador->tenant_id);
         if ($permitidos === null) {
             return false;

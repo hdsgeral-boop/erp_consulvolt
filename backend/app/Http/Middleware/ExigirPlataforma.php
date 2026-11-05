@@ -28,6 +28,10 @@ final class ExigirPlataforma
     public static function exigir(?Utilizador $utilizador, ?Request $request = null): void
     {
         $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
+        // Conta ROOT global (ADR-084): não pertence a nenhum tenant, por isso nem o tenant da plataforma nem o SaaS activo a travam.
+        if ($utilizador?->eRoot()) {
+            return;
+        }
         $elegivel = $utilizador && (int) $utilizador->tenant_id === $plataforma
             && ($utilizador->eSuperAdministrador() || $utilizador->eOperadorPlataforma());
         if (! $elegivel) {

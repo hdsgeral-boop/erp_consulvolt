@@ -2,6 +2,7 @@
 
 use App\Exceptions\ErroNegocio;
 use App\Exceptions\ManipuladorExcecoesApi;
+use App\Http\Middleware\AuditarContaRoot;
 use App\Http\Middleware\BloquearExportacaoComLicencaExpirada;
 use App\Http\Middleware\BloquearTokenMfaPendente;
 use App\Http\Middleware\CabecalhosSemCache;
@@ -9,6 +10,7 @@ use App\Http\Middleware\CacheCondicional;
 use App\Http\Middleware\ExigirAdministradorCliente;
 use App\Http\Middleware\ExigirAreaPortal;
 use App\Http\Middleware\ExigirPlataforma;
+use App\Http\Middleware\ExigirRoot;
 use App\Http\Middleware\ExigirMfaRecente;
 use App\Http\Middleware\ExigirSuporte;
 use App\Http\Middleware\ExigirTrocaPassword;
@@ -53,9 +55,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
         // Rotação do token de sessão (ADR-082): troca o cookie do token a meio da sessão, na resposta de pedidos autenticados.
         $middleware->api(append: [RotacionarToken::class]);
+        // Conta ROOT global (ADR-084): auditoria de cada pedido da conta root (o mais interno: já com a empresa alvo resolvida).
+        $middleware->api(append: [AuditarContaRoot::class]);
         $middleware->alias([
             'empresa' => ResolverEmpresaAtiva::class,
             'plataforma' => ExigirPlataforma::class,
+            'root' => ExigirRoot::class,
             'admin_cliente' => ExigirAdministradorCliente::class,
             'suporte' => ExigirSuporte::class,
             'licenca_exportacao' => BloquearExportacaoComLicencaExpirada::class,
