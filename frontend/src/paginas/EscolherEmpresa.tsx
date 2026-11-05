@@ -24,6 +24,11 @@ export function filtrarEmpresas(empresas: Empresa[], pesquisa: string): Empresa[
   });
 }
 
+/** Ordem alfabética pelo nome (pt, sem distinguir acentos nem maiúsculas); em empate, pelo id. */
+export function ordenarAlfabeticamente<T extends { id: number; nome: string }>(empresas: T[]): T[] {
+  return [...empresas].sort((a, b) => a.nome.localeCompare(b.nome, 'pt', { sensitivity: 'base' }) || a.id - b.id);
+}
+
 /** Põe primeiro as empresas usadas recentemente (pela ordem de uso); as restantes mantêm a ordem recebida. */
 export function ordenarPorRecentes(empresas: Empresa[], recentes: number[]): Empresa[] {
   const posicao = (id: number) => {
@@ -66,9 +71,10 @@ export function EscolherEmpresa() {
   const { empresas, escolherEmpresa, sair, utilizador, ultimaEmpresaId } = useSessao();
   const [aEscolher, setAEscolher] = useState<number | null>(null);
   const [pesquisa, setPesquisa] = useState('');
-  // lidas uma vez ao abrir: a ordem não muda enquanto se escolhe
+  // lida uma vez ao abrir: serve só para assinalar a empresa usada por último
   const [recentes] = useState<number[]>(() => (ultimaEmpresaId != null ? [ultimaEmpresaId] : []));
-  const ordenadas = useMemo(() => ordenarPorRecentes(empresas, recentes), [empresas, recentes]);
+  // ordem alfabética (a «usada por último» fica assinalada na própria linha, sem saltar para o topo)
+  const ordenadas = useMemo(() => ordenarAlfabeticamente(empresas), [empresas]);
   const visiveis = useMemo(() => filtrarEmpresas(ordenadas, pesquisa), [ordenadas, pesquisa]);
   const ultimaUsada = recentes.find((id) => empresas.some((e) => e.id === id));
 
@@ -94,15 +100,10 @@ export function EscolherEmpresa() {
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
           {naRotaPortal() ? 'Portal do Colaborador — escolha a empresa.' : 'Escolha a empresa com que vai trabalhar.'}
         </Typography.Paragraph>
-        {/* conta root global (ADR-084): não pertence a nenhum cliente — escolhe entre as empresas de todos eles */}
-        {ehContaRoot(utilizador) && (
-          <>
-            <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} />
-            {empresas.length > 0 && <Typography.Title level={5} style={{ marginTop: 20 }}>Empresas do seu cliente de origem</Typography.Title>}
-          </>
-        )}
-        {empresas.length === 0 ? (
-          ehContaRoot(utilizador) ? null : <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
+        {/* conta root global (ADR-084): não pertence a nenhum cliente — uma só lista, com as empresas de todos eles por ordem alfabética */}
+        {ehContaRoot(utilizador) && <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} />}
+        {ehContaRoot(utilizador) ? null : empresas.length === 0 ? (
+          <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
         ) : (
           <>
             {empresas.length > 1 && (

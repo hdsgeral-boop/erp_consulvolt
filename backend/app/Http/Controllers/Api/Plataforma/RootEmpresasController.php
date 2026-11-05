@@ -37,7 +37,7 @@ final class RootEmpresasController extends Controller
             ->when(! empty($d['cliente_id']), fn ($q) => $q->where('x.tenant_id', (int) $d['cliente_id']));
 
         $total = (clone $consulta)->count();
-        $linhas = $consulta->orderBy('x.cliente_nome')->orderBy('x.nome')->orderBy('x.id')
+        $linhas = $consulta->orderByRaw('lower(x.nome)')->orderBy('x.nome')->orderBy('x.id')
             ->forPage($pagina, $porPagina)->get(['x.id', 'x.nome', 'x.estado', 'x.tenant_id', 'x.cliente_nome', 'x.cliente_slug']);
 
         return RespostaApi::sucesso($linhas->map(fn ($l) => [

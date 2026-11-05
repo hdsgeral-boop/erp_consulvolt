@@ -39,7 +39,7 @@ describe('escolher empresa — conta root', () => {
     expect(await screen.findByText('Alfa, Lda')).toBeInTheDocument();
     expect(screen.getByText('Cliente: Cliente B')).toBeInTheDocument();
     expect(screen.queryByText(/Não tem acesso a nenhuma empresa/)).toBeNull();
-    expect(obterPagina).toHaveBeenCalledWith('/plataforma/root/empresas', expect.objectContaining({ pagina: 1, por_pagina: 10 }));
+    expect(obterPagina).toHaveBeenCalledWith('/plataforma/root/empresas', expect.objectContaining({ pagina: 1, por_pagina: 25 }));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Entrar' })[1]);
     await waitFor(() => expect(escolherEmpresa).toHaveBeenCalledWith(22));

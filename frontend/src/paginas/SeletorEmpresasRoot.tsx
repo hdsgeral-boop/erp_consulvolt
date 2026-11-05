@@ -13,7 +13,7 @@ export interface EmpresaDeCliente {
   cliente_nome: string | null;
 }
 
-const POR_PAGINA = 10;
+const POR_PAGINA = 25;
 
 /**
  * Selector de empresas de TODOS os clientes para a conta root global (ADR-084), que não pertence a nenhum: pesquisa
@@ -47,6 +47,9 @@ export function SeletorEmpresasRoot({ aEscolher, escolher }: { aEscolher: number
     <section aria-label="Empresas de todos os clientes" data-testid="seletor-root">
       <Typography.Title level={5} style={{ marginTop: 0 }}>
         Empresas de todos os clientes
+        <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 12, marginInlineStart: 8 }}>
+          {total ? `${total} por ordem alfabética` : ''}
+        </Typography.Text>
       </Typography.Title>
       <Input
         allowClear

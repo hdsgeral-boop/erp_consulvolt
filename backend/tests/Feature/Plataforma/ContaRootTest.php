@@ -239,6 +239,8 @@ class ContaRootTest extends TestCase
         $this->assertContains('Cliente A', $clientes);
         $this->assertContains('Cliente B', $clientes);
         $this->assertSame(['cliente_id', 'cliente_nome', 'estado', 'id', 'nome'], collect($todas[0])->keys()->sort()->values()->all(), 'só metadados da empresa e do cliente');
+        $nomes = collect($todas)->pluck('nome')->all();
+        $this->assertSame(collect($nomes)->sortBy(fn ($n) => mb_strtolower((string) $n))->values()->all(), $nomes, 'empresas por ordem alfabética do nome');
         $this->getJson('/api/plataforma/root/empresas?pesquisa=Cliente%20B', $cab)->assertOk()
             ->assertJsonPath('dados.0.cliente_nome', 'Cliente B');
     }

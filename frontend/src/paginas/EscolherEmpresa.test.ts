@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filtrarEmpresas, normalizarPesquisa, ordenarPorRecentes } from './EscolherEmpresa';
+import { filtrarEmpresas, normalizarPesquisa, ordenarAlfabeticamente, ordenarPorRecentes } from './EscolherEmpresa';
 
 const empresas = [
   { id: 1, nome: 'Demo Comércio, Lda', nif: '5999000001' },
@@ -33,5 +33,24 @@ describe('escolher empresa — empresas recentes primeiro', () => {
     expect(ordenarPorRecentes(empresas as never, [3, 1]).map((e) => e.id)).toEqual([3, 1, 2]);
     expect(ordenarPorRecentes(empresas as never, []).map((e) => e.id)).toEqual([1, 2, 3]);
     expect(ordenarPorRecentes(empresas as never, [99, 2]).map((e) => e.id)).toEqual([2, 1, 3]);
+  });
+});
+
+describe('escolher empresa — ordem alfabética', () => {
+  it('ordena por nome sem distinguir acentos nem maiúsculas e desempata pelo id', () => {
+    const lista = [
+      { id: 5, nome: 'Zeta Lda' },
+      { id: 2, nome: 'Água Viva' },
+      { id: 4, nome: 'alfa Comércio' },
+      { id: 3, nome: 'Ábaco' },
+      { id: 1, nome: 'Alfa comércio' },
+    ];
+    expect(ordenarAlfabeticamente(lista).map((e) => e.id)).toEqual([3, 2, 1, 4, 5]);
+  });
+
+  it('não altera a lista original', () => {
+    const lista = [{ id: 2, nome: 'B' }, { id: 1, nome: 'A' }];
+    ordenarAlfabeticamente(lista);
+    expect(lista.map((e) => e.id)).toEqual([2, 1]);
   });
 });
