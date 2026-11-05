@@ -15,6 +15,8 @@ use App\Http\Middleware\ForcarRespostaJson;
 use App\Http\Middleware\ResolverEmpresaAtiva;
 use App\Http\Middleware\ResolverTenantAtivo;
 use App\Http\Middleware\RotacionarToken;
+use App\Http\Middleware\SanitizarEntrada;
+use App\Http\Middleware\ValidarUploadsSeguros;
 use App\Http\Middleware\VerificarCsrfDuploSubmit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -38,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         // Duplo-submit do CSRF (Fase D): só actua quando há cookie de sessão (ver VerificarCsrfDuploSubmit) — o
         // mais cedo possível, antes de gastar trabalho de autenticação/tenant num pedido que já se sabe inválido.
-        $middleware->api(prepend: [CabecalhosSemCache::class, ForcarRespostaJson::class, VerificarCsrfDuploSubmit::class]);
+        $middleware->api(prepend: [CabecalhosSemCache::class, ForcarRespostaJson::class, VerificarCsrfDuploSubmit::class, SanitizarEntrada::class, ValidarUploadsSeguros::class]);
         // MFA (Fase 4 da extensão SaaS): um token limitado ('mfa:pendente') nunca pode servir de sessão completa —
         // verificado o mais cedo possível, antes de qualquer outra coisa decidir algo com base no utilizador.
         $middleware->api(append: [BloquearTokenMfaPendente::class]);

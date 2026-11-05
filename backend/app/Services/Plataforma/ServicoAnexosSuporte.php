@@ -5,6 +5,7 @@ namespace App\Services\Plataforma;
 use App\Exceptions\ErroNegocio;
 use App\Models\AnexoSuporte;
 use App\Models\MensagemSuporte;
+use App\Support\Seguranca\ValidadorUploadSeguro;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -35,6 +36,7 @@ final class ServicoAnexosSuporte
         if ($ficheiro->getSize() > self::TAMANHO_MAXIMO_KB * 1024) {
             throw new ErroNegocio('Cada anexo não pode exceder 5 MB.', 'ANEXO_GRANDE', 422);
         }
+        ValidadorUploadSeguro::validarOu($ficheiro, 'documento', 'ANEXO_TIPO_INVALIDO', 'Só são aceites imagens (JPEG, PNG, WebP) ou PDF.');
         $mime = $this->tipoReal($ficheiro);
         $extensao = self::TIPOS[$mime] ?? throw new ErroNegocio('Só são aceites imagens (JPEG, PNG, WebP) ou PDF.', 'ANEXO_TIPO_INVALIDO', 422);
         $pasta = "suporte/{$mensagem->ticket_id}";

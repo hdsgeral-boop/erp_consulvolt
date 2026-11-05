@@ -3,6 +3,7 @@
 namespace App\Services\Sistema;
 
 use App\Exceptions\ErroNegocio;
+use App\Support\Seguranca\ValidadorUploadSeguro;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -26,6 +27,7 @@ final class ServicoLeituraFolha
     /** @return list<array<string, mixed>> */
     public function linhas(UploadedFile $ficheiro, string $folhaPreferida = 'Template'): array
     {
+        ValidadorUploadSeguro::validarOu($ficheiro, 'folha', 'FICHEIRO_INVALIDO', 'Não foi possível ler o ficheiro (use o modelo XLSX, ou XLS/CSV).');
         try {
             // O ficheiro temporário do upload não tem extensão: o tipo vem do nome original.
             $tipo = match (strtolower($ficheiro->getClientOriginalExtension())) {

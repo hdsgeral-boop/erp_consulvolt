@@ -132,7 +132,7 @@ final class SuporteProfissionalizacaoTest extends TestCase
         $this->getJson("/api/suporte/anexos/{$anexoId}", $as)->assertOk()->assertHeader('Content-Type', 'image/png');
 
         $texto = UploadedFile::fake()->create('script.exe', 10, 'application/x-msdownload');
-        $this->postJson("/api/suporte/tickets/{$ticket->id}/mensagens", ['mensagem' => 'Outro.', 'ficheiros' => [$texto]], $as)->assertStatus(422)->assertJsonPath('codigo', 'ANEXO_TIPO_INVALIDO');
+        $this->postJson("/api/suporte/tickets/{$ticket->id}/mensagens", ['mensagem' => 'Outro.', 'ficheiros' => [$texto]], $as)->assertStatus(422)->assertJsonPath('codigo', 'FICHEIRO_EXTENSAO_PROIBIDA');   // ADR-083: o middleware recusa executáveis antes do serviço
     }
 
     public function test_csat_so_depois_de_resolvido_e_uma_unica_vez(): void

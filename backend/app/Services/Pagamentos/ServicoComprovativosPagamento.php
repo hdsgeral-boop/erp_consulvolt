@@ -7,6 +7,7 @@ use App\Models\AnexoComprovativoPagamento;
 use App\Models\SubscricaoEmpresa;
 use App\Models\TransacaoGateway;
 use App\Models\Utilizador;
+use App\Support\Seguranca\ValidadorUploadSeguro;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -36,6 +37,7 @@ final class ServicoComprovativosPagamento
         if ($ficheiro->getSize() > self::TAMANHO_MAXIMO_KB * 1024) {
             throw new ErroNegocio('O comprovativo não pode exceder 5 MB.', 'ANEXO_GRANDE', 422);
         }
+        ValidadorUploadSeguro::validarOu($ficheiro, 'documento', 'ANEXO_TIPO_INVALIDO', 'Só são aceites imagens (JPEG, PNG) ou PDF.');
         $mime = $this->tipoReal($ficheiro);
         $extensao = self::TIPOS[$mime] ?? throw new ErroNegocio('Só são aceites imagens (JPEG, PNG) ou PDF.', 'ANEXO_TIPO_INVALIDO', 422);
 

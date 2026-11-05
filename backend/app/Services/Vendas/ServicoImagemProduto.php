@@ -5,6 +5,7 @@ namespace App\Services\Vendas;
 use App\Exceptions\ErroNegocio;
 use App\Models\Produto;
 use App\Services\Sistema\ServicoImagensPublicas;
+use App\Support\Seguranca\ValidadorUploadSeguro;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,7 @@ final class ServicoImagemProduto
         if ((int) $produto->empresa_id !== $empresa) {   // defesa em profundidade (o âmbito global já filtra)
             throw new ErroNegocio('Produto inexistente.', 'PRODUTO_INEXISTENTE', 404);
         }
+        ValidadorUploadSeguro::validarOu($ficheiro, 'imagem', 'IMAGEM_TIPO_INVALIDO', 'Só são aceites imagens JPEG, PNG ou WebP.');
         $mime = $this->tipoReal($ficheiro);
         $extensao = self::TIPOS[$mime] ?? throw new ErroNegocio('Só são aceites imagens JPEG, PNG ou WebP.', 'IMAGEM_TIPO_INVALIDO', 422);
         $dimensoes = @getimagesize($ficheiro->getRealPath());
