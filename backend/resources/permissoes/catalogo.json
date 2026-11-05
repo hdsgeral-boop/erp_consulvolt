@@ -604,6 +604,16 @@
           ]
         },
         {
+          "id": "saft_contabilidade",
+          "nome": "Exportar SAF-T AO (Contabilidade)",
+          "vistas": [
+            "saft_contabilidade"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": "Ecrã de exportação ligado ao ecrã-pai; a consulta própria (saft_contabilidade_view) concede o acesso ao menu e à pesquisa.",
+          "tarefas": []
+        },
+        {
           "id": "relatorios_contabeis",
           "nome": "Mapas e relatórios",
           "vistas": [
@@ -1752,6 +1762,16 @@
               "sensivel": true
             }
           ]
+        },
+        {
+          "id": "inventario_agt",
+          "nome": "Exportar inventário (AGT)",
+          "vistas": [
+            "inventario_agt"
+          ],
+          "pai": "inventario_revisao",
+          "nota": "Ecrã de exportação ligado ao ecrã-pai; a consulta própria (inventario_agt_view) concede o acesso ao menu e à pesquisa.",
+          "tarefas": []
         },
         {
           "id": "inventario_sessoes",
