@@ -92,7 +92,8 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
         form={form}
         layout="vertical"
         onFinish={(v) => {
-          const linhas = linhasComQuantidade(v.linhas);
+          // o `v.linhas` do onFinish só traz os subcampos registados (quantidade): os ids (item_encomenda_id…) lêem-se do store completo
+          const linhas = linhasComQuantidade((form.getFieldValue('linhas') as LinhaQtd[] | undefined) ?? v.linhas);
           if (!linhas.length) {
             Modal.warning({ title: 'Indique pelo menos uma quantidade recebida.' });
             return;
@@ -201,7 +202,8 @@ export function ModalFaturaEncomenda({ encomenda, aberto, aoFechar, aoRegistar }
         form={form}
         layout="vertical"
         onFinish={(v) => {
-          const linhas = linhasComQuantidade(v.linhas);
+          // o `v.linhas` do onFinish só traz os subcampos registados (quantidade): os ids (item_encomenda_id…) lêem-se do store completo
+          const linhas = linhasComQuantidade((form.getFieldValue('linhas') as LinhaQtd[] | undefined) ?? v.linhas);
           if (!linhas.length) {
             Modal.warning({ title: 'Indique pelo menos uma quantidade a facturar.' });
             return;
