@@ -147,9 +147,17 @@ function moduloDe(tabela, ctrls) {
   return 'Outros';
 }
 
-const padraoBack = (col) => new RegExp(`(['"])${esc(col)}\\1|->${esc(col)}\\b|\\b[a-z_]{1,4}\\.${esc(col)}\\b`);
+const padraoBack = (col) => new RegExp(`(['"])${esc(col)}\\1|->${esc(col)}\\b|\\b[a-z_]{1,4}\\.${esc(col)}\\b|\\.${esc(col)}['"]|\\[${esc(col)}\\]`);
 const padraoFront = (col) => new RegExp(`(?<![\\w])${esc(col)}(?![\\w])`);
 
+// Colunas distintivas (em ≤ 2 tabelas): a pesquisa é global, porque o nome identifica o campo sem ambiguidade
+// (ex.: morada.numero_porta é validada num Request que nunca menciona o modelo EnderecoTerceiro).
+const tabelasPorColuna = new Map();
+for (const [t, cs] of tabelas) for (const c of cs) tabelasPorColuna.set(c.c, (tabelasPorColuna.get(c.c) ?? 0) + 1);
+const distintiva = (col) => tabelasPorColuna.get(col) <= 2 && col.length >= 6;
+const backHttpGlobal = codigoBack.filter((x) => x.f.includes('/Http/') && !x.f.includes('/Resources/'));
+const backResGlobal = codigoBack.filter((x) => x.f.includes('/Resources/'));
+const backServGlobal = codigoBack.filter((x) => !x.f.includes('/Http/'));
 const resultado = [];
 const camposMortos = [];
 
@@ -179,6 +187,12 @@ for (const [tabela, colunas] of [...tabelas].sort((a, b) => a[0].localeCompare(b
       if ((reClasse && reClasse.test(corpo)) || reTabela.test(corpo)) uris.add(prefixoUri(r.uri));
     }
   }
+  // 2.º salto: sem URI directa (acesso via Resource/Service/Request) → rotas dos controllers que mencionam as classes do âmbito
+  if (![...uris].some((u) => u.length > 3)) {
+    const nomes = ambito.map((x) => path.basename(x.f, '.php')).filter((n) => !/^(Controller|Auditoriaw*)$/.test(n));
+    const reNomes = nomes.length ? new RegExp(`\b(${nomes.map(esc).join('|')})\b`) : null;
+    for (const [cls, c] of controllers) if (reNomes && reNomes.test(c.texto)) for (const r of rotasPorController.get(cls) ?? []) uris.add(prefixoUri(r.uri));
+  }
   uris.delete('');
   const reUris = [...uris].filter((u) => u.length > 3).map((u) => new RegExp(`['"\`]${esc(u)}(?![\\w-])`));
   // 2.ª passagem: URLs montadas com constantes (`${EST}/delegacoes`) — último segmento + penúltimo palavra no mesmo ficheiro
@@ -198,16 +212,21 @@ for (const [tabela, colunas] of [...tabelas].sort((a, b) => a[0].localeCompare(b
     const col = c.c;
     const reB = padraoBack(col);
     const reF = padraoFront(col);
-    const nasHttp = entradaHttp.filter((x) => reB.test(x.texto)).map((x) => x.f);
-    const nosRes = resource.filter((x) => reB.test(x.texto)).map((x) => x.f);
-    const nosServ = servicos.filter((x) => reB.test(x.texto)).map((x) => x.f);
+    const glob = distintiva(col);
+    const nasHttp = (glob ? backHttpGlobal : entradaHttp).filter((x) => reB.test(x.texto)).map((x) => x.f);
+    const nosRes = (glob ? backResGlobal : resource).filter((x) => reB.test(x.texto)).map((x) => x.f);
+    const nosServ = (glob ? backServGlobal : servicos).filter((x) => reB.test(x.texto)).map((x) => x.f);
     const noModelo = modeloConcreto.some((x) => reB.test(x.texto));
     const oculta = modelo?.hidden.includes(col) ?? false;
-    const backendUsa = nasHttp.length + nosRes.length + nosServ.length > 0 || noModelo;
-    const apiEscrita = nasHttp.length > 0 || nosServ.some((f) => f.includes('/Services/') && false);
+    const fraco = col.length >= 8 && col.includes('_') ? new RegExp(`(?<![\w])${esc(col)}(?![\w])`) : null;
+    const nasHttpFraco = fraco && !nasHttp.length ? entradaHttp.filter((x) => fraco.test(x.texto)).map((x) => x.f) : [];
+    const nosServFraco = fraco && !nosServ.length ? servicos.filter((x) => fraco.test(x.texto)).map((x) => x.f) : [];
+    const backendUsa = nasHttpFraco.length + nosServFraco.length + nasHttp.length + nosRes.length + nosServ.length > 0 || noModelo;
+    const apiEscrita = nasHttp.length > 0 || nasHttpFraco.length > 0;
     const apiLeitura = nosRes.length > 0 || (!temResource && temController && !oculta);
-    const frontTsx = ficheirosF.filter((x) => x.f.endsWith('.tsx') && reF.test(x.texto)).map((x) => x.f);
-    const frontTs = ficheirosF.filter((x) => x.f.endsWith('.ts') && reF.test(x.texto)).map((x) => x.f);
+    const alvoFront = glob ? front : ficheirosF;
+    const frontTsx = alvoFront.filter((x) => x.f.endsWith('.tsx') && reF.test(x.texto)).map((x) => x.f);
+    const frontTs = alvoFront.filter((x) => x.f.endsWith('.ts') && reF.test(x.texto)).map((x) => x.f);
     const frontUi = frontTsx.length > 0;
     const m2 = m?.colunas.find((k) => k.pt === col);
     const preenchimento = m2?.preenchimento ?? null;
@@ -320,6 +339,13 @@ const tab = (cab, linhas) => { L.push(`| ${cab.join(' | ')} |`, `| ${cab.map(() 
 L.push('# Cobertura de campos BD → modelo → API → frontend (2026-11)', '');
 L.push('> Gerado por `ferramentas/paridade/auditar_campos.mjs` (determinístico; entradas: `esquema_bd.json`, `rotas.json`, código em `backend/app` e `frontend/src`). É uma **triagem heurística** por âmbito de tabela (ficheiros que mencionam o modelo/tabela; no frontend, ficheiros que chamam os endpoints dessa tabela e os seus imports locais). As lacunas listadas são confirmadas à mão antes de qualquer implementação.', '');
 L.push('## Classes', '', '- **INFRA**: id, empresa_id, carimbos, autoria, hashes, chaves de idempotência — normal não ter UI.', '- **LEGADO_TECNICO**: `*_original`, `*_legado`, colunas de normalização/paridade.', '- **FUNCIONAL_COBERTO**: backend + API + ecrã.', '- **FUNCIONAL_SO_BACKEND**: a API devolve/aceita, nenhum ecrã a mostra ou edita.', '- **FUNCIONAL_SEM_API**: existe na BD/modelo, nenhum endpoint a lê ou escreve (ou só uso interno).', '- **ORFA**: nenhum código a usa e o legado não tinha dados.', '');
+L.push('## Precisão da triagem e verificação manual', '',
+  'A triagem é estática: nomes de colunas montados por constantes (`EnderecoTerceiro::CAMPOS`), regras de validação com chaves pontuadas (`habilitacoes.*.curso`), URLs montadas com constantes (`${EST}/delegacoes`) e acesso via Resource/Service sem referência ao modelo geram **falsos positivos**. Por isso as classes `FUNCIONAL_SO_BACKEND`/`FUNCIONAL_SEM_API` são um limite superior das lacunas reais. Amostra verificada à mão (Vendas, Terceiros, RH, Compras, Estrutura, CRM):', '',
+  '- **Falsos positivos confirmados** (já cobertos): `enderecos_terceiros.*` (morada estruturada no Resource/Request/Serviço de terceiros), `habilitacoes_colaboradores.curso`, `delegacoes_chefia.*` e restantes tabelas de Estrutura (ecrãs em `modulos/estrutura/faseK`), `itens_venda.centro_custo_id/unidade_negocio_id` (por linha na emissão), `itens_venda.total_linha` (devolvido como `valor` da linha), `oportunidades_venda_crm.etapa_desde/ultima_atividade_em` (usados para os dias na etapa / sem actividade que o ecrã mostra), `pedidos_compra.colaborador_requerente_id` (deliberação de compras).',
+  '- **Espelhos internos sem UI por desenho**: `catalogo_fornecedores` (sincronizado automaticamente a partir do produto, `ServicoProdutos::sincronizarCatalogoCompras`), tabelas de maquinaria (`outbox_eventos`, `execucoes_*`, `quarentena_migracao`, `logs_auditoria_*`, …) tratadas como INFRA.',
+  '- **Lacunas reais corrigidas neste trabalho**: `vendas.data_entrega`/`vendas.local_entrega` (emissão, detalhe, impressão, herança na conversão; commit «data e local de entrega») e `colaboradores.data_cessacao` (listagem, ficha e impressão da ficha; só leitura, preenchida pelo estado do contrato).',
+  '- **Mantidas sem uso (legado), sem UI inventada**: `configuracoes_assiduidade.minimo_dia_horas` (o legado só a normalizava, `assiduidade.js:63`; a semântica de cálculo não está documentada — decisão de negócio pendente antes de a ligar à apuração), `documentos_projeto.*` e `faturacao_projetos.projeto_id` (tabelas sem funcionalidade; o legado tinha 0 linhas), `vendas.total_desconto`/`recibos_venda.montante_total_moeda`/`vendas.fe_estabelecimento`/`itens_venda.codigo_projeto`/`lancamentos_estornados.{reconciliacao_codigo,codigo_projeto,sistema_origem}`/`reconciliacoes_bancarias.importacao_codigo`/`tipos_documento.descricao`/`documentos_anexos.entidade_id` (restos de paridade do legado sem consumidor).',
+  '- **Restante**: a maioria dos campos técnicos listados abaixo são carimbos de estado (`*_em`/`*_por`), câmbio (`taxa_cambio_*`, `*_moeda`), campos da facturação electrónica AGT (`fe_*`, `saft_*`) e chaves de ligação — não têm valor como campo editável; os que ficam por rever à mão estão na lista priorizada.', '');
 L.push(`## Totais (${tabelas.size} tabelas, ${resultado.length} colunas)`, '');
 tab(['Classe', 'Colunas', '%'], CLASSES.map((k) => [k, global[k], ((100 * global[k]) / resultado.length).toFixed(1) + '%']));
 L.push('## Por módulo', '');

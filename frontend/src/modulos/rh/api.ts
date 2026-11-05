@@ -33,6 +33,8 @@ export interface Colaborador {
   documento_identificacao: string | null;
   documento_validade: string | null;
   data_admissao: string | null;
+  /** preenchida ao cessar o contrato (ServicoEstadoContrato), limpa ao anular a cessação; só leitura */
+  data_cessacao?: string | null;
   endereco: string | null;
   bairro: string | null;
   municipio: string | null;

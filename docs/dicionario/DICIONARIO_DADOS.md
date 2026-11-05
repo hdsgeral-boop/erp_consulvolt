@@ -3483,3 +3483,16 @@ Linhas reais: **12** · fictícias descartadas: 0
 | `por` | `por` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `em` | `em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
+
+## Estado de exposição na API/UI (auditoria de cobertura, 2026-11)
+
+> Secção mantida à mão (não é produzida por `gerar_dicionario.mjs`; reinserir se o dicionário for regenerado). Fonte: `docs/paridade/COBERTURA_CAMPOS_2026-11.md` (`ferramentas/paridade/auditar_campos.mjs`).
+
+| Coluna | Estado | Onde |
+| :--- | :--- | :--- |
+| `vendas.data_entrega`, `vendas.local_entrega` | exposto na API e na UI (novo) | `EmitirDocumentoRequest`, `VendaResource`, `EmitirDocumento.tsx`, `DetalheDocumento.tsx`, impressão |
+| `colaboradores.data_cessacao` | exposto na UI, só leitura (novo) | `Colaboradores.tsx` (tabela, ficha, impressão); preenchida por `ServicoEstadoContrato` |
+| `configuracoes_assiduidade.minimo_dia_horas` | mantida sem uso (legado) — semântica por decidir | — |
+| `documentos_projeto.*`, `faturacao_projetos.projeto_id` | mantida sem uso (tabelas sem funcionalidade) | — |
+| `vendas.total_desconto`, `vendas.fe_estabelecimento`, `recibos_venda.montante_total_moeda`, `itens_venda.codigo_projeto`, `lancamentos_estornados.{reconciliacao_codigo,codigo_projeto,sistema_origem}`, `reconciliacoes_bancarias.importacao_codigo`, `tipos_documento.descricao`, `documentos_anexos.entidade_id` | mantida sem uso (legado) | — |
+| `catalogo_fornecedores.*` | espelho interno do produto (sem UI por desenho) | `ServicoProdutos::sincronizarCatalogoCompras` |

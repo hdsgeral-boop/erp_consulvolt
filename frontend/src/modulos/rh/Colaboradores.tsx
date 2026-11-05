@@ -107,6 +107,7 @@ function ListaColaboradores() {
     { title: 'Tipo', align: 'center', responsive: ['md'], render: (_, r) => <PilulaTipo c={r} />, valorImpressao: (r) => tipoColaborador(r) },
     { title: 'Dias contratados', dataIndex: 'dias_uteis_mes', align: 'center', responsive: ['md'], render: (v: number | null) => v ?? 22 },
     { title: 'Admissão', dataIndex: 'data_admissao', responsive: ['xl'], ocultaPorOmissao: true, render: formatarData },
+    { title: 'Cessação', dataIndex: 'data_cessacao', responsive: ['xl'], ocultaPorOmissao: true, render: (v: string | null) => (v ? formatarData(v) : '—') },
   ];
 
   const podeEditar = pode('colaboradores_detail');
@@ -197,7 +198,7 @@ function FichaDoColaborador() {
     conteudo: [
       seccaoHtml('Dados profissionais', pares([
         ['Estado', c.estado ?? '—'], ['Regime', c.avencado ? 'Avençado' : c.reformado ? 'Reformado' : 'Normal'], ['N.º INSS', c.numero_inss ?? '—'],
-        ['Função', cargos.nome(c.cargo_funcao_id)], ['Tipo de organização', tipos.nome(c.tipo_organizacao_id)], ['Admissão', formatarData(c.data_admissao)],
+        ['Função', cargos.nome(c.cargo_funcao_id)], ['Tipo de organização', tipos.nome(c.tipo_organizacao_id)], ['Admissão', formatarData(c.data_admissao)], ['Cessação', c.data_cessacao ? formatarData(c.data_cessacao) : '—'],
         ['Dias úteis/mês', c.dias_uteis_mes ?? '—'], ['Gestor directo', colaboradores.nome(c.colaborador_gestor_id)], ['Habilitação máxima', c.habilitacao_maxima ?? '—'],
         ['Unidade orgânica', refNome(c.unidade_organica, c.unidade_organica_id)], ['UN / CC', `${refNome(c.unidade_negocio, c.unidade_negocio_id)} / ${refNome(c.centro_custo, c.centro_custo_id)}`],
       ])),
@@ -268,6 +269,7 @@ function FichaDoColaborador() {
                   <Descriptions.Item label="Função">{cargos.nome(c.cargo_funcao_id)}</Descriptions.Item>
                   <Descriptions.Item label="Tipo de organização">{tipos.nome(c.tipo_organizacao_id)}</Descriptions.Item>
                   <Descriptions.Item label="Admissão">{formatarData(c.data_admissao)}</Descriptions.Item>
+                  {c.data_cessacao && <Descriptions.Item label="Cessação do contrato">{formatarData(c.data_cessacao)}</Descriptions.Item>}
                   <Descriptions.Item label="Dias úteis/mês">{c.dias_uteis_mes ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Gestor directo">{colaboradores.nome(c.colaborador_gestor_id)}</Descriptions.Item>
                   <Descriptions.Item label="Habilitação máxima">{c.habilitacao_maxima ?? '—'}</Descriptions.Item>
