@@ -8,6 +8,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { iniciais } from '@/layout/marca';
 import { notificarErro } from '@/utilitarios/erros';
 import { naRotaPortal } from '@/portal/rota';
+import { ehContaRoot } from '@/sessao/areas';
+import { SeletorEmpresasRoot } from './SeletorEmpresasRoot';
 
 /** Texto normalizado para pesquisa: sem acentos, minúsculas e sem espaços a mais. */
 export const normalizarPesquisa = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -92,8 +94,15 @@ export function EscolherEmpresa() {
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
           {naRotaPortal() ? 'Portal do Colaborador — escolha a empresa.' : 'Escolha a empresa com que vai trabalhar.'}
         </Typography.Paragraph>
+        {/* conta root global (ADR-084): não pertence a nenhum cliente — escolhe entre as empresas de todos eles */}
+        {ehContaRoot(utilizador) && (
+          <>
+            <SeletorEmpresasRoot aEscolher={aEscolher} escolher={escolher} />
+            {empresas.length > 0 && <Typography.Title level={5} style={{ marginTop: 20 }}>Empresas do seu cliente de origem</Typography.Title>}
+          </>
+        )}
         {empresas.length === 0 ? (
-          <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
+          ehContaRoot(utilizador) ? null : <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />
         ) : (
           <>
             {empresas.length > 1 && (

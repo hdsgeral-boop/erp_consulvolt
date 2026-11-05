@@ -37,6 +37,8 @@ export interface Utilizador {
   papel?: string | null;
   /** Password gerada pelo sistema (criação, reposição pelo admin ou recuperação): troca obrigatória no próximo acesso. */
   deve_alterar_password?: boolean;
+  /** Conta root global (ADR-084): só o servidor a define; o frontend nunca a envia nem a decide. */
+  conta_root?: boolean;
   [chave: string]: unknown;
 }
 

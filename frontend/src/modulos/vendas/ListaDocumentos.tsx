@@ -165,7 +165,7 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
     faturas: (
       <>
         <Button size="small" type="primary" icon={<IconeFa nome="file-invoice-dollar" />} onClick={() => novo('FT')}>+ Factura</Button>
-        <Button size="small" icon={<IconeFa nome="check-double" />} style={{ color: '#fff', borderColor: '#16a34a', background: '#16a34a' }} onClick={() => novo('FR')}>+ Factura-Recibo</Button>
+        <Button size="small" icon={<IconeFa nome="check-double" />} style={{ color: '#fff', borderColor: '#15803d', background: '#15803d' }} onClick={() => novo('FR')}>+ Factura-Recibo</Button>
         <Button size="small" icon={<IconeFa nome="undo" />} onClick={() => novo('NC')}>+ Nota de CRÉDITO</Button>
       </>
     ),

@@ -61,7 +61,7 @@ export function SeparadorKanban({ projecto, acc }: PropsSeparador) {
       {k && k.por_mapear.length > 0 && (
         <Alert type="warning" showIcon style={{ marginBottom: 12 }} title={`${k.por_mapear.length} tarefa(s) sem coluna: ${k.por_mapear.map((t) => t.nome).join(', ')}`} />
       )}
-      <div ref={refQuadro} className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }}>
+      <div ref={refQuadro} className="erp-deslocar-x" tabIndex={0} style={{ display: 'flex', gap: 12, paddingBottom: 8 }}>
         {k?.colunas.map((c) => (
           <div
             key={c.id}

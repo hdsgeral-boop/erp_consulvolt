@@ -68,9 +68,14 @@ final class ServicoPaineis
         private readonly Container $app,
     ) {}
 
+    /** @var array<int, bool> memoização por empresa: antes cada vista/conjunto repetia a mesma consulta (18× num pedido) */
+    private array $holdings = [];
+
     public function holding(): bool
     {
-        return (bool) DB::table('empresas')->where('id', $this->contexto->obrigatorio())->value('e_consolidacao');
+        $empresa = $this->contexto->obrigatorio();
+
+        return $this->holdings[$empresa] ??= (bool) DB::table('empresas')->where('id', $empresa)->value('e_consolidacao');
     }
 
     /** Pode ver algum dos ecrãs indicados (vazio = só o Dashboard, já exigido no controlador). */

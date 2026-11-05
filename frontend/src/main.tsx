@@ -18,6 +18,8 @@ import '@fontsource/inter/latin-500.css';
 import '@fontsource/inter/latin-600.css';
 import '@fontsource/inter/latin-700.css';
 import '@fontsource/inter/latin-800.css';
+import { AjudasAcessibilidade } from '@/componentes/AjudasAcessibilidade';
+import { SaltarParaConteudo } from '@/componentes/SaltarParaConteudo';
 import '@/estilos/global.css';
 import '@/estilos/designSystem.css';
 import '@/estilos/identidade.css';
@@ -68,10 +70,12 @@ createRoot(document.getElementById('raiz')!).render(
       <AntApp>
         <QueryClientProvider client={cliente}>
           <SessaoProvider>
+            <SaltarParaConteudo />
+            <AjudasAcessibilidade />
             <App />
+            <PedidoReautenticacao />
           </SessaoProvider>
         </QueryClientProvider>
-            <PedidoReautenticacao />
       </AntApp>
     </ConfigProvider>
   </StrictMode>,

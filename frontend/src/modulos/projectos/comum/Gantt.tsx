@@ -162,7 +162,7 @@ export const Gantt = forwardRef<HTMLDivElement, {
   const quantidadeTexto = (c: CelulaQuantidade) => (c.estado === 'futuro' ? formatarQtd(c.previsto, 1) : `${formatarQtd(c.realizado, 1)}/${formatarQtd(c.previsto, 1)}`);
 
   return (
-    <div ref={ref} className="erp-deslocar-x erp-gantt" style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius }}>
+    <div ref={ref} className="erp-deslocar-x erp-gantt" tabIndex={0} style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius }}>
       <div style={escalaEscolhida ? { width: larguraTotal } : { minWidth: larguraTotal }}>
         {/* imp-repetir: na impressão, a linha dos meses/semanas repete-se no topo de cada página (motor comum) */}
         <div className="erp-gantt-cabecalho imp-repetir imp-sem-quebra imp-cor" style={{ display: 'flex', borderBottom: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillAlter, position: 'sticky', top: 0 }}>

@@ -53,6 +53,8 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const [permissoesEmpresa, setPermissoesEmpresa] = useState<string[] | null>(null);
   const [motivoSaida, setMotivoSaida] = useState<string | null>(null);
   const inatividade = useRef(INATIVIDADE_PADRAO_MIN);
+  const dadosRef = useRef<DadosSessao | null>(null);
+  dadosRef.current = dados;
 
   const limparSessao = useCallback(
     (motivo: string | null) => {
@@ -147,6 +149,11 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     async (id: number) => {
       await enviar('put', '/autenticacao/empresa-activa', { empresa_id: id });   // estado da sessão no servidor
       armazenamento.definirEmpresa(id);
+      // conta root (ADR-084): a empresa pode ser de outro cliente e não vir na lista do início — o servidor devolve-a em `eu`
+      if (dadosRef.current?.utilizador.conta_root === true && !dadosRef.current.empresas.some((e) => e.id === id)) {
+        const d = await obter<DadosSessao>('/autenticacao/eu');
+        setDados(d);
+      }
       setEmpresaId(id);
       setDados((d) => (d ? { ...d, ultima_empresa_id: id } : d));
       cliente.clear();   // os dados em cache são da empresa anterior

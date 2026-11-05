@@ -119,8 +119,8 @@ async function tarefa(w, orient) {
     if (autenticado) await entrar(ctx, page);
     for (const url of lista) {
       await page.goto(url, { waitUntil: 'load' }).catch(() => {});
-      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(350);
+      await page.waitForLoadState('networkidle', { timeout: 2500 }).catch(() => {});
+      await page.waitForTimeout(200);
       // o tour de boas-vindas (utilizador novo) é um modal que bloqueia o scroll e falseia as medições
       await page.getByRole('button', { name: 'Agora não' }).click({ timeout: 500 }).catch(() => {});
       const m = await page.evaluate(medir).catch((e) => ({ erro: String(e) }));

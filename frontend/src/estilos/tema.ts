@@ -63,6 +63,8 @@ export const TEMA: ThemeConfig = {
     colorTextSecondary: TEXTO_SECUNDARIO,
     colorTextTertiary: TEXTO_TERCIARIO,
     colorTextDescription: TEXTO_TERCIARIO,
+    // o padrão do AntD (25 % de preto) dá ~2,5:1; #64748b dá 4,8:1 sobre branco (WCAG 1.4.3)
+    colorTextPlaceholder: TEXTO_TERCIARIO,
     colorBorder: LIMITE,
     colorBorderSecondary: LIMITE_SECUNDARIO,
     colorSplit: 'rgba(15, 23, 42, 0.08)',

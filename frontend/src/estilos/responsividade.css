@@ -45,7 +45,11 @@
 /* ── Cartões e cabeçalhos de cartão ─────────────────────────────────────────── */
 :root .ant-card { min-width: 0; max-width: 100%; }
 :root .ant-card .ant-card-head-wrapper { flex-wrap: wrap; row-gap: 4px; }
-:root .ant-card .ant-card-head-title { white-space: normal; overflow-wrap: break-word; }
+:root .ant-card .ant-card-head-title { white-space: normal; overflow-wrap: break-word; overflow: visible; text-overflow: clip; }
+/* título de cartão com controlos (botões, campos, «Novo X · Grade/Linhas»): quebram linha em vez de ficarem cortados */
+:root .ant-card .ant-card-head-title > .ant-space,
+:root .ant-card .ant-card-head-title > .ant-flex,
+:root .ant-card .ant-card-head-title > .ant-space-compact { flex-wrap: wrap; max-width: 100%; }
 :root .ant-card .ant-card-extra { margin-inline-start: auto; }
 
 /* ── Tabelas: rótulos curtos em nowrap; colunas de texto livre marcadas com «erp-quebra» ─────── */
@@ -150,4 +154,16 @@
     flex: 0 0 100%;
     max-width: 100%;
   }
+}
+
+/* ── Tabela em cartões (opt-in: className «erp-tabela-cartoes» + comRotulosDeCartao; componentes/responsivo/tabelaCartoes.tsx) ──
+   < 576 px: cada linha é um cartão, cada célula «título: valor». Sem esconder informação; a coluna sem título (acções) fica em baixo. */
+@media (max-width: 575.98px) {
+  :root .erp-tabela-cartoes .ant-table-thead { display: none; }
+  :root .erp-tabela-cartoes .ant-table-tbody > tr { display: block; margin-bottom: 8px; border: 1px solid var(--erp-cor-limite-suave, #e2e8f0); border-radius: var(--erp-raio-painel, 8px); background: var(--ant-color-bg-container, #fff); }
+  :root .erp-tabela-cartoes .ant-table-tbody > tr > td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--erp-cor-limite-suave, #e2e8f0); text-align: end; white-space: normal; overflow-wrap: break-word; min-width: 0; }
+  :root .erp-tabela-cartoes .ant-table-tbody > tr > td:last-child { border-bottom: 0; }
+  :root .erp-tabela-cartoes .ant-table-tbody > tr > td::before { content: attr(data-rotulo); flex: 0 0 38%; max-width: 45%; text-align: start; font-weight: 600; color: var(--erp-cor-texto-secundario, #475569); }
+  :root .erp-tabela-cartoes .ant-table-tbody > tr > td[data-rotulo='']::before { display: none; }
+  :root .erp-tabela-cartoes .ant-table-tbody > tr > td[data-rotulo=''] { justify-content: flex-end; }
 }

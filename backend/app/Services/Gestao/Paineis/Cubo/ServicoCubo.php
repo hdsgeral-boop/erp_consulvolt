@@ -446,9 +446,14 @@ final class ServicoCubo
         ];
     }
 
+    /** @var array<int, bool> memoização por empresa: antes cada vista/conjunto repetia a mesma consulta (18× num pedido) */
+    private array $holdings = [];
+
     private function holding(): bool
     {
-        return (bool) DB::table('empresas')->where('id', $this->contexto->obrigatorio())->value('e_consolidacao');
+        $empresa = $this->contexto->obrigatorio();
+
+        return $this->holdings[$empresa] ??= (bool) DB::table('empresas')->where('id', $empresa)->value('e_consolidacao');
     }
 
     private function podeVer(array $vistas): bool

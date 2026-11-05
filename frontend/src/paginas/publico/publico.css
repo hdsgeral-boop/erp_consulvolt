@@ -1327,7 +1327,7 @@
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 /* ── BOTÃO FLUTUANTE DE CHAT ───────────────────────────────────────────── */
@@ -1613,6 +1613,7 @@
 
 .cv-legal-conteudo a {
   color: var(--cv-red);
+  text-decoration: underline; /* ligação distinguível sem depender da cor (WCAG 1.4.1) */
 }
 
 /* ── ANIMAÇÃO DE ENTRADA AO DESCER A PÁGINA ────────────────────────────── */

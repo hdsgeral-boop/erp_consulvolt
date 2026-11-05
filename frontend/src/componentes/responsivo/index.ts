@@ -5,3 +5,4 @@ export { BarraFiltros } from './BarraFiltros';
 export { DeslocamentoHorizontal } from './DeslocamentoHorizontal';
 export { ResumoValores, type ItemResumoValores, type ResumoValoresProps } from './ResumoValores';
 export { ValorMonetario, formatarValor, type ValorMonetarioProps } from './ValorMonetario';
+export { CLASSE_TABELA_CARTOES, comRotulosDeCartao } from './tabelaCartoes';

@@ -1,3 +1,4 @@
+import { ehContaRoot } from '@/sessao/areas';
 import { Button, Modal, Typography } from 'antd';
 import { CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router';
@@ -15,7 +16,8 @@ export function AvisoLicenca() {
   const navegar = useNavigate();
   const { data } = useEstadoLicenca(!!empresa);
   const { visto, dispensar } = useAvisoLicencaVisto(utilizador?.id);
-  if (!data?.aviso || visto) return null;
+  // conta root (ADR-084): a licença de um cliente não a limita (o servidor não lhe bloqueia escritas), por isso não há aviso de «modo de leitura»
+  if (!data?.aviso || visto || ehContaRoot(utilizador)) return null;
   const expirada = data.aviso === 'EXPIRADA';
   const podeRenovar = pode('config_licenca_view', 'config_licenca_gerir');
 

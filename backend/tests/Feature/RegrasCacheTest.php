@@ -27,6 +27,7 @@ final class RegrasCacheTest extends TestCase
     private const AUTORIZADOS = [
         'Http/Controllers/Api/Gestao/PaineisController.php',
         'Services/Autenticacao/ServicoRecuperacaoPassword.php',
+        'Services/Autenticacao/ServicoReautenticacao.php',
         'Services/Contabilidade/ServicoPlanoContas.php',
         'Services/Gestao/Paineis/ServicoPaineis.php',
         'Services/Integracoes/Operacoes/ServicoOperacoes.php',

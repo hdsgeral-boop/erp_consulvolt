@@ -31,3 +31,19 @@ describe('guarda /m/:modulo/:ecra', () => {
     expect(decidirEcra(menu, 'config', 'notificacoes_centro', (...c) => c.includes('notificacoes_centro_view'))).toBe('permitido');
   });
 });
+
+describe('guarda /m/:modulo/:ecra com a conta root (menu completo vindo do servidor)', () => {
+  const menuRoot: ModuloMenu[] = [
+    ...menu,
+    { id: 'plataforma', nome: 'Plataforma', ecras: [{ id: 'plataforma_clientes', nome: 'Clientes', vistas: [], pai: null }] },
+    { id: 'suporte', nome: 'Suporte', ecras: [{ id: 'suporte_tickets', nome: 'Tickets', vistas: [], pai: null }] },
+  ];
+  it('abre os ecrãs da plataforma e do suporte que o servidor lhe põe no menu', () => {
+    expect(decidirEcra(menuRoot, 'plataforma', 'plataforma_clientes', nao)).toBe('permitido');
+    expect(decidirEcra(menuRoot, 'suporte', 'suporte_tickets', nao)).toBe('permitido');
+  });
+  it('mesmo para a root, ia_chat não é ecrã e um módulo trocado continua negado', () => {
+    expect(decidirEcra(menuRoot, 'geral', 'ia_chat', () => true)).toBe('sem_rota');
+    expect(decidirEcra(menuRoot, 'rh', 'plataforma_clientes', nao)).toBe('negado');
+  });
+});

@@ -10,6 +10,7 @@ use App\Services\Plataforma\ServicoLimitesPlano;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -66,7 +67,9 @@ final class ServicoUtilizadores
                     ->where('utilizador_empresa.empresa_id', (int) $f['empresa_id']))))
             ->orderBy('nome_utilizador')
             ->paginate(min((int) ($f['por_pagina'] ?? 50), 500));
-        $pagina->setCollection($pagina->getCollection()->map(fn (Utilizador $u) => $this->apresentar($u, $actor)));
+        // Desempenho (ADR-085): as ligações às empresas de TODA a página numa só consulta (antes: uma por utilizador, N+1)
+        $ligacoes = $this->ligacoesDeUtilizadores($pagina->getCollection()->pluck('id')->all(), $dominio);
+        $pagina->setCollection($pagina->getCollection()->map(fn (Utilizador $u) => $this->apresentar($u, $actor, $ligacoes->get($u->id, collect()))));
 
         return $pagina;
     }
@@ -98,17 +101,33 @@ final class ServicoUtilizadores
     }
 
     /**
+     * Ligações utilizador-empresa (com o colaborador) de vários utilizadores numa só consulta, por utilizador e ordenadas por nome.
+     *
+     * @param  list<int>  $ids
+     * @param  list<int>|null  $dominio  empresas visíveis ao actor (null = todas)
+     * @return Collection<int, Collection<int, object>>
+     */
+    private function ligacoesDeUtilizadores(array $ids, ?array $dominio): Collection
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        return DB::table('utilizador_empresa as ue')->join('empresas as e', 'e.id', '=', 'ue.empresa_id')
+            ->leftJoin('colaboradores as c', 'c.id', '=', 'ue.colaborador_id')
+            ->whereIn('ue.utilizador_id', $ids)->when($dominio !== null, fn ($q) => $q->whereIn('ue.empresa_id', $dominio))->ordenarPorNome('e.nome')
+            ->get(['ue.utilizador_id', 'ue.empresa_id', 'e.nome', 'e.estado', 'e.eliminado_em', 'ue.colaborador_id', 'c.nome_completo as colaborador_nome'])
+            ->groupBy('utilizador_id');
+    }
+
+    /**
      * @return array<string, mixed> dados públicos (sem hashes nem segredos); com $actor sem acesso total, as ligações
      *                              a empresas fora do seu domínio não são mostradas
      */
-    public function apresentar(Utilizador $u, ?Utilizador $actor = null): array
+    public function apresentar(Utilizador $u, ?Utilizador $actor = null, ?Collection $ligacoes = null): array
     {
         $u->loadMissing('perfil');
-        $dominio = $actor ? $this->dominio($actor) : null;
-        $ligacoes = DB::table('utilizador_empresa as ue')->join('empresas as e', 'e.id', '=', 'ue.empresa_id')
-            ->leftJoin('colaboradores as c', 'c.id', '=', 'ue.colaborador_id')
-            ->where('ue.utilizador_id', $u->id)->when($dominio !== null, fn ($q) => $q->whereIn('ue.empresa_id', $dominio))->ordenarPorNome('e.nome')
-            ->get(['ue.empresa_id', 'e.nome', 'e.estado', 'e.eliminado_em', 'ue.colaborador_id', 'c.nome_completo as colaborador_nome']);
+        $ligacoes ??= $this->ligacoesDeUtilizadores([$u->id], $actor ? $this->dominio($actor) : null)->get($u->id, collect());
 
         return [
             'id' => $u->id,

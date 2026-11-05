@@ -50,6 +50,7 @@ import { PuxadorMenu } from './PuxadorMenu';
 import { useModoMenu } from './modoMenu';
 import { podeVerAssistente } from '@/componentes/assistente/permissao';
 import { podeConsolaPlataforma } from '@/sessao/areas';
+import { SeloRoot } from './SeloRoot';
 import './telaNocturna.css';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
@@ -599,6 +600,7 @@ function Estrutura() {
                 {!ecra.pequeno && <ContadorLicencaHeader />}
                 <NotificacoesSinoHeader />
                 {!ecra.pequeno && botaoTrocarEmpresa}
+                <SeloRoot utilizador={utilizador} />
                 {/* nome + papel e o botão ▾ que mostra as opções (Gerir Dados Pessoais … Terminar sessão); em telemóvel, o avatar */}
                 <Dropdown menu={{ items: itensUtilizador }} trigger={['click']} placement="bottomRight">
                   <button type="button" className={ecra.md ? 'erp-utilizador erp-utilizador-botao' : 'erp-utilizador-botao'} aria-label="Opções do utilizador" aria-haspopup="menu">

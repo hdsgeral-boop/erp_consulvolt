@@ -135,7 +135,7 @@ export default function Pipeline() {
           ) : quadro.error ? (
             <Alert type="error" showIcon title={(quadro.error as Error).message} />
           ) : (
-            <div className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }} role="list" aria-label="Etapas do funil">
+            <div className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }} role="list" tabIndex={0} aria-label="Etapas do funil">
               {quadro.data?.etapas.map((col) => {
                 const cartoes = filtrarCartoes(col.cartoes, texto, soRisco);
                 return (

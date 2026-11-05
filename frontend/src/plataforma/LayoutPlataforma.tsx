@@ -26,6 +26,7 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { useEcra } from '@/componentes/responsivo/useEcra';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { SeloRoot } from '@/layout/SeloRoot';
 import { useModoMenuPlataforma } from './modoMenuPlataforma';
 import './plataforma.css';
 
@@ -217,6 +218,7 @@ export function LayoutPlataforma() {
           </Space>
 
           <Space size={ecra.md ? 16 : 6} align="center" style={{ flex: 'none' }}>
+            <SeloRoot utilizador={utilizador} />
             <Link to="/app">
               <Button icon={<SwapOutlined />} aria-label="Entrar no ERP">{ecra.md ? 'Entrar no ERP' : null}</Button>
             </Link>
