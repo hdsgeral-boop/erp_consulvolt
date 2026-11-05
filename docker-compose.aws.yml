@@ -27,6 +27,21 @@ services:
   worker: *rds
   scheduler: *rds
 
+  # ADR-083: o servidor usava o nginx de DESENVOLVIMENTO (docker/nginx/default.conf: sem CSP/HSTS/Permissions-Policy,
+  # 100 MB em todo o lado, sem limite no login). Passa a usar a configuração de PRODUÇÃO (docker/nginx/producao),
+  # na porta 8080 do contentor (o Caddy encaminha para web:8080).
+  web:
+    ports: !override
+      - "127.0.0.1:${WEB_PORTA:-8080}:8080"
+    volumes: !override
+      - ./docker/nginx/producao/00-http.conf:/etc/nginx/conf.d/00-http.conf:ro
+      - ./docker/nginx/producao/erp.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/producao/cabecalhos-seguranca.conf:/etc/nginx/snippets/cabecalhos-seguranca.conf:ro
+      - ./docker/nginx/producao/fastcgi-laravel.conf:/etc/nginx/snippets/fastcgi-laravel.conf:ro
+      - ./frontend/dist:/var/www/frontend:ro
+    security_opt:
+      - no-new-privileges:true
+
   postgres:
     profiles: ["local-db"]
 
@@ -37,6 +52,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"   # HTTP/3 (QUIC)
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./deploy/caddy/Caddyfile.aws:/etc/caddy/Caddyfile:ro
       - erp_caddy_dados:/data

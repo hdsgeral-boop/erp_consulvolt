@@ -1,0 +1,41 @@
+{
+  "Name": "erp-waf",
+  "Scope": "CLOUDFRONT",
+  "DefaultAction": { "Allow": {} },
+  "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "erp-waf" },
+  "Description": "ADR-083: comecar tudo em Count (OverrideAction/Action Count) durante 48 h e passar a Block depois de rever os pedidos amostrados. aws wafv2 create-web-acl --region us-east-1 --cli-input-json file://waf-regras.json",
+  "Rules": [
+    {
+      "Name": "limite-taxa-login", "Priority": 0, "Action": { "Count": {} },
+      "Statement": { "RateBasedStatement": { "Limit": 100, "AggregateKeyType": "IP", "EvaluationWindowSec": 300,
+        "ScopeDownStatement": { "ByteMatchStatement": { "SearchString": "/api/autenticacao/", "FieldToMatch": { "UriPath": {} }, "PositionalConstraint": "STARTS_WITH", "TextTransformations": [{ "Priority": 0, "Type": "LOWERCASE" }] } } } },
+      "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "limite-taxa-login" }
+    },
+    {
+      "Name": "limite-taxa-global", "Priority": 1, "Action": { "Count": {} },
+      "Statement": { "RateBasedStatement": { "Limit": 2000, "AggregateKeyType": "IP", "EvaluationWindowSec": 300 } },
+      "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "limite-taxa-global" }
+    },
+    {
+      "Name": "AWSManagedRulesAmazonIpReputationList", "Priority": 10, "OverrideAction": { "Count": {} },
+      "Statement": { "ManagedRuleGroupStatement": { "VendorName": "AWS", "Name": "AWSManagedRulesAmazonIpReputationList" } },
+      "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "ip-reputation" }
+    },
+    {
+      "Name": "AWSManagedRulesKnownBadInputsRuleSet", "Priority": 20, "OverrideAction": { "Count": {} },
+      "Statement": { "ManagedRuleGroupStatement": { "VendorName": "AWS", "Name": "AWSManagedRulesKnownBadInputsRuleSet" } },
+      "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "known-bad-inputs" }
+    },
+    {
+      "Name": "AWSManagedRulesSQLiRuleSet", "Priority": 30, "OverrideAction": { "Count": {} },
+      "Statement": { "ManagedRuleGroupStatement": { "VendorName": "AWS", "Name": "AWSManagedRulesSQLiRuleSet" } },
+      "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "sqli" }
+    },
+    {
+      "Name": "AWSManagedRulesCommonRuleSet", "Priority": 40, "OverrideAction": { "Count": {} },
+      "Statement": { "ManagedRuleGroupStatement": { "VendorName": "AWS", "Name": "AWSManagedRulesCommonRuleSet",
+        "RuleActionOverrides": [ { "Name": "SizeRestrictions_BODY", "ActionToUse": { "Count": {} } } ] } },
+      "VisibilityConfig": { "SampledRequestsEnabled": true, "CloudWatchMetricsEnabled": true, "MetricName": "common" }
+    }
+  ]
+}

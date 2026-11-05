@@ -1,0 +1,18 @@
+{
+  "Comment": "ERP - cabecalhos de seguranca (ADR-083). aws cloudfront create-response-headers-policy --response-headers-policy-config file://cloudfront-response-headers.json",
+  "Name": "erp-seguranca",
+  "SecurityHeadersConfig": {
+    "StrictTransportSecurity": { "Override": true, "IncludeSubdomains": true, "Preload": true, "AccessControlMaxAgeSec": 63072000 },
+    "ContentTypeOptions": { "Override": true },
+    "FrameOptions": { "Override": true, "FrameOption": "SAMEORIGIN" },
+    "ReferrerPolicy": { "Override": true, "ReferrerPolicy": "strict-origin-when-cross-origin" }
+  },
+  "CustomHeadersConfig": {
+    "Quantity": 2,
+    "Items": [
+      { "Header": "Cross-Origin-Opener-Policy", "Value": "same-origin-allow-popups", "Override": true },
+      { "Header": "Permissions-Policy", "Value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()", "Override": true }
+    ]
+  },
+  "RemoveHeadersConfig": { "Quantity": 2, "Items": [{ "Header": "Server" }, { "Header": "X-Powered-By" }] }
+}
