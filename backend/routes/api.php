@@ -595,6 +595,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         require __DIR__.'/api/fj_entregaveis.php';   // Fase J: Estrutura Orgânica — tarefas e entregáveis, portal e férias (ADR-078)
         require __DIR__.'/api/fk_multas_delegacoes.php';   // Fase K: multas de entregáveis na folha e delegação da chefia (ADR-079)
         require __DIR__.'/api/procedimentos_manual.php';   // Manual de Procedimentos, Onda 1 (paridade): processos e definições do documento
+        require __DIR__.'/api/estrategia.php';   // Planeamento Estratégico, Onda 1 (F0-F2a): planos, objectivos, indicadores, metas e medição manual
         require __DIR__.'/api/imobiliario.php';   // Gestão Imobiliária, Onda 1 (F0-F2): cadastro, mapa de ocupação, modelos de documentos e taxas
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {

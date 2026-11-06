@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -20,7 +21,16 @@ class IndicadorEstrategico extends ModeloBase
 
     protected function casts(): array
     {
-        return ['empresa_id' => 'integer', 'plano_estrategico_id' => 'integer', 'objectivo_id' => 'integer', 'rubrica_orcamental_id' => 'integer', 'dono_colaborador_id' => 'integer', 'fonte' => 'array', 'linha_base' => 'string', 'tolerancia_verde' => 'string', 'tolerancia_amarela' => 'string', 'prazo_dias' => 'integer', 'ativo' => 'boolean', 'ordem' => 'integer'];
+        return ['empresa_id' => 'integer', 'plano_estrategico_id' => 'integer', 'objectivo_id' => 'integer', 'rubrica_orcamental_id' => 'integer', 'dono_colaborador_id' => 'integer', 'linha_base' => 'string', 'tolerancia_verde' => 'string', 'tolerancia_amarela' => 'string', 'prazo_dias' => 'integer', 'ativo' => 'boolean', 'ordem' => 'integer'];
+    }
+
+    /** jsonb `fonte`: um objecto JSON (a BD recusa um array); vazio grava-se `{}`. */
+    protected function fonte(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($v) => $v === null ? [] : (json_decode((string) $v, true) ?: []),
+            set: fn ($v) => json_encode($v === null || $v === [] ? new \stdClass : $v),
+        );
     }
 
     public function objectivo(): BelongsTo
