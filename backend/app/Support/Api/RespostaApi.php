@@ -13,7 +13,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
  *
  *   { "sucesso": bool, "mensagem": string, "dados": mixed, "metadados": { empresa_id, executado_em, ... } }
  *
- * Em erro acrescenta "codigo" (identificador estável para o frontend) e, quando existir, "erros" (por campo).
+ * Em erro acrescenta "codigo" (identificador estável para o frontend), "erros" (por campo, quando existir) e "referencia" (5xx).
  */
 final class RespostaApi
 {
@@ -46,17 +46,39 @@ final class RespostaApi
         ]);
     }
 
-    public static function erro(string $mensagem, int $estado, string $codigo, ?array $erros = null, array $metadados = []): JsonResponse
+    /**
+     * Erro no envelope. A `mensagem` e os textos de `erros` passam SEMPRE por MensagemSegura (nunca saem SQL, caminhos,
+     * classes ou mensagens cruas de excepções). `referencia` (5xx) liga a resposta ao log do servidor.
+     */
+    public static function erro(string $mensagem, int $estado, string $codigo, ?array $erros = null, array $metadados = [], ?string $referencia = null): JsonResponse
     {
-        $resposta = self::montar(false, $mensagem, null, $estado, $metadados, $codigo);
+        $resposta = self::montar(false, MensagemSegura::sanitizar($mensagem, $estado), null, $estado, $metadados, $codigo);
 
-        if ($erros !== null) {
+        if ($erros !== null || $referencia !== null) {
             $corpo = $resposta->getData(true);
-            $corpo['erros'] = $erros;
+            if ($referencia !== null) {
+                $corpo['referencia'] = $referencia;
+                $resposta->headers->set('X-Referencia-Erro', $referencia);
+            }
+            if ($erros !== null) {
+                $corpo['erros'] = self::limparErros($erros, $estado);
+            }
             $resposta->setData($corpo);
         }
 
         return $resposta;
+    }
+
+    /** @param  array<mixed>  $erros */
+    private static function limparErros(array $erros, int $estado): array
+    {
+        return array_map(function ($v) use ($estado) {
+            return match (true) {
+                is_array($v) => self::limparErros($v, $estado),
+                is_string($v) => MensagemSegura::sanitizar($v, $estado),
+                default => $v,
+            };
+        }, $erros);
     }
 
     private static function montar(bool $sucesso, string $mensagem, mixed $dados, int $estado, array $metadados, ?string $codigo = null): JsonResponse

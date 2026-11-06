@@ -280,7 +280,7 @@ final class ServicoLigacaoAgt
         }
         $chave = $l->chave_privada ? openssl_pkey_get_private($l->chave_privada) : null;
         if ($chave === false) {
-            throw new ErroNegocio('A chave do contribuinte guardada não é legível (APP_KEY alterada?). Volte a carregá-la.', 'CHAVE_INVALIDA', 503);
+            throw new ErroNegocio('A chave do contribuinte guardada deixou de ser legível. Volte a carregá-la.', 'CHAVE_INVALIDA', 503);
         }
         $credEmpresa = $l->utilizador && $l->palavra_passe;
 

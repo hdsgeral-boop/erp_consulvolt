@@ -57,7 +57,7 @@ final class ClienteHttpAgt
 
                     continue;
                 }
-                throw new ErroNegocio('Não foi possível contactar a AGT ('.mb_substr($e->getMessage(), 0, 200).'). O documento fica em contingência e é reenviado automaticamente.',
+                throw new ErroNegocio('Não foi possível contactar a AGT. O documento fica em contingência e é reenviado automaticamente.',
                     'AGT_INDISPONIVEL', 502, ['incerto' => true]);
             }
             $json = $this->json($r);

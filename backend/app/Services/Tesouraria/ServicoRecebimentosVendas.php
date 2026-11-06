@@ -195,7 +195,7 @@ final class ServicoRecebimentosVendas
                 }
             } catch (\Throwable $e) {
                 report($e);
-                $r['erros'][] = ['recibo' => (string) $recibo->numero_recibo, 'mensagem' => mb_substr($e->getMessage(), 0, 300)];
+                $r['erros'][] = ['recibo' => (string) $recibo->numero_recibo, 'mensagem' => MensagemSegura::de($e, 'Não foi possível processar este recibo.')];
             }
         }
 

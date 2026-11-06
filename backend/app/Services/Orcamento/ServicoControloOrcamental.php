@@ -221,7 +221,9 @@ final class ServicoControloOrcamental
         } catch (ErroNegocio $e) {
             throw $e;
         } catch (\Throwable $e) {   // falha fechada (o legado deixava gravar)
-            throw new ErroNegocio('Não foi possível validar o orçamento: o documento não foi gravado. '.$e->getMessage(), 'ORCAMENTO_INDISPONIVEL', 422);
+            report($e);   // a causa fica no log; o utilizador só vê a consequência
+
+            throw new ErroNegocio('Não foi possível validar o orçamento: o documento não foi gravado. Tente novamente.', 'ORCAMENTO_INDISPONIVEL', 422);
         }
         $chave = "{$doc['origem']}|{$doc['documento']}";
         $alertas = array_map(fn ($r) => $r + ['origem' => $doc['origem'], 'documento' => $doc['documento']], array_values(array_filter($res, fn ($r) => $r['estado'] !== 'OK')));

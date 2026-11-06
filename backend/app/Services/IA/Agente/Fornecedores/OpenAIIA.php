@@ -105,7 +105,7 @@ final class OpenAIIA implements FornecedorIA
         try {
             $r = Http::withToken($this->chave)->acceptJson()->timeout(180)->post(self::URL, $corpo);
         } catch (ConnectionException $e) {
-            throw new ErroNegocio($detalhado ? 'Teste falhou (OpenAI): sem ligação à OpenAI — '.$e->getMessage() : 'Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio($detalhado ? 'Teste falhou (OpenAI): sem ligação ao fornecedor. Verifique a rede do servidor.' : 'Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
         }
         if ($r->failed()) {
             throw new ErroNegocio($detalhado ? 'Teste falhou (OpenAI): '.($r->json('error.message') ?: 'HTTP '.$r->status())

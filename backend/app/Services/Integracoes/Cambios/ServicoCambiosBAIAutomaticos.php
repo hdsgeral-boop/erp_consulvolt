@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambiosBAI;
+use App\Support\Api\MensagemSegura;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -149,7 +150,7 @@ final class ServicoCambiosBAIAutomaticos
                 .($alertas ? ' (variação acima de '.ServicoCambiosBAI::LIMIAR_VARIACAO.' %: '.implode(', ', $alertas).')' : '').'.', 'execucoes_cambios_bai', $execId);
         } catch (Throwable $e) {
             $codigo = $e instanceof ErroNegocio ? $e->codigo : 'BAI_ERRO';
-            $mensagem = $e instanceof ErroNegocio ? $e->getMessage() : 'Erro inesperado ao obter os câmbios do BAI.';
+            $mensagem = MensagemSegura::de($e, 'Erro inesperado ao obter os câmbios do BAI.');
             DB::table('execucoes_cambios_bai')->where('id', $execId)->update(['estado' => 'FALHA', 'codigo_erro' => $codigo, 'mensagem' => $mensagem,
                 'concluido_em' => now(), 'atualizado_em' => now()]);
             Log::warning('Câmbios do BAI: obtenção falhou', ['origem' => $origem, 'codigo' => $codigo, 'erro' => $e->getMessage()]);

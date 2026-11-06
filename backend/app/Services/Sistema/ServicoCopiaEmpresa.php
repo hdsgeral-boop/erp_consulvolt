@@ -312,7 +312,9 @@ final class ServicoCopiaEmpresa
         try {
             DB::statement('SET CONSTRAINTS ALL IMMEDIATE');
         } catch (Throwable $e) {
-            throw new ErroNegocio('A cópia tem referências inconsistentes e não foi importada: '.mb_substr($e->getMessage(), 0, 400), 'COPIA_INCONSISTENTE', 422);
+            report($e);   // o detalhe (restrição/tabela) fica no log do servidor
+
+            throw new ErroNegocio('A cópia tem referências inconsistentes entre registos e não foi importada.', 'COPIA_INCONSISTENTE', 422);
         }
 
         return $r;

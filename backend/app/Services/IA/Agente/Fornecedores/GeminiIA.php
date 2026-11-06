@@ -125,7 +125,7 @@ final class GeminiIA implements FornecedorIA
         try {
             $r = Http::withHeaders(['x-goog-api-key' => $this->chave])->acceptJson()->timeout(180)->post(sprintf(self::URL, rawurlencode($modelo)), $corpo);
         } catch (ConnectionException $e) {
-            throw new ErroNegocio($detalhado ? 'Teste falhou (Gemini): sem ligação ao Google — '.$e->getMessage() : 'Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio($detalhado ? 'Teste falhou (Gemini): sem ligação ao fornecedor. Verifique a rede do servidor.' : 'Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
         }
         if ($r->failed()) {
             throw new ErroNegocio($detalhado ? 'Teste falhou (Gemini): '.($r->json('error.message') ?: 'HTTP '.$r->status())

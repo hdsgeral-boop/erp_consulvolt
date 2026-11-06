@@ -80,7 +80,7 @@ final class ServicoConfiguracaoIA
         ], fn ($v) => $v !== null);
         if (! empty($d['chave'])) {
             if (! SegredosGateway::podeCifrar()) {
-                throw new ErroNegocio('Não é possível guardar a chave: o servidor não tem APP_KEY para a cifrar.', 'IA_SEM_CIFRA', 503);
+                throw new ErroNegocio('Não é possível guardar a chave: o servidor não tem a cifra de segredos configurada. Contacte o suporte.', 'IA_SEM_CIFRA', 503);
             }
             $valores['chave'] = SegredosGateway::cifrar(trim((string) $d['chave']));
             $valores['ultimo_erro'] = null;

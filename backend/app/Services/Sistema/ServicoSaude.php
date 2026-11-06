@@ -98,7 +98,7 @@ final class ServicoSaude
             $detalhe = (string) $teste();
             $estado = 'OK';
         } catch (Throwable $e) {
-            $detalhe = config('app.debug') || ($mostrarErro && $e::class === RuntimeException::class) ? $e->getMessage() : 'indisponível';
+            $detalhe = $mostrarErro && $e::class === RuntimeException::class ? MensagemSegura::sanitizar($e->getMessage(), 503) : 'indisponível';
             $estado = 'FALHA';
         }
 
