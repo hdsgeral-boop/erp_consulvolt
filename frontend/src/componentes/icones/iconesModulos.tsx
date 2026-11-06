@@ -15,6 +15,7 @@ import {
   FileProtectOutlined,
   FileTextOutlined,
   GoldOutlined,
+  HomeOutlined,
   IdcardOutlined,
   LineChartOutlined,
   PrinterOutlined,
@@ -59,6 +60,7 @@ export const ICONES_MODULOS: Readonly<Record<string, ComponenteIcone>> = {
   orcamento: AccountBookOutlined, // Gestão Orçamental (legado: fa-file-invoice-dollar)
   estrutura: ApartmentOutlined, // Estrutura Orgânica (legado: fa-sitemap)
   estrategia: AimOutlined, // Planeamento Estratégico (legado: fa-bullseye)
+  imobiliario: HomeOutlined, // Gestão Imobiliária (legado: fa-city)
   config: SettingOutlined, // Configurações (legado: fa-cog)
   suporte: CustomerServiceOutlined, // Backoffice de Suporte (ADR-077): tickets dos clientes da plataforma
 };

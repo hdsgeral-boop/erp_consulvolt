@@ -1,0 +1,22 @@
+/* Gestão Imobiliária: mapa de ocupação, ficha, modelos. Cores do estado só com tokens do legado e sempre com texto. */
+.imo-kpis { margin-bottom: 4px; }
+.imo-subtitulo { font-weight: 600; margin: 12px 0 8px; }
+.imo-mapa-piso { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--ant-color-border-secondary, #f0f0f0); }
+.imo-mapa-piso-cab { flex: 0 0 150px; font-weight: 600; }
+.imo-mapa-piso-cab small { display: block; font-weight: 400; opacity: 0.75; }
+.imo-mapa-celulas { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.imo-celula { min-width: 118px; padding: 6px 10px; border: 1px solid; border-radius: 6px; text-align: left; cursor: pointer; font: inherit; line-height: 1.3; }
+.imo-celula:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.imo-celula b { display: block; }
+.imo-celula span { font-size: 12px; }
+.imo-legenda { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.imo-variaveis { display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow: auto; padding: 4px 0; }
+.imo-texto-modelo { font-family: ui-monospace, Menlo, Consolas, monospace; }
+.imo-pre { white-space: pre-wrap; font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; }
+@media (max-width: 700px) {
+  .imo-mapa-piso { flex-direction: column; gap: 6px; }
+  .imo-mapa-piso-cab { flex: 0 0 auto; }
+  .imo-celula { min-width: 100px; }
+}
+.imo-lista { margin: 0; padding-left: 20px; }
+.imo-lista li { margin: 4px 0; }
