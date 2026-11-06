@@ -6,8 +6,10 @@ use App\Exceptions\ErroNegocio;
 use App\Models\EstadiaHotel;
 use App\Models\Produto;
 use App\Models\SessaoPOS;
+use App\Models\StockArmazem;
 use App\Models\Terceiro;
 use App\Models\TerminalPOS;
+use App\Services\Logistica\ServicoArmazens;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,11 +25,16 @@ use Illuminate\Support\Facades\DB;
  *   - a alteração da entrada de uma estadia à hora respeita o bloqueio horário (o legado só o verificava no check-in);
  *   - consumos: produto existente, não bloqueado e que não seja quarto, com o preço do produto por omissão; gravados na
  *     estadia com lock (no legado, com atraso de 250 ms e sem verificação de concorrência além do estado);
+ *   - stock dos consumos: o legado recusava no carrinho (addPOSProduct, ui_sales.js:7152-7206) a mercadoria sem stock ou acima do
+ *     stock existente e só baixava o stock no check-out (BUG-20). Aqui a recusa é igual (mesmas mensagens), mas pelo saldo do
+ *     ARMAZÉM do terminal e na soma do pedido; a baixa continua só no check-out, que revalida (exigirStockCheckout);
  *   - o operador e as datas do histórico vêm do servidor.
  * O preço do alojamento diferente do do quarto e o preço dos consumos alterado exigem pos_desconto (no controlador).
  */
 final class ServicoEstadiasHotel
 {
+    public function __construct(private readonly ServicoArmazens $armazens) {}
+
     /** Preço do quarto por modo (DIA: preço por diária ou, sem ele, o preço unitário — ui_sales.js:6420). */
     public static function precoQuarto(Produto $q, string $modo): string
     {
@@ -176,10 +183,70 @@ final class ServicoEstadiasHotel
                 $itens[] = ['produto_id' => $p->id, 'descricao' => $p->nome, 'quantidade' => (float) $l['quantidade'],
                     'preco_unitario' => (float) number_format((float) ($l['preco_unitario'] ?? $p->preco_unitario), 2, '.', ''), 'taxa_imposto' => (float) $p->taxa_imposto];
             }
+            $this->exigirStock($e, $itens);
             $e->update(['itens' => $itens, 'atualizado_por' => Auth::user()?->nome_utilizador]);
 
             return $e->refresh();
         });
+    }
+
+    /**
+     * Stock dos consumos lançados (addPOSProduct, js/ui_sales.js:7152-7206): mercadoria sem stock «fora de stock»; pedido acima do
+     * saldo «não é possível facturar mais unidades». Saldo do armazém do terminal da estadia; serviços não têm limite.
+     *
+     * @param  list<array<string, mixed>>  $itens
+     */
+    private function exigirStock(EstadiaHotel $e, array $itens): void
+    {
+        $pedido = [];
+        foreach ($itens as $i) {
+            $pedido[$i['produto_id']] = bcadd($pedido[$i['produto_id']] ?? '0', (string) $i['quantidade'], 3);
+        }
+        if (! $pedido) {
+            return;
+        }
+        $armazem = TerminalPOS::query()->withTrashed()->find($e->terminal_pos_id)?->armazem_id ?: $this->armazens->garantirPredefinido()->id;
+        foreach (Produto::query()->whereIn('id', array_keys($pedido))->where('movimenta_stock', true)->get() as $p) {
+            $saldo = (string) (StockArmazem::query()->where('armazem_id', $armazem)->where('produto_id', $p->id)->value('quantidade_stock') ?? '0');
+            if (bccomp($saldo, '0', 3) <= 0) {
+                throw new ErroNegocio("O artigo {$p->nome} encontra-se fora de stock.", 'STOCK_INSUFICIENTE', 422, ['produto_id' => $p->id, 'disponivel' => $saldo, 'pedido' => $pedido[$p->id]]);
+            }
+            if (bccomp($saldo, $pedido[$p->id], 3) < 0) {
+                $n = rtrim(rtrim($saldo, '0'), '.');
+                throw new ErroNegocio("Não é possível facturar mais unidades de {$p->nome} do que o stock existente ({$n}).", 'STOCK_INSUFICIENTE', 422,
+                    ['produto_id' => $p->id, 'disponivel' => $saldo, 'pedido' => $pedido[$p->id]]);
+            }
+        }
+    }
+
+    /**
+     * Revalidação no check-out (BUG-20): o stock só sai aqui, por isso, se entretanto acabou (ou outro posto o gastou), a mensagem
+     * diz que quartos e artigos impedem o fecho em vez do erro genérico da venda. Soma de todas as estadias do mesmo check-out.
+     *
+     * @param  iterable<EstadiaHotel>  $estadias
+     */
+    public function exigirStockCheckout(TerminalPOS $t, iterable $estadias): void
+    {
+        $pedido = $quartos = [];
+        foreach ($estadias as $e) {
+            foreach ($e->itens ?? [] as $i) {
+                $pedido[(int) $i['produto_id']] = bcadd($pedido[(int) $i['produto_id']] ?? '0', (string) $i['quantidade'], 3);
+                $quartos[(int) $i['produto_id']][$e->nome_quarto] = true;
+            }
+        }
+        if (! $pedido) {
+            return;
+        }
+        $armazem = $t->armazem_id ?: $this->armazens->garantirPredefinido()->id;
+        foreach (Produto::query()->whereIn('id', array_keys($pedido))->where('movimenta_stock', true)->get() as $p) {
+            $saldo = (string) (StockArmazem::query()->where('armazem_id', $armazem)->where('produto_id', $p->id)->lockForUpdate()->value('quantidade_stock') ?? '0');
+            if (bccomp($saldo, $pedido[$p->id], 3) < 0) {
+                $n = rtrim(rtrim(bccomp($saldo, '0', 3) < 0 ? '0' : $saldo, '0'), '.') ?: '0';
+                throw new ErroNegocio("Não é possível fechar o check-out: stock insuficiente de {$p->nome} para os consumos de ".implode(', ', array_keys($quartos[$p->id]))
+                    ." (pedido {$pedido[$p->id]}, disponível {$n} no armazém do terminal). Retire o artigo dos consumos do quarto ou reponha o stock.",
+                    'STOCK_INSUFICIENTE', 422, ['produto_id' => $p->id, 'disponivel' => $saldo, 'pedido' => $pedido[$p->id], 'quartos' => array_keys($quartos[$p->id])]);
+            }
+        }
     }
 
     /** Anulação do check-in (hotelAnularEstadia, :478-494): só sem consumos e com motivo. */

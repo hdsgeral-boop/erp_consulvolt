@@ -66,6 +66,7 @@ final class ServicoCheckoutHotel
             }
             $agora = now();
             $p = $this->preparar($t, $d, $estadias, $agora, true);
+            $this->estadias->exigirStockCheckout($t, $estadias);   // BUG-20: o stock só sai aqui; mensagem clara por quarto e artigo
             [$liquidos, $troco] = $this->vendasPOS->pagamentos($t, $d['pagamentos'], $p['total']);
             if (bccomp($troco, '0', 2) > 0 && ! array_filter($liquidos, fn ($l) => $l['tipo'] === 'NUMERARIO')) {
                 // o numerário ficou todo em troco (ex.: TPA pelo total e numerário a mais): a última factura leva-o para devolver o troco
