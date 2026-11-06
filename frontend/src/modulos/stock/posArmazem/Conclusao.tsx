@@ -2,7 +2,7 @@ import { Button, Modal, Result, Select, Space, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { useImpressao } from '@/componentes/impressao';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
-import { imprimirHtml, lerPreferencias, useCabecalhoTalao } from '@/modulos/pos/comum/impressao';
+import { imprimirHtml, lerPreferencias, useCabecalhoTalao, useSincronizarImpressao } from '@/modulos/pos/comum/impressao';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dadosGuiaSaidaPOS, fraseConclusao, htmlTalaoLevantamento, mensagemConclusao, type ConclusaoPOS } from './impressao';
@@ -46,6 +46,7 @@ export function useImprimirConclusao() {
  */
 export function Conclusao({ conclusao, aviso, aoFechar }: { conclusao: ConclusaoPOS | null; aviso?: string | null; aoFechar: () => void }) {
   const impressos = useImprimirConclusao();
+  useSincronizarImpressao();
   const [auto, setAuto] = useState<ImpressaoAuto>(lerImpressaoAuto);
   const feito = useRef<ConclusaoPOS | null>(null);
   const impressosRef = useRef(impressos);

@@ -536,6 +536,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         require __DIR__.'/api/pos_prestacao.php';
         require __DIR__.'/api/pos_lavandaria.php';
         require __DIR__.'/api/pos_hotelaria.php';
+        require __DIR__.'/api/pos_impressao.php';   // POS F7: configuração de impressão na BD
         // Activos, Projectos, Acréscimos e diferimentos e CRM (ficheiros próprios)
         require __DIR__.'/api/ativos.php';
         require __DIR__.'/api/projetos.php';

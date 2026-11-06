@@ -1,4 +1,5 @@
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
+import { useSincronizarImpressao } from './impressao';
 
 const BASE = '/m/pos';
 
@@ -28,6 +29,7 @@ export const SUBTITULO_POS = 'Administre as frentes de caixa, consulte relatóri
  * No modo imersivo da frente de caixa fica por baixo da camada de ecrã inteiro (não se vê).
  */
 export function BarraPos() {
+  useSincronizarImpressao(); // F7: a cópia local da configuração de impressão acompanha o servidor
   return (
     <CabecalhoModulo
       titulo={TITULO_POS}

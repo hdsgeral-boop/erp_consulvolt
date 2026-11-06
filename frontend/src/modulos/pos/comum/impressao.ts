@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { enviar, obter } from '@/api/cliente';
 import { construirDocumento, FORMATO_PADRAO, logotipoSeguro } from '@/componentes/impressao';
 import { useIdentidade } from '@/sessao/identidade';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -6,8 +8,10 @@ import type { RelatorioX, SessaoPOS, VendaEmitida } from './tipos';
 import { idOpaco } from '@/sessao/chaveOpaca';
 
 /**
- * Preferências de impressão do POS. No legado viviam no localStorage por empresa (pos_print_format_<empresa>, …);
- * continuam a ser uma preferência do posto de trabalho (impressora térmica ou A4 ligada àquele computador).
+ * Preferências de impressão do POS (F7). A fonte de verdade é o servidor, por empresa e com sobreposição por posto/terminal
+ * (GET/PUT /pos/impressao/config). O navegador só guarda uma CÓPIA (cache e modo offline), lida de forma síncrona por
+ * `lerPreferencias`; `sincronizarPreferencias` actualiza essa cópia a partir do servidor. Uma configuração antiga que só exista no
+ * navegador continua a valer e pode ser enviada ao servidor com «Guardar no servidor».
  */
 
 export interface PreferenciasImpressao {
@@ -50,6 +54,76 @@ export function lerPreferencias(empresaId: number | null | undefined): Preferenc
 
 export function gravarPreferencias(empresaId: number | null | undefined, p: PreferenciasImpressao): void {
   window.localStorage.setItem(chave(empresaId), JSON.stringify(p));
+}
+
+/** Existe uma cópia local (configuração antiga do navegador ou cache do servidor)? */
+export function temPreferenciasLocais(empresaId: number | null | undefined): boolean {
+  try {
+    return window.localStorage.getItem(chave(empresaId)) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Resposta de GET /pos/impressao/config. `terminal` só tem os campos que o terminal sobrepõe (os restantes herdam da empresa). */
+export interface ConfigImpressaoServidor {
+  guardada: boolean;
+  empresa: Partial<PreferenciasImpressao> | null;
+  terminal: Partial<PreferenciasImpressao> | null;
+  terminal_pos_id: number | null;
+  efectiva: PreferenciasImpressao;
+  padrao: PreferenciasImpressao;
+}
+
+/** Terminal escolhido neste posto (o mesmo que a frente de caixa memoriza), para pedir a sobreposição certa. */
+export function terminalDoPosto(empresaId: number | null | undefined): number | null {
+  try {
+    const v = Number(window.localStorage.getItem(`erp.pos.terminal.${idOpaco(empresaId ?? 0)}`));
+    return v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function obterConfigServidor(terminalId?: number | null): Promise<ConfigImpressaoServidor> {
+  return obter<ConfigImpressaoServidor>('/pos/impressao/config', terminalId ? { terminal_pos_id: terminalId } : undefined);
+}
+
+/** Grava no servidor os valores da empresa (sem terminal) ou a sobreposição de um terminal. */
+export async function guardarConfigServidor(p: Partial<PreferenciasImpressao>, terminalId?: number | null): Promise<ConfigImpressaoServidor> {
+  return (await enviar<ConfigImpressaoServidor>('put', '/pos/impressao/config', { ...p, ...(terminalId ? { terminal_pos_id: terminalId } : {}) })).dados;
+}
+
+/** Remove a sobreposição de um terminal (volta a herdar da empresa). */
+export async function removerSobreposicaoServidor(terminalId: number): Promise<ConfigImpressaoServidor> {
+  return (await enviar<ConfigImpressaoServidor>('delete', `/pos/impressao/config/terminal/${terminalId}`)).dados;
+}
+
+/**
+ * Actualiza a cópia local com a configuração efectiva do servidor (empresa + terminal do posto). Sem configuração no servidor,
+ * mantém a cópia local (se a houver, `porGuardar` é verdadeiro: o ecrã oferece «Guardar no servidor»). Offline ou sem permissão:
+ * fica tudo como estava.
+ */
+export async function sincronizarPreferencias(empresaId: number | null | undefined, terminalId?: number | null): Promise<{ origem: 'SERVIDOR' | 'LOCAL'; porGuardar: boolean; config: ConfigImpressaoServidor | null }> {
+  try {
+    const config = await obterConfigServidor(terminalId ?? terminalDoPosto(empresaId));
+    if (config.guardada || config.terminal) {
+      gravarPreferencias(empresaId, { ...PREFERENCIAS_PADRAO, ...config.efectiva });
+      return { origem: 'SERVIDOR', porGuardar: false, config };
+    }
+    return { origem: 'LOCAL', porGuardar: temPreferenciasLocais(empresaId), config };
+  } catch {
+    return { origem: 'LOCAL', porGuardar: false, config: null };
+  }
+}
+
+/** Sincroniza a cópia local uma vez por empresa/terminal ao abrir um ecrã de impressão do POS. */
+export function useSincronizarImpressao(): void {
+  const { empresa } = useSessao();
+  const id = empresa?.id;
+  useEffect(() => {
+    if (id) void sincronizarPreferencias(id);
+  }, [id]);
 }
 
 function esc(texto: unknown): string {

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useTerminais } from './comum/dados';
+import { sincronizarPreferencias } from './comum/impressao';
 import { gravarPreferenciasFrente, lerPreferenciasFrente, type PreferenciasFrente } from './comum/frente';
 import { accoesFrente } from './comum/regras';
 import { useCoresPos } from './comum/cores';
@@ -102,6 +103,7 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
     } catch {
       /* armazenamento indisponível: a escolha vale só nesta página */
     }
+    if (id) void sincronizarPreferencias(empresa?.id, id); // a sobreposição de impressão é por terminal
   };
 
   const lista = terminais.data ?? [];
