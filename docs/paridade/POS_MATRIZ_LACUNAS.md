@@ -243,12 +243,12 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | F-180 | HOT | Fecho da estadia com dados da factura | IGUAL | N-073 | — | — | — | — |
 | F-181 | HOT | Talão único do check-out | IGUAL (opção) | N-078 | **F4**: por omissão um talão por factura-recibo; com várias facturas o operador escolhe o talão único (todas as linhas, todos os documentos, pagamentos somados), como o legado (Q10) | — | — | F4 |
 | F-182 | LAV | Terminal lavandaria com ecrã próprio | IGUAL | N-107 | — | — | — | — |
-| F-183 | LAV | Peças com opções de preço (peça/kg/tamanho) | PARCIAL | N-080 | `pecas_lavandaria` tem uma só unidade e preço; faltam opções múltiplas, modo TAMANHO e «+ Opção» (o código novo copia uma versão anterior do legado: precoPecaServico lavandaria.js:104-107) | L | A | F5 / F0b |
-| F-184 | LAV | Preços por serviço × opção | PARCIAL | N-080 | `precos_servico` só {produto, preço}: falta a dimensão modo/tamanho; ETL não migra `mode`/`size` nem `lav_prices` (perda de dados em produção) | M | A | F5 / F0b |
+| F-183 | LAV | Peças com opções de preço (peça/kg/tamanho) | IGUAL | N-080 | Opções Peça/Kg/Tamanho, «+ Opção», validações do legado e origem NOVO (F5) | — | — | — |
+| F-184 | LAV | Preços por serviço × opção | IGUAL | N-080 | Matriz serviço × opção com modo/tamanho; edição e importação já não os apagam (F5) | — | — | — |
 | F-185 | LAV | Tabela de serviços | IGUAL | N-081 | — | — | — | — |
 | F-186 | LAV | Códigos automáticos PC/SV | IGUAL | N-080, N-081 | — | — | — | — |
-| F-187 | LAV | Importação Excel de peças/serviços/preços | PARCIAL | N-105 | Importa .xlsx/.csv com simulação; sem as colunas Opção/Tamanho (depende de F-183) | M | M | F5 |
-| F-188 | LAV | Modelos Excel de importação | DIFERENTE | N-105 | Modelos em CSV (legado .xlsx com colunas nomeadas) | S | B | F5 |
+| F-187 | LAV | Importação Excel de peças/serviços/preços | IGUAL | N-105 | Coluna Opção na importação de preços; simulação mostra a opção (F5) | — | — | — |
+| F-188 | LAV | Modelos Excel de importação | IGUAL | N-105 | Modelos .xlsx com colunas nomeadas e folha «Como_Preencher» (F5) | — | — | — |
 | F-189 | LAV | Definições da lavandaria | IGUAL | N-082 | `fator_prazo_urgencia` guardado em % (D-05) | — | — | — |
 | F-190 | LAV | Nova ordem: cliente, facturação, urgência | IGUAL | N-084 | — | — | — | — |
 | F-191 | LAV | Recolha e entrega ao domicílio | IGUAL | N-084, N-086 | — | — | — | — |
@@ -289,7 +289,7 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | F-226 | LAV | Indicadores de prazo | IGUAL | N-096 | — | — | — | — |
 | F-227 | LAV | Carga e desempenho por responsável | IGUAL | N-096 | — | — | — | — |
 | F-228 | LAV | Danos e reclamações (comprovativo, decisão, pagamento) | IGUAL | N-103 | Segregação decidir × pagar (extra) | — | — | — |
-| F-229 | LAV | Relatórios da lavandaria (Excel 7 folhas, imprimir) | PARCIAL | N-104 | Relatório por período e terminal existe; exportação Excel de 7 folhas e impressão A4 dedicada por confirmar | M | B | F7 |
+| F-229 | LAV | Relatórios da lavandaria (Excel 7 folhas, imprimir) | IGUAL | N-104 | Excel de 7 folhas no servidor; impressão A4 pelo motor comum (F5) | — | — | — |
 | F-230 | LAV | Integração contabilística da lavandaria | IGUAL | N-114 | Sem fallbacks 31.1/34.5.3 | — | — | — |
 | F-231 | LAV | Fonte da sessão para o Z da lavandaria | IGUAL | N-110 | — | — | — | — |
 | F-232 | LAV | Fluxo de Processos Lavandaria | IGUAL | N-150 | — | — | — | — |
