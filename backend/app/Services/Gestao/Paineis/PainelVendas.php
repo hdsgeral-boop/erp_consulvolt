@@ -16,7 +16,7 @@ final class PainelVendas implements Painel
 {
     private const TIPOS = ['FT' => 'Fatura', 'FR' => 'Fatura-Recibo', 'NC' => 'Nota de Crédito'];
 
-    public function __construct(private readonly ConsultasPaineis $consultas) {}
+    public function __construct(private readonly ConsultasPaineis $consultas, private readonly ?IndicadoresPOS $pos = null) {}
 
     public function filtraDimensoes(): bool
     {
@@ -54,8 +54,10 @@ final class PainelVendas implements Painel
                     'contravalor' => Indicadores::dinheiro($r->contravalor)], $moedas));
         }
 
+        $pos = ($this->pos ?? app(IndicadoresPOS::class))->construir();   // F6: KPIs do POS (só com permissão)
+
         return [
-            'kpis' => [
+            'kpis' => array_merge([
                 Indicadores::kpi('faturacao_mes', 'Faturação do Mês', $mes['total'], 'kz', 'Líquida de notas de crédito'),
                 Indicadores::kpi('faturacao_ano', "Faturação {$p->ano}", $p->somaAno(array_map(fn ($x) => $x['total'], $porMes)), 'kz', 'Janeiro a '.$p->nomeMes()),
                 Indicadores::kpi('faturas_mes', 'Faturas Emitidas (Mês)', $mes['faturas'], 'num'),
@@ -63,14 +65,14 @@ final class PainelVendas implements Painel
                 Indicadores::kpi('notas_credito_mes', 'Notas de Crédito (Mês)', $mes['notas_credito']),
                 Indicadores::kpi('clientes_receber', 'Clientes a Receber', $saldoClientes, 'kz', 'Saldo contabilístico da conta 31'),
                 Indicadores::kpi('por_converter', 'Proformas / Encomendas', $abertos, 'num', 'Por converter'),
-            ],
+            ], $pos['kpis']),
             'graficos' => [
                 Indicadores::grafico('faturacao_mensal', 'Faturação Mensal (12 meses)', 'barras', $p->rotulos(),
                     [Indicadores::serie('faturacao', 'Faturação', $p->serie(array_map(fn ($x) => $x['total'], $porMes)))]),
                 Indicadores::grafico('por_tipo', "Faturação por Tipo de Documento ({$p->ano})", 'circular', array_map(fn ($r) => self::TIPOS[$r->tipo_documento] ?? $r->tipo_documento, $porTipo),
                     [Indicadores::serie('total', 'Total', array_map(fn ($r) => Indicadores::dinheiro($r->total), $porTipo))]),
             ],
-            'tabelas' => $tabelas,
+            'tabelas' => array_merge($tabelas, $pos['tabelas']),
             'atalhos' => [['rotulo' => 'Emitir Documento', 'vista' => 'vendas_faturacao'], ['rotulo' => 'Ponto de Venda', 'vista' => 'pos'], ['rotulo' => 'Relatórios de Vendas', 'vista' => 'vendas_relatorios']],
         ];
     }

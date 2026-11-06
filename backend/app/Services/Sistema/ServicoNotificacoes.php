@@ -323,6 +323,11 @@ final class ServicoNotificacoes
             'teso_conciliacao' => ['teso', 'Linhas de extracto bancário aguardando conciliação.', '/m/teso/teso_gestao_conciliacao'],
             'vendas_por_liquidar' => ['vendas', 'Facturas FT/FR emitidas pendentes de liquidação.', '/m/vendas/vendas_faturacao'],
             'vendas_agt_recusados' => ['vendas', 'Documentos fiscais recusados pela AGT a aguardar correcção.', '/m/vendas/vendas_faturacao'],
+            'pos_sessoes_antigas' => ['vendas', 'Sessões de caixa do POS abertas desde dias anteriores: feche-as (Z).', '/m/pos/pos'],
+            'pos_desvios' => ['vendas', 'Sessões POS com diferença de caixa acima da tolerância a aguardar deliberação.', '/m/pos/pos_desvios'],
+            'pos_por_integrar' => ['vendas', 'Sessões POS fechadas por integrar na contabilidade.', '/m/pos/pos_integracao'],
+            'pos_por_liquidar' => ['vendas', 'Sessões POS integradas com a prestação de contas por fazer.', '/m/pos/pos_prestacao'],
+            'pos_fe_erros' => ['vendas', 'Vendas POS com erros de facturação electrónica a corrigir.', '/m/vendas/vendas_faturacao'],
             'compras_pedidos' => ['compras', 'Pedidos de compra a aguardar aprovação.', '/m/compras/compras'],
             'stock_critico' => ['compras', 'Artigos de catálogo com stock abaixo do nível de segurança.', '/m/compras/armazem_stock'],
             'stock_reposicao' => ['compras', 'Sugestões automáticas de reposição de armazém.', '/m/compras/armazem_stock'],
@@ -352,7 +357,7 @@ final class ServicoNotificacoes
 
             // Define criticidade
             $tipo = 'AVISO';
-            if (in_array($id, ['vendas_agt_recusados', 'stock_critico', 'orc_excessos', 'crm_atraso'], true) || $q >= 30) {
+            if (in_array($id, ['vendas_agt_recusados', 'stock_critico', 'orc_excessos', 'crm_atraso', 'pos_desvios', 'pos_sessoes_antigas', 'pos_fe_erros'], true) || $q >= 30) {
                 $tipo = 'URGENTE';
             }
 

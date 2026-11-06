@@ -174,6 +174,17 @@ final class ServicoInicio
             // r4_agt: documentos recusados pela AGT (inválidos/rejeitados) à espera do documento de correcção
             ['vendas_agt_recusados', 'Documentos recusados pela AGT', 'vendas_faturacao', fn () => $this->podeVer(['vendas_faturacao']),
                 fn () => app(ServicoEnvioAgt::class)->contarRecusados()],
+            // F6/Q18 (POS): sessão esquecida aberta, diferença de caixa por deliberar, sessões por integrar/liquidar e FE do POS com erros
+            ['pos_sessoes_antigas', 'Sessões POS abertas desde dias anteriores', 'pos', fn () => $this->podeVer(['pos', 'pos_view', 'pos_relatorios_view']),
+                fn () => $n("SELECT COUNT(*) AS n FROM sessoes_pos WHERE empresa_id = ? AND estado = 'ABERTA' AND aberto_em < ?::date", [$hoje])],
+            ['pos_desvios', 'Desvios de caixa por deliberar', 'pos_desvios', fn () => $this->podeVer(['pos_desvios']),
+                fn () => $n("SELECT COUNT(*) AS n FROM sessoes_pos WHERE empresa_id = ? AND estado_desvio = 'PENDENTE'")],
+            ['pos_por_integrar', 'Sessões POS por integrar', 'pos_integracao', fn () => $this->podeVer(['pos_integracao']),
+                fn () => $n("SELECT COUNT(*) AS n FROM sessoes_pos WHERE empresa_id = ? AND estado = 'FECHADA' AND estado_contabilizacao = 'PENDENTE'")],
+            ['pos_por_liquidar', 'Sessões POS por liquidar', 'pos_prestacao', fn () => $this->podeVer(['pos_prestacao']),
+                fn () => $n("SELECT COUNT(*) AS n FROM sessoes_pos WHERE empresa_id = ? AND estado_contabilizacao = 'CONTABILIZADA' AND estado_liquidacao IN ('PENDENTE', 'PARCIAL')")],
+            ['pos_fe_erros', 'Vendas POS com erros de facturação electrónica', 'vendas_faturacao', fn () => $this->podeVer(['vendas_faturacao']),
+                fn () => $n("SELECT COUNT(*) AS n FROM vendas WHERE empresa_id = ? AND sessao_pos_id IS NOT NULL AND fe_estado = 'COM_ERROS' AND COALESCE(estado, '') <> 'ANULADO'")],
             ['compras_pedidos', 'Pedidos por aprovar', 'compras', fn () => $this->podeVer(['compras']),
                 fn () => $n("SELECT COUNT(*) AS n FROM pedidos_compra WHERE empresa_id = ? AND estado = 'PENDENTE' AND anulado_em IS NULL")],
             // ronda 3: regras de notificação dos níveis de stock (ServicoNiveisStock, em cache)

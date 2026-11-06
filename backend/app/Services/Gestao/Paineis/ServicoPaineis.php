@@ -142,7 +142,9 @@ final class ServicoPaineis
         $empresa = $this->contexto->obrigatorio();
         $holding = $this->holding();
         $acessiveis = $holding ? $this->membrosAcessiveis() : [];
-        $chave = 'gestao:painel:'.md5(json_encode([$empresa, $modulo, $p->chaveMes, $filtros, $internos, $acessiveis]));
+        // os KPIs do POS no painel de Vendas dependem das vistas do utilizador (F6): entram na chave para não vazarem entre perfis
+        $vistasPos = $modulo === 'vendas' ? array_map(fn ($v) => $this->podeVer([$v]), ['pos', 'pos_view', 'pos_relatorios_view', 'pos_desvios', 'pos_integracao', 'pos_prestacao']) : null;
+        $chave = 'gestao:painel:'.md5(json_encode([$empresa, $modulo, $p->chaveMes, $filtros, $internos, $acessiveis, $vistasPos]));
         if (! empty($f['actualizar'])) {
             Cache::forget($chave);
         }

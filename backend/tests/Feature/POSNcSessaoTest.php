@@ -169,4 +169,37 @@ final class POSNcSessaoTest extends TestCase
         $itens = collect($this->getJson("/api/pos/sessoes/{$this->sid()}/prestacao", $g)->assertOk()->json('dados.itens'))->keyBy('chave_item');
         $this->assertSame([null, '500.00'], [$itens['TPA:pm_tpa']['diferenca'], $itens['TPA:pm_tpa']['valor']]);
     }
+
+    #[Test]
+    public function pendentes_notificacoes_e_kpis_do_pos_respeitam_as_permissoes(): void
+    {
+        $this->vender();
+        $gestor = $this->sessao(['pos_view', 'pos_desvios_view', 'pos_integracao_view', 'pos_prestacao_view', 'vendas_faturacao_view', 'pos_relatorios_view', 'dashboard_view']);
+        $pend = fn (array $h) => collect($this->getJson('/api/gestao/inicio', $h)->assertOk()->json('dados.pendentes'))->pluck('quantidade', 'id')->all();
+        $kpi = fn (array $h, string $id) => collect($this->getJson('/api/gestao/paineis/vendas?actualizar=1', $h)->assertOk()->json('dados.kpis'))->firstWhere('id', $id)['valor'] ?? 'AUSENTE';
+
+        $this->assertArrayNotHasKey('pos_sessoes_antigas', $pend($gestor));   // aberta hoje
+        $this->assertSame(['1140.00', 1], [$kpi($gestor, 'pos_vendas_hoje'), $kpi($gestor, 'pos_sessoes_abertas')]);
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => \DB::table('sessoes_pos')->where('id', $this->sid())->update(['aberto_em' => now()->subDay()]));
+        $this->assertSame(1, $pend($gestor)['pos_sessoes_antigas']);
+
+        // sem permissões do POS não há pendentes nem KPIs do POS
+        $vendasSo = $this->sessao(['vendas_faturacao_view', 'dashboard_view']);
+        $this->assertSame([], array_filter(array_keys($pend($vendasSo)), fn ($k) => str_starts_with($k, 'pos_')));
+        $this->assertSame('AUSENTE', $kpi($vendasSo, 'pos_vendas_hoje'));
+
+        // desvio de −640 (acima da tolerância de 5): por deliberar e por integrar
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/fechar", ['numerario_contado' => 5000, 'fechos_tpa' => [['meio_id' => 'pm_tpa', 'valor_talao' => 500]], 'justificacao' => 'Falta'], $this->s)->assertOk();
+        $p = $pend($gestor);
+        $this->assertSame([1, 1], [$p['pos_desvios'], $p['pos_por_integrar']]);
+        $this->assertSame([1, 1, 0], [$kpi($gestor, 'pos_desvios'), $kpi($gestor, 'pos_por_integrar'), $kpi($gestor, 'pos_sessoes_abertas')]);
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/contabilizar", [], $this->s)->assertOk();
+        $p = $pend($gestor);
+        $this->assertSame([1, 1], [$p['pos_por_liquidar'], $p['pos_desvios']]);
+        $this->assertArrayNotHasKey('pos_por_integrar', $p);
+
+        // o sino de notificações mostra os alertas do POS (alerta operacional) com a ligação ao ecrã
+        $n = collect($this->getJson('/api/sistema/notificacoes', $gestor)->assertOk()->json('dados.notificacoes'))->firstWhere('titulo', '1 Desvios de caixa por deliberar');
+        $this->assertSame(['vendas', 'URGENTE', '/m/pos/pos_desvios'], [$n['modulo'], $n['tipo'], $n['link']]);
+    }
 }
