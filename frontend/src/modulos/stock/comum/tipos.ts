@@ -79,7 +79,8 @@ export interface GuiaSaida {
   numero_lan_contabilizacao: string | null;
   anulado_em: string | null;
   motivo_anulacao: string | null;
-  linhas?: { id: number; produto_id: number; produto?: RefProduto | null; quantidade: string; valor_kz: string | null; custo_unitario_kz: string | null }[];
+  linhas?: { id: number; produto_id: number; produto?: RefProduto | null; quantidade: string; valor_kz: string | null; custo_unitario_kz: string | null; preco_unitario_kz?: string | null }[];
+  criado_em?: string | null;
   aviso_contabilizacao?: string | null;
   /** Na lista: GUIA (guias_saida) ou GR (guia de remessa das Vendas emitida no armazém — ADR-043; abre-se nas Vendas). */
   origem?: 'GUIA' | 'GR';

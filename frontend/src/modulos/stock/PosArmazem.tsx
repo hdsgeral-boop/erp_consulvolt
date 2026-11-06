@@ -20,6 +20,8 @@ import { TabelaLocal } from '@/modulos/compras/comum/Tabelas';
 import type { EncomendaPicking, GuiaSaida, ListaRecolha } from './comum/tipos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { Balcao } from './posArmazem/Balcao';
+import { Conclusao } from './posArmazem/Conclusao';
+import { conclusaoPicking, type ConclusaoPOS, type GuiaRemessaExpedida } from './posArmazem/impressao';
 import { Senhas } from './posArmazem/Senhas';
 
 const ROTA = '/m/stock/pos_armazem';
@@ -65,7 +67,7 @@ export default function PosArmazem() {
         <Typography.Paragraph type="secondary">Por favor, configure pelo menos um Armazém antes de aceder ao POS.</Typography.Paragraph>
         {pode('armazem_armazens_view') && (
           <Button type="primary" style={{ marginTop: '1rem' }} onClick={() => navegar('/m/stock/armazem_armazens')}>
-            Configurar Armazens
+            Configurar Armazéns
           </Button>
         )}
       </Card>
@@ -179,7 +181,9 @@ function pedidoListaRecolha(lista: ListaRecolha) {
  * («Verificado»), «Pausar» e «Finalizar Picking & Expedir» (só com todos os artigos marcados).
  */
 function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem: (id: number) => void }) {
-  const { pode } = useSessao();
+  const { pode, utilizador } = useSessao();
+  const armazens = useArmazens();
+  const [conclusao, setConclusao] = useState<ConclusaoPOS | null>(null);
   const [encomenda, setEncomenda] = useState<number>();
   const [observacoes, setObservacoes] = useState('');
   const [recolhidos, setRecolhidos] = useState<number[]>([]);
@@ -195,7 +199,19 @@ function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem:
     setEncomenda(undefined);
     setObservacoes('');
   };
-  const expedir = useAccao({ invalidar: [['logistica'], ['vendas']], aoSucesso: fechar, tituloErro: 'Não foi possível expedir' });
+  const expedir = useAccao<GuiaRemessaExpedida>({
+    invalidar: [['logistica'], ['vendas']],
+    aoSucesso: (gr) => {
+      // guia de remessa emitida: voz, guia A4 e talão de levantamento (janela «Conclusao»)
+      if (lista.data) {
+        const nomeArmazem = armazens.data?.find((a) => a.id === armazem)?.nome ?? null;
+        const cliente = fila.data?.find((e) => e.id === encomenda)?.cliente ?? null;
+        setConclusao(conclusaoPicking(gr, lista.data, cliente, nomeArmazem, utilizador ? utilizador.nome_completo || utilizador.nome_utilizador : null));
+      }
+      fechar();
+    },
+    tituloErro: 'Não foi possível expedir',
+  });
 
   const linhas = lista.data?.linhas ?? [];
   const todosMarcados = linhas.length > 0 && linhas.every((l) => recolhidos.includes(l.item_id));
@@ -245,6 +261,8 @@ function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem:
           ]}
         />
       </Card>
+
+      <Conclusao conclusao={conclusao} aoFechar={() => setConclusao(null)} />
 
       <Modal
         open={!!encomenda}

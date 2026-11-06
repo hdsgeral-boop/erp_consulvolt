@@ -18,6 +18,9 @@ vi.mock('@/api/cliente', () => ({
 let permissoes: string[] = [];
 vi.mock('@/sessao/SessaoContexto', () => ({ useSessao: () => ({ pode: (...c: string[]) => c.some((x) => permissoes.includes(x)) }) }));
 
+const imprimirHtml = vi.fn();
+vi.mock('@/modulos/pos/comum/impressao', async (original) => ({ ...(await original<typeof import('@/modulos/pos/comum/impressao')>()), imprimirHtml: (h: string) => imprimirHtml(h) }));
+
 import { Balcao } from './Balcao';
 import { Senhas } from './Senhas';
 
@@ -29,6 +32,7 @@ function comConsulta(no: ReactNode) {
 beforeEach(() => {
   obter.mockClear();
   enviar.mockClear();
+  imprimirHtml.mockClear();
   permissoes = [];
   for (const k of Object.keys(respostas)) delete respostas[k];
   try {
@@ -80,6 +84,45 @@ describe('POS de armazém — Atendimento ao Balcão', () => {
     expect(await screen.findByText(/produto\(s\) têm stock global diferente/, {}, { timeout: 15_000 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Acertar stock deste armazém/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Confirmar Saída e Expedir/ })).toBeNull();
+  });
+});
+
+describe('POS de armazém — conclusão da saída (F3)', () => {
+  it('confirma a saída com cliente: mensagem do legado, voz e talão de levantamento com o n.º da guia e os artigos', async () => {
+    permissoes = ['pos_armazem_vender'];
+    localStorage.setItem('pos_wh_impressao_auto', 'talao');   // o motor do A4 abre uma iframe: aqui só o talão
+    const falas: string[] = [];
+    vi.stubGlobal('SpeechSynthesisUtterance', function (this: { text: string }, t: string) { this.text = t; falas.push(t); });
+    vi.stubGlobal('speechSynthesis', { speak: vi.fn() });
+    Object.defineProperty(window, 'speechSynthesis', { value: { speak: vi.fn() }, configurable: true });
+    respostas['/logistica/armazens'] = [{ id: 5, nome: 'Central', predefinido: true }];
+    respostas['/pos/armazem/artigos'] = [{ produto_id: 1, codigo: 'CAB-01', nome: 'Cabo eléctrico', preco_unitario: '1000.00', quantidade: '12.000', bloqueado: false }];
+    respostas['/pos/armazem/acerto-stock'] = [];
+    enviar.mockImplementationOnce(async () => ({
+      mensagem: 'Saída concluída.',
+      dados: { id: 9, numero_documento: 'GE POS 2026/0009', data: '2026-11-06', tipo: 'VENDA_BALCAO', area_rececao: 'Cliente de balcão', criado_em: '2026-11-06T10:42:00+01:00',
+        linhas: [{ id: 1, produto_id: 1, quantidade: '2.000', valor_kz: '1200.00', custo_unitario_kz: '600.00', preco_unitario_kz: '1000.00' }] },
+    }));
+    render(comConsulta(<Balcao armazem={5} aoMudarArmazem={vi.fn()} />));
+    await screen.findByText('Cabo eléctrico', {}, { timeout: 15_000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Acrescentar Cabo eléctrico' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Acrescentar Cabo eléctrico' }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar Saída e Expedir/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(enviar).toHaveBeenCalledWith('post', '/pos/armazem/vendas', { armazem_id: 5, terceiro_id: undefined, observacoes: undefined, linhas: [{ produto_id: 1, quantidade: 2 }] }));
+
+    expect(await screen.findByText('Saída concluída com sucesso!', {}, { timeout: 15_000 })).toBeInTheDocument();
+    expect(screen.getByText(/Guia GE POS 2026\/0009 emitida\./)).toBeInTheDocument();
+    expect(falas).toEqual(['Atendimento de Cliente de balcão concluído com sucesso. Guia GE POS 2026/0009 gerada.']);
+    await waitFor(() => expect(imprimirHtml).toHaveBeenCalledTimes(1));
+    const talao = imprimirHtml.mock.calls[0][0] as string;
+    expect(talao).toContain('Documento: GE POS 2026/0009');
+    expect(talao).toContain('CAB-01 · Cabo eléctrico');
+    expect(talao).toMatch(/2\D000,00 Kz/);
+    expect(screen.getByRole('button', { name: /Imprimir Documento A4/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Imprimir Talão/ }));
+    expect(imprimirHtml).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
   });
 });
 

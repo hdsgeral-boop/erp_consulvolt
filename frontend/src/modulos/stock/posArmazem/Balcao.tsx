@@ -1,10 +1,11 @@
-import { Button, Input, InputNumber, Modal, Result, Skeleton, Table, Typography } from 'antd';
+import { Button, Input, InputNumber, Modal, Skeleton, Table, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { useArmazens } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
@@ -14,6 +15,8 @@ import {
   corStock, etiquetaStock, filtrarArtigos, formatarUnidades, totalPicking,
   type ArtigoPos, type DiferencaStock, type FiltroStock, type ModoArtigos,
 } from './logica';
+import { Conclusao } from './Conclusao';
+import { conclusaoBalcao, type ConclusaoPOS } from './impressao';
 import './posArmazem.css';
 
 const CHAVE_MODO = 'pos_wh_layout_mode';
@@ -41,14 +44,17 @@ function gravarPreferencia(chave: string, valor: string) {
  * deste armazém» e o «🛒 Carrinho de Picking» com «TOTAL DO PICKING» e «✔ Confirmar Saída e Expedir» (guia de saída).
  */
 export function Balcao({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem: (id: number) => void }) {
-  const { pode } = useSessao();
+  const { pode, utilizador } = useSessao();
+  const armazens = useArmazens();
   const [pesquisa, setPesquisa] = useState('');
   const [filtro, setFiltroEstado] = useState<FiltroStock>(() => lerPreferencia(CHAVE_FILTRO, ['todos', 'com', 'sem'] as const, 'todos'));
   const [modo, setModoEstado] = useState<ModoArtigos>(() => lerPreferencia(CHAVE_MODO, ['grelha', 'lista'] as const, 'grelha'));
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [cliente, setCliente] = useState<number>();
+  const [fichaCliente, setFichaCliente] = useState<{ nome: string; nif?: string | null }>();
   const [observacoes, setObservacoes] = useState('');
-  const [emitida, setEmitida] = useState<GuiaSaida | null>(null);
+  const [conclusao, setConclusao] = useState<ConclusaoPOS | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [acertoAberto, setAcertoAberto] = useState(false);
 
   const artigos = useQuery({ queryKey: ['logistica', 'pos-armazem', 'artigos', armazem], queryFn: () => obter<ArtigoPos[]>('/pos/armazem/artigos', { armazem_id: armazem }) });
@@ -56,9 +62,12 @@ export function Balcao({ armazem, aoMudarArmazem }: { armazem: number; aoMudarAr
   const vender = useAccao<GuiaSaida>({
     invalidar: [['logistica']],
     aoSucesso: (g) => {
-      setEmitida(g);
+      const nomeArmazem = armazens.data?.find((a) => a.id === armazem)?.nome ?? null;
+      setConclusao(conclusaoBalcao(g, artigos.data ?? [], nomeArmazem, utilizador ? utilizador.nome_completo || utilizador.nome_utilizador : null, cliente ? fichaCliente : undefined));
+      setAviso(g.aviso_contabilizacao ?? null);
       setCarrinho([]);
       setCliente(undefined);
+      setFichaCliente(undefined);
       setObservacoes('');
     },
     tituloErro: 'Não foi possível confirmar a saída',
@@ -184,7 +193,7 @@ export function Balcao({ armazem, aoMudarArmazem }: { armazem: number; aoMudarAr
       <aside className="pa-painel pa-carrinho" aria-label="Carrinho de Picking">
         <h3 className="pa-titulo-painel"><IconeFa nome="shopping-cart" /> Carrinho de Picking</h3>
         <label className="pa-rotulo" htmlFor="pa-cliente">Cliente</label>
-        <SeletorTerceiro id="pa-cliente" papel="CLIENTE" style={{ width: '100%' }} placeholder="-- Cliente de Balcão (Geral) --" value={cliente} onChange={setCliente} />
+        <SeletorTerceiro id="pa-cliente" papel="CLIENTE" style={{ width: '100%' }} placeholder="-- Cliente de Balcão (Geral) --" value={cliente} onChange={setCliente} onEscolher={(t) => setFichaCliente(t ? { nome: t.nome.trim(), nif: t.nif } : undefined)} />
 
         <div className="pa-itens">
           {carrinho.length === 0 ? (
@@ -252,15 +261,7 @@ export function Balcao({ armazem, aoMudarArmazem }: { armazem: number; aoMudarAr
         )}
       </aside>
 
-      <Modal open={!!emitida} onCancel={() => setEmitida(null)} footer={<Button type="primary" onClick={() => setEmitida(null)}>Fechar</Button>}>
-        {emitida && (
-          <Result
-            status={emitida.aviso_contabilizacao ? 'warning' : 'success'}
-            title={`Guia ${emitida.numero_documento} emitida`}
-            subTitle={emitida.aviso_contabilizacao ? `Custo das mercadorias por contabilizar: ${emitida.aviso_contabilizacao}` : 'Stock actualizado.'}
-          />
-        )}
-      </Modal>
+      <Conclusao conclusao={conclusao} aviso={aviso} aoFechar={() => setConclusao(null)} />
 
       {acertoAberto && <AcertoStock armazem={armazem} linhas={diferencas.data ?? []} aoFechar={() => setAcertoAberto(false)} />}
     </div>

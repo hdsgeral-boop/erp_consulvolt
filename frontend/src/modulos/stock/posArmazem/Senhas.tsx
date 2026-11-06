@@ -6,33 +6,11 @@ import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { chamadaNova, chaveChamada, fraseChamada, type EstadoSenhas } from './logica';
+import { anunciar, gravarVoz, vozLigada } from './voz';
 import './posArmazem.css';
 
 /** Intervalo de actualização do monitor (ms): o monitor público pode estar noutro computador/TV. */
 export const INTERVALO_MONITOR = 3000;
-
-const CHAVE_SOM = 'pos_wh_senhas_som';
-
-/** Chamada acústica (legado speakSentence: síntese de voz em português). */
-function anunciar(texto: string) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  try {
-    const frase = new SpeechSynthesisUtterance(texto);
-    frase.lang = 'pt-PT';
-    frase.rate = 1;
-    window.speechSynthesis.speak(frase);
-  } catch {
-    /* sem voz disponível */
-  }
-}
-
-function lerSom(): boolean {
-  try {
-    return localStorage.getItem(CHAVE_SOM) !== 'nao';
-  } catch {
-    return true;
-  }
-}
 
 /**
  * «📢 Monitor de Chamada de Senhas» (renderPOSSenhasTab, js/ui_pos_armazem.js:1126-1254): painel do operador («Tirar Nova
@@ -43,7 +21,7 @@ export function Senhas({ armazem }: { armazem: number }) {
   const { pode } = useSessao();
   const operador = pode('pos_armazem_vender', 'pos_armazem_picking', 'pos_armazem_expedir');
   const monitorRef = useRef<HTMLDivElement>(null);
-  const [som, setSom] = useState(lerSom);
+  const [som, setSom] = useState(vozLigada);
   const [destaque, setDestaque] = useState(false);
   const [cheio, setCheio] = useState(false);
   const ultima = useRef<string | null | undefined>(undefined);
@@ -92,11 +70,7 @@ export function Senhas({ armazem }: { armazem: number }) {
   }, []);
   const alternarSom = () => {
     setSom((s) => {
-      try {
-        localStorage.setItem(CHAVE_SOM, s ? 'nao' : 'sim');
-      } catch {
-        /* sem armazenamento */
-      }
+      gravarVoz(!s);
       return !s;
     });
   };
