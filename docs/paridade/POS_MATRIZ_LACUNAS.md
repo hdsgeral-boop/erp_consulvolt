@@ -230,7 +230,7 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | F-167 | HOT | Aviso de check-in antecipado | IGUAL | N-067 | Aviso em quartos.ts | — | — | — |
 | F-168 | HOT | Impedir check-in duplicado | IGUAL | N-066 | Índice único parcial | — | — | — |
 | F-169 | HOT | Estadia na BD com histórico | IGUAL | N-068 | — | — | — | — |
-| F-170 | HOT | Consumos do quarto (persistência com debounce) | DIFERENTE | N-069 | Substituição da lista por PUT no servidor; exige pos_desconto para preço alterado | — | — | — |
+| F-170 | HOT | Consumos do quarto (persistência com debounce) | DIFERENTE | N-069 | Substituição da lista por PUT no servidor; exige pos_desconto para preço alterado. **F4**: recusa mercadoria sem stock/acima do saldo do armazém do terminal com as mensagens do legado (antes só o check-out validava o stock) | — | — | — |
 | F-171 | HOT | Bloqueio de consumos sem check-in | IGUAL | N-069 | — | — | — | — |
 | F-172 | HOT | Alterar estadia com histórico | IGUAL | N-068 | — | — | — | — |
 | F-173 | HOT | Anular check-in (sem consumos, com motivo) | IGUAL | N-070 | — | — | — | — |
@@ -241,7 +241,7 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | F-178 | HOT | Repartição proporcional dos pagamentos | IGUAL | N-073 | — | — | — | — |
 | F-179 | HOT | FR com alojamento + consumos | IGUAL | N-073, N-074 | Pivô venda↔estadia sem PK (D-01) | S | B | F0 |
 | F-180 | HOT | Fecho da estadia com dados da factura | IGUAL | N-073 | — | — | — | — |
-| F-181 | HOT | Talão único do check-out | DIFERENTE | N-078 | Um talão por factura-recibo (legado: um único talão com todas as linhas); a confirmar se se quer o talão único | S | B | Q10 |
+| F-181 | HOT | Talão único do check-out | IGUAL (opção) | N-078 | **F4**: por omissão um talão por factura-recibo; com várias facturas o operador escolhe o talão único (todas as linhas, todos os documentos, pagamentos somados), como o legado (Q10) | — | — | F4 |
 | F-182 | LAV | Terminal lavandaria com ecrã próprio | IGUAL | N-107 | — | — | — | — |
 | F-183 | LAV | Peças com opções de preço (peça/kg/tamanho) | PARCIAL | N-080 | `pecas_lavandaria` tem uma só unidade e preço; faltam opções múltiplas, modo TAMANHO e «+ Opção» (o código novo copia uma versão anterior do legado: precoPecaServico lavandaria.js:104-107) | L | A | F5 / F0b |
 | F-184 | LAV | Preços por serviço × opção | PARCIAL | N-080 | `precos_servico` só {produto, preço}: falta a dimensão modo/tamanho; ETL não migra `mode`/`size` nem `lav_prices` (perda de dados em produção) | M | A | F5 / F0b |
