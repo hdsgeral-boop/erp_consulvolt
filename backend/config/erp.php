@@ -260,6 +260,7 @@ return [
             'rh' => 'Recursos Humanos', 'activos' => 'Activos', 'crm' => 'CRM', 'projectos' => 'Projectos', 'orcamento' => 'Orçamento', 'pos' => 'Ponto de venda',
             'acrescimos' => 'Acréscimos e Diferimentos', 'estrutura' => 'Estrutura Orgânica', 'metodo' => 'Método de Trabalho',
             'estrategia' => 'Planeamento Estratégico',
+            'imobiliario' => 'Gestão Imobiliária',
         ],
         // Ciclos de facturação da subscrição SaaS e o desconto de cada um (CalculadoraPrecoPlano). Os códigos ficam
         // gravados em subscricoes_empresa.ciclo_codigo: mudar aqui a percentagem não invalida subscrições já pagas.

@@ -1,0 +1,323 @@
+{
+  "tipos": {
+    "CONTRATO": "Contrato de arrendamento",
+    "CONTRATO_SUB": "Contrato de subarrendamento",
+    "RECIBO": "Recibo de renda",
+    "AVISO": "Aviso de vencimento",
+    "INTERPELACAO": "Interpelação por mora",
+    "ACTUALIZACAO": "Carta de actualização da renda",
+    "DENUNCIA": "Carta de denúncia",
+    "VISTORIA": "Auto de entrega / vistoria"
+  },
+  "variaveis": [
+    {
+      "chave": "data_hoje",
+      "rotulo": "Data de hoje"
+    },
+    {
+      "chave": "empresa",
+      "rotulo": "Empresa"
+    },
+    {
+      "chave": "empresa_nif",
+      "rotulo": "NIF da empresa"
+    },
+    {
+      "chave": "empresa_morada",
+      "rotulo": "Morada da empresa"
+    },
+    {
+      "chave": "senhorio",
+      "rotulo": "Senhorio"
+    },
+    {
+      "chave": "senhorio_nif",
+      "rotulo": "NIF do senhorio"
+    },
+    {
+      "chave": "senhorio_morada",
+      "rotulo": "Morada do senhorio"
+    },
+    {
+      "chave": "senhorio_doc",
+      "rotulo": "Documento de identificação do senhorio"
+    },
+    {
+      "chave": "inquilino",
+      "rotulo": "Inquilino"
+    },
+    {
+      "chave": "inquilino_nif",
+      "rotulo": "NIF do inquilino"
+    },
+    {
+      "chave": "inquilino_morada",
+      "rotulo": "Morada do inquilino"
+    },
+    {
+      "chave": "inquilino_doc",
+      "rotulo": "Documento de identificação do inquilino"
+    },
+    {
+      "chave": "contrato",
+      "rotulo": "Número do contrato"
+    },
+    {
+      "chave": "tipo_contrato",
+      "rotulo": "Tipo de contrato"
+    },
+    {
+      "chave": "imovel",
+      "rotulo": "Imóvel"
+    },
+    {
+      "chave": "imovel_morada",
+      "rotulo": "Morada do imóvel"
+    },
+    {
+      "chave": "imovel_municipio",
+      "rotulo": "Município"
+    },
+    {
+      "chave": "imovel_provincia",
+      "rotulo": "Província"
+    },
+    {
+      "chave": "imovel_matriz",
+      "rotulo": "Artigo matricial"
+    },
+    {
+      "chave": "fraccao",
+      "rotulo": "Fracção"
+    },
+    {
+      "chave": "fraccao_piso",
+      "rotulo": "Piso"
+    },
+    {
+      "chave": "fraccao_tipologia",
+      "rotulo": "Tipologia"
+    },
+    {
+      "chave": "fraccao_area",
+      "rotulo": "Área útil"
+    },
+    {
+      "chave": "fraccao_quartos",
+      "rotulo": "Número de quartos"
+    },
+    {
+      "chave": "finalidade",
+      "rotulo": "Finalidade"
+    },
+    {
+      "chave": "mobilada",
+      "rotulo": "Mobilada"
+    },
+    {
+      "chave": "inicio",
+      "rotulo": "Data de início"
+    },
+    {
+      "chave": "fim",
+      "rotulo": "Data de fim"
+    },
+    {
+      "chave": "duracao",
+      "rotulo": "Duração"
+    },
+    {
+      "chave": "renovacao",
+      "rotulo": "Renovação"
+    },
+    {
+      "chave": "aviso_dias",
+      "rotulo": "Pré-aviso em dias"
+    },
+    {
+      "chave": "renda",
+      "rotulo": "Renda"
+    },
+    {
+      "chave": "renda_letras",
+      "rotulo": "Renda por extenso"
+    },
+    {
+      "chave": "periodicidade",
+      "rotulo": "Periodicidade"
+    },
+    {
+      "chave": "dia_vencimento",
+      "rotulo": "Dia de vencimento"
+    },
+    {
+      "chave": "momento_pagamento",
+      "rotulo": "Momento do pagamento"
+    },
+    {
+      "chave": "caucao",
+      "rotulo": "Caução"
+    },
+    {
+      "chave": "caucao_meses",
+      "rotulo": "Caução em meses de renda"
+    },
+    {
+      "chave": "encargos",
+      "rotulo": "Encargos"
+    },
+    {
+      "chave": "actualizacao",
+      "rotulo": "Regra de actualização"
+    },
+    {
+      "chave": "ip_taxa",
+      "rotulo": "Taxa efectiva do Imposto Predial"
+    },
+    {
+      "chave": "ip_valor",
+      "rotulo": "Imposto Predial da renda"
+    },
+    {
+      "chave": "retencao",
+      "rotulo": "Quem retém o Imposto Predial"
+    },
+    {
+      "chave": "selo",
+      "rotulo": "Imposto de Selo"
+    },
+    {
+      "chave": "selo_encargo",
+      "rotulo": "Quem suporta o Imposto de Selo"
+    },
+    {
+      "chave": "iva",
+      "rotulo": "IVA"
+    },
+    {
+      "chave": "periodo",
+      "rotulo": "Período da renda"
+    },
+    {
+      "chave": "vencimento",
+      "rotulo": "Data de vencimento"
+    },
+    {
+      "chave": "total_facturar",
+      "rotulo": "Total a facturar"
+    },
+    {
+      "chave": "total_receber",
+      "rotulo": "Total a receber"
+    },
+    {
+      "chave": "recebido",
+      "rotulo": "Valor efectivamente recebido"
+    },
+    {
+      "chave": "divida",
+      "rotulo": "Valor em dívida"
+    },
+    {
+      "chave": "dias_atraso",
+      "rotulo": "Dias de atraso"
+    },
+    {
+      "chave": "juros",
+      "rotulo": "Juros de mora"
+    },
+    {
+      "chave": "factura",
+      "rotulo": "Número da factura"
+    },
+    {
+      "chave": "renda_nova",
+      "rotulo": "Renda actualizada"
+    },
+    {
+      "chave": "renda_antiga",
+      "rotulo": "Renda anterior"
+    },
+    {
+      "chave": "data_efeito",
+      "rotulo": "Data de efeito"
+    },
+    {
+      "chave": "motivo",
+      "rotulo": "Motivo"
+    }
+  ],
+  "modelos": [
+    {
+      "tipo": "CONTRATO",
+      "nome": "Contrato de arrendamento urbano",
+      "assunto": "Contrato de arrendamento — {{fraccao}}",
+      "corpo": "CONTRATO DE ARRENDAMENTO URBANO\n\nEntre:\n\nPRIMEIRO OUTORGANTE (SENHORIO): {{senhorio}}, contribuinte n.º {{senhorio_nif}}, com domicílio em {{senhorio_morada}}.\n\nSEGUNDO OUTORGANTE (INQUILINO): {{inquilino}}, contribuinte n.º {{inquilino_nif}}, portador de {{inquilino_doc}}, residente em {{inquilino_morada}}.\n\nÉ celebrado o presente contrato de arrendamento, que se rege pelas cláusulas seguintes:\n\nCLÁUSULA 1.ª (Objecto)\nO Primeiro Outorgante dá de arrendamento ao Segundo Outorgante a fracção {{fraccao}}, {{fraccao_tipologia}}, situada no {{fraccao_piso}} do imóvel {{imovel}}, sito em {{imovel_morada}}, {{imovel_municipio}}, província de {{imovel_provincia}}, inscrito na matriz predial sob o artigo {{imovel_matriz}}, com a área útil de {{fraccao_area}} m².\n\nCLÁUSULA 2.ª (Finalidade)\nO arrendado destina-se exclusivamente a {{finalidade}}, não podendo o Segundo Outorgante dar-lhe outro uso sem autorização escrita do Primeiro Outorgante. O arrendado é entregue {{mobilada}}.\n\nCLÁUSULA 3.ª (Prazo)\nO contrato tem início em {{inicio}} e termo em {{fim}}, pelo prazo de {{duracao}}. {{renovacao}}\nQualquer das partes que pretenda a cessação deve comunicá-lo à outra, por escrito, com a antecedência mínima de {{aviso_dias}} dias.\n\nCLÁUSULA 4.ª (Renda)\nA renda é de {{renda}} ({{renda_letras}}), com pagamento {{periodicidade}}, {{momento_pagamento}}, até ao dia {{dia_vencimento}} de cada período.\n{{encargos}}\n\nCLÁUSULA 5.ª (Actualização)\n{{actualizacao}}\n\nCLÁUSULA 6.ª (Caução)\nO Segundo Outorgante entrega, a título de caução, a quantia de {{caucao}}, correspondente a {{caucao_meses}} de renda, destinada a garantir o cumprimento das suas obrigações. A caução será devolvida no prazo de 30 dias após a entrega das chaves, deduzidas as quantias em dívida e o custo da reparação dos danos que não resultem do uso normal.\n\nCLÁUSULA 7.ª (Obrigações fiscais)\nSobre a renda incide Imposto Predial à taxa efectiva de {{ip_taxa}}, no valor de {{ip_valor}} por período. {{retencao}}\nO Imposto de Selo, no valor de {{selo}} por período, é suportado {{selo_encargo}}.\nO arrendamento está {{iva}} de IVA.\nO Primeiro Outorgante entregará cópia deste contrato na Repartição Fiscal competente no prazo legal.\n\nCLÁUSULA 8.ª (Conservação e obras)\nO Segundo Outorgante obriga-se a conservar o arrendado e a devolvê-lo no estado em que o recebeu, salvo o desgaste do uso normal. As obras de conservação ordinária correm por conta do Primeiro Outorgante; as que resultem de uso indevido correm por conta do Segundo Outorgante. Nenhuma obra que altere a estrutura ou a configuração do arrendado pode ser feita sem autorização escrita.\n\nCLÁUSULA 9.ª (Cessão e subarrendamento)\nSão proibidos a cessão da posição contratual e o subarrendamento, total ou parcial, sem autorização escrita do Primeiro Outorgante.\n\nCLÁUSULA 10.ª (Resolução)\nO incumprimento do pagamento da renda por período superior a três meses, o uso do arrendado para fim diverso do convencionado e a violação do disposto na cláusula anterior conferem ao Primeiro Outorgante o direito de resolver o contrato.\n\nCLÁUSULA 11.ª (Foro)\nPara a resolução de qualquer litígio é competente o foro da comarca onde se situa o arrendado, com expressa renúncia a qualquer outro.\n\nFeito em duplicado, ficando um exemplar na posse de cada Outorgante.\n\n{{imovel_municipio}}, {{data_hoje}}\n\n\nO PRIMEIRO OUTORGANTE                    O SEGUNDO OUTORGANTE\n\n\n_____________________________            _____________________________\n{{senhorio}}                             {{inquilino}}"
+    },
+    {
+      "tipo": "CONTRATO_SUB",
+      "nome": "Contrato de subarrendamento",
+      "assunto": "Contrato de subarrendamento — {{fraccao}}",
+      "corpo": "CONTRATO DE SUBARRENDAMENTO\n\nEntre:\n\nPRIMEIRO OUTORGANTE (SUBLOCADOR): {{empresa}}, contribuinte n.º {{empresa_nif}}, com sede em {{empresa_morada}}, na qualidade de arrendatário do imóvel abaixo identificado, devidamente autorizado pelo respectivo senhorio a subarrendá-lo.\n\nSEGUNDO OUTORGANTE (SUBARRENDATÁRIO): {{inquilino}}, contribuinte n.º {{inquilino_nif}}, portador de {{inquilino_doc}}, residente em {{inquilino_morada}}.\n\nCLÁUSULA 1.ª (Objecto e título)\nO Primeiro Outorgante subarrenda ao Segundo Outorgante a fracção {{fraccao}}, {{fraccao_tipologia}}, situada no {{fraccao_piso}} do imóvel {{imovel}}, sito em {{imovel_morada}}, {{imovel_municipio}}, que detém por contrato de arrendamento celebrado com o respectivo proprietário.\nO Segundo Outorgante declara conhecer e aceitar que o presente contrato é um subarrendamento e que os seus direitos não podem exceder os que o Primeiro Outorgante detém.\n\nCLÁUSULA 2.ª (Dependência do contrato principal)\nO presente contrato CADUCA automaticamente com a cessação, por qualquer causa, do contrato de arrendamento de que o Primeiro Outorgante é titular, sem que ao Segundo Outorgante assista o direito a qualquer indemnização por esse facto. O Primeiro Outorgante obriga-se a comunicar ao Segundo Outorgante, de imediato, qualquer facto que ponha em risco a subsistência do contrato principal.\n\nCLÁUSULA 3.ª (Finalidade)\nO subarrendado destina-se exclusivamente a {{finalidade}}, sendo entregue {{mobilada}}. O Segundo Outorgante fica sujeito a todas as obrigações e restrições que o contrato principal impõe ao Primeiro Outorgante, designadamente quanto ao uso, à conservação e à proibição de obras.\n\nCLÁUSULA 4.ª (Prazo)\nInício em {{inicio}} e termo em {{fim}}, pelo prazo de {{duracao}}, sem prejuízo do disposto na cláusula 2.ª. {{renovacao}}\nPré-aviso de cessação: {{aviso_dias}} dias, por escrito.\n\nCLÁUSULA 5.ª (Renda)\nA renda é de {{renda}} ({{renda_letras}}), paga {{periodicidade}}, {{momento_pagamento}}, até ao dia {{dia_vencimento}} de cada período.\n{{encargos}}\n\nCLÁUSULA 6.ª (Actualização)\n{{actualizacao}}\n\nCLÁUSULA 7.ª (Caução)\nCaução de {{caucao}}, correspondente a {{caucao_meses}} de renda, devolvida no prazo de 30 dias após a entrega das chaves, deduzidas as quantias em dívida e o custo da reparação de danos.\n\nCLÁUSULA 8.ª (Obrigações fiscais)\nSobre a renda incide Imposto Predial à taxa efectiva de {{ip_taxa}} ({{ip_valor}} por período). {{retencao}}\nO Imposto de Selo, de {{selo}} por período, é suportado {{selo_encargo}}. O subarrendamento está {{iva}} de IVA.\n\nCLÁUSULA 9.ª (Proibição de novo subarrendamento)\nÉ vedado ao Segundo Outorgante subarrendar, ceder ou por qualquer forma permitir a ocupação do subarrendado por terceiro.\n\nCLÁUSULA 10.ª (Foro)\nForo da comarca onde se situa o imóvel, com renúncia a qualquer outro.\n\n{{imovel_municipio}}, {{data_hoje}}\n\n\nO PRIMEIRO OUTORGANTE                    O SEGUNDO OUTORGANTE\n\n\n_____________________________            _____________________________\n{{empresa}}                              {{inquilino}}"
+    },
+    {
+      "tipo": "RECIBO",
+      "nome": "Recibo de renda",
+      "assunto": "Recibo de renda — {{periodo}}",
+      "corpo": "RECIBO DE RENDA\n\n{{senhorio}}, contribuinte n.º {{senhorio_nif}}, declara ter recebido de {{inquilino}}, contribuinte n.º {{inquilino_nif}}, a quantia de {{recebido}}, referente à renda do período de {{periodo}} da fracção {{fraccao}} do imóvel {{imovel}}, sito em {{imovel_morada}}, ao abrigo do contrato {{contrato}}.\n\nRenda e encargos do período: {{total_facturar}}\nImposto Predial ({{ip_taxa}}): {{ip_valor}} — {{retencao}}\nValor devido após retenção: {{total_receber}}\nValor recebido: {{recebido}}\nValor ainda em dívida: {{divida}}\n\nDocumento de suporte: {{factura}}\n\n{{imovel_municipio}}, {{data_hoje}}\n\n\n_____________________________\n{{senhorio}}"
+    },
+    {
+      "tipo": "AVISO",
+      "nome": "Aviso de vencimento da renda",
+      "assunto": "Renda de {{periodo}} — vencimento a {{vencimento}}",
+      "corpo": "{{inquilino}}\n{{inquilino_morada}}\n\n{{imovel_municipio}}, {{data_hoje}}\n\nAssunto: renda de {{periodo}} — contrato {{contrato}}\n\nExmo(a). Senhor(a),\n\nVem {{senhorio}} informar que a renda do período de {{periodo}}, relativa à fracção {{fraccao}} do imóvel {{imovel}}, se vence em {{vencimento}}.\n\nRenda e encargos: {{total_facturar}}\nValor a liquidar: {{total_receber}}\nDocumento: {{factura}}\n\nAgradecemos a liquidação até à data indicada.\n\nCom os melhores cumprimentos,\n\n\n_____________________________\n{{senhorio}}"
+    },
+    {
+      "tipo": "INTERPELACAO",
+      "nome": "Interpelação por mora",
+      "assunto": "Renda em atraso — contrato {{contrato}}",
+      "corpo": "{{inquilino}}\n{{inquilino_morada}}\n\n{{imovel_municipio}}, {{data_hoje}}\n\nAssunto: interpelação para pagamento de renda em atraso — contrato {{contrato}}\n\nExmo(a). Senhor(a),\n\nEncontra-se em dívida a quantia de {{divida}}, referente à renda do período de {{periodo}} da fracção {{fraccao}} do imóvel {{imovel}}, vencida em {{vencimento}}, com {{dias_atraso}} dia(s) de atraso.\n\nValor em dívida: {{divida}}\nJuros de mora: {{juros}}\n\nFica V. Exa. interpelado(a) para proceder à liquidação no prazo de 8 (oito) dias a contar da recepção da presente comunicação.\n\nAdvertimos que, nos termos do contrato e da lei, o não pagamento da renda por período superior a três meses confere ao senhorio o direito de resolver o contrato e de exigir a desocupação do arrendado, sem prejuízo da cobrança das quantias em dívida e dos respectivos juros.\n\nCom os melhores cumprimentos,\n\n\n_____________________________\n{{senhorio}}"
+    },
+    {
+      "tipo": "ACTUALIZACAO",
+      "nome": "Carta de actualização da renda",
+      "assunto": "Actualização da renda — contrato {{contrato}}",
+      "corpo": "{{inquilino}}\n{{inquilino_morada}}\n\n{{imovel_municipio}}, {{data_hoje}}\n\nAssunto: actualização da renda — contrato {{contrato}}\n\nExmo(a). Senhor(a),\n\nNos termos da cláusula de actualização do contrato {{contrato}}, celebrado em {{inicio}} e relativo à fracção {{fraccao}} do imóvel {{imovel}}, comunicamos que a renda passa a ser a seguinte:\n\nRenda actual: {{renda_antiga}}\nRenda actualizada: {{renda_nova}}\nRegra aplicada: {{actualizacao}}\nData de efeito: {{data_efeito}}\n\nA renda actualizada é devida a partir do período que se inicia na data de efeito indicada, mantendo-se inalteradas todas as demais cláusulas do contrato.\n\nCom os melhores cumprimentos,\n\n\n_____________________________\n{{senhorio}}"
+    },
+    {
+      "tipo": "DENUNCIA",
+      "nome": "Carta de denúncia do contrato",
+      "assunto": "Denúncia do contrato {{contrato}}",
+      "corpo": "{{inquilino}}\n{{inquilino_morada}}\n\n{{imovel_municipio}}, {{data_hoje}}\n\nAssunto: denúncia do contrato de arrendamento {{contrato}}\n\nExmo(a). Senhor(a),\n\nNos termos da cláusula relativa ao prazo e à cessação do contrato {{contrato}}, celebrado em {{inicio}} e relativo à fracção {{fraccao}} do imóvel {{imovel}}, sito em {{imovel_morada}}, vem {{senhorio}} denunciar o referido contrato, com efeitos a partir de {{data_efeito}}, respeitando o pré-aviso contratual de {{aviso_dias}} dias.\n\nMotivo: {{motivo}}\n\nSolicitamos que, até à data indicada, o arrendado seja entregue livre de pessoas e bens e nas condições em que foi recebido, e que sejam liquidadas as quantias em dívida. A caução de {{caucao}} será devolvida no prazo de 30 dias após a entrega das chaves, deduzidas as quantias em dívida e o custo da reparação dos danos que não resultem do uso normal.\n\nFica agendada a vistoria de entrega, a realizar na presença de ambas as partes.\n\nCom os melhores cumprimentos,\n\n\n_____________________________\n{{senhorio}}"
+    },
+    {
+      "tipo": "VISTORIA",
+      "nome": "Auto de entrega e vistoria",
+      "assunto": "Auto de entrega — {{fraccao}}",
+      "corpo": "AUTO DE ENTREGA E VISTORIA\n\nContrato: {{contrato}} ({{tipo_contrato}})\nImóvel: {{imovel}}, {{imovel_morada}}\nFracção: {{fraccao}} — {{fraccao_tipologia}}, {{fraccao_piso}}, {{fraccao_area}} m², {{fraccao_quartos}} quarto(s)\nFinalidade: {{finalidade}} — entregue {{mobilada}}\n\nAos {{data_hoje}}, na presença de {{senhorio}} e de {{inquilino}}, procedeu-se à vistoria do arrendado, tendo-se verificado o seguinte estado:\n\nESTADO DO ARRENDADO\nParedes e tectos: ______________________________________________\nPavimentos: ___________________________________________________\nPortas e janelas: _____________________________________________\nInstalação eléctrica: _________________________________________\nInstalação de água e saneamento: ______________________________\nCozinha e equipamento: ________________________________________\nInstalações sanitárias: _______________________________________\n\nCONTADORES\nÁgua: __________________   Electricidade: __________________\n\nCHAVES ENTREGUES: _______\n\nINVENTÁRIO DE BENS\n(o inventário da fracção consta da ficha de apetrechamento anexa)\n\nOBSERVAÇÕES\n_______________________________________________________________\n_______________________________________________________________\n\nNada mais havendo a registar, foi lavrado o presente auto, assinado por ambas as partes.\n\n\nO SENHORIO                               O INQUILINO\n\n\n_____________________________            _____________________________\n{{senhorio}}                             {{inquilino}}"
+    }
+  ],
+  "taxas_base": {
+    "ip_taxa": 25,
+    "ip_base": 60,
+    "selo_habitacao": 0.1,
+    "selo_outro": 0.4,
+    "iva_arrendamento": 0,
+    "iva_alojamento": 7,
+    "mora_mensal": 0,
+    "prazo_registo": 10,
+    "ip_transmissao": 2,
+    "selo_transmissao": 0.3,
+    "escritura_fixo": 2000,
+    "isencao_ate": 0,
+    "isencao_metade_ate": 0,
+    "det_escalao1_ate": 5000000,
+    "det_escalao1_pct": 0.1,
+    "det_escalao2_ate": 6000000,
+    "det_escalao2_fixo": 5000,
+    "det_escalao3_pct": 0.5,
+    "det_terreno_pct": 0.6,
+    "det_agravamento_pct": 50,
+    "det_agravamento_meses": 12
+  }
+}

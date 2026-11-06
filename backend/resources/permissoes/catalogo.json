@@ -2433,6 +2433,359 @@
       ]
     },
     {
+      "id": "imobiliario",
+      "nome": "Gestão Imobiliária",
+      "ecras": [
+        {
+          "id": "imo_imoveis",
+          "nome": "Gestão imobiliária — cadastro de imóveis e fracções",
+          "vistas": [
+            "imo_imoveis"
+          ],
+          "pai": null,
+          "nota": "Um imóvel próprio liga-se ao edifício do imobilizado; os de terceiros exigem proprietário.",
+          "tarefas": [
+            {
+              "chave": "imo_imovel_editar",
+              "rotulo": "Criar e editar imóveis",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_fraccao_editar",
+              "rotulo": "Criar e editar fracções",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_alertas_gerir",
+              "rotulo": "Gerir os alertas do módulo imobiliário",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_exportar",
+              "rotulo": "Exportar listagens e mapas do módulo imobiliário",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_ocupacao",
+          "nome": "Gestão imobiliária — mapa de ocupação",
+          "vistas": [
+            "imo_ocupacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "imo_estado_mudar",
+              "rotulo": "Mudar o estado de uma fracção",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "imo_parque",
+          "nome": "Gestão imobiliária — parqueamento",
+          "vistas": [
+            "imo_parque"
+          ],
+          "pai": null,
+          "nota": "Uma vaga é uma fracção com natureza «estacionamento»: quem a cria está a criar uma fracção. Afectar um lugar a uma fracção faz com que vá junto no contrato dela.",
+          "tarefas": [
+            {
+              "chave": "imo_vaga_editar",
+              "rotulo": "Criar e editar lugares de estacionamento",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_vaga_afectar",
+              "rotulo": "Afectar e libertar lugares de uma fracção",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_vaga_veiculos",
+              "rotulo": "Registar os veículos de um contrato",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "imo_areas",
+          "nome": "Gestão imobiliária — áreas comuns e reservas",
+          "vistas": [
+            "imo_areas"
+          ],
+          "pai": null,
+          "nota": "Uma área comum não é fracção: não se arrenda nem conta para a ocupação. Autorizar quem deve rendas é decisão de quem assume — fica gravada com o nome na reserva. A caução nunca é proveito: só a parte retida por danos, com vistoria, se torna receita.",
+          "tarefas": [
+            {
+              "chave": "imo_area_editar",
+              "rotulo": "Criar e editar espaços comuns e o seu regulamento",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_reserva_marcar",
+              "rotulo": "Marcar e alterar reservas",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_reserva_aprovar",
+              "rotulo": "Aprovar e recusar reservas",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_reserva_devedor",
+              "rotulo": "Autorizar reserva de fracção com rendas em dívida",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_reserva_facturar",
+              "rotulo": "Facturar e receber reservas pagas",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_reserva_caucao",
+              "rotulo": "Fechar a caução: devolver ou reter por danos",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_reserva_cancelar",
+              "rotulo": "Cancelar reservas de espaços comuns",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_fichas",
+          "nome": "Gestão imobiliária — fichas de apetrechamento",
+          "vistas": [
+            "imo_fichas"
+          ],
+          "pai": null,
+          "nota": "Define o que cada género de fracção deve ter; é contra isto que se mede o que falta.",
+          "tarefas": [
+            {
+              "chave": "imo_ficha_editar",
+              "rotulo": "Criar e editar fichas-tipo",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "imo_obras",
+          "nome": "Gestão imobiliária — apetrechamento e manutenção",
+          "vistas": [
+            "imo_obras"
+          ],
+          "pai": null,
+          "nota": "Pedir material cria um pedido de compra que segue a deliberação por escalões das Compras. Os planos geram ordens sozinhos a partir de datas fixas.",
+          "tarefas": [
+            {
+              "chave": "imo_obra_editar",
+              "rotulo": "Criar e editar ordens",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_obra_pedir",
+              "rotulo": "Pedir material ao armazém e a compras",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_obra_receber",
+              "rotulo": "Registar entregas",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_obra_fechar",
+              "rotulo": "Concluir e cancelar ordens",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_bens_editar",
+              "rotulo": "Registar os bens de uma fracção",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_plano_editar",
+              "rotulo": "Criar e editar planos de manutenção e vistoria",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_plano_gerar",
+              "rotulo": "Gerar as ordens dos planos",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "imo_contratos",
+          "nome": "Gestão imobiliária — contratos de arrendamento",
+          "vistas": [
+            "imo_contratos"
+          ],
+          "pai": null,
+          "nota": "Terminar um contrato anula as rendas futuras ainda não facturadas e liberta a fracção.",
+          "tarefas": [
+            {
+              "chave": "imo_contrato_editar",
+              "rotulo": "Criar e editar contratos",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_contrato_activar",
+              "rotulo": "Activar contratos e actualizar rendas",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_contrato_terminar",
+              "rotulo": "Terminar, denunciar e eliminar contratos",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_contrato_docs",
+              "rotulo": "Emitir contratos, recibos e cartas",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_contrato_suspender",
+              "rotulo": "Suspender e reactivar contratos",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_contrato_renovar",
+              "rotulo": "Renovar contratos",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_caucao_movimentar",
+              "rotulo": "Movimentar a caução (receber, devolver, reter)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_rendas",
+          "nome": "Gestão imobiliária — rendas do período",
+          "vistas": [
+            "imo_rendas"
+          ],
+          "pai": null,
+          "nota": "Facturar emite documento fiscal selado e pagar cria movimento de tesouraria: separe quem aprova de quem executa.",
+          "tarefas": [
+            {
+              "chave": "imo_renda_gerar",
+              "rotulo": "Gerar e recalcular rendas previstas",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_renda_aprovar",
+              "rotulo": "Aprovar e anular rendas",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_renda_facturar",
+              "rotulo": "Facturar rendas (a receber)",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_renda_pagar",
+              "rotulo": "Pagar rendas (a pagar)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_sub",
+          "nome": "Gestão imobiliária — subarrendamento e margem",
+          "vistas": [
+            "imo_sub"
+          ],
+          "pai": null,
+          "nota": "Mostra o que entra e o que sai por cada fracção; quem o vê fica a ver as rendas dos dois lados.",
+          "tarefas": [
+            {
+              "chave": "imo_sub_debitar",
+              "rotulo": "Debitar obras ao inquilino",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_negocios",
+          "nome": "Gestão imobiliária — compra e venda de imóveis",
+          "vistas": [
+            "imo_negocios"
+          ],
+          "pai": null,
+          "nota": "Concluir leva o custo ao imobilizado (compra) ou apura a mais-valia e abate o activo (venda): separe quem regista de quem conclui.",
+          "tarefas": [
+            {
+              "chave": "imo_neg_editar",
+              "rotulo": "Criar e editar negócios e encargos",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_neg_fase",
+              "rotulo": "Avançar fases (promessa, escritura, registo)",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_neg_concluir",
+              "rotulo": "Concluir negócios e emitir a factura da venda",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_rentabilidade",
+          "nome": "Gestão imobiliária — rentabilidade por fracção",
+          "vistas": [
+            "imo_rentabilidade"
+          ],
+          "pai": null,
+          "nota": "Só consulta, mas junta num ecrã as rendas dos dois lados, os impostos e os custos das obras: quem o vê fica a ver o negócio todo.",
+          "tarefas": []
+        },
+        {
+          "id": "imo_fiscal",
+          "nome": "Gestão imobiliária — fiscalidade e relato",
+          "vistas": [
+            "imo_fiscal"
+          ],
+          "pai": null,
+          "nota": "O cálculo é sempre refeito a partir dos dados; o que se regista aqui é o acto de entregar perante a AGT.",
+          "tarefas": [
+            {
+              "chave": "imo_fiscal_entregar",
+              "rotulo": "Registar entregas à AGT (Modelo 1, retenções, detenção)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imo_modelos",
+          "nome": "Gestão imobiliária — modelos de documentos e taxas",
+          "vistas": [
+            "imo_modelos"
+          ],
+          "pai": null,
+          "nota": "As taxas mudam o cálculo de todas as rendas ainda não facturadas.",
+          "tarefas": [
+            {
+              "chave": "imo_modelo_editar",
+              "rotulo": "Criar e editar modelos",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_taxas_editar",
+              "rotulo": "Alterar as taxas fiscais do ano",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "estrategia",
       "nome": "Planeamento Estratégico",
       "ecras": [
@@ -3266,6 +3619,31 @@
       "a": "est_casc_propor",
       "b": "est_casc_decidir",
       "motivo": "Propõe e aceita o mesmo contributo de uma unidade."
+    },
+    {
+      "a": "imo_renda_aprovar",
+      "b": "imo_renda_facturar",
+      "motivo": "Aprova e factura a mesma renda."
+    },
+    {
+      "a": "imo_neg_fase",
+      "b": "imo_neg_concluir",
+      "motivo": "Avança as fases e conclui o mesmo negócio de compra ou venda."
+    },
+    {
+      "a": "imo_renda_facturar",
+      "b": "imo_renda_pagar",
+      "motivo": "Factura rendas a receber e paga rendas a pagar."
+    },
+    {
+      "a": "imo_reserva_devedor",
+      "b": "imo_reserva_facturar",
+      "motivo": "Autoriza a reserva de quem deve rendas e factura essa reserva."
+    },
+    {
+      "a": "imo_caucao_movimentar",
+      "b": "imo_contrato_terminar",
+      "motivo": "Movimenta a caução e termina o contrato a que ela pertence."
     }
   ],
   "modelos": [
@@ -3750,7 +4128,20 @@
         "est_indicadores_view": true,
         "est_iniciativas_view": true,
         "est_cascata_view": true,
-        "est_revisoes_view": true
+        "est_revisoes_view": true,
+        "imo_imoveis_view": true,
+        "imo_ocupacao_view": true,
+        "imo_parque_view": true,
+        "imo_areas_view": true,
+        "imo_fichas_view": true,
+        "imo_obras_view": true,
+        "imo_contratos_view": true,
+        "imo_rendas_view": true,
+        "imo_sub_view": true,
+        "imo_negocios_view": true,
+        "imo_rentabilidade_view": true,
+        "imo_fiscal_view": true,
+        "imo_modelos_view": true
       }
     },
     {
@@ -3927,7 +4318,20 @@
         "est_rev_abrir": true,
         "est_rev_escrever": true,
         "est_rev_fechar": true,
-        "est_rev_accoes": true
+        "est_rev_accoes": true,
+        "imo_imoveis_view": true,
+        "imo_ocupacao_view": true,
+        "imo_parque_view": true,
+        "imo_areas_view": true,
+        "imo_fichas_view": true,
+        "imo_obras_view": true,
+        "imo_contratos_view": true,
+        "imo_rendas_view": true,
+        "imo_sub_view": true,
+        "imo_negocios_view": true,
+        "imo_rentabilidade_view": true,
+        "imo_fiscal_view": true,
+        "imo_modelos_view": true
       }
     },
     {
@@ -4223,6 +4627,136 @@
         "est_rev_abrir": true,
         "est_rev_escrever": true,
         "est_rev_accoes": true
+      }
+    },
+    {
+      "nome": "Gestor Imobiliário",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
+        "imo_imoveis_view": true,
+        "imo_ocupacao_view": true,
+        "imo_parque_view": true,
+        "imo_areas_view": true,
+        "imo_fichas_view": true,
+        "imo_obras_view": true,
+        "imo_contratos_view": true,
+        "imo_rendas_view": true,
+        "imo_sub_view": true,
+        "imo_negocios_view": true,
+        "imo_rentabilidade_view": true,
+        "imo_fiscal_view": true,
+        "imo_modelos_view": true,
+        "imo_imovel_editar": true,
+        "imo_fraccao_editar": true,
+        "imo_alertas_gerir": true,
+        "imo_exportar": true,
+        "imo_estado_mudar": true,
+        "imo_vaga_editar": true,
+        "imo_vaga_afectar": true,
+        "imo_vaga_veiculos": true,
+        "imo_area_editar": true,
+        "imo_reserva_marcar": true,
+        "imo_reserva_aprovar": true,
+        "imo_reserva_devedor": true,
+        "imo_reserva_cancelar": true,
+        "imo_ficha_editar": true,
+        "imo_obra_editar": true,
+        "imo_obra_pedir": true,
+        "imo_obra_receber": true,
+        "imo_obra_fechar": true,
+        "imo_bens_editar": true,
+        "imo_plano_editar": true,
+        "imo_plano_gerar": true,
+        "imo_contrato_editar": true,
+        "imo_contrato_activar": true,
+        "imo_contrato_docs": true,
+        "imo_contrato_suspender": true,
+        "imo_contrato_renovar": true,
+        "imo_renda_gerar": true,
+        "imo_renda_aprovar": true,
+        "imo_sub_debitar": true,
+        "imo_neg_editar": true,
+        "imo_neg_fase": true,
+        "imo_modelo_editar": true
+      }
+    },
+    {
+      "nome": "Técnico de Rendas",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
+        "imo_imoveis_view": true,
+        "imo_ocupacao_view": true,
+        "imo_contratos_view": true,
+        "imo_rendas_view": true,
+        "imo_modelos_view": true,
+        "imo_renda_gerar": true,
+        "imo_renda_aprovar": true,
+        "imo_contrato_docs": true
+      }
+    },
+    {
+      "nome": "Responsável de Cobrança",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
+        "imo_imoveis_view": true,
+        "imo_contratos_view": true,
+        "imo_rendas_view": true,
+        "imo_areas_view": true,
+        "imo_sub_view": true,
+        "imo_renda_facturar": true,
+        "imo_reserva_facturar": true,
+        "imo_contrato_docs": true
+      }
+    },
+    {
+      "nome": "Gestor de Obras do Imóvel",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
+        "imo_imoveis_view": true,
+        "imo_ocupacao_view": true,
+        "imo_fichas_view": true,
+        "imo_obras_view": true,
+        "imo_ficha_editar": true,
+        "imo_obra_editar": true,
+        "imo_obra_pedir": true,
+        "imo_obra_receber": true,
+        "imo_obra_fechar": true,
+        "imo_bens_editar": true,
+        "imo_plano_editar": true,
+        "imo_plano_gerar": true
+      }
+    },
+    {
+      "nome": "Fiscalista Predial",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
+        "imo_imoveis_view": true,
+        "imo_rentabilidade_view": true,
+        "imo_fiscal_view": true,
+        "imo_modelos_view": true,
+        "imo_fiscal_entregar": true,
+        "imo_taxas_editar": true,
+        "imo_exportar": true
       }
     }
   ]
