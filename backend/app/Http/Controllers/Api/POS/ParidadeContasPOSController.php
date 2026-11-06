@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Api\POS;
 
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\POS\Pos\IdsSessoesRequest;
 use App\Models\PlanoConta;
 use App\Models\SessaoPOS;
 use App\Models\Terceiro;
 use App\Services\POS\ServicoContabilizacaoPOS;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * POS › Integração contabilística como no sistema anterior (RELATORIO.md 3.5; js/pos_prestacao.js:225-331):
@@ -22,13 +22,10 @@ use Illuminate\Http\Request;
  */
 final class ParidadeContasPOSController extends Controller
 {
-    private const MAXIMO = 50;
-
     public function __construct(private readonly ServicoContabilizacaoPOS $contabilizacao) {}
 
-    public function previsualizar(Request $r): JsonResponse
+    public function previsualizar(IdsSessoesRequest $r): JsonResponse
     {
-        $this->exigir('pos_integrar');
         $sessoes = $this->sessoes($r);
         $res = $sessoes->map(fn (SessaoPOS $s) => $this->contabilizacao->previsualizar($s))->values()->all();
 
@@ -58,9 +55,8 @@ final class ParidadeContasPOSController extends Controller
             'Pré-visualização da integração (nada foi gravado).');
     }
 
-    public function contabilizar(Request $r): JsonResponse
+    public function contabilizar(IdsSessoesRequest $r): JsonResponse
     {
-        $this->exigir('pos_integrar');
         $ok = $erros = [];
         foreach ($this->sessoes($r) as $s) {
             try {
@@ -75,9 +71,9 @@ final class ParidadeContasPOSController extends Controller
     }
 
     /** Sessões pedidas (ids únicos, máximo 50), pela ordem do fecho, da empresa activa. */
-    private function sessoes(Request $r)
+    private function sessoes(IdsSessoesRequest $r)
     {
-        $d = $r->validate(['ids' => ['required', 'array', 'min:1', 'max:'.self::MAXIMO], 'ids.*' => ['required', 'integer', 'min:1', 'distinct']]);
+        $d = $r->validated();
         $ids = array_map('intval', $d['ids']);
         $sessoes = SessaoPOS::query()->whereIn('id', $ids)->orderBy('fechado_em')->orderBy('id')->get();
         if ($sessoes->count() !== count($ids)) {

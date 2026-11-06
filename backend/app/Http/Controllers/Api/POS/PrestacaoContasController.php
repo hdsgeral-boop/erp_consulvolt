@@ -3,6 +3,11 @@
 namespace App\Http\Controllers\Api\POS;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\POS\Prestacao\AnularRequest;
+use App\Http\Requests\POS\Prestacao\LiquidacoesRequest;
+use App\Http\Requests\POS\Prestacao\PendentesRequest;
+use App\Http\Requests\POS\Prestacao\RegistarRequest;
+use App\Http\Requests\POS\Prestacao\RelatoriosRequest;
 use App\Models\LiquidacaoPOS;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoPOS;
@@ -10,8 +15,6 @@ use App\Services\POS\ServicoPrestacaoContasPOS;
 use App\Services\POS\ServicoRelatoriosPOS;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /** /api/pos — prestação de contas (liquidações das contas transitórias) e relatórios do POS. */
 final class PrestacaoContasController extends Controller
@@ -28,10 +31,9 @@ final class PrestacaoContasController extends Controller
     // ───────────── Prestação de contas ─────────────
 
     /** Sessões fechadas por regularizar (PENDENTE/PARCIAL), com os itens, e as folhas de caixa abertas (renderPrestacao, pos_prestacao.js:558-609). */
-    public function pendentes(Request $r): JsonResponse
+    public function pendentes(PendentesRequest $r): JsonResponse
     {
-        $this->exigir(...self::VER);
-        $f = $r->validate(['terminal_pos_id' => ['nullable', 'integer']]);
+        $f = $r->validated();
         $sessoes = SessaoPOS::query()->where('estado', 'FECHADA')->whereIn('estado_liquidacao', ['PENDENTE', 'PARCIAL'])
             ->when($f['terminal_pos_id'] ?? null, fn ($q, $v) => $q->where('terminal_pos_id', $v))
             ->orderByDesc('fechado_em')->orderByDesc('id')->get();
@@ -52,14 +54,9 @@ final class PrestacaoContasController extends Controller
             'liquidacoes' => LiquidacaoPOS::query()->where('sessao_pos_id', $s->id)->orderBy('id')->get()], 'Prestação de contas da sessão.');
     }
 
-    public function registar(Request $r, int $sessao): JsonResponse
+    public function registar(RegistarRequest $r, int $sessao): JsonResponse
     {
-        $this->exigir('pos_prestar');
-        $d = $r->validate([
-            'chave_item' => ['required', 'string', 'max:60'], 'data' => ['nullable', 'date_format:Y-m-d'],
-            'conta_financeira' => ['nullable', 'string', 'max:20'], 'sessao_caixa_id' => ['nullable', 'integer'],
-            'comissao' => ['nullable', 'numeric', 'min:0'], 'comissao_deduzida' => ['nullable', 'boolean'],
-        ]);
+        $d = $r->validated();
         $res = $this->prestacao->registar(SessaoPOS::query()->findOrFail($sessao), $d['chave_item'], $d);
 
         return RespostaApi::criado($res['liquidacao'], $res['aviso'] ?? 'Prestação de contas registada.');
@@ -75,13 +72,9 @@ final class PrestacaoContasController extends Controller
     }
 
     /** Histórico de liquidações (movimentos de prestação de contas, pos_prestacao.js:593-608). */
-    public function liquidacoes(Request $r): JsonResponse
+    public function liquidacoes(LiquidacoesRequest $r): JsonResponse
     {
-        $this->exigir(...self::VER);
-        $f = $r->validate(['sessao_pos_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'in:REGISTADO,ANULADO'],
-            'natureza_registo' => ['nullable', Rule::in(ServicoPrestacaoContasPOS::NATUREZAS)], 'alvo' => ['nullable', 'in:FOLHA_CAIXA,TESOURARIA'],
-            'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d'],
-            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+        $f = $r->validated();
         $q = LiquidacaoPOS::query();
         foreach (['sessao_pos_id', 'estado', 'natureza_registo', 'alvo'] as $c) {
             $q->when($f[$c] ?? null, fn ($q, $v) => $q->where($c, $v));
@@ -98,21 +91,18 @@ final class PrestacaoContasController extends Controller
         return RespostaApi::sucesso(LiquidacaoPOS::query()->findOrFail($liquidacao), 'Liquidação POS.');
     }
 
-    public function anular(Request $r, int $liquidacao): JsonResponse
+    public function anular(AnularRequest $r, int $liquidacao): JsonResponse
     {
-        $this->exigir('pos_prestacao_anular');
-        $d = $r->validate(['motivo' => ['required', 'string', 'min:3', 'max:500']]);
+        $d = $r->validated();
 
         return RespostaApi::sucesso($this->prestacao->anular(LiquidacaoPOS::query()->findOrFail($liquidacao), $d['motivo']), 'Liquidação anulada.');
     }
 
     // ───────────── Relatórios ─────────────
 
-    public function relatorios(Request $r): JsonResponse
+    public function relatorios(RelatoriosRequest $r): JsonResponse
     {
-        $this->exigir(...self::RELATORIOS);
-        $f = $r->validate(['data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:data_inicio'],
-            'terminal_pos_id' => ['nullable', 'integer'], 'operador_id' => ['nullable', 'integer']]);
+        $f = $r->validated();
 
         return RespostaApi::sucesso($this->relatorios->painel($f), 'Relatórios do POS.');
     }

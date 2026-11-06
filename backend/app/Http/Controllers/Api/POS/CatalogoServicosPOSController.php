@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Api\POS;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\POS\Catalogo\DefinirRequest;
 use App\Models\Produto;
 use App\Models\TerminalPOS;
 use App\Services\POS\ServicoCatalogoPOS;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * Catálogo do POS por serviço (r3_vendas):
@@ -38,13 +37,9 @@ final class CatalogoServicosPOSController extends Controller
         ], 'Serviços POS dos produtos.');
     }
 
-    public function definir(Request $request, int $produto): JsonResponse
+    public function definir(DefinirRequest $request, int $produto): JsonResponse
     {
-        $this->exigir('vendas_produtos_gerir');
-        $d = $request->validate([
-            'servicos_pos' => ['present', 'nullable', 'array', 'max:'.count(ServicoCatalogoPOS::SERVICOS)],
-            'servicos_pos.*' => ['string', Rule::in(ServicoCatalogoPOS::SERVICOS)],
-        ], [], ['servicos_pos' => 'serviços POS']);
+        $d = $request->validated();
         $servicos = $this->catalogo->definir(Produto::query()->findOrFail($produto), $d['servicos_pos']);
 
         return RespostaApi::sucesso(['id' => $produto, 'servicos_pos' => $servicos],

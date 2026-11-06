@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api\POS;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\POS\Armazem\ExpedirRequest;
+use App\Http\Requests\POS\Armazem\ListaRequest;
+use App\Http\Requests\POS\Armazem\VendasRequest;
+use App\Http\Requests\POS\Armazem\VenderRequest;
 use App\Models\GuiaSaida;
 use App\Models\ItemGuiaSaida;
 use App\Models\Venda;
@@ -10,7 +14,6 @@ use App\Services\Compras\RelacoesNomes;
 use App\Services\POS\ServicoPOSArmazem;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * /api/pos/armazem — POS de armazém: stock do armazém, venda ao balcão (guia de saída) e picking de encomendas (NE → GR).
@@ -24,10 +27,9 @@ final class POSArmazemController extends Controller
 
     // ───────────── Venda ao balcão ─────────────
 
-    public function vendas(Request $r): JsonResponse
+    public function vendas(VendasRequest $r): JsonResponse
     {
-        $this->exigir(...self::VER);
-        $f = $r->validate(['armazem_id' => ['nullable', 'integer'], 'de' => ['nullable', 'date'], 'ate' => ['nullable', 'date']]);
+        $f = $r->validated();
         $q = GuiaSaida::query()->where(fn ($q) => $q->where('tipo', GuiaSaida::VENDA_BALCAO)->orWhere(fn ($q) => $q->where('tipo', 'VENDA')->where('tipo_original', GuiaSaida::VENDA_BALCAO)))
             ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))->when($f['de'] ?? null, fn ($q, $v) => $q->where('data', '>=', $v))
             ->when($f['ate'] ?? null, fn ($q, $v) => $q->where('data', '<=', $v));
@@ -44,11 +46,9 @@ final class POSArmazemController extends Controller
             'Guia de saída.');
     }
 
-    public function vender(Request $r): JsonResponse
+    public function vender(VenderRequest $r): JsonResponse
     {
-        $this->exigir('pos_armazem_vender');
-        $d = $r->validate(['armazem_id' => ['required', 'integer'], 'terceiro_id' => ['nullable', 'integer'], 'observacoes' => ['nullable', 'string', 'max:2000'],
-            'linhas' => ['required', 'array', 'min:1'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'gt:0']]);
+        $d = $r->validated();
         $g = $this->pos->vender($d);
 
         return RespostaApi::criado($g->toArray() + ['linhas' => ItemGuiaSaida::query()->where('guia_saida_id', $g->id)->orderBy('id')->get(),
@@ -65,20 +65,17 @@ final class POSArmazemController extends Controller
         return RespostaApi::sucesso($this->pos->fila(), 'Fila de picking.');
     }
 
-    public function lista(Request $r, int $encomenda): JsonResponse
+    public function lista(ListaRequest $r, int $encomenda): JsonResponse
     {
-        $this->exigir('pos_armazem_picking', 'pos_armazem_expedir');
-        $f = $r->validate(['armazem_id' => ['required', 'integer']]);
+        $f = $r->validated();
 
         return RespostaApi::sucesso($this->pos->lista(Venda::query()->findOrFail($encomenda), (int) $f['armazem_id']), 'Lista de recolha.');
     }
 
-    public function expedir(Request $r, int $encomenda): JsonResponse
+    public function expedir(ExpedirRequest $r, int $encomenda): JsonResponse
     {
-        $this->exigir('pos_armazem_expedir');
         // «recolhidos»: as linhas marcadas como «Verificado» na checklist; o servidor exige-as todas (não depende só do ecrã)
-        $d = $r->validate(['armazem_id' => ['required', 'integer'], 'observacoes' => ['nullable', 'string', 'max:2000'],
-            'recolhidos' => ['present', 'array', 'max:2000'], 'recolhidos.*' => ['integer', 'distinct']]);
+        $d = $r->validated();
         $gr = $this->pos->expedir(Venda::query()->findOrFail($encomenda), (int) $d['armazem_id'], array_map('intval', $d['recolhidos']), $d['observacoes'] ?? null);
 
         return RespostaApi::criado($gr->load('itensVenda'), "Picking concluído: guia de remessa {$gr->numero_documento} emitida.");

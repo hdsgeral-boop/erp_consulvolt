@@ -46,7 +46,7 @@ final class ContratoPOS
             return;
         }
         $erros = [];
-        self::cabe($forma, self::$fixture[$chave], '$', $erros);
+        self::cabe(self::normalizar($forma), self::normalizar(self::$fixture[$chave]), '$', $erros);
         Assert::assertSame([], $erros, "Contrato JSON do POS alterado em {$chave}:\n".implode("\n", $erros));
     }
 
@@ -67,6 +67,27 @@ final class ContratoPOS
         return ['_t' => [match (true) {
             $v === null => 'null', is_bool($v) => 'bool', is_int($v) => 'int', is_float($v) => 'float', default => 'string',
         }]];
+    }
+
+    /** Mapas indexados por ids (chaves todas numéricas, que mudam de teste para teste) passam a um único nó `*`. */
+    public static function normalizar(array $no): array
+    {
+        if (isset($no['_l'])) {
+            $no['_l'] = self::normalizar($no['_l']);
+        }
+        if (isset($no['_m'])) {
+            $filhos = array_map([self::class, 'normalizar'], $no['_m']);
+            if ($filhos !== [] && count(array_filter(array_keys($filhos), fn ($k) => ! ctype_digit((string) $k))) === 0) {
+                $junto = null;
+                foreach ($filhos as $f) {
+                    $junto = $junto === null ? $f : self::juntarNos($junto, $f);
+                }
+                $filhos = ['*' => $junto];
+            }
+            $no['_m'] = $filhos;
+        }
+
+        return $no;
     }
 
     /** Junta nós (união de tipos, chaves e elementos). */
@@ -98,6 +119,7 @@ final class ContratoPOS
         $mapa = [];
         foreach (file($jsonl, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $linha) {
             [$chave, $forma] = json_decode($linha, true);
+            $forma = self::normalizar($forma);
             $mapa[$chave] = isset($mapa[$chave]) ? self::juntarNos($mapa[$chave], $forma) : $forma;
         }
         ksort($mapa);

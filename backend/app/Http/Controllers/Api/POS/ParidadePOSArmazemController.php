@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\Api\POS;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\POS\Armazem\AcertarRequest;
+use App\Http\Requests\POS\Armazem\ArtigosRequest;
+use App\Http\Requests\POS\Armazem\ChamarSenhaRequest;
+use App\Http\Requests\POS\Armazem\DiferencasRequest;
+use App\Http\Requests\POS\Armazem\GerarSenhaRequest;
+use App\Http\Requests\POS\Armazem\SenhasRequest;
 use App\Services\POS\ServicoAcertoStockPOSArmazem;
 use App\Services\POS\ServicoSenhasPOSArmazem;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * /api/pos/armazem — paridade com o legado (RELATORIO 2.6): catálogo de artigos em cartões, aviso e acerto do stock do
@@ -26,26 +31,23 @@ final class ParidadePOSArmazemController extends Controller
         private readonly ServicoSenhasPOSArmazem $senhas,
     ) {}
 
-    public function artigos(Request $r): JsonResponse
+    public function artigos(ArtigosRequest $r): JsonResponse
     {
-        $this->exigir(...self::VER);
-        $f = $r->validate(['armazem_id' => ['required', 'integer']]);
+        $f = $r->validated();
 
         return RespostaApi::sucesso($this->acerto->artigos((int) $f['armazem_id']), 'Artigos do armazém.');
     }
 
-    public function diferencas(Request $r): JsonResponse
+    public function diferencas(DiferencasRequest $r): JsonResponse
     {
-        $this->exigir(...self::VER);
-        $f = $r->validate(['armazem_id' => ['required', 'integer']]);
+        $f = $r->validated();
 
         return RespostaApi::sucesso($this->acerto->diferencas((int) $f['armazem_id']), 'Diferenças entre o stock global e os armazéns.');
     }
 
-    public function acertar(Request $r): JsonResponse
+    public function acertar(AcertarRequest $r): JsonResponse
     {
-        $this->exigir('pos_armazem_acerto');
-        $d = $r->validate(['armazem_id' => ['required', 'integer'], 'produtos' => ['nullable', 'array', 'min:1', 'max:1000'], 'produtos.*' => ['integer']]);
+        $d = $r->validated();
         $res = $this->acerto->acertar((int) $d['armazem_id'], $d['produtos'] ?? null);
 
         return RespostaApi::sucesso($res, "Stock acertado em {$res['acertados']} produto(s).");
@@ -53,27 +55,24 @@ final class ParidadePOSArmazemController extends Controller
 
     // ───────────── Senhas ─────────────
 
-    public function senhas(Request $r): JsonResponse
+    public function senhas(SenhasRequest $r): JsonResponse
     {
-        $this->exigir(...self::VER);
-        $f = $r->validate(['armazem_id' => ['required', 'integer']]);
+        $f = $r->validated();
 
         return RespostaApi::sucesso($this->senhas->estado((int) $f['armazem_id']), 'Senhas.');
     }
 
-    public function gerarSenha(Request $r): JsonResponse
+    public function gerarSenha(GerarSenhaRequest $r): JsonResponse
     {
-        $this->exigir(...self::OPERAR_SENHAS);
-        $d = $r->validate(['armazem_id' => ['required', 'integer']]);
+        $d = $r->validated();
         $s = $this->senhas->gerar((int) $d['armazem_id']);
 
         return RespostaApi::criado($s, "Senha {$s['codigo']} emitida.");
     }
 
-    public function chamarSenha(Request $r): JsonResponse
+    public function chamarSenha(ChamarSenhaRequest $r): JsonResponse
     {
-        $this->exigir(...self::OPERAR_SENHAS);
-        $d = $r->validate(['armazem_id' => ['required', 'integer']]);
+        $d = $r->validated();
         $s = $this->senhas->chamarProxima((int) $d['armazem_id']);
 
         return RespostaApi::sucesso($s, "Senha {$s['codigo']} chamada.");
