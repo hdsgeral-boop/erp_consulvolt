@@ -5,6 +5,7 @@ namespace App\Services\Sistema;
 use App\Models\LogAuditoria;
 use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,22 +40,42 @@ final class ServicoAuditoria
         }
         $pedido = app()->runningInConsole() ? null : app(Request::class);
 
-        // A escrita do log nunca é bloqueada pelo isolamento (pode não haver empresa activa).
-        return $this->contexto->semIsolamento(fn () => LogAuditoria::create([
-            'empresa_id' => $empresaId ?? $this->contexto->id(),
-            'utilizador_id' => $utilizadorId ?? $utilizador?->getKey(),
-            'nome_utilizador' => $nomeUtilizador ?? $utilizador?->nome_utilizador ?? (app()->runningInConsole() ? 'sistema' : null),
-            'ocorrido_em' => now(),
-            'modulo' => $modulo,
-            'acao' => $acao,
-            'tabela' => $tabela,
-            'registo_id' => $registoId !== null ? (string) $registoId : null,
-            'detalhes' => $detalhes,
-            'dados_anteriores' => $anteriores,
-            'dados_novos' => $novos,
-            'endereco_ip' => $pedido?->ip(),
-            'agente_utilizador' => $pedido ? mb_substr((string) $pedido->userAgent(), 0, 500) : null,
-        ]));
+        $empresa = $empresaId ?? $this->contexto->id();
+        $utilizadorFinal = $utilizadorId ?? $utilizador?->getKey();
+
+        // Auditoria SEM tenant, empresa nem utilizador (tarefas agendadas: câmbios do BAI, alertas…): na produção a tabela
+        // tem RLS e o `INSERT … RETURNING id` só passa se a linha nova for legível — sem nenhuma origem o `tenant_id` ficava
+        // nulo e a política de leitura recusava-a («new row violates row-level security policy»). Nesse caso grava-se no
+        // contexto do tenant da plataforma (o dono dos jobs de sistema), que é também quem lê a auditoria global.
+        $tenant = app(ContextoTenant::class);
+        $anteriorTenant = $tenant->id();
+        $comoPlataforma = ContextoTenant::ativo() && $anteriorTenant === null && $empresa === null && $utilizadorFinal === null;
+        if ($comoPlataforma) {
+            $tenant->definir((int) config('erp.dominio.plataforma_tenant_id', 1));
+        }
+
+        try {
+            // A escrita do log nunca é bloqueada pelo isolamento (pode não haver empresa activa).
+            return $this->contexto->semIsolamento(fn () => LogAuditoria::create([
+                'empresa_id' => $empresa,
+                'utilizador_id' => $utilizadorFinal,
+                'nome_utilizador' => $nomeUtilizador ?? $utilizador?->nome_utilizador ?? (app()->runningInConsole() ? 'sistema' : null),
+                'ocorrido_em' => now(),
+                'modulo' => $modulo,
+                'acao' => $acao,
+                'tabela' => $tabela,
+                'registo_id' => $registoId !== null ? (string) $registoId : null,
+                'detalhes' => $detalhes,
+                'dados_anteriores' => $anteriores,
+                'dados_novos' => $novos,
+                'endereco_ip' => $pedido?->ip(),
+                'agente_utilizador' => $pedido ? mb_substr((string) $pedido->userAgent(), 0, 500) : null,
+            ]));
+        } finally {
+            if ($comoPlataforma) {
+                $tenant->definir($anteriorTenant);
+            }
+        }
     }
 
     /**
