@@ -3,14 +3,19 @@
 namespace App\Services\POS;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\ItemVenda;
 use App\Models\LancamentoContabil;
 use App\Models\LiquidacaoPOS;
 use App\Models\MovimentoCaixaPOS;
+use App\Models\Produto;
 use App\Models\SessaoPOS;
 use App\Models\TerminalPOS;
 use App\Models\Venda;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Logistica\ContasProduto;
+use App\Services\Vendas\ServicoConfigVendas;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Services\Vendas\ServicoStockVendas;
 use Illuminate\Support\Facades\Auth;
@@ -58,7 +63,7 @@ final class ServicoContabilizacaoPOS
             $diario = $this->diario();
             $lans = [];
             foreach ($vendas->groupBy(fn ($v) => $v->data_emissao->toDateString()) as $data => $doDia) {
-                $linhas = $this->linhas($doDia);
+                $linhas = $this->ivaEmFaltaComoImpedimento($s, fn () => $this->linhas($doDia));
                 $numeroLan = $this->lancamentos->criar([
                     'diario_id' => $diario->id, 'data_documento' => $data, 'numero_documento' => $s->numero_z, 'tipo_origem' => 'POS', 'sessao_pos_id' => $s->id,
                     'descricao' => mb_substr("{$s->numero_z} — vendas POS {$s->codigo_terminal} ({$doDia->count()} doc.)", 0, 1000), 'linhas' => $linhas,
@@ -74,7 +79,7 @@ final class ServicoContabilizacaoPOS
             }
             $lans = array_merge($lans, app(ServicoNcSessaoPOS::class)->lancarPendentes($s));   // F6: devoluções (NC) estornadas na transitória
             if ($comLavandaria) {   // facturas e recibos da lavandaria (linhasIntegracao, lavandaria.js:2379-2463)
-                $lans = array_merge($lans, $this->lavandaria->contabilizar($s, $diario));
+                $lans = array_merge($lans, $this->ivaEmFaltaComoImpedimento($s, fn () => $this->lavandaria->contabilizar($s, $diario)));
             }
             $s->update(['estado_contabilizacao' => 'CONTABILIZADA', 'lans_contabilizacao' => $lans, 'diario_contabilizacao_id' => $diario->id,
                 'contabilizado_em' => now(), 'contabilizado_por' => Auth::user()?->nome_utilizador]);
@@ -100,7 +105,7 @@ final class ServicoContabilizacaoPOS
     public function previsualizar(SessaoPOS $s): array
     {
         $r = ['sessao_pos_id' => $s->id, 'numero_z' => $s->numero_z ?? $s->codigo_sessao, 'codigo_terminal' => $s->codigo_terminal, 'nome_terminal' => $s->nome_terminal,
-            'nome_operador' => $s->nome_operador, 'lancamentos' => [], 'impedimentos' => []];
+            'nome_operador' => $s->nome_operador, 'lancamentos' => [], 'impedimentos' => [], 'iva_em_falta' => []];
         DB::beginTransaction();
         try {
             $feita = $this->contabilizar($s);
@@ -120,6 +125,7 @@ final class ServicoContabilizacaoPOS
             }
         } catch (ErroNegocio $e) {
             $r['impedimentos'][] = ['codigo' => $e->codigo, 'mensagem' => $e->getMessage()];
+            $r['iva_em_falta'] = $e->codigo === 'IVA_EM_FALTA' ? ($e->detalhes['produtos'] ?? []) : [];
         } finally {
             DB::rollBack();
         }
@@ -243,6 +249,83 @@ final class ServicoContabilizacaoPOS
             'linhas' => [['codigo_conta' => $d, 'tipo_dc' => 'D', 'valor' => $valor], ['codigo_conta' => $c, 'tipo_dc' => 'C', 'valor' => $valor]],
         ])->first()->numero_lan;
         $s->update(['deliberacao' => array_merge($del, ['numero_lan' => $numeroLan, 'conta' => $conta, 'conta_transitoria' => $transitoria, 'diario_id' => $diario->id])]);
+    }
+
+    /**
+     * «IVA em falta» (F-112; legado: conta de IVA por omissão + «Gravar X nesses serviços»): os artigos das vendas e das facturas da
+     * lavandaria da sessão com imposto e sem conta de IVA liquidado (na categoria, no artigo ou por omissão nas contas de Vendas).
+     *
+     * @return list<array{id: int, codigo: ?string, nome: ?string, linhas: int}>
+     */
+    public function ivaEmFalta(SessaoPOS $s): array
+    {
+        if (app(ServicoConfigVendas::class)->conta('iva_vendas')) {
+            return [];   // há conta por omissão: nada falta
+        }
+        $docs = Venda::query()->where('sessao_pos_id', $s->id)->where('tipo_documento', 'FR')->where('estado', '<>', 'ANULADO')->get()
+            ->merge($this->lavandaria->faturas($s));
+        $porProduto = [];
+        foreach (ItemVenda::query()->whereIn('venda_id', $docs->pluck('id'))->orderBy('id')->get() as $item) {
+            $valor = $item->total_linha !== null ? (string) $item->total_linha : null;
+            if ($valor === null || bccomp(bcsub((string) ($item->total ?? $valor), $valor, 2), '0', 2) === 0 || ! $item->produto_id) {
+                continue;
+            }
+            $porProduto[$item->produto_id] = ($porProduto[$item->produto_id] ?? 0) + 1;
+        }
+        $saida = [];
+        foreach (Produto::query()->withTrashed()->whereIn('id', array_keys($porProduto))->orderBy('codigo')->get() as $p) {
+            if (ContasProduto::de($p)->ivaLiquidado === null) {
+                $saida[] = ['id' => $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'linhas' => $porProduto[$p->id]];
+            }
+        }
+
+        return $saida;
+    }
+
+    /**
+     * Grava a conta de IVA indicada nos artigos que não a têm (só nesses; os outros ficam como estão) e/ou como conta por omissão
+     * das contas de Vendas. Devolve quantos artigos foram actualizados.
+     *
+     * @param  list<int>  $produtoIds
+     */
+    public function gravarIvaEmFalta(string $conta, array $produtoIds, bool $definirOmissao): int
+    {
+        $plano = app(ServicoPlanoContas::class);
+        $plano->contaDeMovimento($conta);
+        if (! str_starts_with($conta, '34')) {
+            throw new ErroNegocio("A conta {$conta} não é de IVA (classe 34).", 'CONTA_IVA_INVALIDA', 422, ['codigo_conta' => $conta]);
+        }
+
+        return DB::transaction(function () use ($conta, $produtoIds, $definirOmissao) {
+            $n = 0;
+            foreach (Produto::query()->whereIn('id', $produtoIds)->get() as $p) {
+                if (ContasProduto::de($p)->ivaLiquidado === null) {
+                    $p->update(['conta_iva_liquidado' => $conta]);
+                    $n++;
+                }
+            }
+            if ($definirOmissao) {
+                app(ServicoConfigVendas::class)->definir(['iva_vendas' => $conta]);
+            }
+
+            return $n;
+        });
+    }
+
+    /** Converte a falta de conta de IVA por omissão no impedimento «IVA em falta», com a lista de artigos. */
+    private function ivaEmFaltaComoImpedimento(SessaoPOS $s, \Closure $f): mixed
+    {
+        try {
+            return $f();
+        } catch (ErroNegocio $e) {
+            if ($e->codigo === 'CONFIG_VENDAS_EM_FALTA' && ($e->detalhes['chave'] ?? null) === 'iva_vendas') {
+                $produtos = $this->ivaEmFalta($s);
+                $nomes = implode(', ', array_map(fn ($p) => $p['codigo'] ?: $p['nome'], array_slice($produtos, 0, 8)));
+                throw new ErroNegocio('IVA em falta: '.($nomes !== '' ? "indique a conta de IVA liquidado para {$nomes}" : 'indique a conta de IVA liquidado').' (nesses artigos ou como conta por omissão).',
+                    'IVA_EM_FALTA', 422, ['produtos' => $produtos]);
+            }
+            throw $e;
+        }
     }
 
     /** Linhas do lançamento de um dia de vendas da sessão. */

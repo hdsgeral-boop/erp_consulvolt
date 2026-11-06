@@ -1,6 +1,6 @@
-import { Alert, App, Button, Modal, Skeleton, Space, Typography } from 'antd';
+import { Alert, App, Button, Checkbox, Input, Modal, Skeleton, Space, Typography } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { larguraModal } from '@/componentes/responsivo';
 import { IconeLegado } from '@/componentes/vistas';
@@ -36,6 +36,8 @@ export interface SessaoPrevista {
   nome_operador: string | null;
   lancamentos: LancamentoPrevisto[];
   impedimentos: { codigo: string; mensagem: string }[];
+  /** Artigos com imposto e sem conta de IVA liquidado (impedimento «IVA_EM_FALTA»). */
+  iva_em_falta?: { id: number; codigo: string | null; nome: string | null; linhas: number }[];
 }
 
 export interface PreVisualizacao {
@@ -150,6 +152,34 @@ export function ModalPreVisualizacaoIntegracao({ ids, aoFechar, aoConcluir }: { 
   );
 }
 
+/** Atalho «IVA em falta» (F-112): indica a conta de IVA e grava-a nos artigos sem conta e/ou como conta por omissão; a pré-visualização volta a correr. */
+function IvaEmFalta({ artigos }: { artigos: NonNullable<SessaoPrevista['iva_em_falta']> }) {
+  const cliente = useQueryClient();
+  const [conta, setConta] = useState('');
+  const [omissao, setOmissao] = useState(false);
+  const gravar = useMutation({
+    mutationFn: async () => (await enviar('post', '/pos/integracao/iva-em-falta', { conta_iva: conta.trim(), produto_ids: artigos.map((a) => a.id), definir_omissao: omissao })).dados,
+    onSuccess: () => void cliente.invalidateQueries({ queryKey: ['pos', 'integracao', 'pre-visualizacao'] }),
+    onError: (e) => notificarErro(e, 'Não foi possível gravar a conta de IVA'),
+  });
+  return (
+    <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem', background: '#fffbeb', borderBottom: '1px solid #fde68a' }} data-testid="iva-em-falta">
+      <div>
+        <strong>Artigos sem conta de IVA liquidado:</strong> {artigos.map((a) => a.codigo ?? a.nome).join(', ')}
+      </div>
+      <Space wrap style={{ marginTop: 6 }}>
+        <Input aria-label="Conta de IVA liquidado" placeholder="Conta de IVA (ex.: 34531)" style={{ width: 200 }} value={conta} onChange={(e) => setConta(e.target.value)} />
+        <Checkbox checked={omissao} onChange={(e) => setOmissao(e.target.checked)}>
+          Usar também como conta de IVA por omissão
+        </Checkbox>
+        <Button type="primary" size="small" loading={gravar.isPending} disabled={conta.trim() === ''} onClick={() => gravar.mutate()}>
+          Gravar {conta.trim() || 'a conta'} nesses artigos
+        </Button>
+      </Space>
+    </div>
+  );
+}
+
 function BlocoSessao({ s }: { s: SessaoPrevista }) {
   const cores = useCoresPos();
   return (
@@ -160,6 +190,7 @@ function BlocoSessao({ s }: { s: SessaoPrevista }) {
       {s.impedimentos.map((i) => (
         <Alert key={i.codigo + i.mensagem} type="error" showIcon banner style={{ fontSize: '0.78rem' }} title={i.mensagem} />
       ))}
+      {(s.iva_em_falta?.length ?? 0) > 0 && <IvaEmFalta artigos={s.iva_em_falta ?? []} />}
       {s.lancamentos.map((l) => {
         const docs = documentosDoLancamento(l.descricao);
         return (

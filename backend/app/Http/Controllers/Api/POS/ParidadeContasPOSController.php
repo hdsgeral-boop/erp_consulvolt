@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\POS;
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\POS\Pos\IdsSessoesRequest;
+use App\Http\Requests\POS\Pos\IvaEmFaltaRequest;
 use App\Models\PlanoConta;
 use App\Models\SessaoPOS;
 use App\Models\Terceiro;
@@ -68,6 +69,16 @@ final class ParidadeContasPOSController extends Controller
         }
 
         return RespostaApi::sucesso(['contabilizadas' => $ok, 'erros' => $erros], count($ok).' sessão(ões) integrada(s) na contabilidade.');
+    }
+
+    /** «Gravar a conta de IVA nesses artigos» / «usar como conta por omissão» (F-112): só actualiza os artigos que ainda não têm conta de IVA. */
+    public function gravarIvaEmFalta(IvaEmFaltaRequest $r): JsonResponse
+    {
+        $d = $r->validated();
+        $n = $this->contabilizacao->gravarIvaEmFalta($d['conta_iva'], array_map('intval', $d['produto_ids'] ?? []), (bool) ($d['definir_omissao'] ?? false));
+
+        return RespostaApi::sucesso(['artigos_actualizados' => $n, 'conta_iva' => $d['conta_iva'], 'definida_por_omissao' => (bool) ($d['definir_omissao'] ?? false)],
+            "Conta de IVA {$d['conta_iva']} gravada em {$n} artigo(s).");
     }
 
     /** Sessões pedidas (ids únicos, máximo 50), pela ordem do fecho, da empresa activa. */

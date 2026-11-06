@@ -10,4 +10,5 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('pos/integracao')->name('paridade.pos.integracao.')->controller(ParidadeContasPOSController::class)->group(function () {
     Route::post('pre-visualizacao', 'previsualizar')->name('previsualizar');
     Route::post('contabilizar', 'contabilizar')->name('contabilizar');
+    Route::post('iva-em-falta', 'gravarIvaEmFalta')->name('iva_em_falta');
 });

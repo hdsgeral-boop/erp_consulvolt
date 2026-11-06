@@ -202,4 +202,30 @@ final class POSNcSessaoTest extends TestCase
         $n = collect($this->getJson('/api/sistema/notificacoes', $gestor)->assertOk()->json('dados.notificacoes'))->firstWhere('titulo', '1 Desvios de caixa por deliberar');
         $this->assertSame(['vendas', 'URGENTE', '/m/pos/pos_desvios'], [$n['modulo'], $n['tipo'], $n['link']]);
     }
+
+    #[Test]
+    public function iva_em_falta_na_integracao_lista_os_artigos_e_grava_a_conta_so_nos_que_nao_a_tem(): void
+    {
+        $p2 = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Produto::create(['codigo' => 'S2', 'nome' => 'Serviço Dois', 'preco_unitario' => 114,
+            'taxa_imposto' => 14, 'codigo_conta' => '611', 'e_servico' => true])->id);
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/vendas", ['linhas' => [['produto_id' => $p2, 'quantidade' => 1]], 'pagamentos' => [['meio_id' => 'pm_num', 'valor' => 114]]], $this->s)->assertCreated();
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/fechar", ['numerario_contado' => 5114], $this->s)->assertOk();
+
+        // pré-visualização: impedimento com a lista de artigos; integração recusada com o mesmo código
+        $pre = $this->postJson('/api/pos/integracao/pre-visualizacao', ['ids' => [$this->sid()]], $this->s)->assertOk()->json('dados.sessoes.0');
+        $this->assertSame('IVA_EM_FALTA', $pre['impedimentos'][0]['codigo']);
+        $this->assertSame([[$p2, 'S2', 1]], array_map(fn ($a) => [$a['id'], $a['codigo'], $a['linhas']], $pre['iva_em_falta']));
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/contabilizar", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'IVA_EM_FALTA');
+
+        // validações: conta que não é de IVA / inexistente; sem permissão
+        $this->postJson('/api/pos/integracao/iva-em-falta', ['conta_iva' => '611', 'produto_ids' => [$p2]], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CONTA_IVA_INVALIDA');
+        $this->postJson('/api/pos/integracao/iva-em-falta', ['conta_iva' => '34999', 'produto_ids' => [$p2]], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CONTA_INEXISTENTE');
+        $this->postJson('/api/pos/integracao/iva-em-falta', ['conta_iva' => '3452', 'produto_ids' => [$p2]], $this->sessao(['pos_view']))->assertForbidden();
+
+        // grava só no artigo sem conta (o P1 já tinha 3452 e não é tocado) e a integração passa
+        $this->postJson('/api/pos/integracao/iva-em-falta', ['conta_iva' => '3452', 'produto_ids' => [$p2, $this->ids['p']]], $this->s)->assertOk()->assertJsonPath('dados.artigos_actualizados', 1);
+        $this->assertSame('3452', app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Produto::find($p2)->conta_iva_liquidado));
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/contabilizar", [], $this->s)->assertOk();
+        $this->assertSame(['-14.00', '114.00', '0.00'], [$this->saldo('3452'), $this->saldo('489'), $this->desequilibrio()]);
+    }
 }
