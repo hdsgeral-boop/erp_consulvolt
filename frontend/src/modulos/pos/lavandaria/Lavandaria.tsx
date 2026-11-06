@@ -1,8 +1,9 @@
 import { Alert, Button, DatePicker, Select, Skeleton } from 'antd';
+import { FileExcelOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { obter } from '@/api/cliente';
+import { descarregar, obter } from '@/api/cliente';
 import '@/componentes/CabecalhoModulo.css';
 import { IconeLegado } from '@/componentes/vistas';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
@@ -244,8 +245,18 @@ function Relatorio() {
         )}
         {campo('Terminal', <SeletorTerminal tipo="LAVANDARIA" allowClear placeholder="Todos os terminais" style={{ width: 220 }} value={terminal} onChange={setTerminal} />)}
         <div style={{ flex: 1 }} />
+        <Button
+          size="small"
+          icon={<FileExcelOutlined />}
+          disabled={!r}
+          title="Descarrega o relatório em Excel com 7 folhas: Resumo, Documentos, Meios de pagamento, Serviços, Peças, Terminais e Diário"
+          onClick={() => void descarregar('/pos/lavandaria/relatorio/excel', filtros, 'Relatorio_Lavandaria.xlsx').catch((e) => notificarErro(e, 'Não foi possível exportar o relatório'))}
+        >
+          Excel (7 folhas)
+        </Button>
         <BotoesExportar
           tamanho="small"
+          excel={false}
           desactivado={!r}
           obterPedido={() =>
             r && {

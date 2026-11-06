@@ -9,7 +9,16 @@ const enviar = vi.fn((..._a: unknown[]) => Promise.resolve({ dados: { pedido: { 
 vi.mock('@/api/cliente', async (original) => ({
   ...(await original<typeof import('@/api/cliente')>()),
   obter: vi.fn((url: string) => {
-    if (url === '/pos/lavandaria/pecas') return Promise.resolve([{ id: 1, codigo: 'P01', nome: 'Camisa', tecido: 'Algodão', cor: null, unidade: 'PECA', ativo: true, preco: '1500.00', precos_servico: null }]);
+    if (url === '/pos/lavandaria/pecas')
+      return Promise.resolve([
+        { id: 1, codigo: 'P01', nome: 'Camisa', tecido: 'Algodão', cor: null, unidade: 'PECA', ativo: true, preco: '1500.00', precos_servico: null },
+        // peça com 3 opções (Peça, Kg, Tamanho M) e preço específico do serviço 5 para o tamanho M
+        {
+          id: 2, codigo: 'P02', nome: 'Fato', tecido: null, cor: null, unidade: 'PECA', ativo: true, preco: '10000.00', opcoes_preco_origem: 'NOVO',
+          opcoes_preco: [{ modo: 'PECA', tamanho: '', preco: '10000.00' }, { modo: 'KG', tamanho: '', preco: '800.00' }, { modo: 'TAMANHO', tamanho: 'M', preco: '12000.00' }],
+          precos_servico: [{ produto_id: 5, modo: 'TAMANHO', tamanho: 'M', preco: '15000.00' }],
+        },
+      ]);
     if (url === '/pos/lavandaria/servicos')
       return Promise.resolve([{ id: 5, codigo: 'S01', nome: 'Lavar e passar', lavandaria_grupo: 'LAVANDARIA', codigo_conta: null, taxa_imposto: '14', lavandaria_dias_entrega: 2, lavandaria_requer_orcamento: false, lavandaria_ativa: true }]);
     if (url === '/pos/lavandaria/definicoes')
@@ -69,6 +78,24 @@ describe('Lavandaria — nova ordem de serviço como no protótipo', () => {
     await waitFor(() => expect(enviar).toHaveBeenCalled());
     const [metodo, url, dados] = enviar.mock.calls[0] as [string, string, Record<string, unknown>];
     expect([metodo, url]).toEqual(['post', '/pos/lavandaria/sessoes/11/ordens']);
-    expect(dados).toMatchObject({ cliente_id: 3, modo_faturacao: 'ENTREGA', urgente: false, itens: [{ peca_id: 1, produto_id: 5, quantidade: 1, estado_entrada: 'Bom estado' }], valor: '750.00' });
+    expect(dados).toMatchObject({ cliente_id: 3, modo_faturacao: 'ENTREGA', urgente: false, itens: [{ peca_id: 1, produto_id: 5, quantidade: 1, modo: 'PECA', estado_entrada: 'Bom estado' }], valor: '750.00' });
+  });
+
+  it('«Cobrar por»: peça com várias opções pede a opção e cobra o preço dessa opção para o serviço', async () => {
+    montar(<Recepcao terminal={TERMINAL} />);
+    fireEvent.mouseDown(await screen.findByText('— seleccionar a peça —'));
+    fireEvent.click(await screen.findByText(/P02 · Fato · 10 000,00 Kz\/peça · 3 opções/));
+    fireEvent.mouseDown(screen.getByText('— seleccionar o serviço —'));
+    fireEvent.click(await screen.findByText('S01 · Lavar e passar'));
+    // a peça de uma só opção não mostra «Cobrar por»; esta mostra, com o preço de cada opção para o serviço escolhido
+    fireEvent.mouseDown(screen.getByLabelText('Cobrar por'));
+    expect((await screen.findAllByTitle('Peça · 10 000,00 Kz')).length).toBeGreaterThan(0);
+    expect(screen.getByTitle('Quilograma (kg) · 800,00 Kz/kg')).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle('Tamanho M · 15 000,00 Kz')); // preço específico serviço × opção
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar à ordem/ }));
+    const cartao = await screen.findByTestId('cartao-peca');
+    expect(within(cartao).getByText(/1\. Fato/)).toBeInTheDocument();
+    expect(within(cartao).getByText('(Tamanho M)')).toBeInTheDocument();
+    expect(screen.getByTestId('total-ordem')).toHaveTextContent('15 000,00 Kz');
   });
 });

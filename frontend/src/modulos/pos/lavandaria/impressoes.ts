@@ -7,7 +7,7 @@ import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/ut
 import { dataDoc, type DadosDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { htmlEtiquetas, htmlTalaoGenerico, type CabecalhoTalao, type PreferenciasImpressao } from '../comum/impressao';
 import { UNIDADES_LAV } from './dados';
-import type { DefinicoesLav, DetalheOrdem, PagamentoLav } from './tipos';
+import { pecaComTamanho, type DefinicoesLav, type DetalheOrdem, type PagamentoLav } from './tipos';
 
 /** Condições do talão (condicoesTexto, lavandaria.js:325-334). */
 export function condicoesLavandaria(def: DefinicoesLav | undefined): string[] {
@@ -43,7 +43,7 @@ export function htmlTalaoOS(d: DetalheOrdem, def: DefinicoesLav | undefined, c: 
       ],
       linhas: [
         ...activos(d).map((i) => ({
-          descricao: `${i.nome_peca ? `${i.nome_peca} · ` : ''}${i.nome} · ${formatarNumero(i.quantidade)} ${UNIDADES_LAV[i.unidade] ?? ''}`,
+          descricao: `${i.nome_peca ? `${pecaComTamanho(i)} · ` : ''}${i.nome} · ${formatarNumero(i.quantidade)} ${UNIDADES_LAV[i.unidade] ?? ''}`,
           detalhe: [
             [i.cor, i.tecido].filter(Boolean).join(', '),
             `Estado à entrada: ${i.estado_entrada || '—'}${i.notas_entrada ? ` (${i.notas_entrada})` : ''}`,
@@ -77,7 +77,7 @@ export function htmlEtiquetasOS(d: DetalheOrdem, c: CabecalhoTalao, p: Preferenc
       titulo: tag,
       linhas: [
         `${o.numero_encomenda} · ${d.cliente?.nome ?? ''}`,
-        [i.nome_peca, i.cor, i.tecido].filter(Boolean).join(' · ') || null,
+        [pecaComTamanho(i), i.cor, i.tecido].filter(Boolean).join(' · ') || null,
         i.nome,
         i.estado_entrada ? `Entrada: ${i.estado_entrada}` : null,
         `Pronta: ${formatarData(o.data_prometida)}${o.urgente ? ' · URGENTE' : ''}`,

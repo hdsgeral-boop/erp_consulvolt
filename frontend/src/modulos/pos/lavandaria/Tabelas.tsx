@@ -1,4 +1,4 @@
-import { Button, Checkbox, Col, Flex, Form, Input, InputNumber, Row, Select, Skeleton, Switch, theme } from 'antd';
+import { Button, Checkbox, Col, Flex, Form, Input, InputNumber, Row, Select, Skeleton, Switch, Typography, message, theme } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -10,10 +10,10 @@ import { useAccao } from '@/componentes/Accoes';
 import { type ColunaApi } from '@/componentes/TabelaApi';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
-import type { DefinicoesLav, Peca, ServicoLav } from './tipos';
+import { GRUPOS_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
+import { chaveOpcao, MODOS_PRECO, opcoesPeca, rotuloOpcao, unidadeOpcao, type DefinicoesLav, type Peca, type PrecoServicoPeca, type ServicoLav } from './tipos';
 import { ImportarTabela } from './ImportarTabela';
-import { CAMPOS_PECA, CAMPOS_SERVICO, dadosPeca, dadosServico } from './formularios';
+import { CAMPOS_PECA, CAMPOS_SERVICO, dadosPeca, dadosServico, matrizDaPeca, precosServicoDaMatriz, validarOpcoesPeca, type OpcaoForm } from './formularios';
 
 import { IconeLegado, TabelaComModos } from '@/componentes/vistas';
 import { Seccao } from '../contas/Seccao';
@@ -31,6 +31,15 @@ export function textoPrecoPeca(p: Pick<Peca, 'preco' | 'unidade'>): string {
   return preco > 0 ? `${formatarKz(preco)} / ${p.unidade === 'KG' ? 'kg' : 'peça'}` : 'por definir';
 }
 
+/** Opções de preço da peça em texto: «Peça 1 500,00 · Tamanho M 1 800,00» (a 1.ª manda). */
+export function textoOpcoesPeca(p: Pick<Peca, 'preco' | 'unidade' | 'opcoes_preco'>): string {
+  const ops = opcoesPeca(p);
+  return ops.some((o) => Number(o.preco) > 0) ? ops.map((o) => `${rotuloOpcao(o)} ${formatarKz(Number(o.preco))}`).join(' · ') : 'por definir';
+}
+
+/** «Venda por» da tabela: os rótulos das opções («Peça, Tamanho M»). */
+const vendaPor = (p: Pick<Peca, 'preco' | 'unidade' | 'opcoes_preco'>) => opcoesPeca(p).map((o) => rotuloOpcao(o)).join(', ');
+
 /** Separador «Peças» (renderPecas, lavandaria.js:1288-1307): tabela de peças com modelos e importação. */
 export function TabelaPecas() {
   const { pode } = useSessao();
@@ -43,7 +52,7 @@ export function TabelaPecas() {
     { title: 'Peça', dataIndex: 'nome', render: (v) => <b>{v}</b> },
     { title: 'Tipo de tecido', dataIndex: 'tecido', render: (v) => v || '—' },
     { title: 'Cor', dataIndex: 'cor', render: (v) => v || '—' },
-    { title: 'Venda por', dataIndex: 'unidade', render: (v: string) => rotuloVendaPor(v), valorFiltro: (p) => rotuloVendaPor(p.unidade), valorImpressao: (p) => rotuloVendaPor(p.unidade) },
+    { title: 'Venda por', dataIndex: 'unidade', render: (_, p) => vendaPor(p), valorFiltro: (p) => vendaPor(p), valorImpressao: (p) => vendaPor(p) },
     {
       title: 'Preço (IVA incl.)',
       dataIndex: 'preco',
@@ -52,7 +61,16 @@ export function TabelaPecas() {
         const n = (p.precos_servico ?? []).length;
         return (
           <>
-            <span style={{ fontWeight: 700, color: Number(p.preco) > 0 ? undefined : '#b91c1c' }}>{textoPrecoPeca(p)}</span>
+            <span style={{ fontWeight: 700, color: opcoesPeca(p).some((o) => Number(o.preco) > 0) ? undefined : '#b91c1c' }}>
+              {opcoesPeca(p).length > 1
+                ? opcoesPeca(p).map((o) => (
+                    <div key={chaveOpcao(o)}>
+                      {rotuloOpcao(o)} {formatarKz(Number(o.preco))}
+                      {unidadeOpcao(o) === 'KG' ? ' / kg' : ''}
+                    </div>
+                  ))
+                : textoPrecoPeca({ preco: String(opcoesPeca(p)[0].preco), unidade: unidadeOpcao(opcoesPeca(p)[0]) })}
+            </span>
             {n > 0 && (
               <div>
                 <small style={{ color: '#2563eb', fontWeight: 600 }} title={(p.precos_servico ?? []).map((x) => `${servicos.data?.find((s) => s.id === x.produto_id)?.nome ?? `#${x.produto_id}`}: ${formatarKz(x.preco)}`).join('\n')}>
@@ -63,7 +81,7 @@ export function TabelaPecas() {
           </>
         );
       },
-      valorImpressao: (p) => `${textoPrecoPeca(p)}${(p.precos_servico ?? []).length ? ` (+ ${(p.precos_servico ?? []).length} preço(s) por serviço)` : ''}`,
+      valorImpressao: (p) => `${textoOpcoesPeca(p)}${(p.precos_servico ?? []).length ? ` (+ ${(p.precos_servico ?? []).length} preço(s) por serviço)` : ''}`,
     },
     { title: 'Estado', dataIndex: 'ativo', render: (v) => (v === false ? 'Inactiva' : 'Activa'), valorFiltro: (p) => (p.ativo === false ? 'Inactiva' : 'Activa'), valorImpressao: (p) => (p.ativo === false ? 'Inactiva' : 'Activa') },
   ];
@@ -104,20 +122,37 @@ export function TabelaPecas() {
   );
 }
 
+/** Rótulo do serviço na matriz de preços do editor. */
+const nomeServico = (s: ServicoLav) => `${s.codigo ? `${s.codigo} · ` : ''}${s.nome}`;
+
 function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; servicos: ServicoLav[]; aoFechar: () => void }) {
   const [form] = Form.useForm();
   const p = alvo && alvo !== 'nova' ? alvo : null;
   const gravar = useAccao({ invalidar: [['pos', 'lavandaria']], aoSucesso: aoFechar, tituloErro: 'Não foi possível gravar a peça' });
   const comPrecos = (p?.precos_servico ?? []).length > 0;
+  // entradas antigas sem modo de uma peça com várias opções: seguem como estão (valem para todas as opções)
+  const [semModo, setSemModo] = useState<PrecoServicoPeca[]>([]);
+  const opcoes = Form.useWatch('opcoes_preco', form) as OpcaoForm[] | undefined;
   useEffect(() => {
     if (!alvo) return;
     form.resetFields();
+    const { matriz, semModo: antigas } = matrizDaPeca(p);
+    setSemModo(antigas);
     form.setFieldsValue(
       p
-        ? { ...p, preco: Number(p.preco), ativo: p.ativo !== false, precos_servico: (p.precos_servico ?? []).map((x) => ({ produto_id: x.produto_id, preco: x.preco === null ? null : Number(x.preco) })) }
-        : { unidade: 'PECA', preco: 0, ativo: true, precos_servico: [] },
+        ? { ...p, opcoes_preco: opcoesPeca(p).map((o) => ({ modo: o.modo, tamanho: o.tamanho, preco: Number(o.preco) })), ativo: p.ativo !== false, matriz }
+        : { opcoes_preco: [{ modo: 'PECA', tamanho: '', preco: 0 }], ativo: true, matriz: {} },
     );
   }, [alvo, p, form]);
+  /** O corpo do pedido lê a lista e a matriz do formulário (o onFinish do antd só devolve os subcampos registados). */
+  const gravarPeca = (v: Record<string, unknown>) => {
+    const ops = (form.getFieldValue('opcoes_preco') ?? v.opcoes_preco ?? []) as OpcaoForm[];
+    const erro = validarOpcoesPeca(ops);
+    if (erro) return void message.warning(erro);
+    const dados = dadosPeca({ ...v, opcoes_preco: ops, precos_servico: precosServicoDaMatriz(form.getFieldValue('matriz'), ops, semModo) });
+    gravar.mutate(p ? { metodo: 'put', url: `/pos/lavandaria/pecas/${p.id}`, dados } : { url: '/pos/lavandaria/pecas', dados });
+  };
+  const opcoesValidas = (opcoes ?? []).filter((o) => o?.modo !== 'TAMANHO' || String(o?.tamanho ?? '').trim());
   return (
     <ModalFormulario
       chave="pos.lavandaria.pecas"
@@ -130,67 +165,94 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
       nomeRegistos="peças"
       invalidar={[['pos', 'lavandaria']]}
       gravarLinha={(r) => enviar('post', '/pos/lavandaria/pecas', dadosPeca(r))}
-      width={larguraModal(640)}
+      width={larguraModal(760)}
       okText="Gravar"
       cancelText="Cancelar"
       confirmLoading={gravar.isPending}
       onOk={() => form.submit()}
     >
-      <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(p ? { metodo: 'put', url: `/pos/lavandaria/pecas/${p.id}`, dados: dadosPeca(v) } : { url: '/pos/lavandaria/pecas', dados: dadosPeca(v) })}>
+      <Form form={form} layout="vertical" onFinish={gravarPeca}>
         <Row gutter={[12, 0]}>
-          <Col xs={24} sm={12}>
+          <Col xs={24} sm={18}>
             <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
               <Input maxLength={255} />
             </Form.Item>
           </Col>
-          <Col xs={12} sm={6}>
-            <Form.Item name="unidade" label="Unidade">
-              <Select options={Object.entries(UNIDADES_LAV).map(([value, label]) => ({ value, label }))} />
-            </Form.Item>
-          </Col>
-          <Col xs={12} sm={6}>
+          <Col xs={24} sm={6}>
             <Form.Item name="ativo" label="Activa" valuePropName="checked">
               <Switch />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item name="tecido" label="Tecido">
-              <Input maxLength={255} />
+          <Col xs={24} sm={12}>
+            <Form.Item name="tecido" label="Tecido" rules={[{ max: 20, message: 'No máximo 20 caracteres.' }]}>
+              <Input maxLength={20} />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item name="cor" label="Cor">
-              <Input maxLength={255} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item name="preco" label="Preço base (c/ IVA)">
-              <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} />
+          <Col xs={24} sm={12}>
+            <Form.Item name="cor" label="Cor" rules={[{ max: 10, message: 'No máximo 10 caracteres.' }]}>
+              <Input maxLength={10} />
             </Form.Item>
           </Col>
         </Row>
-        {/* «Preços por serviço» do legado: secção recolhível, aberta só quando a peça já tem preços específicos */}
-        <SeccaoFormulario titulo="Preços específicos por serviço" recolhida={!comPrecos}>
-          <Form.List name="precos_servico">
+        {/* Opções de preço (lav_prices): à peça, ao quilo ou por tamanho; a 1.ª manda na lista e nos mapas */}
+        <SeccaoFormulario titulo="Cobrar por — opções de preço">
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+            Cada opção tem o seu preço (IVA incluído). A primeira é a que aparece por omissão; ao receber a peça escolhe-se a opção («Cobrar por»).
+          </Typography.Paragraph>
+          <Form.List name="opcoes_preco">
             {(campos, { add, remove }) => (
               <>
-                {campos.map((c) => (
-                  <Flex key={c.key} gap={8} align="baseline">
-                    <Form.Item name={[c.name, 'produto_id']} rules={[{ required: true, message: 'Serviço' }]} style={{ flex: 1 }}>
-                      <Select placeholder="Serviço" options={servicos.map((s) => ({ value: s.id, label: s.nome }))} />
+                {campos.map((c, k) => (
+                  <Flex key={c.key} gap={8} align="baseline" wrap>
+                    <Form.Item name={[c.name, 'modo']} style={{ width: 180, maxWidth: '100%' }}>
+                      <Select aria-label={`Modo da opção ${k + 1}`} options={Object.entries(MODOS_PRECO).map(([value, label]) => ({ value, label }))} />
                     </Form.Item>
+                    {opcoes?.[c.name]?.modo === 'TAMANHO' ? (
+                      <Form.Item name={[c.name, 'tamanho']} style={{ width: 160, maxWidth: '100%' }}>
+                        <Input aria-label={`Tamanho da opção ${k + 1}`} placeholder="Tamanho (ex.: M, Casal)" maxLength={60} list="lav-tamanhos" />
+                      </Form.Item>
+                    ) : null}
                     <Form.Item name={[c.name, 'preco']}>
-                      <InputNumber<number> min={0} precision={2} decimalSeparator="," placeholder="Preço" style={{ width: 150, maxWidth: '100%' }} />
+                      <InputNumber<number> aria-label={`Preço da opção ${k + 1}`} min={0} precision={2} decimalSeparator="," placeholder="Preço" style={{ width: 150, maxWidth: '100%' }} />
                     </Form.Item>
-                    <MinusCircleOutlined aria-label="Retirar preço" onClick={() => remove(c.name)} />
+                    <MinusCircleOutlined aria-label={`Retirar a opção ${k + 1}`} style={{ visibility: campos.length > 1 ? 'visible' : 'hidden' }} onClick={() => campos.length > 1 && remove(c.name)} />
                   </Flex>
                 ))}
-                <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ preco: null })}>
-                  Preço específico por serviço
-                </Button>
+                <datalist id="lav-tamanhos">
+                  {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Criança', 'Pequeno', 'Médio', 'Grande', 'Casal', 'Solteiro'].map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+                <Flex gap={8} wrap>
+                  <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ modo: 'PECA', tamanho: '', preco: 0 })}>
+                    Opção
+                  </Button>
+                  <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ modo: 'TAMANHO', tamanho: '', preco: 0 })}>
+                    Tamanho
+                  </Button>
+                </Flex>
               </>
             )}
           </Form.List>
+        </SeccaoFormulario>
+        {/* Matriz serviço × opção («Preços por serviço» do legado): vazio ou 0 = o preço da própria opção */}
+        <SeccaoFormulario titulo="Preços específicos por serviço e opção" recolhida={!comPrecos}>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+            Só os serviços cujo preço difere do preço da opção. Vazio ou 0 = usa o preço da própria opção.
+          </Typography.Paragraph>
+          {servicos.length === 0 ? <Typography.Text type="secondary">Ainda não há serviços.</Typography.Text> : null}
+          {servicos.map((sv) => (
+            <div key={sv.id} style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{nomeServico(sv)}</div>
+              <Flex gap={8} wrap>
+                {opcoesValidas.map((o) => (
+                  <Form.Item key={chaveOpcao(o)} label={<small>{rotuloOpcao(o)}</small>} name={['matriz', String(sv.id), chaveOpcao(o)]} style={{ marginBottom: 4 }}>
+                    <InputNumber<number> aria-label={`${nomeServico(sv)} — ${rotuloOpcao(o)}`} min={0} precision={2} decimalSeparator="," placeholder={String(Number(o.preco ?? 0))} style={{ width: 140, maxWidth: '100%' }} />
+                  </Form.Item>
+                ))}
+              </Flex>
+            </div>
+          ))}
         </SeccaoFormulario>
       </Form>
     </ModalFormulario>

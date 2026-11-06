@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { IconeLegado } from '@/componentes/vistas';
-import { descarregarCsv } from '@/utilitarios/csv';
+import { descarregar } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 
@@ -38,7 +38,7 @@ export const MODELOS_LAV: Record<TipoImportacaoLav, { titulo: string; colunas: s
     colunas: ['Código', 'Designação', 'Grupo', 'Conta', 'IVA', 'Prazo', 'Exige orçamento', 'Activo'],
     exemplo: ['', 'Lavagem a seco', 'Lavandaria', '6211', '14', '2', 'Não', 'Sim'],
   },
-  precos: { titulo: 'preços por peça e serviço', colunas: ['Peça', 'Serviço', 'Preço'], exemplo: ['PC0001', 'SV0001', '900'] },
+  precos: { titulo: 'preços por peça e serviço', colunas: ['Peça', 'Serviço', 'Preço', 'Opção'], exemplo: ['PC0001', 'SV0001', '900', 'Kg'] },
 };
 
 const ROTULO_ACCAO: Record<LinhaAnalise['accao'], [string, string]> = {
@@ -49,16 +49,19 @@ const ROTULO_ACCAO: Record<LinhaAnalise['accao'], [string, string]> = {
   IGNORADA: ['Ignorada', 'red'],
 };
 
-/** Descarrega o modelo (cabeçalho e uma linha de exemplo) para importação. */
-export function descarregarModeloLav(tipo: TipoImportacaoLav): void {
-  const m = MODELOS_LAV[tipo];
-  descarregarCsv(`modelo_lavandaria_${tipo}`, [m.colunas, m.exemplo].map((l) => l.join(';')).join('\r\n'));
+/** Descarrega o modelo .xlsx da importação (GET /pos/lavandaria/modelos/{tipo}: colunas nomeadas do legado e folha «Como_Preencher»). */
+export async function descarregarModeloLav(tipo: TipoImportacaoLav): Promise<void> {
+  try {
+    await descarregar(`/pos/lavandaria/modelos/${tipo}`, undefined, `Modelo_${tipo}_Lavandaria.xlsx`);
+  } catch (e) {
+    notificarErro(e, 'Não foi possível descarregar o modelo');
+  }
 }
 
 /** Botões «Modelo» / «Modelo de preços» do antigo (lavandaria.js:1294-1296). */
 export function BotaoModeloLav({ tipo }: { tipo: TipoImportacaoLav }) {
   return (
-    <Button icon={<IconeLegado icone="file-excel" />} title={tipo === 'precos' ? 'Modelo de preços por peça e serviço' : 'Descarregar o modelo'} onClick={() => descarregarModeloLav(tipo)}>
+    <Button icon={<IconeLegado icone="file-excel" />} title={tipo === 'precos' ? 'Modelo de preços por peça e serviço' : 'Descarregar o modelo'} onClick={() => void descarregarModeloLav(tipo)}>
       {tipo === 'precos' ? 'Modelo de preços' : 'Modelo'}
     </Button>
   );
@@ -124,7 +127,7 @@ export function ImportarTabela({ tipo }: { tipo: TipoImportacaoLav }) {
         <Typography.Paragraph type="secondary">
           Colunas (com cabeçalho na 1.ª linha): {m.colunas.join(' · ')}. Uma linha com código, ou com a mesma designação de um registo existente, actualiza-o;
           as restantes criam registos novos com código automático. As linhas com erros são ignoradas.
-          {tipo === 'precos' && ' Preço 0 remove o preço específico (a peça passa a usar o preço base nesse serviço).'}
+          {tipo === 'precos' && ' Preço 0 remove o preço específico (a peça passa a usar o preço da opção). A coluna «Opção» aceita «Peça», «Kg» ou o nome do tamanho; vazia, aplica-se à 1.ª opção da peça.'}
         </Typography.Paragraph>
         <Flex gap={8} wrap style={{ marginBottom: 12 }}>
           <Upload
@@ -140,7 +143,7 @@ export function ImportarTabela({ tipo }: { tipo: TipoImportacaoLav }) {
           >
             <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
           </Upload>
-          <Button icon={<DownloadOutlined />} onClick={() => descarregarModeloLav(tipo)}>
+          <Button icon={<DownloadOutlined />} onClick={() => void descarregarModeloLav(tipo)}>
             Baixar modelo
           </Button>
         </Flex>

@@ -16,7 +16,7 @@ import type { Terminal } from '../comum/tipos';
 import { imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import { htmlEtiquetasOS, htmlTalaoOS } from './impressoes';
 import { GRUPOS_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
-import { precoPecaServico, type DefinicoesLav, type DetalheOrdem, type PedidoLav } from './tipos';
+import { chaveOpcao, opcoesPeca, precoPecaServico, rotuloOpcao, unidadeOpcao, type DefinicoesLav, type DetalheOrdem, type ModoPreco, type PedidoLav } from './tipos';
 
 /** Unidade de venda da peça, como no antigo (UNIDADES, lavandaria.js:47). */
 const UNIDADE: Record<string, string> = { PECA: 'peça', KG: 'kg' };
@@ -34,6 +34,11 @@ export interface LinhaNova {
   nome_servico: string;
   grupo: string;
   unidade: 'PECA' | 'KG';
+  /** «Cobrar por»: opção de preço da peça (modo e tamanho); ausente = a 1.ª opção. */
+  modo?: ModoPreco;
+  tamanho?: string;
+  /** Rótulo da opção («Tamanho M»), só quando a peça tem várias. */
+  opcao_rotulo?: string;
   quantidade: number;
   numero_pecas: number;
   preco: number;
@@ -169,6 +174,7 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
   const [urgente, setUrgente] = useState(false);
   const [pecaId, setPecaId] = useState<number>();
   const [servicoId, setServicoId] = useState<number>();
+  const [opcaoChave, setOpcaoChave] = useState<string>();
   const [linhas, setLinhas] = useState<LinhaNova[]>([]);
   const [recolha, setRecolha] = useState<Domicilio>(DOMICILIO_VAZIO);
   const [entrega, setEntrega] = useState<Domicilio>(DOMICILIO_VAZIO);
@@ -212,23 +218,28 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
     }))
     .filter((g) => g.options.length);
 
+  const pecaEscolhida = (pecas.data ?? []).find((x) => x.id === pecaId);
+  const opcoesEscolhida = opcoesPeca(pecaEscolhida);
+  const servicoEscolhido = (servicos.data ?? []).find((x) => x.id === servicoId);
   const adicionar = () => {
-    const p = (pecas.data ?? []).find((x) => x.id === pecaId);
-    const s = (servicos.data ?? []).find((x) => x.id === servicoId);
+    const p = pecaEscolhida;
+    const s = servicoEscolhido;
     if (!p || !s) {
       void message.warning('Seleccione a peça e o serviço.');
       return;
     }
-    const preco = precoPecaServico(p, s.id);
+    const op = opcoesEscolhida.find((o) => chaveOpcao(o) === opcaoChave) ?? opcoesEscolhida[0];
+    const preco = precoPecaServico(p, s.id, op);
     const orcamento = !!s.lavandaria_requer_orcamento;
     if (!orcamento && preco <= 0) {
-      void message.warning(`A peça "${p.nome}" não tem preço por ${UNIDADE[p.unidade] ?? 'peça'} para o serviço "${s.nome}" (nem preço base). Complete-a em POS › Lavandaria › Peças.`);
+      void message.warning(`A peça "${p.nome}" não tem preço em «${rotuloOpcao(op)}» para o serviço "${s.nome}" (nem preço base). Complete-a em POS › Lavandaria › Peças.`);
       return;
     }
     setLinhas((ls) => [
       ...ls,
       {
-        chave: novaChave(), peca_id: p.id, nome_peca: p.nome, produto_id: s.id, nome_servico: s.nome, grupo: s.lavandaria_grupo, unidade: p.unidade ?? 'PECA',
+        chave: novaChave(), peca_id: p.id, nome_peca: p.nome, produto_id: s.id, nome_servico: s.nome, grupo: s.lavandaria_grupo, unidade: unidadeOpcao(op),
+        modo: op.modo, tamanho: op.tamanho, opcao_rotulo: opcoesEscolhida.length > 1 ? rotuloOpcao(op) : undefined,
         quantidade: 1, numero_pecas: 1, preco, preco_tabela: preco,
         dias_prazo: Number(s.lavandaria_dias_entrega) || (s.lavandaria_grupo === 'ALFAIATARIA' ? 5 : 2),
         requer_orcamento: orcamento, cor: p.cor ?? '', tecido: p.tecido ?? '', estado_entrada: '', notas_entrada: '', valor_declarado: null,
@@ -245,6 +256,7 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
     setUrgente(false);
     setPecaId(undefined);
     setServicoId(undefined);
+    setOpcaoChave(undefined);
     setLinhas([]);
     setRecolha(DOMICILIO_VAZIO);
     setEntrega(DOMICILIO_VAZIO);
@@ -315,6 +327,8 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
           produto_id: l.produto_id,
           quantidade: l.quantidade,
           numero_pecas: l.unidade === 'KG' ? l.numero_pecas : undefined,
+          modo: l.modo,
+          tamanho: l.modo === 'TAMANHO' ? l.tamanho : undefined,
           ...(l.preco !== l.preco_tabela ? { preco: l.preco } : {}),
           cor: l.cor.trim() || undefined,
           tecido: l.tecido.trim() || undefined,
@@ -371,7 +385,7 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 14 }}>
-              {k + 1}. {l.nome_peca} <span style={{ fontWeight: 400, color: token.colorTextSecondary }}>· {l.nome_servico}</span>
+              {k + 1}. {l.nome_peca}{l.opcao_rotulo ? <span style={{ color: token.colorPrimary }}> ({l.opcao_rotulo})</span> : null} <span style={{ fontWeight: 400, color: token.colorTextSecondary }}>· {l.nome_servico}</span>
             </div>
             <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2 }}>
               {GRUPOS_LAV[l.grupo] ?? l.grupo} · venda por {un}
@@ -520,16 +534,35 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
                   placeholder="— seleccionar a peça —"
                   loading={pecas.isLoading}
                   value={pecaId}
-                  onChange={setPecaId}
-                  options={(pecas.data ?? []).map((p) => ({
-                    value: p.id,
-                    label: `${p.codigo ? `${p.codigo} · ` : ''}${p.nome}${p.tecido ? ` (${p.tecido})` : ''} · ${kz(Number(p.preco ?? 0))}/${UNIDADE[p.unidade] ?? 'peça'}`,
-                  }))}
+                  onChange={(v) => {
+                    setPecaId(v);
+                    setOpcaoChave(undefined);
+                  }}
+                  options={(pecas.data ?? []).map((p) => {
+                    const ops = opcoesPeca(p);
+                    return {
+                      value: p.id,
+                      label: `${p.codigo ? `${p.codigo} · ` : ''}${p.nome}${p.tecido ? ` (${p.tecido})` : ''} · ${kz(Number(ops[0].preco ?? 0))}/${UNIDADE[unidadeOpcao(ops[0])] ?? 'peça'}${ops.length > 1 ? ` · ${ops.length} opções` : ''}`,
+                    };
+                  })}
                 />
               </Campo>
               <Campo rotulo="Serviço">
                 <Select<number> showSearch optionFilterProp="label" placeholder="— seleccionar o serviço —" loading={servicos.isLoading} value={servicoId} onChange={setServicoId} options={opcoesServicos} />
               </Campo>
+              {opcoesEscolhida.length > 1 && (
+                <Campo rotulo="Cobrar por">
+                  <Select<string>
+                    aria-label="Cobrar por"
+                    value={opcaoChave ?? chaveOpcao(opcoesEscolhida[0])}
+                    onChange={setOpcaoChave}
+                    options={opcoesEscolhida.map((o) => ({
+                      value: chaveOpcao(o),
+                      label: `${rotuloOpcao(o)} · ${kz(servicoEscolhido ? precoPecaServico(pecaEscolhida, servicoEscolhido.id, o) : Number(o.preco ?? 0))}${unidadeOpcao(o) === 'KG' ? '/kg' : ''}`,
+                    }))}
+                  />
+                </Campo>
+              )}
               <Button type="primary" block icon={<PlusOutlined />} disabled={semTabelas} onClick={adicionar}>
                 Adicionar à ordem
               </Button>

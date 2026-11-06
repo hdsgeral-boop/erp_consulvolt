@@ -73,6 +73,9 @@ export interface ItemOrdem {
   codigo_servico?: string | null;
   grupo: string;
   unidade: string;
+  /** «Cobrar por» da linha (opção de preço da peça): Peça, Quilograma ou Tamanho; ausente nas ordens anteriores às opções. */
+  modo?: ModoPreco | null;
+  tamanho?: string | null;
   quantidade: number | string;
   numero_pecas?: number | null;
   preco: number | string;
@@ -138,6 +141,23 @@ export interface DetalheOrdem {
   linhas_por_facturar: { ref: string; id: number | string; produto_id: number; descricao: string; quantidade: string; preco: string; total: string }[];
 }
 
+export type ModoPreco = 'PECA' | 'KG' | 'TAMANHO';
+
+/** Opção de preço da peça (legado: lav_prices): à peça, ao quilo ou por tamanho; a 1.ª manda. */
+export interface OpcaoPreco {
+  modo: ModoPreco;
+  tamanho: string;
+  preco: number | string;
+}
+
+/** Preço específico de um serviço para uma opção da peça (sem modo = vale para a opção única, como as entradas antigas). */
+export interface PrecoServicoPeca {
+  produto_id: number;
+  modo?: ModoPreco | null;
+  tamanho?: string | null;
+  preco: number | string | null;
+}
+
 export interface Peca {
   id: number;
   codigo: string | null;
@@ -147,7 +167,9 @@ export interface Peca {
   unidade: 'PECA' | 'KG';
   ativo: boolean | null;
   preco: string;
-  precos_servico: { produto_id: number; preco: number | string | null }[] | null;
+  precos_servico: PrecoServicoPeca[] | null;
+  opcoes_preco?: OpcaoPreco[] | null;
+  opcoes_preco_origem?: 'LEGADO' | 'DERIVADA' | 'NOVO' | null;
 }
 
 export interface ServicoLav {
@@ -224,9 +246,43 @@ export interface RelatorioLav {
   por_terminal: { terminal: string; ordens: number; documentos: number; facturado: string; recebido: string }[];
 }
 
-/** Preço da peça para o serviço: o da tabela peça × serviço, senão o preço base da peça. */
-export function precoPecaServico(peca: Pick<Peca, 'preco' | 'precos_servico'> | undefined, produtoId: number | undefined): number {
+/** Peça da linha com o tamanho cobrado, quando o houver: «Camisa (M)». */
+export const pecaComTamanho = (i: { nome_peca?: string | null; modo?: string | null; tamanho?: string | null }): string =>
+  `${i.nome_peca ?? ''}${i.modo === 'TAMANHO' && i.tamanho ? ` (${i.tamanho})` : ''}`;
+
+/** O que a regra de preço lê da peça. */
+export type PecaPreco = Pick<Peca, 'preco'> & Partial<Pick<Peca, 'unidade' | 'precos_servico' | 'opcoes_preco'>>;
+
+export const MODOS_PRECO: Record<ModoPreco, string> = { PECA: 'Peça', KG: 'Quilograma (kg)', TAMANHO: 'Tamanho' };
+
+/** Opções de preço da peça (opcoesPeca, lavandaria.js:146): as guardadas, sem tamanhos sem nome; na falta, a única de unidade+preço. */
+export function opcoesPeca(peca: PecaPreco | undefined): OpcaoPreco[] {
+  const lista = (peca?.opcoes_preco ?? [])
+    .map((o): OpcaoPreco => {
+      const modo: ModoPreco = o.modo === 'KG' ? 'KG' : o.modo === 'TAMANHO' ? 'TAMANHO' : 'PECA';
+      return { modo, tamanho: modo === 'TAMANHO' ? String(o.tamanho ?? '').trim() : '', preco: o.preco };
+    })
+    .filter((o) => o.modo !== 'TAMANHO' || o.tamanho);
+  return lista.length ? lista : [{ modo: peca?.unidade === 'KG' ? 'KG' : 'PECA', tamanho: '', preco: peca?.preco ?? 0 }];
+}
+
+/** Chave de uma opção: modo e tamanho (o tamanho não distingue maiúsculas). */
+export const chaveOpcao = (o: { modo?: string | null; tamanho?: string | null } | undefined): string => `${o?.modo || 'PECA'}|${String(o?.tamanho ?? '').trim().toLowerCase()}`;
+
+export const rotuloOpcao = (o: { modo?: string | null; tamanho?: string | null } | undefined): string => (o?.modo === 'TAMANHO' ? `Tamanho ${o.tamanho ?? ''}` : o?.modo === 'KG' ? 'Quilograma (kg)' : 'Peça');
+
+/** Unidade de venda da opção: kg só no modo quilograma. */
+export const unidadeOpcao = (o: { modo?: string | null } | undefined): 'PECA' | 'KG' => (o?.modo === 'KG' ? 'KG' : 'PECA');
+
+/**
+ * Preço da peça para o serviço e a opção (precoPecaServico, lavandaria.js:162): a entrada da opção ou, na falta, a antiga sem modo
+ * (valia para a opção única que a peça tinha); sem preço específico, o da própria opção. Sem opção, a 1.ª.
+ */
+export function precoPecaServico(peca: PecaPreco | undefined, produtoId: number | undefined, opcao?: Pick<OpcaoPreco, 'modo' | 'tamanho'>): number {
   if (!peca) return 0;
-  const especifico = (peca.precos_servico ?? []).find((p) => p.produto_id === produtoId && p.preco !== null && p.preco !== undefined);
-  return Number(especifico?.preco ?? peca.preco ?? 0) || 0;
+  const o = opcao ? opcoesPeca(peca).find((x) => chaveOpcao(x) === chaveOpcao(opcao)) ?? opcoesPeca(peca)[0] : opcoesPeca(peca)[0];
+  const lista = (peca.precos_servico ?? []).filter((p) => p.produto_id === produtoId && p.preco !== null && p.preco !== undefined);
+  const especifico = lista.find((p) => !!p.modo && chaveOpcao(p) === chaveOpcao(o)) ?? lista.find((p) => !p.modo);
+  const v = Number(especifico?.preco ?? 0);
+  return v > 0 ? v : Number(o.preco ?? 0) || 0;
 }

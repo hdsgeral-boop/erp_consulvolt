@@ -18,7 +18,7 @@ import type { Terminal, VendaEmitida } from '../comum/tipos';
 import { htmlTalaoVenda, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import { useDefinicoesLav, useOrdem } from './dados';
 import { dadosReciboLavA4, htmlEtiquetasOS, htmlReciboLav, htmlTalaoOS } from './impressoes';
-import type { DetalheOrdem as Detalhe, ItemOrdem, PagamentoLav, SimulacaoEntrega } from './tipos';
+import { pecaComTamanho, type DetalheOrdem as Detalhe, type ItemOrdem, type PagamentoLav, type SimulacaoEntrega } from './tipos';
 
 const INVALIDAR = [['pos']];
 
@@ -188,7 +188,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                       scroll={scrollTabela()}
                       columns={[
                         { title: 'Etiquetas', dataIndex: 'etiquetas', render: (v: string[] | undefined) => v?.join(', ') ?? '—' },
-                        { title: 'Peça', render: (_, i) => `${i.nome_peca ?? '—'}${i.cor || i.tecido ? ` (${[i.cor, i.tecido].filter(Boolean).join(', ')})` : ''}` },
+                        { title: 'Peça', render: (_, i) => `${pecaComTamanho(i) || '—'}${i.cor || i.tecido ? ` (${[i.cor, i.tecido].filter(Boolean).join(', ')})` : ''}` },
                         { title: 'Serviço', dataIndex: 'nome' },
                         { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: (v) => formatarNumero(v) },
                         { title: 'Entrada', dataIndex: 'estado_entrada', render: (v, i) => (i.notas_entrada ? <Tooltip title={i.notas_entrada}>{v}</Tooltip> : v ?? '—') },
@@ -448,7 +448,7 @@ function ModalEntregar({ aberto, detalhe, sessaoId, terminal, aoFechar }: { aber
         <Flex vertical gap={4}>
           {prontas.map((i) => (
             <Checkbox key={i.linha_id} value={i.linha_id}>
-              {`${i.etiquetas?.join(', ') ?? ''} · ${i.nome_peca ?? ''} · ${i.nome} · ${formatarKz(i.valor)} Kz`}
+              {`${i.etiquetas?.join(', ') ?? ''} · ${pecaComTamanho(i)} · ${i.nome} · ${formatarKz(i.valor)} Kz`}
             </Checkbox>
           ))}
         </Flex>
@@ -535,7 +535,7 @@ export function pedidoOrdem(d: Detalhe): PedidoImpressao {
     totais: true,
     colunas: [
       { titulo: 'Etiquetas', valor: (i) => i.etiquetas?.join(', ') ?? '—', quebrar: true },
-      { titulo: 'Peça', valor: (i) => `${i.nome_peca ?? '—'}${i.cor || i.tecido ? ` (${[i.cor, i.tecido].filter(Boolean).join(', ')})` : ''}` },
+      { titulo: 'Peça', valor: (i) => `${pecaComTamanho(i) || '—'}${i.cor || i.tecido ? ` (${[i.cor, i.tecido].filter(Boolean).join(', ')})` : ''}` },
       { titulo: 'Serviço', valor: (i) => i.nome },
       { titulo: 'Qtd.', valor: (i) => i.quantidade, formato: 'numero' },
       { titulo: 'Entrada', valor: (i) => `${i.estado_entrada ?? '—'}${i.notas_entrada ? ` · ${i.notas_entrada}` : ''}`, quebrar: true },

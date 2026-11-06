@@ -17,7 +17,7 @@ import type { Terminal } from '../comum/tipos';
 import { useColaboradoresLav } from './dados';
 import { DetalheOrdem } from './DetalheOrdem';
 import { atrasada, cartoesOrdens, corSituacao, detalheIndicadores, emCurso, ESTADOS_FILTRO } from './indicadores';
-import type { CargaResponsavel, DetalheOrdem as Detalhe, ListaOrdens, OrdemResumo } from './tipos';
+import { pecaComTamanho, type CargaResponsavel, type DetalheOrdem as Detalhe, type ListaOrdens, type OrdemResumo } from './tipos';
 import { Seccao } from '../contas/Seccao';
 import '../comum/pos.css';
 
@@ -468,7 +468,7 @@ export function linhasOrcamento(detalhes: Detalhe[]): LinhaOrcamento[] {
           recebida: d.pedido.recebido_em,
           cliente: d.cliente?.nome ?? '',
           telefone: d.cliente?.telefone ?? '',
-          peca: `${i.nome_peca ?? ''} · ${i.nome}`,
+          peca: `${pecaComTamanho(i)} · ${i.nome}`,
           detalhe: [i.cor, i.tecido].filter(Boolean).join(', '),
           estado_entrada: i.estado_entrada ?? null,
           quantidade: `${Number(i.quantidade)} ${i.unidade === 'KG' ? 'kg' : ''}`.trim(),
