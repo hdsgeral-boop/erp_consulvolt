@@ -10,9 +10,9 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 
 | Estado | N.º | % |
 |---|---:|---:|
-| IGUAL | 176 | 71.3% |
-| PARCIAL | 15 | 6.1% |
-| DIFERENTE | 45 | 18.2% |
+| IGUAL | 177 | 71.7% |
+| PARCIAL | 13 | 5.3% |
+| DIFERENTE | 46 | 18.6% |
 | EM FALTA | 7 | 2.8% |
 | NÃO PORTAR | 4 | 1.6% |
 | **Total** | **247** | 100% |
@@ -22,10 +22,10 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | ACE | 11 | 1 | 3 | 0 | 0 | 15 |
 | FRE | 18 | 1 | 6 | 2 | 0 | 27 |
 | RES | 3 | 0 | 5 | 0 | 0 | 8 |
-| CHK | 14 | 3 | 6 | 1 | 0 | 24 |
+| CHK | 15 | 2 | 6 | 1 | 0 | 24 |
 | FEC | 11 | 0 | 3 | 0 | 0 | 14 |
 | TER | 12 | 0 | 0 | 0 | 0 | 12 |
-| REL | 4 | 1 | 1 | 1 | 0 | 7 |
+| REL | 4 | 0 | 2 | 1 | 0 | 7 |
 | INT | 5 | 0 | 4 | 1 | 1 | 11 |
 | DES | 5 | 0 | 1 | 0 | 0 | 6 |
 | PRE | 10 | 0 | 2 | 0 | 0 | 12 |
@@ -132,7 +132,7 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | F-069 | CHK | Impressão automática (térmico ou A4) | IGUAL | N-051, N-052 | Configuração no navegador (ver F-104) | — | — | — |
 | F-070 | CHK | Talão térmico completo (QR AGT, coordenadas bancárias, NIF cliente, «Processado por computador») | PARCIAL | N-051 | Falta: QR AGT, IBAN/SWIFT dos meios, «Talão nº», NIF cliente 999999999 por omissão, linha «Processado por computador»; tem base, IVA, desconto, arredondamento, troco | M | M | F1 |
 | F-071 | CHK | QR code AGT no talão de documentos selados | EM FALTA | — | Backend tem `GET /api/vendas/documentos/{venda}/qr` (ServicoQrAgt) mas o talão do POS não o usa (impressao.ts:144-179). ATCUD não se aplica a Angola | M | M | F1 |
-| F-072 | CHK | Modal de sucesso com «Imprimir A4» e «Descarregar PDF» | PARCIAL | N-051 | Reimpressão do talão existe; A4 e PDF a partir do POS por confirmar (PDF só no cliente) | S | B | F1 / F7 |
+| F-072 | CHK | Modal de sucesso com «Imprimir A4» e «Descarregar PDF» | IGUAL | N-051 | **F7**: «Imprimir A4 / PDF» (navegador) e «Descarregar PDF» gerado no servidor (dompdf, A4, com QR e IBAN); o talão térmico não tem PDF (ESC/POS fora de âmbito) | — | — | F7 |
 | F-073 | CHK | Limpeza do carrinho/mesa após venda | IGUAL | N-059 | — | — | — | — |
 | F-074 | CHK | Contabilização individual de documentos POS bloqueada | IGUAL | N-147 | Código VENDA_POS | — | — | — |
 | F-075 | FEC | Relatório X (parcial) | IGUAL | N-021 | Térmico ou A4 | — | — | — |
@@ -164,7 +164,7 @@ Análise só de leitura, feita em 2026-11-06 sobre o ramo `paridade-bd-front` (H
 | F-101 | REL | Relatórios POS: KPIs | DIFERENTE | N-133 | KPIs mais amplos (por integrar, por prestar, diferenças TPA) e filtro por operador | — | B | — |
 | F-102 | REL | Relatórios POS: por meio | IGUAL | N-134 | — | — | — | — |
 | F-103 | REL | Relatórios POS: lista de Z com estado e reimpressão | IGUAL | N-134, N-028 | — | — | — | — |
-| F-104 | REL | Config. Impressão (formato, consulta, auto, rodapé) | PARCIAL | N-052 | Guardada no navegador (D-13), não por empresa na BD; legado também localStorage mas por empresa; acrescenta largura 58/80 mm | M | M | F7 |
+| F-104 | REL | Config. Impressão (formato, consulta, auto, rodapé) | DIFERENTE | N-052 | **F7**: guardada no servidor por empresa, com sobreposição por terminal (legado: só `localStorage` por empresa); o navegador fica com a cópia e oferece «Guardar no servidor» a quem só tinha a local; acrescenta largura 58/80 mm | — | — | F7 |
 | F-105 | REL | Fluxo de Processos POS | IGUAL | N-150 | — | — | — | — |
 | F-106 | REL | Painel de módulos: pendências e vendas do dia | EM FALTA | N-148 | `Gestao/Paineis/Indicadores.php` não tem KPIs POS (só validações de dados); falta «POS — Sessões abertas / Vendas de hoje» e pendências | M | B | F6 |
 | F-107 | REL | Relatórios de gestão «POS e Serviços» | IGUAL | N-136 | — | — | — | — |
@@ -362,7 +362,7 @@ Legenda: **Completa** (existe e cobre o legado), **Parcial**, **Diferente** (exi
 
 | I | Ligação | Existe? | Estado | Detalhe / o que falta |
 |---|---|---|---|---|
-| I-01 | POS → Vendas/Facturação (FR) | Sim | Diferente | FR emitida pelo motor `ServicoDocumentosVenda::emitir` com bloco `pos`; `is_posted` substituído por `pos_lans_contabilizacao`. Falta A4/PDF no modal de sucesso (F-072) |
+| I-01 | POS → Vendas/Facturação (FR) | Sim | Diferente | FR emitida pelo motor `ServicoDocumentosVenda::emitir` com bloco `pos`; `is_posted` substituído por `pos_lans_contabilizacao`. A4 e PDF no modal de sucesso (F-072, F7) |
 | I-02 | POS → Séries/AGT/QR/SAF-T | Sim | Parcial | Série por terminal, selagem, hash, QR (endpoint) e SAF-T com `SettlementAmount` existem; **falta QR no talão (F-071)** e **RC-LAV no SAF-T** |
 | I-03 | POS → Stock/Armazém | Sim | Diferente | Armazém do terminal com lock, custo médio, CMV na integração (corrige o legado: preço de venda, sem CMV, stock global) |
 | I-04 | POS Armazém → Stock/Guias/Contab. | Sim | Diferente | Guia `VENDA_BALCAO`/GR, diário GS, «por contabilizar» se faltarem contas; **sem impressão no POS (F-150/F-151)** |
