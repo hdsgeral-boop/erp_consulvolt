@@ -13,7 +13,9 @@ import { FechoZ } from './frente/FechoZ';
 import { ModoImersivo, pedirEcraInteiro } from './frente/ModoImersivo';
 import { PainelVenda } from './frente/PainelVenda';
 import { FrenteLavandaria } from './lavandaria/FrenteLavandaria';
+import { MovimentosCaixaModal } from './frente/MovimentosCaixaModal';
 import { RelatorioXModal } from './frente/RelatorioXModal';
+import { VendasSessaoModal } from './frente/VendasSessaoModal';
 import { idOpaco } from '@/sessao/chaveOpaca';
 
 const chaveTerminal = (empresa: number | undefined) => `erp.pos.terminal.${idOpaco(empresa ?? 0)}`;
@@ -79,6 +81,8 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
   // ⇄ «Trocar de Terminal Ativo»: volta ao cartão de abertura mesmo com a caixa aberta
   const [aTrocar, setATrocar] = useState(false);
   const [verX, setVerX] = useState(false);
+  const [verVendas, setVerVendas] = useState(false);
+  const [verMovimentos, setVerMovimentos] = useState(false);
   // sessão do fecho Z em curso: guardada à parte para o resultado do fecho (n.º Z, imprimir) não desaparecer quando a
   // lista de terminais é recarregada e a sessão deixa de estar aberta
   const [sessaoZ, setSessaoZ] = useState<number | null>(null);
@@ -151,6 +155,8 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
                 aoTrocarTerminal={() => setATrocar(true)}
                 aoRelatorioX={() => setVerX(true)}
                 aoFecharCaixa={() => setSessaoZ(sessao.id)}
+                aoVendas={accoes.vender || accoes.relatorioX ? () => setVerVendas(true) : undefined}
+                aoMovimentos={() => setVerMovimentos(true)}
               />
             }
           />
@@ -170,6 +176,8 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
                 aoTrocarTerminal={() => setATrocar(true)}
                 aoRelatorioX={() => setVerX(true)}
                 aoFecharCaixa={() => setSessaoZ(sessao.id)}
+                aoVendas={accoes.vender || accoes.relatorioX ? () => setVerVendas(true) : undefined}
+                aoMovimentos={() => setVerMovimentos(true)}
               />
             }
           />
@@ -183,6 +191,8 @@ function FrenteImersiva({ aoSair }: { aoSair: () => void }) {
     <ModoImersivo dispositivo={prefs.dispositivo} aoMudarDispositivo={(d) => mudarPrefs({ dispositivo: d })} aoSair={sair}>
       {conteudo}
       {sessao && <RelatorioXModal sessaoId={sessao.id} aberto={verX} aoFechar={() => setVerX(false)} />}
+      {sessao && <VendasSessaoModal sessaoId={sessao.id} terminal={terminal as NonNullable<typeof terminal>} aberto={verVendas} aoFechar={() => setVerVendas(false)} />}
+      {sessao && <MovimentosCaixaModal sessaoId={sessao.id} aberto={verMovimentos} aoFechar={() => setVerMovimentos(false)} />}
       {sessaoZ !== null && <FechoZ sessaoId={sessaoZ} aberto aoFechar={() => setSessaoZ(null)} />}
     </ModoImersivo>
   );

@@ -5,6 +5,7 @@ namespace App\Services\POS;
 use App\Exceptions\ErroNegocio;
 use App\Models\LancamentoContabil;
 use App\Models\LiquidacaoPOS;
+use App\Models\MovimentoCaixaPOS;
 use App\Models\SessaoPOS;
 use App\Models\TerminalPOS;
 use App\Models\Venda;
@@ -50,7 +51,8 @@ final class ServicoContabilizacaoPOS
             }
             $vendas = Venda::query()->where('sessao_pos_id', $s->id)->where('tipo_documento', 'FR')->where('estado', '<>', 'ANULADO')->orderBy('id')->lockForUpdate()->get();
             $comLavandaria = $this->lavandaria->recibos($s)->isNotEmpty() || $this->lavandaria->faturas($s)->isNotEmpty();
-            if ($vendas->isEmpty() && ! $comLavandaria) {
+            $movimentos = MovimentoCaixaPOS::query()->where('sessao_pos_id', $s->id)->where('estado', 'ATIVO')->orderBy('id')->get();
+            if ($vendas->isEmpty() && ! $comLavandaria && $movimentos->isEmpty()) {
                 throw new ErroNegocio('A sessão não tem vendas por integrar.', 'SEM_VENDAS', 422);
             }
             $diario = $this->diario();
@@ -63,6 +65,12 @@ final class ServicoContabilizacaoPOS
                 ])->first()->numero_lan;
                 $lans[] = $numeroLan;
                 Venda::query()->whereIn('id', $doDia->pluck('id'))->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan, 'pos_lans_contabilizacao' => json_encode([$numeroLan])]);
+            }
+            foreach ($movimentos->groupBy(fn ($m) => $m->data->toDateString()) as $data => $doDia) {   // F1b: suprimentos e sangrias
+                $lans[] = $this->lancamentos->criar([
+                    'diario_id' => $diario->id, 'data_documento' => $data, 'numero_documento' => $s->numero_z, 'tipo_origem' => 'POS', 'sessao_pos_id' => $s->id,
+                    'descricao' => mb_substr("{$s->numero_z} — suprimentos e sangrias de caixa {$s->codigo_terminal} ({$doDia->count()} mov.)", 0, 1000), 'linhas' => $this->linhasMovimentos($doDia),
+                ])->first()->numero_lan;
             }
             if ($comLavandaria) {   // facturas e recibos da lavandaria (linhasIntegracao, lavandaria.js:2379-2463)
                 $lans = array_merge($lans, $this->lavandaria->contabilizar($s, $diario));
@@ -272,6 +280,28 @@ final class ServicoContabilizacaoPOS
         }
 
         return array_merge(array_values($debitos), array_values($creditos));
+    }
+
+    /**
+     * Linhas dos suprimentos e sangrias de um dia: suprimento D transitória / C conta de liquidação; sangria D conta de liquidação /
+     * C transitória. Somadas por conta e sentido (um lançamento equilibrado por dia).
+     *
+     * @return list<array{codigo_conta: string, tipo_dc: string, valor: string}>
+     */
+    private function linhasMovimentos($movimentos): array
+    {
+        $linhas = [];
+        foreach ($movimentos as $m) {
+            $valor = number_format((float) $m->valor, 2, '.', '');
+            [$d, $c] = $m->tipo === MovimentoCaixaPOS::SUPRIMENTO ? [$m->conta_transitoria, $m->conta_contrapartida] : [$m->conta_contrapartida, $m->conta_transitoria];
+            foreach ([[$d, 'D'], [$c, 'C']] as [$conta, $dc]) {
+                $k = "{$conta}|{$dc}";
+                $linhas[$k] ??= ['codigo_conta' => (string) $conta, 'tipo_dc' => $dc, 'valor' => '0.00'];
+                $linhas[$k]['valor'] = bcadd($linhas[$k]['valor'], $valor, 2);
+            }
+        }
+
+        return array_values($linhas);
     }
 
     private function transitoriaNumerario(SessaoPOS $s): string

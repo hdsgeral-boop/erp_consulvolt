@@ -44,6 +44,8 @@ export function RelatorioXModal({ sessaoId, aberto, aoFechar }: { sessaoId: numb
             <Descriptions.Item label="N.º de vendas">{r.numero_vendas}</Descriptions.Item>
             <Descriptions.Item label="Total de vendas">{formatarKz(r.total_vendas)} Kz</Descriptions.Item>
             <Descriptions.Item label="Fundo de maneio">{formatarKz(r.sessao.fundo_maneio_abertura)} Kz</Descriptions.Item>
+            {Number(r.suprimentos ?? 0) > 0 && <Descriptions.Item label="Suprimentos">{formatarKz(r.suprimentos)} Kz</Descriptions.Item>}
+            {Number(r.sangrias ?? 0) > 0 && <Descriptions.Item label="Sangrias">-{formatarKz(r.sangrias)} Kz</Descriptions.Item>}
             <Descriptions.Item label="Numerário esperado">{formatarKz(r.numerario_esperado)} Kz</Descriptions.Item>
             {r.lavandaria.movimento && (
               <Descriptions.Item label="Lavandaria" span={2}>

@@ -72,7 +72,10 @@ final class ServicoPrestacaoContasPOS
         $itens = [];
         $desvioAplicado = false;
         $numerario = $totais->where('tipo', 'NUMERARIO')->values()->all();
-        if (! $numerario && $comEfeito) {   // sem vendas em numerário: o desvio deliberado é o único numerário a prestar
+        // F1b: suprimentos somam e sangrias subtraem ao numerário a prestar (a sangria já entregou parte do numerário ao cofre)
+        $movimentos = ServicoMovimentosCaixaPOS::liquidoDaSessao($s->id);
+        $comMovimentos = bccomp($movimentos, '0', 2) !== 0;
+        if (! $numerario && ($comEfeito || $comMovimentos)) {   // sem vendas em numerário: o desvio deliberado e/ou os movimentos são o numerário a prestar
             $m = $meios->first(fn ($m) => $m['tipo'] === 'NUMERARIO' && ($m['conta_transitoria'] ?? null) === ($del['conta_transitoria'] ?? null))
                 ?? $meios->first(fn ($m) => $m['tipo'] === 'NUMERARIO' && ! empty($m['ativo']));
             if ($m) {
@@ -80,8 +83,13 @@ final class ServicoPrestacaoContasPOS
                     'valor' => '0.00', 'quantidade' => 0];
             }
         }
+        $primeiroNumerario = true;
         foreach ($numerario as $m) {
             $sistema = number_format((float) $m['valor'], 2, '.', '');
+            if ($primeiroNumerario) {   // os movimentos de caixa entram uma só vez, no primeiro meio de numerário
+                $sistema = bcadd($sistema, $movimentos, 2);
+                $primeiroNumerario = false;
+            }
             $valor = $sistema;
             $aplicado = null;
             if (! $desvioAplicado && $comEfeito) {

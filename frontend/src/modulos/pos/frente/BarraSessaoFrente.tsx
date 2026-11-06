@@ -37,6 +37,8 @@ export function BarraSessaoFrente({
   aoTrocarTerminal,
   aoRelatorioX,
   aoFecharCaixa,
+  aoVendas,
+  aoMovimentos,
 }: {
   terminal: Terminal;
   podeRelatorioX: boolean;
@@ -44,6 +46,10 @@ export function BarraSessaoFrente({
   aoTrocarTerminal: () => void;
   aoRelatorioX: () => void;
   aoFecharCaixa: () => void;
+  /** F1b: consulta/reimpressão das vendas da sessão. */
+  aoVendas?: () => void;
+  /** F1b: suprimentos e sangrias. */
+  aoMovimentos?: () => void;
 }) {
   const sessao = terminal.sessao_aberta;
   const x = useRelatorioX(sessao?.id, !!sessao && podeRelatorioX);
@@ -107,6 +113,16 @@ export function BarraSessaoFrente({
       {podeRelatorioX && (
         <button type="button" onClick={aoRelatorioX} title="Relatório X (parcial; não fecha a caixa)" style={{ ...botao, background: '#fff', border: '1px solid #cbd5e1', color: '#334155' }}>
           <IconeFa nome="file-alt" /> Relatório X
+        </button>
+      )}
+      {aoVendas && (
+        <button type="button" onClick={aoVendas} title="Consultar e reimprimir as vendas da sessão" style={{ ...botao, background: '#fff', border: '1px solid #cbd5e1', color: '#334155' }}>
+          <IconeFa nome="receipt" /> Vendas
+        </button>
+      )}
+      {aoMovimentos && (
+        <button type="button" onClick={aoMovimentos} title="Suprimentos e sangrias da caixa" style={{ ...botao, background: '#fff', border: '1px solid #cbd5e1', color: '#334155' }}>
+          <IconeFa nome="exchange-alt" /> Suprimento / Sangria
         </button>
       )}
       {podeFechar && (

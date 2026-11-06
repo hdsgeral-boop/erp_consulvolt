@@ -1251,6 +1251,11 @@
               "chave": "pos_fecho",
               "rotulo": "Fechar sessão (Z)",
               "sensivel": true
+            },
+            {
+              "chave": "pos_movimento_caixa",
+              "rotulo": "Registar suprimentos e sangrias da caixa",
+              "sensivel": true
             }
           ]
         },

@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\CRM\ServicoOportunidadesCRM;
+use App\Services\POS\ServicoConsultaVendasPOS;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
@@ -581,6 +582,7 @@ final class ServicoDocumentosVenda
         if (! in_array($origem->tipo_documento, ['FT', 'FR'], true) || $origem->cliente_id !== $cliente->id) {
             throw new ErroNegocio('A referência tem de ser uma factura ou factura-recibo do mesmo cliente.', 'NC_REFERENCIA_INVALIDA', 422);
         }
+        ServicoConsultaVendasPOS::exigirNcPermitida($origem);   // F1b/Q17: FR de sessão POS já integrada não aceita NC
         $disponivel = bcsub((string) $origem->total_bruto, $this->estado->creditado($origem), 2);
         // legado (saveSale, js/ui_sales.js:1725-1728): factura PAGA não admite NC — anule primeiro o recibo/pagamento.
         // Só conta o pago por recibos/tesouraria (valor_pago): uma factura toda creditada por NC cai no saldo creditável abaixo.

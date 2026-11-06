@@ -13,3 +13,12 @@ Route::prefix('pos/frente')->name('paridade.pos.frente.')->controller(FrentePOSC
     Route::get('series', 'series')->name('series');
     Route::get('talao/{venda}', 'talao')->whereNumber('venda')->name('talao');
 });
+
+// F1b: consulta/reimpressão das vendas da sessão, suprimentos e sangrias
+Route::prefix('pos/sessoes/{sessao}')->whereNumber('sessao')->name('paridade.pos.sessao.')->controller(FrentePOSController::class)->group(function () {
+    Route::get('vendas-consulta', 'vendasDaSessao')->name('vendas');
+    Route::get('vendas-consulta/{venda}', 'vendaDaSessao')->whereNumber('venda')->name('venda');
+    Route::get('movimentos', 'movimentos')->name('movimentos');
+    Route::post('movimentos', 'registarMovimento')->name('movimentos.registar');
+    Route::post('movimentos/{movimento}/anular', 'anularMovimento')->whereNumber('movimento')->name('movimentos.anular');
+});

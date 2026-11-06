@@ -101,8 +101,11 @@ final class ServicoSessoesPOS
         }
         $lavandaria = $this->lavandaria->acumular($s, $porMeio, $transferencias, $numerario);
 
+        $mov = ServicoMovimentosCaixaPOS::totaisDaSessao($s->id);   // F1b: suprimentos entram, sangrias saem
+        $esperado = bcsub(bcadd(bcadd((string) $s->fundo_maneio_abertura, $numerario, 2), $mov['suprimentos'], 2), $mov['sangrias'], 2);
+
         return ['numero_vendas' => $vendas->count(), 'total_vendas' => $bruto, 'totais_por_metodo' => array_values($porMeio), 'transferencias' => $transferencias,
-            'vendas_numerario' => $numerario, 'numerario_esperado' => bcadd((string) $s->fundo_maneio_abertura, $numerario, 2), 'lavandaria' => $lavandaria];
+            'vendas_numerario' => $numerario, 'numerario_esperado' => $esperado, 'lavandaria' => $lavandaria, 'suprimentos' => $mov['suprimentos'], 'sangrias' => $mov['sangrias']];
     }
 
     /** Relatório X: totais da sessão aberta, sem fechar (só impressão no legado). */
@@ -130,7 +133,8 @@ final class ServicoSessoesPOS
             $t = TerminalPOS::query()->withTrashed()->findOrFail($s->terminal_pos_id);
             $tot = $this->totais($s);
             $lavandaria = $tot['lavandaria'];   // resumo calculado, não é coluna da sessão
-            unset($tot['lavandaria']);
+            $temMovimentos = bccomp($tot['suprimentos'], '0', 2) > 0 || bccomp($tot['sangrias'], '0', 2) > 0;
+            unset($tot['lavandaria'], $tot['suprimentos'], $tot['sangrias']);   // não são colunas da sessão (ver ServicoMovimentosCaixaPOS)
 
             $contagens = [];
             foreach ($d['contagens'] ?? [] as $den => $qtd) {
@@ -173,7 +177,7 @@ final class ServicoSessoesPOS
 
             $ano = (int) now()->format('Y');
             $n = $this->numeracao->proximo($empresa, "pos_z:{$t->id}:{$ano}", fn () => $this->maiorNumero($t, 'numero_z', "Z-{$t->codigo}-{$ano}-", $t->contadores_z, $ano));
-            $semMovimento = $tot['numero_vendas'] === 0 && ! $lavandaria['movimento'];
+            $semMovimento = $tot['numero_vendas'] === 0 && ! $lavandaria['movimento'] && ! $temMovimentos;
             $zero = bccomp($desvio, '0', 2) === 0;
             $s->update($tot + [
                 'estado' => 'FECHADA', 'fechado_em' => now(), 'fechado_por' => Auth::user()?->nome_utilizador, 'numero_z' => sprintf('Z-%s-%d-%04d', $t->codigo, $ano, $n),

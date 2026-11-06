@@ -347,6 +347,8 @@ ${x ? `<div>Emitido: ${esc(formatarDataHora((r as RelatorioX).emitido_em))}</div
 <table>
 <tr><td>Fundo de maneio</td><td class="direita">${esc(formatarKz(s.fundo_maneio_abertura))}</td></tr>
 <tr><td>Numerário de vendas</td><td class="direita">${esc(formatarKz(r.vendas_numerario))}</td></tr>
+${Number((r as RelatorioX).suprimentos ?? 0) > 0 ? `<tr><td>Suprimentos</td><td class="direita">${esc(formatarKz((r as RelatorioX).suprimentos))}</td></tr>` : ''}
+${Number((r as RelatorioX).sangrias ?? 0) > 0 ? `<tr><td>Sangrias</td><td class="direita">-${esc(formatarKz((r as RelatorioX).sangrias))}</td></tr>` : ''}
 <tr class="total"><td>Numerário esperado</td><td class="direita">${esc(formatarKz(r.numerario_esperado))}</td></tr>
 ${!x ? `<tr><td>Numerário contado</td><td class="direita">${esc(formatarKz(z.numerario_contado))}</td></tr><tr class="total"><td>Desvio</td><td class="direita">${esc(formatarKz(z.desvio))}</td></tr>` : ''}
 </table>

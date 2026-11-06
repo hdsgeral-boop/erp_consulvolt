@@ -164,6 +164,9 @@ export interface RelatorioX {
   transferencias: TransferenciaSessao[];
   vendas_numerario: string;
   numerario_esperado: string;
+  /** F1b: suprimentos e sangrias da sessão (já incluídos no numerário esperado). */
+  suprimentos?: string;
+  sangrias?: string;
   lavandaria: { numero_recibos: number; total_recibos: string; numero_faturas: number; total_faturas: string; movimento: boolean };
   emitido_em: string;
 }
