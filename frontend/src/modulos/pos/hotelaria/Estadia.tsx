@@ -1,4 +1,4 @@
-import { Alert, Button, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Radio, Skeleton, Space, Table, Timeline, Tooltip, Typography } from 'antd';
+import { Alert, App, Button, DatePicker, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Radio, Skeleton, Space, Table, Timeline, Tooltip, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, LogoutOutlined, PlusOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -12,6 +12,7 @@ import { BotoesExportar, pares, tabelaHtml, type PedidoImpressao } from '@/compo
 import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorProduto, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos } from '../comum/calculos';
+import { preverCheckin, regrasHotel } from '../frente/quartos';
 import { useCatalogoPOS } from '../comum/dados';
 import { EstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { accoesEstadia } from '../comum/regras';
@@ -26,19 +27,23 @@ export function useEstadia(id: number | null) {
 /** Check-in num quarto livre (POST /pos/hotelaria/sessoes/{sessao}/checkin). */
 export function ModalCheckin({ quarto, terminal, aoFechar }: { quarto: Quarto | null; terminal: Terminal | undefined; aoFechar: () => void }) {
   const { pode } = useSessao();
+  const { modal } = App.useApp();
   const [form] = Form.useForm<{ cliente_hospede_id: number; modo: 'DIA' | 'HORA'; quantidade: number; preco_unitario: number; entrada_em?: Dayjs | null; numero_hospedes?: number; observacoes?: string }>();
   const modo = Form.useWatch('modo', form) ?? 'DIA';
   const quantidade = Form.useWatch('quantidade', form) ?? 0;
   const preco = Form.useWatch('preco_unitario', form) ?? 0;
+  const entrada = Form.useWatch('entrada_em', form);
   const checkin = useAccao({ invalidar: [['pos']], aoSucesso: aoFechar, tituloErro: 'Não foi possível registar o check-in' });
   const sessaoId = terminal?.sessao_aberta?.id;
   useEffect(() => {
     if (quarto) form.setFieldsValue({ modo: 'DIA', quantidade: 1, preco_unitario: precoQuarto('DIA', quarto), entrada_em: null, numero_hospedes: 1, observacoes: undefined, cliente_hospede_id: undefined });
   }, [quarto, form]);
+  /** Pré-visualização do legado (hotelPrever): saída prevista, avisos (check-in antecipado, hora bloqueada, mínimo) e bloqueio. */
+  const previsao = quarto ? preverCheckin({ modo, entrada: entrada ? entrada.toDate() : new Date(), quantidade, preco }, quarto, regrasHotel(terminal)) : null;
   const mudarModo = (m: 'DIA' | 'HORA') => quarto && form.setFieldsValue({ quantidade: quantidadeMinima(m, quarto), preco_unitario: precoQuarto(m, quarto) });
 
   return (
-    <Modal open={!!quarto} title={`Check-in · ${quarto?.nome ?? ''}`} okText="Registar check-in" cancelText="Cancelar" confirmLoading={checkin.isPending} okButtonProps={{ disabled: !sessaoId }} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(600)} destroyOnHidden>
+    <Modal open={!!quarto} title={`Check-in · ${quarto?.nome ?? ''}`} okText="Registar check-in" cancelText="Cancelar" confirmLoading={checkin.isPending} okButtonProps={{ disabled: !sessaoId || !!previsao?.bloqueia }} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(600)} destroyOnHidden>
       {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="O terminal de hotelaria não tem sessão aberta: abra-a na frente de caixa." />}
       {quarto && (
         <Form
@@ -46,7 +51,7 @@ export function ModalCheckin({ quarto, terminal, aoFechar }: { quarto: Quarto | 
           layout="vertical"
           onFinish={(v) => {
             const precoAlterado = Math.round(v.preco_unitario * 100) !== Math.round(precoQuarto(v.modo, quarto) * 100);
-            checkin.mutate({
+            const registar = () => checkin.mutate({
               url: `/pos/hotelaria/sessoes/${sessaoId}/checkin`,
               dados: {
                 produto_quarto_id: quarto.produto_id,
@@ -59,6 +64,9 @@ export function ModalCheckin({ quarto, terminal, aoFechar }: { quarto: Quarto | 
                 observacoes: v.observacoes?.trim() || undefined,
               },
             });
+            // legado (hotelConfirmarCheckin): preço 0 pede confirmação
+            if (!(v.preco_unitario > 0)) void modal.confirm({ title: 'O alojamento fica com preço 0. Continuar?', okText: 'Continuar', cancelText: 'Cancelar', onOk: registar });
+            else registar();
           }}
         >
           <Form.Item name="cliente_hospede_id" label="Hóspede (cliente)" rules={[{ required: true, message: 'Escolha o hóspede.' }]}>
@@ -89,7 +97,11 @@ export function ModalCheckin({ quarto, terminal, aoFechar }: { quarto: Quarto | 
           </Form.Item>
           <Typography.Text>
             Alojamento estimado: <b>{formatarCentimos(Math.round(quantidade * preco * 100))} Kz</b>
+            {previsao?.saida && <> · Saída prevista: <b>{dayjs(previsao.saida).format('DD/MM/YYYY HH:mm')}</b></>}
           </Typography.Text>
+          {previsao?.avisos.map((a) => (
+            <Alert key={a} type={previsao.bloqueia ? 'error' : 'warning'} showIcon style={{ marginTop: 8 }} title={a} />
+          ))}
         </Form>
       )}
     </Modal>

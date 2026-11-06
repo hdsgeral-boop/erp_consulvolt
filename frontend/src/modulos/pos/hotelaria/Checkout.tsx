@@ -1,6 +1,6 @@
-import { Alert, Button, Card, Descriptions, Divider, Flex, Input, InputNumber, Modal, Radio, Result, Skeleton, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Descriptions, Divider, Flex, Input, InputNumber, Modal, Radio, Result, Skeleton, Space, Table, Typography } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -13,6 +13,7 @@ import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import type { Terminal, VendaEmitida } from '../comum/tipos';
 import { htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import type { SimulacaoCheckout } from './tipos';
+import { juntarVendas } from './taloes';
 
 interface Props {
   aberto: boolean;
@@ -25,6 +26,7 @@ interface Props {
  * Check-out de um ou mais quartos: decisão da saída tardia (recalcular ou manter), desconto (pos_desconto), factura por
  * quarto ou única, simulação no servidor e pagamento misto rateado pelas facturas (ServicoCheckoutHotel).
  * M-16: no fim imprime o talão de cada factura-recibo (legado: printPOSThermalReceipt do hotel), automático se o posto o tiver activo.
+ * F-181 (Q10): com várias facturas, o operador pode pedir o talão único (como o legado: todas as linhas, todos os documentos).
  */
 export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
   const { pode, empresa } = useSessao();
@@ -38,6 +40,9 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
   const [simulacao, setSimulacao] = useState<SimulacaoCheckout | null>(null);
   const [aSimular, setASimular] = useState(false);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+  const [taloUnico, setTaloUnico] = useState(false);
+  const taloUnicoRef = useRef(false);
+  taloUnicoRef.current = taloUnico;
   const [concluido, setConcluido] = useState<{ total: string; troco: string; vendas: VendaEmitida[] } | null>(null);
   const meios = meiosActivos(terminal.meios_pagamento);
   const chaveEstadias = estadias.map((e) => e.id).join(',');
@@ -50,6 +55,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
       setCliente(undefined);
       setObservacoes('');
       setPagamentos([]);
+      setTaloUnico(false);
       setConcluido(null);
     }
   }, [aberto, chaveEstadias]);
@@ -91,7 +97,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
     invalidar: [['pos']],
     aoSucesso: (r) => {
       setConcluido(r);
-      if (lerPreferencias(empresa?.id).automatico) imprimirTaloes(r.vendas, false);
+      if (lerPreferencias(empresa?.id).automatico) imprimirTaloes(r.vendas, false, taloUnicoRef.current);
     },
     tituloErro: 'Não foi possível concluir o check-out',
   });
@@ -108,10 +114,10 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
       simulacao.facturas.map((f) => paraCentimos(f.total)),
     );
   }, [simulacao, pagamentos, total, resumo.valido]);
-  /** Talão de cada factura do check-out (com o quarto em «Mesa/Quarto»). */
-  const imprimirTaloes = (vendas: VendaEmitida[], manual: boolean) => {
+  /** Talão de cada factura do check-out (com o quarto em «Mesa/Quarto»), ou um talão único com todas (F-181). */
+  const imprimirTaloes = (vendas: VendaEmitida[], manual: boolean, unico = false) => {
     const p = lerPreferencias(empresa?.id);
-    vendas.forEach((v, i) => {
+    (unico ? [juntarVendas(vendas)] : vendas).forEach((v, i) => {
       const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}`, rotuloLocal: 'Quarto(s)' }), p);
       window.setTimeout(() => (manual ? reimprimir(html, p) : imprimirHtml(html)), i * 800);
     });
@@ -138,9 +144,16 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
           title="Check-out concluído"
           subTitle={`Emitido(s): ${concluido.vendas.map((v) => v.numero_documento).join(', ')} · total ${formatarKz(concluido.total)} Kz · troco ${formatarKz(concluido.troco)} Kz`}
           extra={
-            <Button icon={<PrinterOutlined />} onClick={() => imprimirTaloes(concluido.vendas, true)}>
-              Imprimir talão
-            </Button>
+            <Space wrap>
+              <Button icon={<PrinterOutlined />} onClick={() => imprimirTaloes(concluido.vendas, true)}>
+                {concluido.vendas.length > 1 ? 'Imprimir um talão por factura' : 'Imprimir talão'}
+              </Button>
+              {concluido.vendas.length > 1 && (
+                <Button icon={<PrinterOutlined />} onClick={() => imprimirTaloes(concluido.vendas, true, true)}>
+                  Imprimir talão único
+                </Button>
+              )}
+            </Space>
           }
         />
       ) : !sessaoId ? (
@@ -213,6 +226,11 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
               <PainelPagamentos meios={meios} total={total} pagamentos={pagamentos} onChange={setPagamentos} />
               <Space orientation="vertical" style={{ width: '100%', marginTop: 8 }}>
                 <Input.TextArea rows={2} maxLength={2000} placeholder="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+                {simulacao.facturas.length > 1 && (
+                  <Checkbox checked={taloUnico} onChange={(e) => setTaloUnico(e.target.checked)}>
+                    Imprimir um único talão com todas as facturas (em vez de um por factura)
+                  </Checkbox>
+                )}
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   O total segue a regra AGT do documento fiscal e pode diferir um cêntimo do valor contratado. Os pagamentos repartem-se pelas facturas na proporção do total; o troco sai do numerário.
                 </Typography.Text>
