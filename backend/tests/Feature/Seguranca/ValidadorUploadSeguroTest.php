@@ -169,8 +169,8 @@ final class ValidadorUploadSeguroTest extends TestCase
         $this->recusa($this->ficheiro('a.xlsx', $this->xlsx(['../../evil.php' => '<?php ?>'])), 'folha', 'FICHEIRO_ZIP_SUSPEITO');
         $this->recusa($this->ficheiro('a.xlsx', $this->xlsx(['xl/shell.php' => 'x'])), 'folha', 'FICHEIRO_ZIP_SUSPEITO');
         $this->recusa($this->ficheiro('a.xlsx', $this->xlsx(['xl/sharedStrings.xml' => '<!DOCTYPE s [<!ENTITY x SYSTEM "file:///etc/passwd">]><s>&x;</s>'])), 'folha', 'FICHEIRO_XML_PERIGOSO');
-        // bomba: 20 MB de zeros comprimem para ~60 KB (rácio > 150)
-        $this->recusa($this->ficheiro('a.xlsx', $this->xlsx(['xl/worksheets/sheet1.xml' => str_repeat('0', 20 * 1024 * 1024)])), 'folha', 'FICHEIRO_ZIP_SUSPEITO');
+        // bomba: 8 MB de zeros comprimem para ~60 KB (rácio > 150)
+        $this->recusa($this->ficheiro('a.xlsx', $this->xlsx(['xl/worksheets/sheet1.xml' => str_repeat('0', 8 * 1024 * 1024)])), 'folha', 'FICHEIRO_ZIP_SUSPEITO');
     }
 
     #[Test]

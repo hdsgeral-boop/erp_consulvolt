@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <!-- A suite completa (1800+ testes) acumula memória no mesmo processo: com 512 MB o teste das bombas de descompressão
+             rebentava a meio e matava toda a execução. -->
+        <ini name="memory_limit" value="1024M"/>
         <!-- Testes contra PostgreSQL real (base dedicada criada em docker/postgres/init), nunca SQLite:
              o esquema usa JSONB, partições, índices parciais e CHECK constraints. -->
         <env name="APP_ENV" value="testing" force="true"/>
