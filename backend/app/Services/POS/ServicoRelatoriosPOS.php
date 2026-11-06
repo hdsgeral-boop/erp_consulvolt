@@ -52,11 +52,12 @@ final class ServicoRelatoriosPOS
         $diferencasTpa = [];
         foreach ($zs as $z) {
             foreach (json_decode((string) $z->fechos_tpa, true) ?: [] as $t) {
-                $dif = number_format((float) ($t['diferenca'] ?? 0), 2, '.', '');
-                if (bccomp($dif, '0', 2) !== 0) {
+                $semTalao = ! empty($t['sem_talao']);   // F6/Q5: fecho sem talão aparece sempre (sem diferença calculável)
+                $dif = $semTalao ? null : number_format((float) ($t['diferenca'] ?? 0), 2, '.', '');
+                if ($semTalao || bccomp($dif, '0', 2) !== 0) {
                     $diferencasTpa[] = ['sessao_pos_id' => $z->id, 'numero_z' => $z->numero_z, 'meio_id' => $t['meio_id'] ?? null, 'nome' => $t['nome'] ?? null,
                         'codigo_tpa' => $t['codigo_tpa'] ?? null, 'valor_sistema' => $t['valor_sistema'] ?? null, 'valor_talao' => $t['valor_talao'] ?? null, 'diferenca' => $dif,
-                        'referencia_lote' => $t['referencia_lote'] ?? null];
+                        'referencia_lote' => $t['referencia_lote'] ?? null, 'sem_talao' => $semTalao];
                 }
             }
             unset($z->fechos_tpa);

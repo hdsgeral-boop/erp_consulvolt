@@ -153,4 +153,20 @@ final class POSNcSessaoTest extends TestCase
         $this->postJson("/api/pos/sessoes/{$this->sid()}/contabilizar", [], $this->s)->assertOk();
         $this->assertSame(['1140.00', '0.00', '0.00'], [$this->saldo('489'), $this->saldo('488'), $this->desequilibrio()]);
     }
+
+    #[Test]
+    public function fecho_sem_talao_do_tpa_exige_confirmacao_e_justificacao_e_fica_registado(): void
+    {
+        $this->vender();
+        $url = "/api/pos/sessoes/{$this->sid()}/fechar";
+        $this->postJson($url, ['numerario_contado' => 5640], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'FECHO_TPA_EM_FALTA')->assertJsonPath('erros.permite_sem_talao', true);
+        $this->postJson($url, ['numerario_contado' => 5640, 'confirmar_sem_talao' => true], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'JUSTIFICACAO_OBRIGATORIA');
+        $r = $this->postJson($url, ['numerario_contado' => 5640, 'confirmar_sem_talao' => true, 'justificacao' => 'Terminal sem papel'], $this->s)->assertOk();
+        $this->assertSame([true, null, '500.00'], [$r->json('dados.fechos_tpa.0.sem_talao'), $r->json('dados.fechos_tpa.0.valor_talao'), $r->json('dados.fechos_tpa.0.valor_sistema')]);
+        $this->postJson("/api/pos/sessoes/{$this->sid()}/contabilizar", [], $this->s)->assertOk();
+        $this->assertSame(['640.00', '500.00', '0.00'], [$this->saldo('489'), $this->saldo('488'), $this->desequilibrio()]);
+        $g = $this->sessao(['pos_prestacao_view', 'pos_prestar', 'pos_relatorios_view']);
+        $itens = collect($this->getJson("/api/pos/sessoes/{$this->sid()}/prestacao", $g)->assertOk()->json('dados.itens'))->keyBy('chave_item');
+        $this->assertSame([null, '500.00'], [$itens['TPA:pm_tpa']['diferenca'], $itens['TPA:pm_tpa']['valor']]);
+    }
 }

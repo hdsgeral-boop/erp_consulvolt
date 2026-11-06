@@ -1,4 +1,4 @@
-import { Button, Flex, Input, InputNumber, Modal, Result, Segmented, Skeleton, Typography } from 'antd';
+import { Button, Checkbox, Flex, Input, InputNumber, Modal, Result, Segmented, Skeleton, Typography } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -14,6 +14,7 @@ import { RelatorioXModal } from './RelatorioXModal';
 import { useDefinicoesPOS } from '../comum/dados';
 import { larguraModal } from '@/componentes/responsivo';
 import { BotaoImprimir } from '@/componentes/impressao';
+import { BotaoPdfServidor } from '../comum/BotaoPdfServidor';
 import { pedidoSessao } from '../comum/documentos';
 import { htmlRelatorioSessao, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import type { RelatorioX, SessaoPOS } from '../comum/tipos';
@@ -53,6 +54,8 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
   const [contagens, setContagens] = useState<Record<string, number | null>>({});
   const [totalManual, setTotalManual] = useState<number | null>(null);
   const [taloes, setTaloes] = useState<Record<string, TalaoTPA>>({});
+  /** Q5: fechar sem o talão do TPA (aviso + confirmação + justificação obrigatória), como o legado. */
+  const [semTalao, setSemTalao] = useState<Record<string, boolean>>({});
   const [justificacao, setJustificacao] = useState('');
   const [fechada, setFechada] = useState<SessaoPOS | null>(null);
 
@@ -75,26 +78,29 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
     contado,
     x.data?.numerario_esperado,
     tolerancia ?? '0',
-    tpas.map((m) => ({ sistema: m.valor, talao: taloes[m.meio_id!]?.valor_talao ?? null })),
+    tpas.map((m) => ({ sistema: m.valor, talao: semTalao[m.meio_id!] ? null : (taloes[m.meio_id!]?.valor_talao ?? null) })),
   );
-  const talaoEmFalta = tpas.some((m) => taloes[m.meio_id!]?.valor_talao === undefined || taloes[m.meio_id!]?.valor_talao === null);
+  const algumSemTalao = tpas.some((m) => semTalao[m.meio_id!]);
+  const talaoEmFalta = tpas.some((m) => !semTalao[m.meio_id!] && (taloes[m.meio_id!]?.valor_talao === undefined || taloes[m.meio_id!]?.valor_talao === null));
   const contagemEmFalta = modo === 'TOTAL' && totalManual === null;
-  const faltaJustificacao = avaliacao.exigeJustificacao && justificacao.trim().length === 0;
+  const exigeJustificacao = avaliacao.exigeJustificacao || algumSemTalao;
+  const faltaJustificacao = exigeJustificacao && justificacao.trim().length === 0;
 
   const confirmar = () => {
     const corpo = {
       ...(modo === 'NOTAS' ? { contagens: contagensParaApi(contagens) } : { numerario_contado: deCentimos(contado) }),
-      fechos_tpa: tpas.map((m) => ({
+      fechos_tpa: tpas.filter((m) => !semTalao[m.meio_id!]).map((m) => ({
         meio_id: m.meio_id,
         valor_talao: taloes[m.meio_id!]?.valor_talao ?? 0,
         operacoes_talao: taloes[m.meio_id!]?.operacoes_talao ?? undefined,
         referencia_lote: taloes[m.meio_id!]?.referencia_lote?.trim() || undefined,
       })),
+      confirmar_sem_talao: algumSemTalao || undefined,
       justificacao: justificacao.trim() || undefined,
     };
     Modal.confirm({
       title: `Fechar a caixa ${x.data?.sessao.codigo_sessao ?? ''}?`,
-      content: `Contado: ${formatarCentimos(contado)} Kz · Desvio: ${formatarCentimos(avaliacao.desvio)} Kz. Depois de fechada não é possível emitir mais vendas nesta sessão.`,
+      content: `Contado: ${formatarCentimos(contado)} Kz · Desvio: ${formatarCentimos(avaliacao.desvio)} Kz. ${algumSemTalao ? 'Atenção: vai fechar SEM o talão de fecho do TPA; a diferença fica por confirmar e a justificação fica registada. ' : ''}Depois de fechada não é possível emitir mais vendas nesta sessão.`,
       okText: 'Fechar sessão',
       cancelText: 'Voltar',
       onOk: () => fechar.mutateAsync({ url: `/pos/sessoes/${sessaoId}/fechar`, dados: corpo }).catch(() => undefined),
@@ -149,6 +155,7 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
                 Imprimir relatório Z
               </Button>
               <BotaoImprimir modo="pdf" texto="PDF (A4)" obterPedido={() => pedidoSessao(fechada)} />
+              <BotaoPdfServidor tipo="sessao" texto="Descarregar PDF" obterPedido={() => pedidoSessao(fechada)} />
             </Flex>
           }
         />
@@ -259,7 +266,8 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
               {tpas.map((m) => {
                 const t = taloes[m.meio_id!] ?? {};
                 const alterar = (a: Partial<TalaoTPA>) => setTaloes((v) => ({ ...v, [m.meio_id!]: { ...t, ...a } }));
-                const temTalao = t.valor_talao !== undefined && t.valor_talao !== null;
+                const sem = !!semTalao[m.meio_id!];
+                const temTalao = !sem && t.valor_talao !== undefined && t.valor_talao !== null;
                 const dif = temTalao ? Math.round((t.valor_talao ?? 0) * 100) - paraCentimos(m.valor) : 0;
                 return (
                   <div key={m.meio_id} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 0.8fr 1fr 1fr', gap: '0.4rem', alignItems: 'center', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
@@ -276,10 +284,13 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
                         Sistema: {formatarKz(m.valor)} Kz · {m.quantidade} op.
                       </small>
                     </div>
-                    <InputNumber<number> aria-label={`Valor do talão ${m.nome}`} placeholder="Valor do talão" min={0} precision={2} decimalSeparator="," controls={false} style={{ width: '100%' }} value={t.valor_talao ?? null} onChange={(v) => alterar({ valor_talao: v })} />
-                    <InputNumber<number> placeholder="N.º op." min={0} precision={0} controls={false} style={{ width: '100%' }} value={t.operacoes_talao ?? null} onChange={(v) => alterar({ operacoes_talao: v })} />
-                    <Input placeholder="N.º lote / fecho" maxLength={60} value={t.referencia_lote} onChange={(e) => alterar({ referencia_lote: e.target.value })} />
+                    <InputNumber<number> aria-label={`Valor do talão ${m.nome}`} placeholder="Valor do talão" min={0} precision={2} decimalSeparator="," controls={false} style={{ width: '100%' }} value={t.valor_talao ?? null} disabled={sem} onChange={(v) => alterar({ valor_talao: v })} />
+                    <InputNumber<number> placeholder="N.º op." min={0} precision={0} controls={false} style={{ width: '100%' }} value={t.operacoes_talao ?? null} disabled={sem} onChange={(v) => alterar({ operacoes_talao: v })} />
+                    <Input placeholder="N.º lote / fecho" maxLength={60} value={t.referencia_lote} disabled={sem} onChange={(e) => alterar({ referencia_lote: e.target.value })} />
                     <div style={{ textAlign: 'right', fontWeight: 700, color: !temTalao || dif === 0 ? '#059669' : '#b91c1c' }}>{temTalao ? `${dif > 0 ? '+' : ''}${formatarCentimos(dif)} Kz` : '—'}</div>
+                    <Checkbox style={{ gridColumn: '1 / -1' }} checked={sem} onChange={(e) => setSemTalao((v) => ({ ...v, [m.meio_id!]: e.target.checked }))}>
+                      <small>Fechar sem o talão deste TPA (exige justificação)</small>
+                    </Checkbox>
                   </div>
                 );
               })}
@@ -300,9 +311,9 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
           )}
 
           <h4 style={SECCAO}>Justificação</h4>
-          {avaliacao.exigeJustificacao && justificacao.trim() === '' && (
+          {exigeJustificacao && justificacao.trim() === '' && (
             <Typography.Text type="danger" style={{ fontSize: '0.78rem', display: 'block', marginBottom: 4 }}>
-              {avaliacao.acimaTolerancia ? 'O desvio excede a tolerância: a justificação é obrigatória.' : 'Um talão TPA difere do sistema: a justificação é obrigatória.'}
+              {avaliacao.acimaTolerancia ? 'O desvio excede a tolerância: a justificação é obrigatória.' : avaliacao.exigeJustificacao ? 'Um talão TPA difere do sistema: a justificação é obrigatória.' : 'Fecho sem o talão do TPA: a justificação é obrigatória.'}
             </Typography.Text>
           )}
           <Input.TextArea rows={2} maxLength={2000} value={justificacao} onChange={(e) => setJustificacao(e.target.value)} placeholder="Obrigatória quando existe desvio de caixa ou diferença no TPA" />

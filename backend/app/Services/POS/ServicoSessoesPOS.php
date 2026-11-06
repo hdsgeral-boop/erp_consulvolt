@@ -120,7 +120,7 @@ final class ServicoSessoesPOS
     /**
      * Fecho Z (posConfirmarFecho, pos_gestao.js:560-674).
      *
-     * @param  array{contagens?: array<string, int|float>, numerario_contado?: float|string, fechos_tpa?: list<array<string, mixed>>, justificacao?: ?string}  $d
+     * @param  array{contagens?: array<string, int|float>, numerario_contado?: float|string, fechos_tpa?: list<array<string, mixed>>, justificacao?: ?string, confirmar_sem_talao?: bool}  $d
      */
     public function fechar(SessaoPOS $s, array $d): SessaoPOS
     {
@@ -161,8 +161,20 @@ final class ServicoSessoesPOS
             // TPA: talão de fecho por terminal de pagamento com movimento
             $fechos = [];
             $indicados = collect($d['fechos_tpa'] ?? [])->keyBy('meio_id');
+            $semTalao = false;
             foreach (array_filter($tot['totais_por_metodo'], fn ($m) => $m['tipo'] === 'TPA') as $m) {
-                $f = $indicados[$m['meio_id']] ?? throw new ErroNegocio("Indique o talão de fecho do TPA «{$m['nome']}».", 'FECHO_TPA_EM_FALTA', 422, ['meio_id' => $m['meio_id']]);
+                $f = $indicados[$m['meio_id']] ?? null;
+                if ($f === null) {   // Q5: como o legado, fecha-se sem o talão do TPA depois de confirmar, mas com justificação (não bloqueia o fim do turno)
+                    if (empty($d['confirmar_sem_talao'])) {
+                        throw new ErroNegocio("Indique o talão de fecho do TPA «{$m['nome']}» ou confirme o fecho sem talão (com justificação).", 'FECHO_TPA_EM_FALTA', 422,
+                            ['meio_id' => $m['meio_id'], 'permite_sem_talao' => true]);
+                    }
+                    $semTalao = true;
+                    $fechos[] = ['meio_id' => $m['meio_id'], 'nome' => $m['nome'], 'codigo_tpa' => $m['codigo_tpa'], 'valor_sistema' => $m['valor'], 'operacoes_sistema' => $m['quantidade'],
+                        'valor_talao' => null, 'operacoes_talao' => null, 'referencia_lote' => null, 'diferenca' => null, 'sem_talao' => true];
+
+                    continue;
+                }
                 $talao = number_format((float) ($f['valor_talao'] ?? 0), 2, '.', '');
                 $fechos[] = ['meio_id' => $m['meio_id'], 'nome' => $m['nome'], 'codigo_tpa' => $m['codigo_tpa'], 'valor_sistema' => $m['valor'], 'operacoes_sistema' => $m['quantidade'],
                     'valor_talao' => $talao, 'operacoes_talao' => (int) ($f['operacoes_talao'] ?? 0), 'referencia_lote' => $f['referencia_lote'] ?? null,
@@ -170,10 +182,11 @@ final class ServicoSessoesPOS
             }
             $tolerancia = $config['tolerancia_desvio'];
             $acima = bccomp(ltrim($desvio, '-'), $tolerancia, 2) > 0;
-            $tpaDifere = (bool) array_filter($fechos, fn ($f) => bccomp($f['diferenca'], '0', 2) !== 0);
+            $tpaDifere = (bool) array_filter($fechos, fn ($f) => $f['diferenca'] !== null && bccomp($f['diferenca'], '0', 2) !== 0);
             $justificacao = trim((string) ($d['justificacao'] ?? '')) ?: null;
-            if (($acima || $tpaDifere) && ! $justificacao) {
-                throw new ErroNegocio($acima ? "O desvio de caixa ({$desvio}) excede a tolerância ({$tolerancia}): justifique." : 'O talão do TPA difere do sistema: justifique.',
+            if (($acima || $tpaDifere || $semTalao) && ! $justificacao) {
+                throw new ErroNegocio($acima ? "O desvio de caixa ({$desvio}) excede a tolerância ({$tolerancia}): justifique."
+                    : ($semTalao ? 'Fecho sem o talão do TPA: justifique.' : 'O talão do TPA difere do sistema: justifique.'),
                     'JUSTIFICACAO_OBRIGATORIA', 422, ['desvio' => $desvio, 'tolerancia' => $tolerancia]);
             }
 

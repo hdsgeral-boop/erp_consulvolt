@@ -18,6 +18,6 @@ final class FecharSessaoRequest extends PedidoPOS
         return ['contagens' => ['nullable', 'array'], 'contagens.*' => ['integer', 'min:0'], 'numerario_contado' => ['nullable', 'numeric', 'min:0'],
             'fechos_tpa' => ['nullable', 'array'], 'fechos_tpa.*.meio_id' => ['required', 'string'], 'fechos_tpa.*.valor_talao' => ['required', 'numeric', 'min:0'],
             'fechos_tpa.*.operacoes_talao' => ['nullable', 'integer', 'min:0'], 'fechos_tpa.*.referencia_lote' => ['nullable', 'string', 'max:60'],
-            'justificacao' => ['nullable', 'string', 'max:2000']];
+            'justificacao' => ['nullable', 'string', 'max:2000'], 'confirmar_sem_talao' => ['nullable', 'boolean']];
     }
 }

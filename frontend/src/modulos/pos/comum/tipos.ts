@@ -85,10 +85,12 @@ export interface FechoTPA {
   codigo_tpa: string | null;
   valor_sistema: ValorApi;
   operacoes_sistema: number;
-  valor_talao: ValorApi;
-  operacoes_talao: number;
+  valor_talao: ValorApi | null;
+  operacoes_talao: number | null;
   referencia_lote: string | null;
-  diferenca: ValorApi;
+  diferenca: ValorApi | null;
+  /** Fechada sem o talão do TPA (confirmação + justificação, Q5). */
+  sem_talao?: boolean;
 }
 
 export interface Deliberacao {
@@ -361,7 +363,7 @@ export interface PainelRelatorios {
     | 'estado_contabilizacao'
     | 'estado_liquidacao'
   >)[];
-  diferencas_tpa: { sessao_pos_id: number; numero_z: string; meio_id: string | null; nome: string | null; codigo_tpa: string | null; valor_sistema: ValorApi; valor_talao: ValorApi; diferenca: string; referencia_lote: string | null }[];
+  diferencas_tpa: { sessao_pos_id: number; numero_z: string; meio_id: string | null; nome: string | null; codigo_tpa: string | null; valor_sistema: ValorApi; valor_talao: ValorApi | null; diferenca: string | null; referencia_lote: string | null; sem_talao?: boolean }[];
   por_produto: { produto_id: number; codigo: string | null; nome: string; quantidade: string; total_liquido: string; total_bruto: string }[];
   por_terminal: { terminal_pos_id: number; codigo_terminal: string; nome_terminal: string; documentos: number; total: string }[];
   por_operador: { operador: string | null; documentos: number; total: string }[];
