@@ -2,12 +2,10 @@
 
 namespace App\Http\Resources\POS;
 
-use App\Models\TerminalPOS;
-
 /** Terminal POS com a sessão aberta (id, código, operador, abertura) ou null. */
 final class TerminalPOSResource extends RecursoPOS
 {
-    public function __construct(TerminalPOS $terminal, private readonly mixed $sessaoAberta = null)
+    public function __construct(mixed $terminal, private readonly mixed $sessaoAberta = null)
     {
         parent::__construct($terminal);
     }
