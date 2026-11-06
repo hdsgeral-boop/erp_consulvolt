@@ -1,0 +1,49 @@
+/* Manual de Procedimentos: documento (pré-visualização e impressão) */
+.pd-doc { background: #fff; color: #0f172a; font-size: 0.82rem; line-height: 1.45; padding: 0.75rem 1rem; overflow-wrap: anywhere; }
+.pd-doc h1 { font-size: 1.6rem; margin: 0.5rem 0 0.25rem; color: #0f766e; }
+.pd-doc h2 { font-size: 1.1rem; margin: 1.1rem 0 0.4rem; color: #134e4a; border-bottom: 2px solid #5eaaa2; padding-bottom: 2px; }
+.pd-doc h3 { font-size: 0.98rem; margin: 0.9rem 0 0.3rem; }
+.pd-doc h4 { font-size: 0.86rem; margin: 0.7rem 0 0.25rem; }
+.pd-sub { color: #475569; margin: 0 0 1rem; }
+.pd-capa, .pd-indice { padding: 1rem 0; }
+.pd-indice-lista { list-style: none; margin: 0; padding: 0; }
+.pd-indice-lista li { padding: 0.15rem 0; }
+.pd-indice-lista span { display: inline-block; min-width: 1.6rem; color: #0f766e; font-weight: 700; }
+.pd-tabela { width: 100%; border-collapse: collapse; margin: 0.35rem 0 0.6rem; }
+.pd-tabela th, .pd-tabela td { border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left; vertical-align: top; }
+.pd-tabela th { background: #eef4f3; color: #134e4a; font-weight: 700; }
+.pd-tabela .c { text-align: center; width: 34px; }
+.pd-ficha th { width: 22%; }
+.pd-matriz { font-size: 0.74rem; }
+.pd-matriz th.c, .pd-matriz td.c { width: 20px; padding: 3px 1px; }
+.pd-pt { color: #0f766e; font-size: 1rem; line-height: 1; }
+.pd-self { background: #f1f5f9; color: #cbd5e1; }
+.pd-fora td { color: #64748b; font-style: italic; }
+.pd-rec td { background: #f8fafc; }
+.pd-obj { font-style: italic; color: #334155; }
+.pd-interv { font-size: 0.78rem; color: #475569; }
+.pd-obs { font-size: 0.78rem; color: #475569; }
+.pd-falta { color: #b45309; font-style: italic; }
+.pd-processo { margin-bottom: 1.1rem; }
+.pd-diagrama { display: flex; flex-wrap: wrap; align-items: stretch; gap: 3px; margin: 0.5rem 0 0.6rem; }
+.pd-diagrama-par { display: inline-flex; align-items: center; gap: 3px; }
+.pd-no { display: block; border: 1px solid #94a3b8; border-left: 3px solid #0f766e; border-radius: 2px; padding: 4px 7px; min-width: 92px; max-width: 150px; background: #fff; }
+.pd-n { display: inline-block; background: #0f766e; color: #fff; font-size: 0.62rem; font-weight: 700; border-radius: 2px; padding: 0 4px; margin-bottom: 2px; }
+.pd-no b { display: block; font-size: 0.74rem; line-height: 1.25; }
+.pd-no small { display: block; font-size: 0.66rem; color: #64748b; }
+.pd-seta { color: #94a3b8; font-size: 0.75rem; }
+.pd-assinaturas td { height: 70px; width: 50%; }
+.pd-linha { border-bottom: 1px solid #0f172a; margin-top: 36px; }
+
+/* Ecrã: separadores, lista e editor */
+.pm-lista { display: flex; flex-direction: column; gap: 0.3rem; max-height: 60vh; overflow: auto; }
+.pm-proc { text-align: left; width: 100%; border: 1px solid #e2e8f0; border-left: 3px solid #94a3b8; border-radius: 4px; padding: 0.4rem 0.55rem; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+.pm-proc:hover { background: #f8fafc; }
+.pm-proc[aria-current="true"] { border-color: #0f766e; background: #f0fdfa; }
+.pm-proc b { display: block; font-size: 0.86rem; }
+.pm-proc small { font-size: 0.74rem; color: #475569; }
+.pm-etapa { border: 1px solid #e2e8f0; border-radius: 4px; padding: 0.5rem 0.6rem; margin-bottom: 0.5rem; background: #fff; }
+.pm-etapa-cab { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; margin-bottom: 0.35rem; }
+.pm-previa { border: 1px solid #e2e8f0; border-radius: 4px; background: #e2e8f0; max-height: 80vh; overflow: auto; }
+@media (min-width: 992px) { .pm-previa-fixa { position: sticky; top: 0.5rem; } }
+@media print { .pm-previa { max-height: none; overflow: visible; border: 0; } }

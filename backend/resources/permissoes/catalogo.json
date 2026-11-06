@@ -37,6 +37,27 @@
           "tarefas": []
         },
         {
+          "id": "proc_manual",
+          "nome": "Manual de Procedimentos",
+          "vistas": [
+            "proc_manual"
+          ],
+          "pai": null,
+          "nota": "As narrativas vêm do Fluxo de Processos e podem ser adaptadas à empresa. Editar a narrativa muda o manual, nunca o que o painel de acompanhamento mede.",
+          "tarefas": [
+            {
+              "chave": "proc_editar",
+              "rotulo": "Adaptar as narrativas, criar processos próprios, esconder e repor processos e escrever o manual",
+              "sensivel": false
+            },
+            {
+              "chave": "proc_imprimir",
+              "rotulo": "Imprimir o Manual de Procedimentos",
+              "sensivel": false
+            }
+          ]
+        },
+        {
           "id": "ia_chat",
           "nome": "Assistente IA (conversa)",
           "vistas": [
@@ -3160,6 +3181,8 @@
         "_v2": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
         "rh_portal_view": true,
         "rh_portal_usar": true,
         "rh_portal_gestao_view": true,
@@ -3380,6 +3403,8 @@
         "_v2": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
         "rh_portal_view": true,
         "rh_portal_usar": true,
         "relatorios_gestao_view": true,
@@ -3507,6 +3532,9 @@
         "teso_caixa_multimoeda_liquidar": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_editar": true,
+        "proc_imprimir": true,
         "rh_portal_view": true,
         "rh_portal_usar": true,
         "relatorios_gestao_view": true,
@@ -3649,6 +3677,7 @@
         "_v2": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
+        "proc_manual_view": true,
         "rh_portal_view": true,
         "rh_portal_usar": true,
         "orc_rubricas_view": true,

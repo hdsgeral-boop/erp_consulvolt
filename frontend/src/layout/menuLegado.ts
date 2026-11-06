@@ -43,6 +43,7 @@ export const TOPO_LEGADO: EcraLegado[] = [
   e('geral', 'dashboard', 'Dashboard Global', 'chart-line', { topo: true }),
   e('geral', 'relatorios_gestao', 'Relatórios de Gestão', 'chart-pie', { topo: true }),
   e('geral', 'fluxo_processos', 'Fluxo de Processos', 'project-diagram', { topo: true }),
+  e('geral', 'proc_manual', 'Manual de Procedimentos', 'book-open', { topo: true }),
 ];
 
 /** Grupo «Menu Geral» (módulos pela ordem do legado). */
