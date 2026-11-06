@@ -9,7 +9,7 @@ import { CHAVE_SESSAO_MOSTRAR_TOUR } from '@/componentes/tour/TourBoasVindas';
 import { MENSAGEM_NIF, nifValido, normalizarNif } from '@/utilitarios/nifAngolano';
 import { MENSAGEM_TELEFONE, normalizarTelefone, telefoneValido } from '@/utilitarios/telefoneAngolano';
 import { normalizarNomeUtilizador, problemaNomeUtilizador } from '@/utilitarios/nomeUtilizador';
-import { MINIMO_PALAVRA_PASSE_REGISTO, forcaPalavraPasse, problemaPalavraPasse, sugerirNomeUtilizador } from '@/utilitarios/palavraPasse';
+import { MINIMO_PALAVRA_PASSE_REGISTO, forcaPalavraPasse, problemaPalavraPasse } from '@/utilitarios/palavraPasse';
 import { PROVINCIAS_ANGOLA } from '@/utilitarios/provinciasAngola';
 
 const DIAS_TESTE_PADRAO = 30;
@@ -181,6 +181,7 @@ export function RegistarEmpresa() {
           validateTrigger={['onBlur', 'onChange']}
           scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
           aria-label="Criar conta de empresa"
+          noValidate   // as mensagens são as nossas, em português (a validação nativa do navegador, em inglês, bloquearia o envio)
           onValuesChange={() => {
             if (erro) {
               setErro(null);
@@ -290,13 +291,6 @@ export function RegistarEmpresa() {
                   autoComplete="name"
                   placeholder="Ex: João Baptista"
                   maxLength={200}
-                  onBlur={() => {
-                    // sugere o utilizador a partir do nome, só se ainda estiver vazio
-                    if (!form.getFieldValue('nome_utilizador')) {
-                      const sugestao = sugerirNomeUtilizador(String(form.getFieldValue('nome_completo') ?? ''));
-                      if (sugestao.length >= 3) form.setFieldsValue({ nome_utilizador: sugestao });
-                    }
-                  }}
                 />
               </Form.Item>
             </Col>
@@ -405,6 +399,7 @@ export function RegistarEmpresa() {
               fontSize: 16,
               fontWeight: 700,
               marginTop: 12,
+              color: '#ffffff',
               background: '#b91c1c',
               borderColor: '#b91c1c'
             }}
