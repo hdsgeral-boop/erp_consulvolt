@@ -385,4 +385,41 @@ final class POSLavandariaTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'TERMINAL_NAO_LAVANDARIA');
         $this->putJson("/api/pos/terminais/{$this->ids['t']}/servicos-lav", ['servico_ids' => [$this->ids['lavar']]], $this->sessao(['lav_ordens']))->assertForbidden();
     }
+
+    #[Test]
+    public function recibos_rc_lav_saem_no_saft_de_facturacao_repartidos_pelas_facturas(): void
+    {
+        $s = $this->s;
+        $sessao = $this->abrir();
+        $ano = now()->year;
+        $base = ['cliente_id' => $this->ids['cf'], 'urgente' => true, 'itens' => [$this->linha(['quantidade' => 2])]];
+        // FT de 3 420 em conta corrente + recibo 1 (1 710 em numerário, troco 290) e, na entrega, recibo 2 (1 710 por TPA)
+        $r = $this->postJson("/api/pos/lavandaria/sessoes/{$sessao}/ordens", $base + ['valor' => 1710, 'pagamentos' => [['meio_id' => 'pm_num', 'valor' => 2000]]], $s)->assertCreated()->json('dados');
+        $os = $r['pedido']['id'];
+        $this->postJson("/api/pos/lavandaria/ordens/{$os}/linhas", ['accao' => 'INICIAR', 'executado_por' => 'Técnico'], $s)->assertOk();
+        $this->postJson("/api/pos/lavandaria/ordens/{$os}/linhas", ['accao' => 'PRONTA'], $s)->assertOk();
+        $this->postJson("/api/pos/lavandaria/sessoes/{$sessao}/ordens/{$os}/entregar", ['linhas' => [1], 'valor' => 1710, 'pagamentos' => [['meio_id' => 'pm_tpa', 'valor' => 1710]]], $s)->assertOk();
+
+        $g = $this->sessao(['vendas_relatorios_view']);
+        $hoje = now()->toDateString();
+        $v = $this->getJson("/api/vendas/saft/validar?inicio={$hoje}&fim={$hoje}", $g)->assertOk()->json('dados');
+        $this->assertSame([1, 2], [$v['documentos'], $v['recibos']]);
+        $xml = $this->get("/api/vendas/saft?inicio={$hoje}&fim={$hoje}", $g)->assertOk()->getContent();
+        $doc = new \DOMDocument;
+        $this->assertTrue($doc->loadXML($xml));
+        $x = new \DOMXPath($doc);
+        $x->registerNamespace('s', 'urn:OECD:StandardAuditFile-Tax:AO_1.01_01');
+        $q = fn (string $e) => array_map(fn ($n) => $n->textContent, iterator_to_array($x->query($e)));
+        $this->assertSame(['2', '0.00', '3420.00'], [$q('//s:Payments/s:NumberOfEntries')[0], $q('//s:Payments/s:TotalDebit')[0], $q('//s:Payments/s:TotalCredit')[0]]);
+        $this->assertSame(["RG LAVL01{$ano}/1", "RG LAVL01{$ano}/2"], $q('//s:Payment/s:PaymentRefNo'));
+        foreach ($q('//s:Payment/s:PaymentRefNo') as $ref) {
+            $this->assertMatchesRegularExpression('/^[^ ]+ [^\/ ]+\/[0-9]+$/', $ref);
+        }
+        $this->assertSame(['NU', 'CD'], $q('//s:Payment/s:PaymentMethod/s:PaymentMechanism'));
+        $this->assertSame(['1710.00', '1710.00'], $q('//s:Payment/s:PaymentMethod/s:PaymentAmount'));
+        $ft = $this->naEmpresa(fn () => Venda::query()->where('tipo_documento', 'FT')->value('numero_documento'));
+        $this->assertSame([$ft, $ft], $q('//s:Payment/s:Line/s:SourceDocumentID/s:OriginatingON'));
+        $this->assertSame(['1710.00', '1710.00'], $q('//s:Payment/s:Line/s:CreditAmount'));
+        $this->assertSame(['1710.00', '1710.00'], $q('//s:Payment/s:DocumentTotals/s:GrossTotal'));
+    }
 }

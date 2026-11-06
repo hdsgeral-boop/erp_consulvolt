@@ -57,7 +57,7 @@ final class ServicoExportacaoSaft
     {
         $nif = $this->empresaValida($inicio, $fim)[1];
         $documentos = $this->consultaVendas($inicio, $fim)->count();
-        $recibos = $this->consultaRecibos($inicio, $fim)->count();
+        $recibos = $this->consultaRecibos($inicio, $fim)->count() + app(ServicoSaftRecibosLavandaria::class)->consulta($inicio, $fim)->count();   // F6/Q16: RC-LAV
         $guias = $this->consultaGuias($inicio, $fim)->count();
         if ($documentos === 0 && $recibos === 0 && $guias === 0) {
             throw new ErroNegocio('Não há documentos fiscais, guias nem recibos no período.', 'SEM_DOCUMENTOS', 422);
@@ -90,11 +90,12 @@ final class ServicoExportacaoSaft
             ->with('itensReciboVenda.venda:id,tipo_documento,numero_documento,numero_documento_saft,saft_source_billing,fe_selado_em,data_emissao')->orderBy('data')->orderBy('id')->get();
         $guias = $this->consultaGuias($inicio, $fim)
             ->with(['itensVenda' => fn ($q) => $q->orderBy('id')])->orderBy('data_emissao')->orderBy('id')->get();
-        if ($vendas->isEmpty() && $recibos->isEmpty() && $guias->isEmpty()) {
+        $registos = $this->registosRecibos($recibos, app(ServicoSaftRecibosLavandaria::class)->registos($inicio, $fim));   // recibos das Vendas + RC-LAV (F6/Q16)
+        if ($vendas->isEmpty() && $registos === [] && $guias->isEmpty()) {
             throw new ErroNegocio('Não há documentos fiscais, guias nem recibos no período.', 'SEM_DOCUMENTOS', 422);
         }
 
-        $clientes = Terceiro::query()->withTrashed()->whereIn('id', $vendas->pluck('cliente_id')->merge($recibos->pluck('cliente_id'))->merge($guias->pluck('cliente_id'))->unique())->get()->keyBy('id');
+        $clientes = Terceiro::query()->withTrashed()->whereIn('id', $vendas->pluck('cliente_id')->merge(array_column($registos, 'cliente_id'))->merge($guias->pluck('cliente_id'))->unique())->get()->keyBy('id');
         $produtos = Produto::query()->withTrashed()
             ->whereIn('id', $vendas->flatMap(fn ($v) => $v->itensVenda->pluck('produto_id'))->merge($guias->flatMap(fn ($v) => $v->itensVenda->pluck('produto_id')))->filter()->unique())
             ->get()->keyBy('id');
@@ -122,8 +123,8 @@ final class ServicoExportacaoSaft
         if ($guias->isNotEmpty()) {
             $this->movimentosDeBens($x, $guias, $produtos);
         }
-        if ($recibos->isNotEmpty()) {
-            $this->pagamentos($x, $recibos);
+        if ($registos !== []) {
+            $this->pagamentos($x, $registos);
         }
         $x->endElement();
         $x->endElement();
@@ -135,7 +136,7 @@ final class ServicoExportacaoSaft
         }
 
         return ['xml' => $x->outputMemory(), 'nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'avisos' => array_values(array_unique($this->avisos)),
-            'documentos' => $vendas->count(), 'recibos' => $recibos->count(), 'guias' => $guias->count()];
+            'documentos' => $vendas->count(), 'recibos' => count($registos), 'guias' => $guias->count()];
     }
 
     /** @return array{0: Empresa, 1: string} */
@@ -453,19 +454,46 @@ final class ServicoExportacaoSaft
         $x->endElement();
     }
 
-    private function pagamentos(XMLWriter $x, $recibos): void
+    /**
+     * Recibos das Vendas e da lavandaria na mesma forma, por data.
+     *
+     * @param  iterable<ReciboVenda>  $recibos
+     * @param  list<array<string, mixed>>  $lavandaria
+     * @return list<array<string, mixed>>
+     */
+    private function registosRecibos(iterable $recibos, array $lavandaria): array
     {
-        $total = $recibos->reduce(fn ($s, $r) => bcadd($s, (string) $r->montante_total, 2), '0.00');
+        $registos = [];
+        foreach ($recibos as $r) {
+            $registos[] = ['ref' => (string) $r->numero_recibo, 'data' => $r->data, 'criado' => $r->criado_em ?? $r->data, 'cliente_id' => $r->cliente_id,
+                'metodos' => [[self::MECANISMOS[$r->meio_pagamento] ?? 'OU', number_format((float) $r->montante_total, 2, '.', '')]], 'montante' => number_format((float) $r->montante_total, 2, '.', ''),
+                'linhas' => $r->itensReciboVenda->values()->map(fn ($i) => ['origem' => $i->venda ? ServicoDocumentosImportadosSaft::numeroSaft($i->venda) : 'Desconhecido',
+                    'data' => $i->venda?->data_emissao?->toDateString() ?? $r->data->toDateString(), 'credito' => number_format((float) $i->montante_pago, 2, '.', '')])->all()];
+        }
+        $registos = array_merge($registos, $lavandaria);
+        $repetidos = array_filter(array_count_values(array_column($registos, 'ref')), fn ($n) => $n > 1);
+        if ($repetidos) {
+            $this->avisos[] = 'Há recibos com o mesmo n.º no SAF-T ('.implode(', ', array_keys($repetidos)).'): confira a numeração.';
+        }
+        usort($registos, fn ($a, $b) => [$a['data']->format('Y-m-d'), $a['ref']] <=> [$b['data']->format('Y-m-d'), $b['ref']]);
+
+        return $registos;
+    }
+
+    /** @param list<array<string, mixed>> $registos */
+    private function pagamentos(XMLWriter $x, array $registos): void
+    {
+        $total = array_reduce($registos, fn ($s, $r) => bcadd($s, $r['montante'], 2), '0.00');
         $x->startElement('Payments');
-        $this->el($x, 'NumberOfEntries', (string) $recibos->count());
+        $this->el($x, 'NumberOfEntries', (string) count($registos));
         $this->el($x, 'TotalDebit', '0.00');
         $this->el($x, 'TotalCredit', $total);
-        foreach ($recibos as $r) {
-            $entrada = ($r->criado_em ?? $r->data)->format('Y-m-d\TH:i:s');
+        foreach ($registos as $r) {
+            $entrada = $r['criado']->format('Y-m-d\TH:i:s');
             $x->startElement('Payment');
-            $this->el($x, 'PaymentRefNo', $r->numero_recibo);
-            $this->el($x, 'Period', (string) (int) $r->data->format('m'));
-            $this->el($x, 'TransactionDate', $r->data->toDateString());
+            $this->el($x, 'PaymentRefNo', $r['ref']);
+            $this->el($x, 'Period', (string) (int) $r['data']->format('m'));
+            $this->el($x, 'TransactionDate', $r['data']->toDateString());
             $this->el($x, 'PaymentType', 'RG');
             $x->startElement('DocumentStatus');
             $this->el($x, 'PaymentStatus', 'N');
@@ -473,28 +501,32 @@ final class ServicoExportacaoSaft
             $this->el($x, 'SourceID', 'ERP');
             $this->el($x, 'SourcePayment', 'P');
             $x->endElement();
-            $x->startElement('PaymentMethod');
-            $this->el($x, 'PaymentMechanism', self::MECANISMOS[$r->meio_pagamento] ?? 'OU');
-            $this->el($x, 'PaymentAmount', number_format((float) $r->montante_total, 2, '.', ''));
-            $this->el($x, 'PaymentDate', $r->data->toDateString());
-            $x->endElement();
+            foreach ($r['metodos'] as [$mecanismo, $valor]) {
+                $x->startElement('PaymentMethod');
+                $this->el($x, 'PaymentMechanism', $mecanismo);
+                $this->el($x, 'PaymentAmount', $valor);
+                $this->el($x, 'PaymentDate', $r['data']->toDateString());
+                $x->endElement();
+            }
             $this->el($x, 'SourceID', 'ERP');
             $this->el($x, 'SystemEntryDate', $entrada);
-            $this->el($x, 'CustomerID', (string) $r->cliente_id);
-            foreach ($r->itensReciboVenda->values() as $n => $i) {
+            $this->el($x, 'CustomerID', (string) $r['cliente_id']);
+            foreach ($r['linhas'] as $n => $l) {
                 $x->startElement('Line');
                 $this->el($x, 'LineNumber', (string) ($n + 1));
-                $x->startElement('SourceDocumentID');
-                $this->el($x, 'OriginatingON', $i->venda ? ServicoDocumentosImportadosSaft::numeroSaft($i->venda) : 'Desconhecido');
-                $this->el($x, 'InvoiceDate', $i->venda?->data_emissao?->toDateString() ?? $r->data->toDateString());
-                $x->endElement();
-                $this->el($x, 'CreditAmount', number_format((float) $i->montante_pago, 2, '.', ''));
+                if ($l['origem'] !== null) {   // adiantamento sem factura: linha sem SourceDocumentID
+                    $x->startElement('SourceDocumentID');
+                    $this->el($x, 'OriginatingON', $l['origem']);
+                    $this->el($x, 'InvoiceDate', $l['data'] ?? $r['data']->toDateString());
+                    $x->endElement();
+                }
+                $this->el($x, 'CreditAmount', $l['credito']);
                 $x->endElement();
             }
             $x->startElement('DocumentTotals');
             $this->el($x, 'TaxPayable', '0.00');
-            $this->el($x, 'NetTotal', number_format((float) $r->montante_total, 2, '.', ''));
-            $this->el($x, 'GrossTotal', number_format((float) $r->montante_total, 2, '.', ''));
+            $this->el($x, 'NetTotal', $r['montante']);
+            $this->el($x, 'GrossTotal', $r['montante']);
             $x->endElement();
             $x->endElement();
         }
