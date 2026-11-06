@@ -9,6 +9,7 @@ use App\Models\MedicaoIndicador;
 use App\Models\MetaIndicador;
 use App\Models\ObjectivoEstrategico;
 use App\Models\PlanoEstrategico;
+use App\Models\UnidadeOrganica;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +50,9 @@ final class ServicoIndicadoresEstrategicos
             'operadores' => $rotulos(Vocabulario::OPERADORES), 'semaforos' => $rotulos(Vocabulario::SEMAFOROS), 'estados_plano' => $rotulos(Vocabulario::ESTADOS_PLANO),
             'estados_objectivo' => $rotulos(Vocabulario::ESTADOS_OBJECTIVO), 'horizontes' => $rotulos(Vocabulario::HORIZONTES),
             'fontes_modulo' => CatalogoFontesModulo::catalogo(),
+            // listas curtas para os selectores (unidades e responsáveis): só identificador e nome
+            'unidades' => UnidadeOrganica::query()->whereNull('eliminado_em')->where('ativo', true)->orderBy('nome')->get(['id', 'nome', 'codigo'])->map(fn ($u) => ['id' => $u->id, 'nome' => $u->nome, 'codigo' => $u->codigo])->all(),
+            'colaboradores' => Colaborador::query()->whereNull('eliminado_em')->where('estado', 'ACTIVO')->orderBy('nome_completo')->limit(500)->get(['id', 'nome_completo'])->map(fn ($c) => ['id' => $c->id, 'nome' => $c->nome_completo])->all(),
         ];
     }
 

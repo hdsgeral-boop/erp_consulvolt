@@ -1,0 +1,12 @@
+.est-grelha { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; margin-top: 12px; }
+.est-persp { border: 1px solid var(--ant-color-border-secondary, #e5e7eb); border-top-width: 4px; border-radius: 8px; padding: 10px 12px; background: var(--ant-color-bg-container, #fff); }
+.est-persp h3 { margin: 0; font-size: 15px; }
+.est-persp small { display: block; margin-bottom: 8px; color: var(--ant-color-text-secondary, #6b7280); }
+.est-obj { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 6px 8px; border: 1px solid var(--ant-color-border-secondary, #e5e7eb); border-radius: 6px; background: var(--ant-color-fill-quaternary, #fafafa); cursor: pointer; font: inherit; color: inherit; }
+.est-obj:hover, .est-obj:focus-visible { border-color: var(--ant-color-primary, #1677ff); outline: none; box-shadow: 0 0 0 2px var(--ant-color-primary-bg, #e6f4ff); }
+.est-okr { border-style: dashed; }
+.est-filhos { margin-left: 14px; border-left: 2px solid var(--ant-color-border-secondary, #e5e7eb); padding-left: 8px; }
+.est-meta { display: block; font-size: 12px; color: var(--ant-color-text-secondary, #6b7280); }
+.est-aviso { color: var(--ant-color-warning-text, #ad6800); font-size: 12px; }
+.est-metas-ano { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.est-valor { font-variant-numeric: tabular-nums; white-space: nowrap; }
