@@ -3,6 +3,7 @@
 namespace App\Support\Tenancy;
 
 use App\Exceptions\ErroContextoEmpresa;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -78,7 +79,14 @@ final class ContextoTenant
         try {
             return $operacao();
         } finally {
-            $this->definir($anterior);
+            try {
+                $this->definir($anterior);
+            } catch (QueryException) {
+                // Transacção já abortada por um erro dentro da operação (p.ex. NIF duplicado): a consulta de reposição falhava
+                // com «current transaction is aborted» e ESCONDIA o erro verdadeiro (500 sem causa). O `set_config` não local
+                // desfaz-se com o ROLLBACK, por isso basta repor o estado em memória e deixar seguir a excepção original.
+                $this->tenantId = $anterior;
+            }
         }
     }
 

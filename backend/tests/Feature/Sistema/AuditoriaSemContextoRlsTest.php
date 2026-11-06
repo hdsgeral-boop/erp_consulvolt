@@ -82,6 +82,25 @@ class AuditoriaSemContextoRlsTest extends TestCase
         $this->assertNull($tenant->id(), 'o contexto de tenant volta ao que era (nenhum)');
     }
 
+    public function test_falha_de_autenticacao_com_utilizador_mas_sem_sessao_grava_e_fica_no_tenant_do_utilizador(): void
+    {
+        $this->imitarRlsDaProducao();
+        $u = $this->criarUtilizador();
+        $tenantDoUtilizador = (int) DB::table('utilizadores')->where('id', $u->id)->value('tenant_id');
+        config(['erp.saas.ativo' => true, 'erp.dominio.plataforma_tenant_id' => 1]);
+        DB::statement('SET ROLE erp_app');
+        $tenant = app(ContextoTenant::class);
+        $tenant->definir(null);
+
+        // como em ServicoAutenticacao: utilizador conhecido, sem empresa e sem tenant activo (ainda não há sessão)
+        $log = app(ServicoAuditoria::class)->registar('Autenticação', 'Falha de autenticação', "Tentativa falhada para '{$u->nome_utilizador}'.", 'utilizadores', $u->id, null, null, null, $u->id, $u->nome_utilizador);
+
+        $this->assertNotNull($log->getKey(), 'um login falhado já não rebenta com a RLS da auditoria');
+        DB::statement('RESET ROLE');
+        $this->assertSame($tenantDoUtilizador, (int) DB::table('logs_auditoria')->where('id', $log->getKey())->value('tenant_id'), 'o trigger põe o tenant do utilizador, não o da plataforma');
+        $this->assertNull($tenant->id(), 'o contexto de tenant volta ao que era (nenhum)');
+    }
+
     public function test_com_tenant_activo_a_auditoria_continua_no_tenant_do_pedido(): void
     {
         $this->imitarRlsDaProducao();

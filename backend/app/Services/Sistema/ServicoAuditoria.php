@@ -43,13 +43,15 @@ final class ServicoAuditoria
         $empresa = $empresaId ?? $this->contexto->id();
         $utilizadorFinal = $utilizadorId ?? $utilizador?->getKey();
 
-        // Auditoria SEM tenant, empresa nem utilizador (tarefas agendadas: câmbios do BAI, alertas…): na produção a tabela
-        // tem RLS e o `INSERT … RETURNING id` só passa se a linha nova for legível — sem nenhuma origem o `tenant_id` ficava
-        // nulo e a política de leitura recusava-a («new row violates row-level security policy»). Nesse caso grava-se no
-        // contexto do tenant da plataforma (o dono dos jobs de sistema), que é também quem lê a auditoria global.
+        // Auditoria SEM contexto de tenant (tarefas agendadas como os câmbios do BAI; falhas de autenticação, que acontecem
+        // ANTES de haver sessão): na produção a tabela tem RLS e o `INSERT … RETURNING id` só passa se a linha nova for
+        // legível — sem tenant activo a política de leitura recusava-a («new row violates row-level security policy») e
+        // um login falhado dava 500 em vez de «credenciais inválidas». O trigger `erp_logs_auditoria_tenant` (SECURITY
+        // DEFINER) preenche o `tenant_id` pela empresa/utilizador da linha; o contexto da plataforma só serve para a linha
+        // ser legível durante o INSERT e é reposto logo a seguir.
         $tenant = app(ContextoTenant::class);
         $anteriorTenant = $tenant->id();
-        $comoPlataforma = ContextoTenant::ativo() && $anteriorTenant === null && $empresa === null && $utilizadorFinal === null;
+        $comoPlataforma = ContextoTenant::ativo() && $anteriorTenant === null;
         if ($comoPlataforma) {
             $tenant->definir((int) config('erp.dominio.plataforma_tenant_id', 1));
         }
