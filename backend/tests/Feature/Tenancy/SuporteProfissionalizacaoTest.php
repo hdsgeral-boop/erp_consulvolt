@@ -53,6 +53,8 @@ final class SuporteProfissionalizacaoTest extends TestCase
 
     public function test_criar_ticket_calcula_o_prazo_do_sla_pela_prioridade_e_sinaliza_atraso(): void
     {
+        // O prazo conta horas úteis: sem fixar o momento, o teste falhava fora do horário de expediente (p.ex. sexta à noite no CI).
+        $this->travelTo(now()->setTimezone(config('app.timezone'))->setDate(2026, 11, 4)->setTime(10, 0));
         [, $sa] = $this->superAdmin();
         config(['erp.saas.ativo' => true]);
         $cliente = Tenant::query()->create(['nome' => 'Cliente SLA', 'slug' => 'cliente-sla']);
