@@ -42,8 +42,8 @@ final class SalariosPagamentoTest extends TestCase
         $mes = now()->format('m/Y');
         [$mm, $aaaa] = explode('/', $mes);
 
-        $ana = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Ana', 'nif' => '111', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
-        $rui = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Rui', 'nif' => '222', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
+        $ana = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Ana', 'nif' => '000000111LA011', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
+        $rui = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Rui', 'nif' => '000000222LA022', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
         foreach ([$ana => 300000, $rui => 150000] as $c => $v) {
             $this->postJson('/api/rh/contratos', ['colaborador_id' => $c, 'data_inicio' => now()->subYear()->toDateString(),
                 'remuneracoes' => [['infotipo_salarial_id' => $ids['base'], 'valor_mes' => $v]]], $this->s)->assertCreated();

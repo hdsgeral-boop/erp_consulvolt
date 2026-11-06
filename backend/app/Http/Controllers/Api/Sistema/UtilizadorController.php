@@ -8,10 +8,12 @@ use App\Mail\NovoUtilizadorMail;
 use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Rules\NomeUtilizador;
 use App\Services\Autenticacao\ServicoSessoes;
 use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Texto\TextoEntrada;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -148,8 +150,15 @@ final class UtilizadorController extends Controller
     /** @return array<string, mixed> */
     private function validar(Request $r, bool $criar): array
     {
+        // espaços das pontas e caracteres invisíveis (copiar e colar de um e-mail ou de um PDF) nunca chegam à base
+        foreach (['nome_utilizador', 'nome_completo', 'email'] as $c) {
+            if (is_string($r->input($c))) {
+                $r->merge([$c => TextoEntrada::limpar($r->input($c))]);
+            }
+        }
+
         return $r->validate([
-            'nome_utilizador' => [$criar ? 'required' : 'sometimes', 'string', 'max:100'],
+            'nome_utilizador' => $criar ? ['required', 'string', 'max:100', new NomeUtilizador] : ['sometimes', 'string', 'max:100'],
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
             'email' => ['sometimes', 'nullable', 'email', 'max:150'],
             'perfil_utilizador_id' => [$criar ? 'required' : 'sometimes', 'integer'],

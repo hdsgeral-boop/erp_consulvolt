@@ -43,8 +43,8 @@ final class FdCartasSalariosTest extends TestCase
             'processamento_validate', 'processamento_integrate', 'processamento_view', 'rh_rel_banco_view', 'teso_doc_emitir', 'teso_integrar',
             'teso_gestao_pagamentos_view', 'teso_cartas_view', 'teso_carta_emitir']);
 
-        $ana = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Ana Ficticia', 'nif' => '111', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
-        $rui = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Rui Ficticio', 'nif' => '222', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
+        $ana = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Ana Ficticia', 'nif' => '000000111LA011', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
+        $rui = $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Rui Ficticio', 'nif' => '000000222LA022', 'tipo_organizacao_id' => $ids['org']], $this->s)->json('dados.id');
         foreach ([$ana => 300000, $rui => 150000] as $c => $v) {
             $this->postJson('/api/rh/contratos', ['colaborador_id' => $c, 'data_inicio' => now()->subYear()->toDateString(),
                 'remuneracoes' => [['infotipo_salarial_id' => $ids['base'], 'valor_mes' => $v]]], $this->s)->assertCreated();

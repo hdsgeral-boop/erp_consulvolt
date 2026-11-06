@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Sistema;
 
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Rules\NifAngolano;
 use App\Services\Sistema\ServicoCopiaEmpresa;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Api\RespostaApi;
@@ -53,8 +54,9 @@ final class CopiaEmpresaController extends Controller
                 403,
             );
         }
+        NifAngolano::normalizarNoPedido($r);
         $d = $r->validate(['ficheiro' => ['required', 'file', 'max:512000'], 'empresa_destino_id' => ['nullable', 'integer'], 'nome' => ['nullable', 'string', 'max:255'],
-            'nif' => ['nullable', 'string', 'max:30'], 'simular' => ['nullable', 'boolean']]);
+            'nif' => ['nullable', 'string', 'max:30', new NifAngolano], 'simular' => ['nullable', 'boolean']]);
         if (empty($d['empresa_destino_id']) && ! Gate::allows('config_empresas_gerir')) {
             throw new ErroNegocio('Importar para uma empresa nova exige também a permissão de gerir empresas.', 'SEM_PERMISSAO', 403);
         }
@@ -77,7 +79,8 @@ final class CopiaEmpresaController extends Controller
     {
         $this->exigir('config_ferramentas');
         $this->exigir('config_empresas_gerir');
-        $d = $r->validate(['empresa_origem_id' => ['nullable', 'integer'], 'nome' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'max:30'],
+        NifAngolano::normalizarNoPedido($r);
+        $d = $r->validate(['empresa_origem_id' => ['nullable', 'integer'], 'nome' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'max:30', new NifAngolano],
             'simular' => ['nullable', 'boolean']]);
         $origem = (int) ($d['empresa_origem_id'] ?? $contexto->obrigatorio());
         if (! $this->empresas->podeAceder($r->user(), $origem)) {

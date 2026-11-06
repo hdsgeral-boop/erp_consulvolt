@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Sistema;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Sistema\EmpresaResource;
 use App\Models\Empresa;
+use App\Rules\NifAngolano;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoGestaoEmpresas;
 use App\Support\Api\RespostaApi;
@@ -70,7 +71,8 @@ final class EmpresaController extends Controller
     public function update(Request $r, int $empresa): JsonResponse
     {
         $this->exigir('config_empresas_gerir');
-        $e = $this->gestao->atualizar($this->gestao->obter($empresa, $r->user()), $this->validar($r, false), $r->user());
+        $actual = $this->gestao->obter($empresa, $r->user());
+        $e = $this->gestao->atualizar($actual, $this->validar($r, false, $actual->nif), $r->user());
 
         return RespostaApi::sucesso($this->gestao->apresentar($e), 'Empresa actualizada com sucesso.');
     }
@@ -96,12 +98,13 @@ final class EmpresaController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function validar(Request $r, bool $criar): array
+    private function validar(Request $r, bool $criar, ?string $nifActual = null): array
     {
         $obrigatorio = $criar ? 'required' : 'sometimes';
+        NifAngolano::normalizarNoPedido($r);
 
         return $r->validate([
-            'nome' => [$obrigatorio, 'string', 'max:255'], 'nif' => [$obrigatorio, 'string', 'max:30'],
+            'nome' => [$obrigatorio, 'string', 'max:255'], 'nif' => [$obrigatorio, 'string', 'max:30', new NifAngolano(inalterado: $nifActual)],
             'endereco' => ['sometimes', 'nullable', 'string', 'max:2000'], 'provincia' => ['sometimes', 'nullable', 'string', 'max:100'],
             'municipio' => ['sometimes', 'nullable', 'string', 'max:100'], 'comuna' => ['sometimes', 'nullable', 'string', 'max:100'],
             'telefone' => ['sometimes', 'nullable', 'string', 'max:50'], 'email' => ['sometimes', 'nullable', 'email', 'max:150'],

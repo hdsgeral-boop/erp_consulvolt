@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Autenticacao;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Autenticacao\RegistarEmpresaRequest;
 use App\Http\Resources\Sistema\EmpresaResource;
 use App\Http\Resources\Sistema\UtilizadorResource;
 use App\Mail\BoasVindasEmpresaMail;
@@ -21,45 +22,48 @@ use App\Support\Outbox\Outbox;
 use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DefinicoesPlataforma;
 use App\Support\Tenancy\ModulosPlano;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 final class RegistoEmpresaController extends Controller
 {
     public function __construct(private readonly ContextoTenant $tenants, private readonly ServicoAutenticacao $autenticacao, private readonly ServicoEmpresas $empresas, private readonly ServicoPermissoes $permissoes, private readonly ServicoPlanoContasModelo $planoContasModelo, private readonly ServicoPerfis $perfis) {}
 
-    public function store(Request $r): JsonResponse
+    public function store(RegistarEmpresaRequest $r): JsonResponse
     {
-        $d = $r->validate([
-            'nome_comercial' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'regex:/^\d{9,14}$/', Rule::unique('empresas', 'nif')->whereNull('eliminado_em')],
-            'telefone' => ['required', 'string', 'max:30'], 'provincia' => ['required', 'string', 'max:100'],
-            'nome_completo' => ['required', 'string', 'max:200'], 'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
-            'email' => ['required', 'email:rfc', 'max:255', Rule::unique('utilizadores', 'email')], 'palavra_passe' => ['required', 'string', 'min:10', 'max:255'],
-            'plano' => ['nullable', 'string', Rule::exists('planos_licenca', 'codigo')->where('ativo', true)],
-        ], [
-            'nome_comercial.required' => 'O nome comercial da empresa é obrigatório.',
-            'nif.required' => 'O NIF da empresa é obrigatório.',
-            'nif.regex' => 'O NIF deve conter entre 9 e 14 dígitos.',
-            'nif.unique' => 'Este NIF já se encontra registado numa empresa existente.',
-            'telefone.required' => 'O telefone de contacto é obrigatório.',
-            'provincia.required' => 'A província é obrigatória.',
-            'nome_completo.required' => 'O nome completo do administrador é obrigatório.',
-            'nome_utilizador.required' => 'O nome de utilizador para login é obrigatório.',
-            'nome_utilizador.unique' => 'Este nome de utilizador já se encontra registado. Escolha outro.',
-            'email.required' => 'O endereço de e-mail é obrigatório.',
-            'email.email' => 'O endereço de e-mail indicado não é válido.',
-            'email.unique' => 'Este e-mail já se encontra associado a um utilizador.',
-            'palavra_passe.required' => 'A palavra-passe é obrigatória.',
-            'palavra_passe.min' => 'A palavra-passe deve conter pelo menos 10 caracteres.',
-            'plano.exists' => 'O plano selecionado não é válido.',
-        ]);
+        $d = $r->validated();
         $diasTeste = DefinicoesPlataforma::diasTestePadrao();
         $perfilTotal = $this->perfis->perfilAcessoTotal();
         $nomePlano = ($d['plano'] ?? null) ? PlanoLicenca::query()->where('codigo', $d['plano'])->value('nome') : null;
-        $resultado = DB::transaction(function () use ($d, $diasTeste, $perfilTotal, $nomePlano) {
+        try {
+            $resultado = $this->criarTudo($d, $diasTeste, $perfilTotal, $nomePlano);
+        } catch (UniqueConstraintViolationException $e) {
+            // A RLS esconde as empresas e contas de outros clientes, por isso a duplicação só se descobre na base: devolve-se
+            // como erro do campo (422), sem dizer de quem é o registo existente.
+            $campo = self::campoDuplicado($e);
+            if ($campo === null) {
+                throw $e;
+            }
+            throw ValidationException::withMessages($campo);
+        }
+        $dispositivo = CookiesSessao::dispositivoDoPedido($r);
+        $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], $dispositivo['id'], $r->ip(), $r->userAgent());
+        $u = $sessao['utilizador'];
+
+        // Fase D: o token vai só no cookie HttpOnly (CookiesSessao), nunca no corpo — tal como em AutenticacaoController::entrar.
+        return CookiesSessao::anexar(RespostaApi::criado(['tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo."), $sessao['token'], $sessao['expira_em'], $dispositivo['id'], $r);
+    }
+
+    /**
+     * @param  array<string, mixed>  $d
+     * @return array{tenant: Tenant, empresa: Empresa}
+     */
+    private function criarTudo(array $d, int $diasTeste, mixed $perfilTotal, mixed $nomePlano): array
+    {
+        return DB::transaction(function () use ($d, $diasTeste, $perfilTotal, $nomePlano) {
             $base = Str::limit(Str::slug($d['nome_comercial']) ?: 'empresa', 32, '');
             $slug = $base;
             $n = 1;
@@ -92,11 +96,28 @@ final class RegistoEmpresaController extends Controller
                 return compact('tenant', 'empresa');
             });
         });
-        $dispositivo = CookiesSessao::dispositivoDoPedido($r);
-        $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], $dispositivo['id'], $r->ip(), $r->userAgent());
-        $u = $sessao['utilizador'];
+    }
 
-        // Fase D: o token vai só no cookie HttpOnly (CookiesSessao), nunca no corpo — tal como em AutenticacaoController::entrar.
-        return CookiesSessao::anexar(RespostaApi::criado(['tipo_token' => 'Bearer', 'expira_em' => $sessao['expira_em']->toAtomString(), 'inatividade_minutos' => config('erp.sessao.inatividade_minutos'), 'utilizador' => UtilizadorResource::make($u)->resolve(), 'permissoes' => $this->permissoes->efectivas($u), 'perfil_formato_v2' => $this->permissoes->formatoV2($u), 'empresas' => EmpresaResource::collection($this->empresas->acessiveis($u))->resolve(), 'empresa_id' => $resultado['empresa']->id, 'tenant_id' => $resultado['tenant']->id, 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo."), $sessao['token'], $sessao['expira_em'], $dispositivo['id'], $r);
+    /**
+     * Qual campo causou a violação de unicidade (procura em toda a cadeia: a transacção abortada esconde a causa em «previous»).
+     *
+     * @return array<string, string>|null
+     */
+    private static function campoDuplicado(\Throwable $e): ?array
+    {
+        for ($a = $e; $a !== null; $a = $a->getPrevious()) {
+            if (! $a instanceof UniqueConstraintViolationException) {
+                continue;
+            }
+            $m = $a->getMessage();
+            if (str_contains($m, 'uq_empresas_nif_ativas')) {
+                return ['nif' => 'Este NIF já se encontra registado numa empresa existente.'];
+            }
+            if (str_contains($m, 'utilizadores_nome_utilizador_unique')) {
+                return ['nome_utilizador' => 'Este nome de utilizador já se encontra registado. Escolha outro.'];
+            }
+        }
+
+        return null;
     }
 }

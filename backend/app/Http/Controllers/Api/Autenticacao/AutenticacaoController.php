@@ -15,6 +15,7 @@ use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
 use App\Support\Autenticacao\CookiesSessao;
+use App\Support\Texto\TextoEntrada;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -155,11 +156,14 @@ final class AutenticacaoController extends Controller
     {
         $request->validate([
             'identificador' => ['required', 'string', 'max:255'],
-        ]);
+        ], [
+            'identificador.required' => 'Indique o nome de utilizador ou o e-mail.',
+            'identificador.max' => 'O nome de utilizador ou e-mail não pode ter mais de 255 caracteres.',
+        ], ['identificador' => 'nome de utilizador ou e-mail']);
 
         // Resposta sempre igual e de tempo uniforme, exista a conta ou não (ver ServicoRecuperacaoPassword: limite por
         // conta, entrega antes da troca, aviso ao titular e auditoria).
-        $this->recuperacao->processar(trim($request->string('identificador')->toString()), $request->ip(), $request->userAgent());
+        $this->recuperacao->processar(TextoEntrada::limpar($request->input('identificador')) ?? '', $request->ip(), $request->userAgent());
 
         return RespostaApi::sucesso([
             'processado' => true,

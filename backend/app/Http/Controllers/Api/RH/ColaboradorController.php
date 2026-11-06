@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\RH;
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\CoordenadaBancariaColaborador;
+use App\Rules\NifAngolano;
 use App\Services\RH\ServicoColaboradores;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -51,7 +52,7 @@ final class ColaboradorController extends Controller
         $this->exigir('colaboradores_detail');
         $c = Colaborador::query()->findOrFail($colaborador);
 
-        return RespostaApi::sucesso($this->colaboradores->ficha($this->colaboradores->guardar($this->dados($r), $c)), 'Colaborador actualizado com sucesso.');
+        return RespostaApi::sucesso($this->colaboradores->ficha($this->colaboradores->guardar($this->dados($r, $c->nif), $c)), 'Colaborador actualizado com sucesso.');
     }
 
     public function destroy(int $colaborador): JsonResponse
@@ -89,13 +90,14 @@ final class ColaboradorController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function dados(Request $r): array
+    private function dados(Request $r, ?string $nifActual = null): array
     {
         $e = app(ContextoEmpresa::class)->obrigatorio();
         $existe = fn (string $t) => Rule::exists($t, 'id')->where('empresa_id', $e)->whereNull('eliminado_em');
+        NifAngolano::normalizarNoPedido($r);
 
         return $r->validate([
-            'nome_completo' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'max:30'], 'numero_inss' => ['nullable', 'string', 'max:50'],
+            'nome_completo' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'max:30', new NifAngolano(inalterado: $nifActual)], 'numero_inss' => ['nullable', 'string', 'max:50'],
             'estado' => ['sometimes', 'in:ACTIVO,INACTIVO,SUSPENSO'], 'tipo_organizacao_id' => ['required', 'integer', $existe('tipos_organizacao_rh')],
             'cargo_funcao_id' => ['nullable', 'integer', $existe('cargos_funcoes')], 'dias_uteis_mes' => ['sometimes', 'integer', 'min:1', 'max:31'],
             'reformado' => ['sometimes', 'boolean'], 'avencado' => ['sometimes', 'boolean'],

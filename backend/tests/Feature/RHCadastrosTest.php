@@ -87,7 +87,7 @@ final class RHCadastrosTest extends TestCase
 
         $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'Outra', 'nif' => '001234567la045', 'tipo_organizacao_id' => $this->ids['org']], $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'NIF_DUPLICADO');
-        $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'X', 'nif' => '999', 'tipo_organizacao_id' => $this->ids['org'], 'reformado' => true, 'avencado' => true], $this->s)
+        $this->postJson('/api/rh/colaboradores', ['nome_completo' => 'X', 'nif' => '000000999LA099', 'tipo_organizacao_id' => $this->ids['org'], 'reformado' => true, 'avencado' => true], $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'REFORMADO_E_AVENCADO');
         $this->putJson("/api/rh/colaboradores/{$id}", ['nome_completo' => 'Ana', 'nif' => '001234567LA045', 'tipo_organizacao_id' => $this->ids['org'], 'colaborador_gestor_id' => $id], $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'GESTOR_INVALIDO');
@@ -96,7 +96,7 @@ final class RHCadastrosTest extends TestCase
         $this->postJson('/api/rh/contratos', ['colaborador_id' => $id, 'data_inicio' => '2026-01-01', 'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 200000]]], $this->s)
             ->assertCreated();
         $this->deleteJson("/api/rh/colaboradores/{$id}", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'REGISTO_EM_USO');
-        $livre = $this->colaborador(['nif' => '777', 'nome_completo' => 'Sem uso']);
+        $livre = $this->colaborador(['nif' => '000000777LA077', 'nome_completo' => 'Sem uso']);
         $this->deleteJson("/api/rh/colaboradores/{$livre}", [], $this->s)->assertOk();
         $this->getJson("/api/rh/colaboradores/{$livre}", $this->s)->assertNotFound();
     }
@@ -144,7 +144,7 @@ final class RHCadastrosTest extends TestCase
             'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 250000]]], $this->s)->assertCreated();
         $this->getJson("/api/rh/contratos?colaborador_id={$id}", $this->s)->assertJsonCount(2, 'dados');
 
-        $outro = $this->colaborador(['nif' => '888', 'nome_completo' => 'Rui']);
+        $outro = $this->colaborador(['nif' => '000000888LA088', 'nome_completo' => 'Rui']);
         $this->postJson('/api/rh/contratos', ['colaborador_id' => $outro, 'data_inicio' => '2026-01-01', 'remuneracoes' => [['infotipo_salarial_id' => $this->ids['desc'], 'valor_mes' => 5]]], $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'RUBRICA_NAO_VENCIMENTO');
         $this->postJson('/api/rh/contratos', ['colaborador_id' => $outro, 'data_inicio' => '2026-01-01', 'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 0]]], $this->s)

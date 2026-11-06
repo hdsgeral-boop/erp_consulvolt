@@ -53,6 +53,11 @@ final class ServicoRecuperacaoPassword
     {
         // Ainda não se sabe a que tenant pertence: pesquisa entre todos, como o login (SECURITY DEFINER).
         $u = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizador(?, ?)', [$identificador, $identificador])->first();
+        if (! $u && str_contains($identificador, '@')) {
+            // o e-mail não distingue maiúsculas (como no login): «Maria@Empresa.AO». Com mais de uma conta nada se faz (não se adivinha).
+            $contas = Utilizador::fromQuery('SELECT * FROM login_localizar_utilizadores_por_email(?)', [mb_strtolower($identificador)]);
+            $u = $contas->count() === 1 ? $contas->first() : null;
+        }
 
         if (! $u || ! $u->ativo || ! $u->email) {
             Hash::make(Str::random(14));   // trabalho equivalente ao de uma conta real (tempo uniforme)

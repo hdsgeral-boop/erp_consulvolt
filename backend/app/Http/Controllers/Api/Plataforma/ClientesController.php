@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Rules\NifAngolano;
 use App\Services\Plataforma\ServicoClientes;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
@@ -38,6 +39,7 @@ final class ClientesController extends Controller
     public function store(Request $r): JsonResponse
     {
         $this->exigir('plataforma_clientes_gerir');
+        NifAngolano::normalizarNoPedido($r, 'empresa.nif');
         $d = $r->validate([
             'nome' => ['required', 'string', 'max:255'],
             'slug' => $this->regrasSlug(),
@@ -46,7 +48,7 @@ final class ClientesController extends Controller
             'administrador.email' => ['nullable', 'email', 'max:150'],
             'empresa' => ['nullable', 'array'],
             'empresa.nome' => ['required_with:empresa', 'string', 'max:255'],
-            'empresa.nif' => ['required_with:empresa', 'string', 'max:30'],
+            'empresa.nif' => ['required_with:empresa', 'string', 'max:30', new NifAngolano],
         ], [], ['slug' => 'endereço (slug)']);
 
         $criado = $this->clientes->criar($d);
@@ -103,9 +105,10 @@ final class ClientesController extends Controller
     public function atualizarEmpresa(Request $r, Tenant $cliente, int $empresa): JsonResponse
     {
         $this->exigir('plataforma_clientes_gerir');
+        NifAngolano::normalizarNoPedido($r);
         $d = $r->validate([
             'nome' => ['sometimes', 'required', 'string', 'max:255'],
-            'nif' => ['sometimes', 'required', 'string', 'max:30'],
+            'nif' => ['sometimes', 'required', 'string', 'max:30', new NifAngolano],
             'estado' => ['sometimes', 'required', Rule::in(['ATIVO', 'INATIVO'])],
         ]);
         $e = $this->clientes->atualizarEmpresa($cliente, $empresa, $d, $r->user());

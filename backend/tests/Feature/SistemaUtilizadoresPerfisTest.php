@@ -94,15 +94,15 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
         $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'gestor'] + $base, $this->s)->assertStatus(422)->assertJsonPath('codigo', 'UTILIZADOR_DUPLICADO');
 
         $colabOutra = $this->colaborador($this->outra, 'De outra empresa');
-        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'x2', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colabOutra]]] + $base, $this->s)
+        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'xx2', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colabOutra]]] + $base, $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'COLABORADOR_INVALIDO');
 
         $colab = $this->colaborador($this->empresa, 'Ligado');
-        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'x3', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colab]]] + $base, $this->s)->assertCreated();
-        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'x4', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colab]]] + $base, $this->s)
+        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'xx3', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colab]]] + $base, $this->s)->assertCreated();
+        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'xx4', 'empresas' => [['empresa_id' => $this->empresa->id, 'colaborador_id' => $colab]]] + $base, $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'COLABORADOR_JA_LIGADO');
         $lista = $this->getJson('/api/sistema/utilizadores/colaboradores', $this->s)->assertOk()->json('dados');
-        $this->assertSame('x3', collect($lista)->firstWhere('id', $colab)['ligado_a']);
+        $this->assertSame('xx3', collect($lista)->firstWhere('id', $colab)['ligado_a']);
     }
 
     #[Test]

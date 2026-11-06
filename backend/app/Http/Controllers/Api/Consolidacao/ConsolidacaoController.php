@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Consolidacao;
 
 use App\Http\Controllers\Controller;
+use App\Rules\NifAngolano;
 use App\Services\Consolidacao\ServicoConsolidacao;
 use App\Services\Consolidacao\ServicoConsolidacaoGrupos;
 use App\Support\Api\RespostaApi;
@@ -81,8 +82,10 @@ final class ConsolidacaoController extends Controller
     /** @return array<string, mixed> */
     private function validar(Request $r): array
     {
+        NifAngolano::normalizarNoPedido($r);
+
         return $r->validate([
-            'nome' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'max:30'], 'moeda_apresentacao' => ['nullable', 'string', 'size:3'],
+            'nome' => ['required', 'string', 'max:255'], 'nif' => ['required', 'string', 'max:30', new NifAngolano], 'moeda_apresentacao' => ['nullable', 'string', 'size:3'],
             'conta_reserva_cambial' => ['nullable', 'string', 'max:20'], 'eliminacao_ativa' => ['sometimes', 'boolean'],
             'prefixos_excluidos_eliminacao' => ['nullable', 'string', 'max:10'], 'conta_diferenca_eliminacao' => ['nullable', 'string', 'max:20'],
             'membros' => ['required', 'array', 'min:1'], 'membros.*' => ['integer'],

@@ -61,7 +61,7 @@ final class ServicoAuditoria
             return $this->contexto->semIsolamento(fn () => LogAuditoria::create([
                 'empresa_id' => $empresa,
                 'utilizador_id' => $utilizadorFinal,
-                'nome_utilizador' => $nomeUtilizador ?? $utilizador?->nome_utilizador ?? (app()->runningInConsole() ? 'sistema' : null),
+                'nome_utilizador' => ($nomeUtilizador !== null ? mb_substr($nomeUtilizador, 0, 100) : null) ?? $utilizador?->nome_utilizador ?? (app()->runningInConsole() ? 'sistema' : null),
                 'ocorrido_em' => now(),
                 'modulo' => $modulo,
                 'acao' => $acao,

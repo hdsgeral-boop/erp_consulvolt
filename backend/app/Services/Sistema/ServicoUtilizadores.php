@@ -6,7 +6,9 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
+use App\Rules\NomeUtilizador;
 use App\Services\Plataforma\ServicoLimitesPlano;
+use App\Support\Seguranca\PoliticaPalavraPasse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -157,7 +159,7 @@ final class ServicoUtilizadores
         app(ServicoLimitesPlano::class)->exigirLimiteUtilizadores((int) $actor->tenant_id);
 
         return DB::transaction(function () use ($d, $actor) {
-            $nome = trim((string) $d['nome_utilizador']);
+            $nome = NomeUtilizador::normalizar((string) $d['nome_utilizador']);   // contas novas: sempre em minúsculas
             $existente = Utilizador::withTrashed()->where('nome_utilizador', $nome)->first();
             if ($existente !== null) {
                 return $this->reactivarEliminado($existente, $d, $actor);
@@ -510,21 +512,20 @@ final class ServicoUtilizadores
     }
 
     /**
-     * Força mínima de uma palavra-passe ESCOLHIDA por quem a vai usar (troca da própria): pelo menos 8 caracteres, com
-     * maiúscula, minúscula e algarismo. Nas geradas pelo servidor garante-se em `gerarPalavraPasseAleatoria`.
+     * Força mínima de uma palavra-passe ESCOLHIDA por quem a vai usar (troca da própria): a política única
+     * (PoliticaPalavraPasse). Nas geradas pelo servidor garante-se em `gerarPalavraPasseAleatoria`.
+     *
+     * @param list<string|null> $evitar utilizador/e-mail da conta, que a palavra-passe não pode conter
      */
-    public static function problemaDeForca(string $palavraPasse): ?string
+    public static function problemaDeForca(string $palavraPasse, array $evitar = []): ?string
     {
-        return match (true) {
-            mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE => 'A palavra-passe tem de ter pelo menos '.self::MINIMO_PALAVRA_PASSE.' caracteres.',
-            ! preg_match('/\p{Lu}/u', $palavraPasse) || ! preg_match('/\p{Ll}/u', $palavraPasse) || ! preg_match('/\d/', $palavraPasse) => 'A palavra-passe é fraca: use maiúsculas, minúsculas e algarismos (por exemplo, «Luanda#2026»).',
-            default => null,
-        };
+        return PoliticaPalavraPasse::problema($palavraPasse, $evitar, self::MINIMO_PALAVRA_PASSE);
     }
 
-    public static function exigirForca(string $palavraPasse): void
+    /** @param list<string|null> $evitar utilizador/e-mail da conta, que a palavra-passe não pode conter */
+    public static function exigirForca(string $palavraPasse, array $evitar = []): void
     {
-        if (($problema = self::problemaDeForca($palavraPasse)) !== null) {
+        if (($problema = self::problemaDeForca($palavraPasse, $evitar)) !== null) {
             throw new ErroNegocio($problema, mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE ? 'PALAVRA_PASSE_CURTA' : 'PALAVRA_PASSE_FRACA', 422);
         }
     }
