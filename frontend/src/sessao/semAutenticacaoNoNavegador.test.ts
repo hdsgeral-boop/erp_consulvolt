@@ -43,7 +43,9 @@ const PERMITIDOS = new Set([
   'modulos/pos/FrenteCaixa.tsx',
   'modulos/projectos/separadores/organigrama/QuadroOrganigrama.tsx',
   'modulos/stock/posArmazem/Balcao.tsx',
+  'modulos/stock/posArmazem/Conclusao.tsx', // modo de impressão ao expedir (preferência do posto)
   'modulos/stock/posArmazem/Senhas.tsx',
+  'modulos/stock/posArmazem/voz.ts', // interruptor «Voz ligada/desligada»
   'paginas/publico/RegistarEmpresa.tsx',
   'plataforma/modoMenuPlataforma.ts',
   'sessao/armazenamento.ts', // só converte chaves antigas de interface
