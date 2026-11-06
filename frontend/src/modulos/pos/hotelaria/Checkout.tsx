@@ -10,6 +10,7 @@ import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos, liquidarTroco, pagamentosParaApi, paraCentimos, ratearPagamentos, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
+import { obterTalaoFiscal, obterTalaoFiscalUnico } from '../comum/dados';
 import type { Terminal, VendaEmitida } from '../comum/tipos';
 import { htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import type { SimulacaoCheckout } from './tipos';
@@ -97,7 +98,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
     invalidar: [['pos']],
     aoSucesso: (r) => {
       setConcluido(r);
-      if (lerPreferencias(empresa?.id).automatico) imprimirTaloes(r.vendas, false, taloUnicoRef.current);
+      if (lerPreferencias(empresa?.id).automatico) void imprimirTaloes(r.vendas, false, taloUnicoRef.current);
     },
     tituloErro: 'Não foi possível concluir o check-out',
   });
@@ -115,10 +116,12 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
     );
   }, [simulacao, pagamentos, total, resumo.valido]);
   /** Talão de cada factura do check-out (com o quarto em «Mesa/Quarto»), ou um talão único com todas (F-181). */
-  const imprimirTaloes = (vendas: VendaEmitida[], manual: boolean, unico = false) => {
+  const imprimirTaloes = async (vendas: VendaEmitida[], manual: boolean, unico = false) => {
     const p = lerPreferencias(empresa?.id);
+    // F7: QR da AGT, série e IBAN de cada documento (no talão único, um QR por documento); sem resposta imprime-se sem eles
+    const fiscais = unico ? [await obterTalaoFiscalUnico(vendas)] : await Promise.all(vendas.map((v) => obterTalaoFiscal(v.id)));
     (unico ? [juntarVendas(vendas)] : vendas).forEach((v, i) => {
-      const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}`, rotuloLocal: 'Quarto(s)' }), p);
+      const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}`, rotuloLocal: 'Quarto(s)' }), p, new Map(), fiscais[i]);
       window.setTimeout(() => (manual ? reimprimir(html, p) : imprimirHtml(html)), i * 800);
     });
   };
@@ -145,11 +148,11 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
           subTitle={`Emitido(s): ${concluido.vendas.map((v) => v.numero_documento).join(', ')} · total ${formatarKz(concluido.total)} Kz · troco ${formatarKz(concluido.troco)} Kz`}
           extra={
             <Space wrap>
-              <Button icon={<PrinterOutlined />} onClick={() => imprimirTaloes(concluido.vendas, true)}>
+              <Button icon={<PrinterOutlined />} onClick={() => void imprimirTaloes(concluido.vendas, true)}>
                 {concluido.vendas.length > 1 ? 'Imprimir um talão por factura' : 'Imprimir talão'}
               </Button>
               {concluido.vendas.length > 1 && (
-                <Button icon={<PrinterOutlined />} onClick={() => imprimirTaloes(concluido.vendas, true, true)}>
+                <Button icon={<PrinterOutlined />} onClick={() => void imprimirTaloes(concluido.vendas, true, true)}>
                   Imprimir talão único
                 </Button>
               )}

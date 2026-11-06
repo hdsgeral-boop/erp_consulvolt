@@ -15,6 +15,7 @@ import { EstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import { accoesOrdem } from '../comum/regras';
 import type { Terminal, VendaEmitida } from '../comum/tipos';
+import { obterTalaoFiscal } from '../comum/dados';
 import { htmlTalaoVenda, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import { useDefinicoesLav, useOrdem } from './dados';
 import { dadosReciboLavA4, htmlEtiquetasOS, htmlReciboLav, htmlTalaoOS } from './impressoes';
@@ -58,7 +59,9 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
     try {
       const v = await obter<VendaEmitida>(`/pos/lavandaria/ordens/${d.pedido.id}/documentos/${vendaId}`);
       const p = lerPreferencias(empresa?.id);
-      reimprimir(htmlTalaoVenda(v, cab(), p), p);
+      // F7: QR da AGT, série e IBAN também na factura da lavandaria (sem resposta, imprime-se sem eles)
+      const fiscal = await obterTalaoFiscal(v.id);
+      reimprimir(htmlTalaoVenda(v, cab(), p, new Map(), fiscal), p);
     } catch (e) {
       notificarErro(e, 'Não foi possível obter o documento');
     }

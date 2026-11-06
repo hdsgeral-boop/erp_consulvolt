@@ -72,3 +72,14 @@ export async function obterTalaoFiscal(vendaId: number): Promise<TalaoFiscal | n
     return null;
   }
 }
+
+/**
+ * Elementos fiscais do talão ÚNICO de várias facturas (check-out da hotelaria, F-181): um QR e uma série por documento; o resto
+ * (cliente, IBAN) vem da primeira. Se algum pedido falhar, esse documento fica sem QR; se todos falharem, devolve null.
+ */
+export async function obterTalaoFiscalUnico(vendas: { id: number; numero_documento?: string | null }[]): Promise<TalaoFiscal | null> {
+  const todos = await Promise.all(vendas.map((v) => obterTalaoFiscal(v.id)));
+  const base = todos.find((t): t is TalaoFiscal => !!t);
+  if (!base) return null;
+  return { ...base, documentos: todos.map((t, i) => ({ numero_documento: vendas[i].numero_documento, serie: t?.serie ?? null, qr_svg: t?.qr_svg ?? null })) };
+}

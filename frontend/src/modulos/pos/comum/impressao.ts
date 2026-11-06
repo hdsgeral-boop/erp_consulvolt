@@ -232,6 +232,11 @@ export interface TalaoFiscal {
   cliente_nif?: string | null;
   operador?: string | null;
   coordenadas_bancarias?: { nome: string; iban: string; swift?: string | null }[];
+  /**
+   * Talão ÚNICO de vários documentos (check-out da hotelaria, F-181): um QR e uma série por documento, pela ordem dos números
+   * no título. Com um só documento usa-se `qr_svg`/`serie` do próprio objecto.
+   */
+  documentos?: { numero_documento?: string | null; serie?: string | null; qr_svg?: string | null }[];
 }
 
 /** NIF do consumidor final quando o cliente não tem NIF (legado: «NIF Cliente: 999999999»). */
@@ -274,7 +279,17 @@ export function htmlTalaoVenda(v: VendaEmitida, c: CabecalhoTalao, p: Preferenci
   const operador = v.pos_operador || fiscal?.operador || c.operador || c.utilizador;
   const nif = (fiscal?.cliente_nif ?? '').trim() || NIF_CONSUMIDOR_FINAL;
   const bancos = (fiscal?.coordenadas_bancarias ?? []).filter((b) => b.iban);
-  const qr = fiscal?.qr_svg
+  const qrDocumentos = (fiscal?.documentos ?? []).filter((d) => d.qr_svg);
+  const qr = qrDocumentos.length > 1
+    ? `<div class="linha"></div>
+${qrDocumentos
+  .map(
+    (d) => `<div class="centro"><img class="qr" src="${svgComoImagem(d.qr_svg as string)}" alt="QR code de consulta do documento ${esc(d.numero_documento)} na AGT">
+<div class="pequeno">${d.numero_documento ? `${esc(d.numero_documento)} · ` : ''}Facturação electrónica${d.serie ? ` · Série ${esc(d.serie)}` : ''}</div></div>`,
+  )
+  .join('')}
+<div class="centro pequeno">Consulte cada documento no portal da AGT</div>`
+    : fiscal?.qr_svg
     ? `<div class="linha"></div>
 <div class="centro"><img class="qr" src="${svgComoImagem(fiscal.qr_svg)}" alt="QR code de consulta do documento na AGT">
 <div class="pequeno">Facturação electrónica${fiscal.serie ? ` · Série ${esc(fiscal.serie)}` : ''}</div>
