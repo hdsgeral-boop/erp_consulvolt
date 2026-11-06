@@ -2208,6 +2208,7 @@ Linhas reais: **9** · fictícias descartadas: 0
 | `lav_os_counters` | `lavandaria_contadores_os` | jsonb | sim | 22% |  |  |
 | `lav_rc_counters` | `lavandaria_contadores_rc` | jsonb | sim | 22% |  |  |
 | `lav_ft_counters` | `lavandaria_contadores_ft` | jsonb | sim | 11% |  |  |
+| `lav_fr_counters` | `lavandaria_contadores_fr` | jsonb | sim | 0% |  | **F0b** (aditiva): contador das facturas-recibo da lavandaria por ano; antes perdia-se |
 | `hotel_checkin_time` | `hotel_hora_entrada` | varchar(10) | sim | 22% |  |  |
 | `hotel_checkout_time` | `hotel_hora_saida` | varchar(10) | sim | 22% |  |  |
 | `hotel_late_tolerance_min` | `hotel_tolerancia_atraso_min` | integer | sim | 22% |  |  |
@@ -2433,6 +2434,10 @@ Linhas reais: **2** · fictícias descartadas: 0
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `price` | `preco` | numeric(15,2) | sim | 100% |  |  |
 | `service_prices` | `precos_servico` | jsonb | sim | 50% |  |  |
+| `lav_prices` | `opcoes_preco` | jsonb | sim | 0% |  | **F0b** (aditiva, 2026_12_06_090000): opções de preço `[{modo: PECA\|KG\|TAMANHO, tamanho, preco}]`; a 1.ª manda na grelha. O backup original não a lia (perdia-se); lê-se com `erp:lavandaria:completar-migracao <backup>` |
+| _(novo)_ | `opcoes_preco_origem` | varchar(12) | sim | 0% |  | **F0b**: `LEGADO` (lida de `lav_prices`), `DERIVADA` (reconstruída de `unidade`+`preco`, a confirmar com o backup) ou `NOVO` (gravada no sistema novo) |
+
+> F0b: `precos_servico` passa a guardar também `modo`/`tamanho` por entrada (legado `service_prices[].mode/size`: matriz serviço × opção); as linhas das ordens (`itens`) guardam `modo` (legado `items.unit`) e `tamanho` (legado `items.size`).
 
 ## Módulo: Activos
 

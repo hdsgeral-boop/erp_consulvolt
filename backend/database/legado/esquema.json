@@ -18402,6 +18402,15 @@
           "dominio": null
         },
         {
+          "coluna": "lavandaria_contadores_fr",
+          "legado": "lav_fr_counters",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "hotel_hora_entrada",
           "legado": "hotel_checkin_time",
           "tipo": "varchar(10)",
@@ -20706,6 +20715,24 @@
           "tipo": "jsonb",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "opcoes_preco",
+          "legado": "lav_prices",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "opcoes_preco_origem",
+          "legado": null,
+          "tipo": "varchar(12)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },

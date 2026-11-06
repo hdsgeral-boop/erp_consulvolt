@@ -19,7 +19,7 @@ abstract class PecaLavandariaBase extends ModeloBase
     protected string $moduloAuditoria = 'POS';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'criado_por', 'nome', 'tecido', 'cor', 'unidade', 'ativo', 'atualizado_por', 'preco', 'precos_servico',
+        'empresa_id', 'codigo', 'criado_por', 'nome', 'tecido', 'cor', 'unidade', 'ativo', 'atualizado_por', 'preco', 'precos_servico', 'opcoes_preco', 'opcoes_preco_origem',
     ];
 
     protected function casts(): array
@@ -29,6 +29,7 @@ abstract class PecaLavandariaBase extends ModeloBase
             'ativo' => 'boolean',
             'preco' => 'decimal:2',
             'precos_servico' => 'array',
+            'opcoes_preco' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

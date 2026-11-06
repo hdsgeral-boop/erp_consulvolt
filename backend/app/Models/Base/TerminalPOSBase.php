@@ -33,7 +33,7 @@ abstract class TerminalPOSBase extends ModeloBase
     protected string $moduloAuditoria = 'POS';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'tipo', 'tipo_original', 'unidade_negocio_id', 'centro_custo_id', 'armazem_id', 'cliente_padrao_id', 'fundo_maneio_padrao', 'meios_pagamento', 'contadores', 'contadores_sessao', 'contadores_z', 'ativo', 'id_legado', 'criado_por', 'atualizado_por', 'lavandaria_contadores_os', 'lavandaria_contadores_rc', 'lavandaria_contadores_ft', 'hotel_hora_entrada', 'hotel_hora_saida', 'hotel_tolerancia_atraso_min', 'hotel_bloco_horas', 'hotel_bloco_horas_de', 'hotel_bloco_horas_ate',
+        'empresa_id', 'codigo', 'nome', 'tipo', 'tipo_original', 'unidade_negocio_id', 'centro_custo_id', 'armazem_id', 'cliente_padrao_id', 'fundo_maneio_padrao', 'meios_pagamento', 'contadores', 'contadores_sessao', 'contadores_z', 'ativo', 'id_legado', 'criado_por', 'atualizado_por', 'lavandaria_contadores_os', 'lavandaria_contadores_rc', 'lavandaria_contadores_ft', 'lavandaria_contadores_fr', 'hotel_hora_entrada', 'hotel_hora_saida', 'hotel_tolerancia_atraso_min', 'hotel_bloco_horas', 'hotel_bloco_horas_de', 'hotel_bloco_horas_ate',
         // manual (sem equivalente no legado, não vem do gerador): migration 2026_10_21_100000_pos_terminal_servicos_lavandaria
         'lavandaria_servicos_ids',
     ];
@@ -55,6 +55,7 @@ abstract class TerminalPOSBase extends ModeloBase
             'lavandaria_contadores_os' => 'array',
             'lavandaria_contadores_rc' => 'array',
             'lavandaria_contadores_ft' => 'array',
+            'lavandaria_contadores_fr' => 'array',
             'lavandaria_servicos_ids' => 'array',
             'hotel_tolerancia_atraso_min' => 'integer',
             'hotel_bloco_horas' => 'boolean',
