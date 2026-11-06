@@ -168,9 +168,14 @@ function CartaoProduto({ produto: p, lista, stock, urlImagem, ocultarAvatar, ico
   const servico = eServico(p);
   // imagem do produto (módulo de Vendas): lida com autenticação e mostrada como blob; sem imagem fica o ícone da categoria
   const imagem = useImagemProduto(urlImagem);
-  // como no legado, um produto de inventário esgotado não se adiciona (o servidor também recusa a venda)
+  // como no legado (renderPOSProductsGrid), os bloqueados e os esgotados continuam visíveis a 65 %, sinalizados; ao carregar
+  // diz-se porque não se vendem (a frente mostra a mensagem do legado) e o servidor também recusa a venda
+  const bloqueado = !!p.bloqueado;
   const esgotado = !servico && stock !== null && stock <= 0;
-  const etiqueta = servico ? (
+  const inactivo = bloqueado || esgotado;
+  const etiqueta = bloqueado ? (
+    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 4, background: COR_ETIQUETA.error.fundo, color: COR_ETIQUETA.error.texto, fontWeight: 700 }}>Bloqueado</span>
+  ) : servico ? (
     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontWeight: 700 }}>Serviço</span>
   ) : stock !== null ? (
     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 4, fontWeight: 700, background: COR_ETIQUETA[corStock(stock)].fundo, color: COR_ETIQUETA[corStock(stock)].texto }}>
@@ -183,14 +188,14 @@ function CartaoProduto({ produto: p, lista, stock, urlImagem, ocultarAvatar, ico
     </div>
   );
   const comum: CSSProperties = {
-    background: cores.fundo, border: `1px solid ${cores.borda}`, cursor: esgotado ? 'not-allowed' : 'pointer', position: 'relative', overflow: 'hidden', textAlign: 'left',
-    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', opacity: esgotado ? 0.65 : 1, font: 'inherit', color: 'inherit', width: '100%',
+    background: cores.fundo, border: `1px solid ${cores.borda}`, cursor: inactivo ? 'not-allowed' : 'pointer', position: 'relative', overflow: 'hidden', textAlign: 'left',
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', opacity: inactivo ? 0.65 : 1, font: 'inherit', color: 'inherit', width: '100%',
   };
   const codigo = <small style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'block', marginTop: 2 }}>Cd: {p.codigo?.trim() || '—'}</small>;
   const preco = <strong style={{ fontSize: lista ? '0.9rem' : '1rem', color: '#2563eb', fontWeight: 800 }}>{formatarKz(p.preco_unitario)} Kz</strong>;
 
   return (
-    <button type="button" className="pos-cartao-produto" title={p.nome} aria-disabled={esgotado} onClick={() => !esgotado && aoEscolher(p)}
+    <button type="button" className="pos-cartao-produto" title={bloqueado ? `${p.nome} — bloqueado para venda` : p.nome} aria-disabled={inactivo} data-bloqueado={bloqueado || undefined} onClick={() => aoEscolher(p)}
       style={lista ? { ...comum, borderRadius: 4, padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' } : { ...comum, borderRadius: 4, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
     >
       {lista ? (

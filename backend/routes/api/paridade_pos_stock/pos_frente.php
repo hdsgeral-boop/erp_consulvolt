@@ -11,4 +11,5 @@ Route::prefix('pos/frente')->name('paridade.pos.frente.')->controller(FrentePOSC
     Route::get('terminais/{terminal}/stock', 'stock')->whereNumber('terminal')->name('stock');
     Route::get('sessoes-antigas', 'sessoesAntigas')->name('sessoes_antigas');
     Route::get('series', 'series')->name('series');
+    Route::get('talao/{venda}', 'talao')->whereNumber('venda')->name('talao');
 });

@@ -9,6 +9,7 @@ import { meiosActivos } from '../comum/PainelPagamentos';
 import { accoesFrente } from '../comum/regras';
 import type { Terminal } from '../comum/tipos';
 import { useCoresPos } from '../comum/cores';
+import { useSeriesTerminais } from '../comum/frente';
 import { AvisoSessoesAntigas } from './AvisoSessoesAntigas';
 
 const rotulo = { fontWeight: 700, color: '#334155', fontSize: '0.85rem' } as const;
@@ -29,6 +30,8 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
   const abrir = useAccao({ invalidar: [['pos']], tituloErro: 'Não foi possível abrir a sessão', aoSucesso: aoContinuar });
   const operador = utilizador ? utilizador.nome_completo || utilizador.nome_utilizador : '—';
   const sessao = terminal?.sessao_aberta;
+  const series = useSeriesTerminais();
+  const serie = terminal ? series.data?.[String(terminal.id)] : undefined;
 
   useEffect(() => {
     form.setFieldsValue({ fundo_maneio: Number(terminal?.fundo_maneio_padrao ?? 0) });
@@ -77,6 +80,10 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
             <div style={{ fontSize: '0.8rem', color: '#475569', background: cores.fundoAlt, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '0.6rem 0.8rem', marginBottom: '1rem', lineHeight: 1.7 }}>
               <div>
                 <IconeFa nome="user" /> Operador: <strong>{operador}</strong>
+              </div>
+              <div>
+                <IconeFa nome="file-invoice" /> Série: <strong>{serie?.serie ?? '—'}</strong>
+                {serie?.prevista ? <small style={{ color: '#64748b' }}> (criada na primeira venda do ano)</small> : null}
               </div>
               <div>
                 <IconeFa nome="credit-card" /> Meios de pagamento:{' '}

@@ -26,9 +26,9 @@ import {
   type ItemCarrinho,
   type Pagamento,
 } from '../comum/calculos';
-import { useCatalogoPOS, useCategoriasPOS } from '../comum/dados';
-import { PREFERENCIAS_FRENTE_PADRAO, useImagensProdutos, useStockFrente, type PreferenciasFrente } from '../comum/frente';
-import { htmlTalaoGenerico, htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
+import { obterTalaoFiscal, useCatalogoPOS, useCategoriasPOS } from '../comum/dados';
+import { motivoNaoAdicionar, motivoQuantidadeExcede, PREFERENCIAS_FRENTE_PADRAO, stockDe, useImagensProdutos, useStockFrente, type PreferenciasFrente } from '../comum/frente';
+import { avisoErrosAgt, htmlTalaoGenerico, htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import { carrinhoDaConta, linhasDaConta, type ContaMesa, type MesaPOS } from './mesas';
 import { PainelMesas } from './PainelMesas';
 import { useEstadia } from '../hotelaria/Estadia';
@@ -73,7 +73,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
   const cores = useCoresPos();
   const { pode, empresa } = useSessao();
   const cabecalho = useCabecalhoTalao();
-  const catalogo = useCatalogoPOS(terminal.id);   // só os produtos marcados para o serviço deste terminal
+  const catalogo = useCatalogoPOS(terminal.id, true);   // só os produtos marcados para o serviço deste terminal (os bloqueados vêm sinalizados)
   const categorias = useCategoriasPOS();
   const [prefsLocais, setPrefsLocais] = useState<PreferenciasFrente>(PREFERENCIAS_FRENTE_PADRAO);
   const preferencias = prefs ?? prefsLocais;
@@ -122,9 +122,11 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
   const totais = totaisCarrinho(carrinho, desconto);
   const resumo = resumirPagamentos(pagamentos, totais.total);
 
-  const imprimir = (v: VendaEmitida, manual = false) => {
-    const p = lerPreferencias(empresa?.id);
-    const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}` }), p, nomes);
+  /** Talão da venda com QR da AGT e IBAN (pedido ao servidor; sem resposta imprime-se sem eles). `formato` força A4/térmico. */
+  const imprimir = async (v: VendaEmitida, manual = false, formato?: 'A4' | 'TERMICO') => {
+    const p = { ...lerPreferencias(empresa?.id), ...(formato ? { formato } : {}) };
+    const fiscal = await obterTalaoFiscal(v.id);
+    const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}` }), p, nomes, fiscal);
     if (manual) reimprimir(html, p);
     else imprimirHtml(html);
   };
@@ -142,7 +144,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
       setObservacoes('');
       setMesa(null);
       setVersao(null);
-      if (lerPreferencias(empresa?.id).automatico) imprimir(v);
+      if (lerPreferencias(empresa?.id).automatico) void imprimir(v);
     },
   });
 
@@ -153,7 +155,18 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
       if (quartoId !== null && !estadiaId) return void message.warning('Faça o check-in do quarto antes de lançar consumos.');
       if (quartoId !== null && carregadaPara.current !== estadiaId) return void message.info('A carregar os consumos do quarto…');
     }
+    // addPOSProduct (ui_sales.js:7152-7202): artigo bloqueado, fora de stock ou acima do stock do armazém do terminal
+    const motivo = motivoNaoAdicionar(p, carrinho.find((i) => i.produto_id === p.id)?.quantidade ?? 0, q, stockDe(p, stock.data?.stock));
+    if (motivo) return void message.warning(motivo);
     setCarrinho((c) => adicionarProduto(c, p, q));
+  };
+
+  /** Muda a quantidade da linha (−/+/campo) respeitando o stock (updatePOSCartQty, ui_sales.js:7185-7205). */
+  const mudarQuantidade = (i: ItemCarrinho, nova: number) => {
+    const p = produtos.find((x) => x.id === i.produto_id);
+    const motivo = nova > i.quantidade && p ? motivoQuantidadeExcede(i.nome, nova, stockDe(p, stock.data?.stock)) : null;
+    if (motivo) return void message.warning(motivo);
+    setCarrinho((c) => alterarQuantidade(c, i.produto_id, nova));
   };
 
   const lerPesquisa = () => {
@@ -496,7 +509,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: cores.fundoSuave, borderRadius: 4, padding: 2 }}>
-                <Button size="small" type="text" aria-label="Menos" onClick={() => setCarrinho((c) => alterarQuantidade(c, i.produto_id, i.quantidade - 1))}>
+                <Button size="small" type="text" aria-label="Menos" onClick={() => mudarQuantidade(i, i.quantidade - 1)}>
                   −
                 </Button>
                 <InputNumber<number>
@@ -508,9 +521,9 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
                   className="pos-qtd-linha"
                   style={{ width: 40, fontWeight: 700, fontSize: '0.8rem' }}
                   value={i.quantidade}
-                  onChange={(v) => v !== null && setCarrinho((c) => alterarQuantidade(c, i.produto_id, v))}
+                  onChange={(v) => v !== null && mudarQuantidade(i, v)}
                 />
-                <Button size="small" type="text" aria-label="Mais" onClick={() => setCarrinho((c) => alterarQuantidade(c, i.produto_id, i.quantidade + 1))}>
+                <Button size="small" type="text" aria-label="Mais" onClick={() => mudarQuantidade(i, i.quantidade + 1)}>
                   +
                 </Button>
               </div>
@@ -671,10 +684,14 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
             title={`Factura-recibo ${emitida.numero_documento}`}
             subTitle={`Total ${formatarKz(emitida.total_bruto)} Kz${emitida.nome_tabela ? ` · ${emitida.nome_tabela}` : ''}${Number(emitida.arredondamento_agt ?? 0) !== 0 ? ` · arredondamento AGT ${formatarKz(emitida.arredondamento_agt)} Kz` : ''}`}
             extra={[
+              avisoErrosAgt(emitida) ? <Alert key="agt" type="warning" showIcon style={{ marginBottom: 12, textAlign: 'left' }} title={avisoErrosAgt(emitida)} /> : null,
               <Statistic key="t" title="Troco" value={formatarKz(emitida.pos_troco ?? '0')} suffix="Kz" styles={{ content: { fontSize: 40, color: '#3f8600' } }} style={{ marginBottom: 16 }} />,
               <Flex key="b" gap={8} justify="center" wrap>
-                <Button size="large" icon={<IconeFa nome="print" />} onClick={() => imprimir(emitida, true)}>
+                <Button size="large" icon={<IconeFa nome="print" />} onClick={() => void imprimir(emitida, true)}>
                   Imprimir talão
+                </Button>
+                <Button size="large" icon={<IconeFa nome="file-alt" />} title="Abre o documento A4; na janela de impressão pode escolher «Guardar como PDF»" onClick={() => void imprimir(emitida, true, 'A4')}>
+                  Imprimir A4 / PDF
                 </Button>
                 <Button
                   size="large"

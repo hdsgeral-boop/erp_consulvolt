@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { TIPOS_TERMINAL } from '../comum/dados';
+import { COR_TIPO_MEIO, pilulasDeSaldo } from '../comum/frente';
+import { meiosActivos } from '../comum/PainelPagamentos';
 import type { Terminal } from '../comum/tipos';
 import { useRelatorioX } from './FechoZ';
 
@@ -47,6 +49,8 @@ export function BarraSessaoFrente({
   const x = useRelatorioX(sessao?.id, !!sessao && podeRelatorioX);
   const modo = MODOS[terminal.tipo] ?? MODOS.LOJA;
   const fundo = x.data?.sessao.fundo_maneio_abertura;
+  const pilulas = pilulasDeSaldo(meiosActivos(terminal.meios_pagamento), x.data?.totais_por_metodo ?? [], x.data?.numerario_esperado);
+  const totalCaixa = x.data ? pilulas.reduce((a, m) => a + m.valor, 0) : null;
   return (
     <>
       <span style={distintivo(modo.cor)} title="Tipo de Terminal">
@@ -68,11 +72,25 @@ export function BarraSessaoFrente({
       {separador}
       {podeRelatorioX && (
         <span className="pos-saldo-sessao" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span style={{ color: '#64748b', textTransform: 'uppercase', fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <IconeFa nome="cash-register" style={{ color: '#2563eb' }} /> Saldo:
+          </span>
           <span style={pilula('#f1f5f9', '#e2e8f0', '#475569')} title="Fundo de Maneio Inicial">
             <small style={{ color: '#64748b', fontWeight: 600 }}>Fundo:</small> <strong>{fundo !== undefined ? `${formatarKz(fundo)} Kz` : '…'}</strong>
           </span>
+          {pilulas.map((m) => {
+            const c = COR_TIPO_MEIO[m.tipo] ?? COR_TIPO_MEIO.NUMERARIO;
+            return (
+              <span key={m.chave} className="pos-pilula-meio" data-tipo={m.tipo} style={pilula(c.fundo, c.borda, c.texto)} title={m.tipo === 'NUMERARIO' ? `${m.nome} em caixa (fundo + vendas)` : `${m.nome} cobrado na sessão`}>
+                <small style={{ color: c.cor, fontWeight: 600 }}>{m.nome}:</small> <strong>{x.data ? `${formatarKz(m.valor)} Kz` : '…'}</strong>
+              </span>
+            );
+          })}
           <span style={pilula('rgba(16,185,129,0.08)', 'rgba(16,185,129,0.15)', '#065f46')} title="Vendas acumuladas da sessão">
             <small style={{ color: '#047857', fontWeight: 600 }}>Vendas:</small> <strong data-vendas={x.data?.total_vendas}>{x.data ? `${formatarKz(x.data.total_vendas)} Kz` : '…'}</strong>
+          </span>
+          <span style={pilula('rgba(30,41,59,0.08)', 'rgba(30,41,59,0.15)', '#0f172a')} title="Saldo total da caixa (numerário em caixa + meios não numerários)">
+            <small style={{ color: '#334155', fontWeight: 600 }}>Total:</small> <strong style={{ fontWeight: 800 }}>{totalCaixa !== null ? `${formatarKz(totalCaixa)} Kz` : '…'}</strong>
           </span>
         </span>
       )}

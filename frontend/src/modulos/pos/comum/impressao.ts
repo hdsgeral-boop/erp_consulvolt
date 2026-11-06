@@ -65,6 +65,7 @@ body { font-family: ${termico ? "'Courier New', monospace" : 'Arial, sans-serif'
 .talao .logo { display: block; margin: 0 auto 3px; max-width: 70%; max-height: 22mm; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .talao .centro { text-align: center; } .talao .direita { text-align: right; } .talao .pequeno { font-size: ${termico ? '10px' : '11px'}; }
 .talao table { width: 100%; border-collapse: collapse; } .talao td, .talao th { padding: 2px 0; vertical-align: top; border: 0; } .talao th { text-align: left; border-bottom: 1px dashed #000; }
+.talao .qr { width: 38mm; height: 38mm; display: block; margin: 3px auto; }
 .talao .linha { border-top: 1px dashed #000; margin: 4px 0; } .talao .total { font-weight: bold; font-size: ${termico ? '13px' : '15px'}; }
 ${termico ? '' : '.talao-cabecalho-termico, .talao .titulo-doc { display: none; }'}`;
 }
@@ -140,8 +141,47 @@ export function useCabecalhoTalao(): (extra?: Partial<CabecalhoTalao>) => Cabeca
   });
 }
 
-/** Talão (térmico ou A4) de uma factura-recibo POS. */
-export function htmlTalaoVenda(v: VendaEmitida, c: CabecalhoTalao, p: PreferenciasImpressao, nomesProdutos: Map<number, string> = new Map()): string {
+/**
+ * Elementos do talão que vêm do servidor (GET /pos/frente/talao/{venda}, ServicoTalaoPOS): QR de consulta da AGT, série
+ * electrónica, cliente e coordenadas bancárias dos meios activos. Sem eles o talão imprime-se igual, sem QR nem IBAN.
+ */
+export interface TalaoFiscal {
+  fe_regime?: boolean;
+  /** Série electrónica («FR T012026»); só nos documentos selados no regime. */
+  serie?: string | null;
+  /** Imagem SVG (texto) do QR; nunca é executada: entra no talão como data URL de um <img>. */
+  qr_svg?: string | null;
+  url_consulta?: string | null;
+  fe_estado?: string | null;
+  fe_erros?: unknown[];
+  cliente_nome?: string | null;
+  cliente_nif?: string | null;
+  operador?: string | null;
+  coordenadas_bancarias?: { nome: string; iban: string; swift?: string | null }[];
+}
+
+/** NIF do consumidor final quando o cliente não tem NIF (legado: «NIF Cliente: 999999999»). */
+export const NIF_CONSUMIDOR_FINAL = '999999999';
+
+const svgComoImagem = (svg: string): string => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+/** Mensagem para o operador quando o documento ficou selado com erros de validação da AGT (F-068); null se não há erros. */
+export function avisoErrosAgt(v: { fe_estado?: unknown; fe_erros?: unknown }): string | null {
+  const erros = Array.isArray(v.fe_erros) ? v.fe_erros : [];
+  if (v.fe_estado !== 'COM_ERROS' && !erros.length) return null;
+  const textos = erros
+    .map((e) => (typeof e === 'string' ? e : e && typeof e === 'object' ? String((e as Record<string, unknown>).mensagem ?? (e as Record<string, unknown>).message ?? (e as Record<string, unknown>).codigo ?? '') : ''))
+    .filter(Boolean)
+    .slice(0, 3);
+  return `O documento ficou com erros de validação da AGT${textos.length ? `: ${textos.join('; ')}` : ''}. Peça a revisão em Vendas › Facturação electrónica.`;
+}
+
+/**
+ * Talão (térmico ou A4) de uma factura-recibo POS, como o do legado (printPOSThermalReceipt, ui_sales.js:8000-8166): empresa,
+ * «Talão nº», data, operador REAL, cliente e NIF (999999999 por omissão), artigos, totais, meios de pagamento, valor entregue e
+ * troco, QR da AGT (documentos selados), coordenadas bancárias, mensagem de rodapé e «Processado por computador».
+ */
+export function htmlTalaoVenda(v: VendaEmitida, c: CabecalhoTalao, p: PreferenciasImpressao, nomesProdutos: Map<number, string> = new Map(), fiscal?: TalaoFiscal | null): string {
   const linhas = (v.itens_venda ?? [])
     .map(
       (l) =>
@@ -149,16 +189,33 @@ export function htmlTalaoVenda(v: VendaEmitida, c: CabecalhoTalao, p: Preferenci
         `<tr><td>${esc(formatarNumero(l.quantidade))} × ${esc(formatarKz(l.preco_unitario))}</td><td></td><td class="direita">${esc(formatarKz(l.total))}</td></tr>`,
     )
     .join('');
-  const pagamentos = (v.pos_pagamentos ?? [])
-    .map((x) => `<tr><td>${esc(x.nome ?? x.tipo)}${x.referencia ? ` (${esc(x.referencia)})` : ''}</td><td class="direita">${esc(formatarKz(x.valor))}</td></tr>`)
+  const pagos = v.pos_pagamentos ?? [];
+  const pagamentos = pagos
+    .map((x) => `<tr><td>- ${esc(x.nome ?? x.tipo)}${x.referencia ? ` (${esc(x.referencia)})` : ''}</td><td class="direita">${esc(formatarKz(x.valor))}</td></tr>`)
     .join('');
+  const troco = Number(v.pos_troco ?? 0);
+  const numerario = pagos.filter((x) => x.tipo === 'NUMERARIO').reduce((a, x) => a + Number(x.valor ?? 0), 0);
+  // o valor gravado do numerário é líquido do troco: o que o cliente entregou é o líquido mais o troco
+  const entregue = pagos.some((x) => x.tipo === 'NUMERARIO') ? numerario + troco : null;
+  const operador = v.pos_operador || fiscal?.operador || c.operador || c.utilizador;
+  const nif = (fiscal?.cliente_nif ?? '').trim() || NIF_CONSUMIDOR_FINAL;
+  const bancos = (fiscal?.coordenadas_bancarias ?? []).filter((b) => b.iban);
+  const qr = fiscal?.qr_svg
+    ? `<div class="linha"></div>
+<div class="centro"><img class="qr" src="${svgComoImagem(fiscal.qr_svg)}" alt="QR code de consulta do documento na AGT">
+<div class="pequeno">Facturação electrónica${fiscal.serie ? ` · Série ${esc(fiscal.serie)}` : ''}</div>
+<div class="pequeno">Consulte este documento no portal da AGT</div></div>`
+    : '';
   const corpo = `
 ${topoTalao(c)}
-<div class="centro titulo-doc"><b>Factura-recibo ${esc(v.numero_documento)}</b></div>
-<div>${esc(formatarDataHora(String(v.criado_em ?? v.data_emissao)))}</div>
+<div class="centro titulo-doc"><b>Factura-recibo</b></div>
+<div>Talão nº: <b>${esc(v.numero_documento)}</b></div>
+<div>Data: ${esc(formatarDataHora(String(v.criado_em ?? v.data_emissao)))}</div>
 ${c.terminal ? `<div>Terminal: ${esc(c.terminal)}</div>` : ''}
 ${v.nome_tabela ? `<div>${esc(c.rotuloLocal ?? 'Mesa')}: ${esc(v.nome_tabela)}</div>` : ''}
-${v.pos_operador || c.operador ? `<div>Operador: ${esc(v.pos_operador ?? c.operador)}</div>` : ''}
+${operador ? `<div>Operador: ${esc(operador)}</div>` : ''}
+<div>Cliente: ${esc(fiscal?.cliente_nome || 'Consumidor Final')}</div>
+<div>NIF Cliente: ${esc(nif)}</div>
 <div class="linha"></div>
 <table>${linhas}</table>
 <div class="linha"></div>
@@ -167,14 +224,19 @@ ${v.pos_operador || c.operador ? `<div>Operador: ${esc(v.pos_operador ?? c.opera
 <tr><td>IVA</td><td class="direita">${esc(formatarKz(v.total_imposto))}</td></tr>
 ${Number(v.desconto ?? 0) > 0 ? `<tr><td>Desconto</td><td class="direita">-${esc(formatarKz(v.desconto))}</td></tr>` : ''}
 ${Number(v.arredondamento_agt ?? 0) !== 0 ? `<tr><td>Arredondamento AGT</td><td class="direita">${esc(formatarKz(v.arredondamento_agt as string))}</td></tr>` : ''}
-<tr class="total"><td>TOTAL</td><td class="direita">${esc(formatarKz(v.total_bruto, true))}</td></tr>
+<tr class="total"><td>TOTAL A PAGAR</td><td class="direita">${esc(formatarKz(v.total_bruto, true))}</td></tr>
 </table>
 <div class="linha"></div>
+<div><b>Meios de Pagamento:</b></div>
 <table>${pagamentos}
-${Number(v.pos_troco ?? 0) > 0 ? `<tr><td>Troco</td><td class="direita">${esc(formatarKz(v.pos_troco))}</td></tr>` : ''}
+${entregue !== null ? `<tr><td>Valor Entregue (Dinheiro):</td><td class="direita">${esc(formatarKz(entregue))}</td></tr>` : ''}
+${entregue !== null || troco > 0 ? `<tr><td>Troco:</td><td class="direita">${esc(formatarKz(troco))}</td></tr>` : ''}
 </table>
+${qr}
 <div class="linha"></div>
-<div class="centro">${esc(p.rodape)}</div>`;
+${bancos.length ? `<div class="pequeno"><b>Coordenadas Bancárias:</b>${bancos.map((b) => `<br>${esc(b.nome)}: ${esc(b.iban)}${b.swift ? ` · SWIFT ${esc(b.swift)}` : ''}`).join('')}</div><div class="linha"></div>` : ''}
+<div class="centro">${esc(p.rodape)}</div>
+<div class="centro pequeno">Processado por computador (Software ERP)</div>`;
   return documento(`Factura-recibo ${v.numero_documento}`, corpo, p, c);
 }
 

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\POS;
 
 use App\Http\Controllers\Controller;
 use App\Models\TerminalPOS;
+use App\Models\Venda;
 use App\Services\POS\ServicoFrentePOS;
+use App\Services\POS\ServicoTalaoPOS;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 
@@ -15,7 +17,7 @@ use Illuminate\Http\JsonResponse;
  */
 final class FrentePOSController extends Controller
 {
-    public function __construct(private readonly ServicoFrentePOS $frente) {}
+    public function __construct(private readonly ServicoFrentePOS $frente, private readonly ServicoTalaoPOS $talao) {}
 
     public function stock(int $terminal): JsonResponse
     {
@@ -37,5 +39,14 @@ final class FrentePOSController extends Controller
         $this->exigir('pos_view', 'pos_venda', 'pos_terminais_view', 'pos_terminais_gerir');
 
         return RespostaApi::sucesso($this->frente->series(), 'Séries dos terminais.');
+    }
+
+    /** Elementos fiscais do talão de uma venda do POS (QR da AGT, série, cliente, coordenadas bancárias): ver ServicoTalaoPOS. */
+    public function talao(int $venda): JsonResponse
+    {
+        $this->exigir('pos_view', 'pos_venda', 'pos_relatorios_view', 'hotel_checkout', 'lav_ordens', 'lav_receber');
+        $v = Venda::query()->where(fn ($q) => $q->whereNotNull('sessao_pos_id')->orWhereNotNull('terminal_pos_id')->orWhereNotNull('pedido_lavandaria_id'))->findOrFail($venda);
+
+        return RespostaApi::sucesso($this->talao->dados($v), 'Dados do talão.');
     }
 }

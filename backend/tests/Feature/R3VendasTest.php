@@ -81,10 +81,11 @@ final class R3VendasTest extends TestCase
     {
         $s = $this->sessao(['pos_view', 'pos_venda', 'pos_terminais_gerir']);
         $esperado = [
-            'LOJA' => ['todos', 'loja'],
-            'RESTAURANTE' => ['todos', 'rest'],
-            'HOTELARIA' => ['todos', 'rest', 'quarto'],
-            'LAVANDARIA' => ['todos', 'lav'],
+            // F1: o produto bloqueado vem no catálogo (sinalizado) em todos os serviços onde seria vendável, como no legado
+            'LOJA' => ['todos', 'loja', 'bloqueado'],
+            'RESTAURANTE' => ['todos', 'rest', 'bloqueado'],
+            'HOTELARIA' => ['todos', 'rest', 'quarto', 'bloqueado'],
+            'LAVANDARIA' => ['todos', 'lav', 'bloqueado'],
         ];
         foreach ($esperado as $tipo => $chaves) {
             $t = $this->terminal($s, 'T'.substr($tipo, 0, 3), $tipo);
@@ -94,6 +95,8 @@ final class R3VendasTest extends TestCase
         $linha = collect($this->getJson("/api/pos/terminais/{$t}/catalogo", $s)->json('dados'))->firstWhere('id', $this->ids['todos']);
         $this->assertNull($linha['servicos_pos']);
         $this->assertArrayHasKey('preco_unitario', $linha);
+        $this->assertFalse($linha['bloqueado']);
+        $this->assertTrue(collect($this->getJson("/api/pos/terminais/{$t}/catalogo", $s)->json('dados'))->firstWhere('id', $this->ids['bloqueado'])['bloqueado']);
 
         $this->getJson("/api/pos/terminais/{$t}/catalogo", $this->sessao(['vendas_produtos_view']))->assertForbidden();
     }

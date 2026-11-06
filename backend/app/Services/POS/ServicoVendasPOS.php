@@ -61,6 +61,7 @@ final class ServicoVendasPOS
                 ? ['preco_unitario' => number_format((float) $l['preco_unitario'], 2, '.', '')] + $l : $l, $d['linhas']);
             $cliente = $this->cliente($d['cliente_id'] ?? null, $t);
             $armazem = $t->armazem_id ?: $this->armazens->garantirPredefinido()->id;
+            $this->exigirDesbloqueados($d['linhas']);
             $this->exigirStock($d['linhas'], $armazem);
 
             // total a cobrar (mesmo cálculo que a emissão) para validar os pagamentos antes de numerar
@@ -147,20 +148,39 @@ final class ServicoVendasPOS
                 'conta_cliente' => ContaTerceiro::classeCorrecta($c = (string) $this->configVendas->conta('clientes_default'), ContaTerceiro::CLIENTE) && $c !== '' ? $c : null]);
     }
 
-    /** Mercadoria em stock no armazém do terminal (o legado recusava sem stock, mas pelo stock global). */
+    /** Artigo bloqueado para venda (addPOSProduct, ui_sales.js:7163): o texto é o do legado, com a acentuação corrigida. */
+    private function exigirDesbloqueados(array $linhas): void
+    {
+        $bloqueados = Produto::query()->whereIn('id', array_map(fn ($l) => (int) $l['produto_id'], $linhas))->where('bloqueado', true)->orderBy('id')->first();
+        if ($bloqueados) {
+            throw new ErroNegocio("O artigo \"{$bloqueados->nome}\" está bloqueado para venda.", 'PRODUTO_BLOQUEADO', 422, ['produto_id' => $bloqueados->id]);
+        }
+    }
+
+    /**
+     * Mercadoria em stock no armazém do terminal (o legado recusava pelo stock global lido ao abrir o ecrã). Os textos são os do
+     * legado (addPOSProduct, ui_sales.js:7168-7202): «fora de stock» quando o saldo é zero, e o limite de unidades nos restantes casos.
+     */
     private function exigirStock(array $linhas, int $armazem): void
     {
         $pedido = [];
         foreach ($linhas as $l) {
             $pedido[(int) $l['produto_id']] = bcadd($pedido[(int) $l['produto_id']] ?? '0', (string) $l['quantidade'], 3);
         }
-        $produtos = Produto::query()->whereIn('id', array_keys($pedido))->where('movimenta_stock', true)->get();
+        $produtos = Produto::query()->whereIn('id', array_keys($pedido))->where('movimenta_stock', true)->orderBy('id')->get();
         foreach ($produtos as $p) {
             $saldo = (string) (StockArmazem::query()->where('armazem_id', $armazem)->where('produto_id', $p->id)->lockForUpdate()->value('quantidade_stock') ?? '0');
             if (bccomp($saldo, $pedido[$p->id], 3) < 0) {
-                throw new ErroNegocio("Stock insuficiente de {$p->codigo} no armazém do terminal (disponível {$saldo}).", 'STOCK_INSUFICIENTE', 422,
-                    ['produto_id' => $p->id, 'disponivel' => $saldo, 'pedido' => $pedido[$p->id]]);
+                $texto = bccomp($saldo, '0', 3) <= 0 ? "O artigo {$p->nome} encontra-se fora de stock."
+                    : 'Não é possível faturar mais unidades deste produto do que o stock existente ('.self::semZeros($saldo).').';
+                throw new ErroNegocio($texto, 'STOCK_INSUFICIENTE', 422, ['produto_id' => $p->id, 'disponivel' => $saldo, 'pedido' => $pedido[$p->id]]);
             }
         }
+    }
+
+    /** «5.000» → «5» e «2.500» → «2,5» (o legado mostrava o número sem casas a mais). */
+    private static function semZeros(string $n): string
+    {
+        return str_replace('.', ',', str_contains($n, '.') ? rtrim(rtrim($n, '0'), '.') : $n);
     }
 }

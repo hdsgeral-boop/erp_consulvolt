@@ -178,6 +178,8 @@ export interface ProdutoPOS {
   e_servico?: boolean | null;
   e_quarto?: boolean | null;
   categoria_produto_id?: number | null;
+  /** Produto bloqueado para venda: aparece na grelha sinalizado e não se vende (legado: «Bloqueado»). */
+  bloqueado?: boolean | null;
 }
 
 export interface LinhaVendaPOS {
@@ -206,6 +208,9 @@ export interface VendaEmitida {
   pos_pagamentos: VendaSessao['pos_pagamentos'];
   pos_operador: string | null;
   codigo_terminal_pos?: string | null;
+  /** Selagem da AGT: «COM_ERROS» quando o documento tem erros de validação (F-068). */
+  fe_estado?: string | null;
+  fe_erros?: unknown[] | null;
   itens_venda?: LinhaVendaPOS[];
   [chave: string]: unknown;
 }

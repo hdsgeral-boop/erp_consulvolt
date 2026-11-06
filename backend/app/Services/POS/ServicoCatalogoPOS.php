@@ -26,11 +26,12 @@ final class ServicoCatalogoPOS
     public const ROTULOS = ['LOJA' => 'Loja (POS geral)', 'RESTAURANTE' => 'Restaurante', 'HOTELARIA' => 'Hotelaria', 'LAVANDARIA' => 'Lavandaria e Alfaiataria'];
 
     private const COLUNAS = ['id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'codigo_isencao_fe', 'unidade_fe', 'movimenta_stock', 'e_servico',
-        'e_quarto', 'categoria_produto_id', 'lavandaria_grupo', 'servicos_pos'];
+        'e_quarto', 'categoria_produto_id', 'lavandaria_grupo', 'servicos_pos', 'bloqueado'];
 
     /**
-     * Produtos activos (não bloqueados) que o terminal pode vender, com os mesmos campos do catálogo comum
-     * (GET /logistica/produtos/catalogo) e a marcação `servicos_pos`.
+     * Produtos que o terminal pode vender, com os mesmos campos do catálogo comum (GET /logistica/produtos/catalogo) e a marcação
+     * `servicos_pos`. Os bloqueados vêm no catálogo com `bloqueado: true`: como no legado (renderPOSProductsGrid, ui_sales.js:6990)
+     * aparecem na grelha, sinalizados e não vendáveis; quem os vende é recusado (ServicoVendasPOS::exigirDesbloqueados).
      *
      * @return list<array<string, mixed>>
      */
@@ -39,7 +40,6 @@ final class ServicoCatalogoPOS
         $tipo = (string) ($t->tipo ?: 'LOJA');
 
         return Produto::query()
-            ->where(fn ($q) => $q->whereNull('bloqueado')->orWhere('bloqueado', false))
             ->where(function ($q) use ($tipo) {
                 // resto: pela marcação; quartos: só na hotelaria (e sempre lá); serviços de lavandaria: sempre na lavandaria e,
                 // sem marcação, só lá (nos outros POS só se forem marcados)
@@ -55,7 +55,7 @@ final class ServicoCatalogoPOS
             })
             ->ordenarPorNome()
             ->get(self::COLUNAS)
-            ->map(fn (Produto $p) => array_merge($p->toArray(), ['servicos_pos' => self::servicosDe($p)]))
+            ->map(fn (Produto $p) => array_merge($p->toArray(), ['servicos_pos' => self::servicosDe($p), 'bloqueado' => (bool) $p->bloqueado]))
             ->all();
     }
 
@@ -83,6 +83,10 @@ final class ServicoCatalogoPOS
         $tipo = (string) ($t->tipo ?: 'LOJA');
         $produtos = Produto::query()->whereIn('id', array_map(fn ($l) => (int) $l['produto_id'], $linhas))->get();
         foreach ($produtos as $p) {
+            if ($p->e_quarto && $tipo !== 'HOTELARIA') {   // addPOSProduct, ui_sales.js:7158
+                throw new ErroNegocio("O artigo de hospedagem/quarto \"{$p->nome}\" só está disponível no POS do tipo Hotelaria.", 'PRODUTO_FORA_DO_SERVICO', 422,
+                    ['produto_id' => $p->id, 'servico' => $tipo]);
+            }
             if (! self::permitido($p, $tipo)) {
                 throw new ErroNegocio("O produto {$p->codigo} — {$p->nome} não está marcado para o serviço ".(self::ROTULOS[$tipo] ?? $tipo).'.',
                     'PRODUTO_FORA_DO_SERVICO', 422, ['produto_id' => $p->id, 'servico' => $tipo]);

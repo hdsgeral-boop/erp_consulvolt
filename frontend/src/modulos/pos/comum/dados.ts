@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
+import type { TalaoFiscal } from './impressao';
 import type { DefinicoesPOS, ProdutoPOS, Terminal } from './tipos';
 
 /** Consultas partilhadas do POS. Todas as chaves começam por 'pos' para a invalidação em bloco depois das acções. */
@@ -23,8 +24,13 @@ export function chaveCatalogoPOS(terminalId?: number | null) {
   return terminalId ? (['logistica', 'catalogo', 'pos', terminalId] as const) : (['logistica', 'catalogo'] as const);
 }
 
-export function useCatalogoPOS(terminalId?: number | null) {
+/**
+ * `incluirBloqueados`: só a frente de caixa os mostra (sinalizados, como o legado); os restantes consumidores (consumos do
+ * quarto, etc.) continuam a receber só os vendáveis.
+ */
+export function useCatalogoPOS(terminalId?: number | null, incluirBloqueados = false) {
   return useQuery({
+    select: (lista: ProdutoPOS[]) => (incluirBloqueados ? lista : lista.filter((p) => !p.bloqueado)),
     queryKey: chaveCatalogoPOS(terminalId),
     queryFn: () => obter<ProdutoPOS[]>(terminalId ? `/pos/terminais/${terminalId}/catalogo` : '/logistica/produtos/catalogo'),
     staleTime: 300_000,
@@ -54,3 +60,15 @@ export const TIPOS_MEIO: Record<string, string> = {
   TPA: 'Multicaixa (TPA)',
   TRANSFERENCIA: 'Transferência bancária',
 };
+
+/**
+ * Elementos fiscais do talão de uma venda (QR da AGT, série, cliente, IBAN). Se o pedido falhar (sem permissão, rede), o talão
+ * imprime-se na mesma sem QR nem IBAN: nunca se perde um talão por causa deste pedido.
+ */
+export async function obterTalaoFiscal(vendaId: number): Promise<TalaoFiscal | null> {
+  try {
+    return await obter<TalaoFiscal>(`/pos/frente/talao/${vendaId}`);
+  } catch {
+    return null;
+  }
+}

@@ -83,6 +83,36 @@ export function filtrarPorStock(produtos: ProdutoPOS[], filtro: FiltroStock, sto
   });
 }
 
+// ───────────── Mensagens de bloqueio e limite de stock (textos do legado, ui_sales.js:7158-7202) ─────────────
+
+const formatarStock = (n: number): string => (Number.isInteger(n) ? String(n) : n.toLocaleString('pt-PT'));
+
+/** Textos exactos do legado (acentuação corrigida), para o ecrã e para o servidor dizerem o mesmo. */
+export const MENSAGENS_STOCK = {
+  bloqueado: (nome: string) => `O artigo "${nome}" está bloqueado para venda.`,
+  foraDeStock: (nome: string) => `O artigo ${nome} encontra-se fora de stock.`,
+  limiteDoCarrinho: (stock: number) => `Não é possível faturar mais unidades deste produto do que o stock existente (${formatarStock(stock)}).`,
+  limiteDaQuantidade: (nome: string, stock: number) => `Quantidade limite de stock disponível para ${nome} atingida (${formatarStock(stock)}).`,
+} as const;
+
+/**
+ * Pode acrescentar `quantidade` unidades do produto ao carrinho? Devolve o texto do legado se não (bloqueado, fora de stock ou
+ * mais do que o stock do armazém do terminal), ou null. `noCarrinho` = unidades já no carrinho; `stock` null = serviço ou stock desconhecido.
+ */
+export function motivoNaoAdicionar(p: ProdutoPOS, noCarrinho: number, quantidade: number, stock: number | null): string | null {
+  if (p.bloqueado) return MENSAGENS_STOCK.bloqueado(p.nome);
+  if (stock === null || !p.movimenta_stock) return null;
+  if (stock <= 0) return MENSAGENS_STOCK.foraDeStock(p.nome);
+  if (noCarrinho > 0 && noCarrinho + quantidade > stock) return MENSAGENS_STOCK.limiteDoCarrinho(stock);
+  if (noCarrinho === 0 && quantidade > stock) return MENSAGENS_STOCK.limiteDaQuantidade(p.nome, stock);
+  return null;
+}
+
+/** Nova quantidade da linha (botões −/+ ou campo) acima do stock disponível? Devolve o texto do legado ou null. */
+export function motivoQuantidadeExcede(nome: string, nova: number, stock: number | null): string | null {
+  return stock !== null && nova > stock ? MENSAGENS_STOCK.limiteDaQuantidade(nome, stock) : null;
+}
+
 /** Contagem de produtos por categoria para os chips («Todos 14», «Serviços 8», …), pela ordem das categorias. */
 export function contarCategorias(produtos: ProdutoPOS[], categorias: { id: number; nome: string }[]): { id: number; nome: string; total: number }[] {
   const n = new Map<number, number>();
@@ -166,6 +196,34 @@ export function useSeriesTerminais() {
     staleTime: 300_000,
     retry: false,
   });
+}
+
+/** Cores das pílulas de saldo por tipo de meio (legado, renderPOSTab/ui_sales.js:6417-6440): numerário verde, TPA azul, transferência violeta. */
+export const COR_TIPO_MEIO: Record<string, { cor: string; fundo: string; borda: string; texto: string }> = {
+  NUMERARIO: { cor: '#047857', fundo: 'rgba(16,185,129,0.08)', borda: 'rgba(16,185,129,0.15)', texto: '#065f46' },
+  TPA: { cor: '#1d4ed8', fundo: 'rgba(37,99,235,0.08)', borda: 'rgba(37,99,235,0.15)', texto: '#1e40af' },
+  TRANSFERENCIA: { cor: '#6d28d9', fundo: 'rgba(124,58,237,0.08)', borda: 'rgba(124,58,237,0.15)', texto: '#5b21b6' },
+};
+
+/**
+ * Pílulas de saldo da sessão por meio de pagamento: numerário = o esperado em caixa (fundo + numerário), TPA e transferências
+ * = o cobrado por cada meio activo; as transferências só aparecem com movimento (como o legado). `total` = tudo o que a caixa
+ * deve ter e cobrou (esperado em caixa + meios não numerários).
+ */
+export function pilulasDeSaldo(
+  meios: { id?: string | null; tipo: string; nome: string }[],
+  totais: { meio_id?: string | null; tipo: string; valor?: string | number | null }[],
+  numerarioEsperado: string | undefined,
+): { chave: string; tipo: string; nome: string; valor: number }[] {
+  const porMeio = new Map<string, number>();
+  for (const t of totais) porMeio.set(String(t.meio_id ?? t.tipo), (porMeio.get(String(t.meio_id ?? t.tipo)) ?? 0) + Number(t.valor ?? 0));
+  const saida = meios.map((m) => ({
+    chave: String(m.id ?? m.tipo),
+    tipo: m.tipo,
+    nome: m.nome,
+    valor: m.tipo === 'NUMERARIO' ? Number(numerarioEsperado ?? 0) : (porMeio.get(String(m.id ?? m.tipo)) ?? 0),
+  }));
+  return saida.filter((m) => m.tipo !== 'TRANSFERENCIA' || m.valor > 0);
 }
 
 /** Ícone do meio de pagamento nos chips dos terminais (💵 Numerário, 💳 Multicaixa (TPA), 🏦 Transferência). */
