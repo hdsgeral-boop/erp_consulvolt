@@ -8,6 +8,7 @@ use App\Http\Requests\POS\Prestacao\LiquidacoesRequest;
 use App\Http\Requests\POS\Prestacao\PendentesRequest;
 use App\Http\Requests\POS\Prestacao\RegistarRequest;
 use App\Http\Requests\POS\Prestacao\RelatoriosRequest;
+use App\Http\Resources\POS\LiquidacaoPOSResource;
 use App\Models\LiquidacaoPOS;
 use App\Models\SessaoCaixa;
 use App\Models\SessaoPOS;
@@ -81,14 +82,14 @@ final class PrestacaoContasController extends Controller
         }
         $q->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('data', '>=', $v))->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('data', '<=', $v));
 
-        return RespostaApi::paginado($q->orderByDesc('criado_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Liquidações POS.');
+        return RespostaApi::paginado($q->orderByDesc('criado_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), LiquidacaoPOSResource::class, 'Liquidações POS.');
     }
 
     public function liquidacao(int $liquidacao): JsonResponse
     {
         $this->exigir(...self::VER);
 
-        return RespostaApi::sucesso(LiquidacaoPOS::query()->findOrFail($liquidacao), 'Liquidação POS.');
+        return RespostaApi::sucesso(new LiquidacaoPOSResource(LiquidacaoPOS::query()->findOrFail($liquidacao)), 'Liquidação POS.');
     }
 
     public function anular(AnularRequest $r, int $liquidacao): JsonResponse

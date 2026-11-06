@@ -7,6 +7,7 @@ use App\Http\Requests\POS\Armazem\ExpedirRequest;
 use App\Http\Requests\POS\Armazem\ListaRequest;
 use App\Http\Requests\POS\Armazem\VendasRequest;
 use App\Http\Requests\POS\Armazem\VenderRequest;
+use App\Http\Resources\POS\VendaPOSResource;
 use App\Models\GuiaSaida;
 use App\Models\ItemGuiaSaida;
 use App\Models\Venda;
@@ -78,6 +79,6 @@ final class POSArmazemController extends Controller
         $d = $r->validated();
         $gr = $this->pos->expedir(Venda::query()->findOrFail($encomenda), (int) $d['armazem_id'], array_map('intval', $d['recolhidos']), $d['observacoes'] ?? null);
 
-        return RespostaApi::criado($gr->load('itensVenda'), "Picking concluído: guia de remessa {$gr->numero_documento} emitida.");
+        return RespostaApi::criado(new VendaPOSResource($gr), "Picking concluído: guia de remessa {$gr->numero_documento} emitida.");
     }
 }

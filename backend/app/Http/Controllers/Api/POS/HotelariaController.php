@@ -12,6 +12,8 @@ use App\Http\Requests\POS\Hotelaria\GuardarQuartoRequest;
 use App\Http\Requests\POS\Hotelaria\ListaRequest;
 use App\Http\Requests\POS\Hotelaria\QuartosRequest;
 use App\Http\Requests\POS\Hotelaria\SimularCheckoutRequest;
+use App\Http\Resources\POS\EstadiaHotelResource;
+use App\Http\Resources\POS\VendaPOSResource;
 use App\Models\EstadiaHotel;
 use App\Models\Produto;
 use App\Models\SessaoPOS;
@@ -64,7 +66,7 @@ final class HotelariaController extends Controller
         }
         $q->when($f['de'] ?? null, fn ($q, $v) => $q->where('entrada_em', '>=', $v))->when($f['ate'] ?? null, fn ($q, $v) => $q->where('entrada_em', '<', now()->parse($v)->addDay()));
 
-        return RespostaApi::paginado($q->orderByDesc('entrada_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Estadias.');
+        return RespostaApi::paginado($q->orderByDesc('entrada_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), EstadiaHotelResource::class, 'Estadias.');
     }
 
     public function estadia(int $estadia): JsonResponse
@@ -82,7 +84,7 @@ final class HotelariaController extends Controller
         }
         $e = $this->estadias->checkin(SessaoPOS::query()->findOrFail($sessao), $d);
 
-        return RespostaApi::criado($e, "Check-in do {$e->nome_quarto} registado.");
+        return RespostaApi::criado(new EstadiaHotelResource($e), "Check-in do {$e->nome_quarto} registado.");
     }
 
     public function alterar(AlterarRequest $r, int $estadia): JsonResponse
@@ -132,7 +134,7 @@ final class HotelariaController extends Controller
         $res = $this->checkout->checkout(SessaoPOS::query()->findOrFail($sessao), $d);
         $numeros = implode(', ', array_map(fn ($v) => $v->numero_documento, $res['vendas']));
 
-        return RespostaApi::criado(['vendas' => array_map(fn ($v) => $v->load('itensVenda'), $res['vendas']), 'total' => $res['total'], 'troco' => $res['troco']],
+        return RespostaApi::criado(['vendas' => array_map(fn ($v) => (new VendaPOSResource($v))->resolve(), $res['vendas']), 'total' => $res['total'], 'troco' => $res['troco']],
             "Check-out concluído. Emitido(s): {$numeros}. Troco: ".number_format((float) $res['troco'], 2, ',', ' ').' Kz.');
     }
 

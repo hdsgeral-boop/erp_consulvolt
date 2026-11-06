@@ -32,6 +32,9 @@ final class ContratoPOS
         if (! $rota || ! str_contains($rota->getActionName(), 'Controllers\\Api\\POS\\')) {
             return;
         }
+        if ($resposta->getStatusCode() >= 300) {
+            return;   // o contrato verificado é o dos sucessos; o envelope de erro é o da API toda
+        }
         $chave = strtoupper($metodo).' '.$rota->uri().' '.$resposta->getStatusCode();
         $json = json_decode((string) $resposta->getContent(), true);
         $forma = json_last_error() === JSON_ERROR_NONE ? self::forma($json) : ['_t' => ['nao_json']];

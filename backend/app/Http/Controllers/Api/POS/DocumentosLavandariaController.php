@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\POS;
 
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\POS\VendaPOSResource;
 use App\Models\Venda;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -29,6 +30,6 @@ final class DocumentosLavandariaController extends Controller
             throw new ErroNegocio('O documento não pertence a esta ordem de serviço.', 'NAO_ENCONTRADO', 404);
         }
 
-        return RespostaApi::sucesso(Venda::query()->findOrFail($venda)->load('itensVenda'), 'Documento obtido.');
+        return RespostaApi::sucesso(new VendaPOSResource(Venda::query()->findOrFail($venda)), 'Documento obtido.');
     }
 }

@@ -25,6 +25,8 @@ use App\Http\Requests\POS\Lavandaria\RegistarRequest;
 use App\Http\Requests\POS\Lavandaria\RelatorioPeriodoRequest;
 use App\Http\Requests\POS\Lavandaria\ServicosRequest;
 use App\Http\Requests\POS\Lavandaria\SimularEntregaRequest;
+use App\Http\Resources\POS\PecaLavandariaResource;
+use App\Http\Resources\POS\ReclamacaoLavandariaResource;
 use App\Models\Colaborador;
 use App\Models\PecaLavandaria;
 use App\Models\PedidoLavandaria;
@@ -83,8 +85,8 @@ final class LavandariaController extends Controller
     {
         $this->exigir(...self::VER);
 
-        return RespostaApi::sucesso(PecaLavandaria::query()->when(! $r->boolean('incluir_inativas'), fn ($q) => $q->where(fn ($q) => $q->whereNull('ativo')->orWhere('ativo', true)))
-            ->ordenarPorNome()->get(), 'Tabela de peças.');
+        return RespostaApi::sucesso(PecaLavandariaResource::collection(PecaLavandaria::query()->when(! $r->boolean('incluir_inativas'), fn ($q) => $q->where(fn ($q) => $q->whereNull('ativo')->orWhere('ativo', true)))
+            ->ordenarPorNome()->get()), 'Tabela de peças.');
     }
 
     public function guardarPeca(GuardarPecaRequest $r, ?int $peca = null): JsonResponse
@@ -253,7 +255,7 @@ final class LavandariaController extends Controller
     {
         $f = $r->validated();
 
-        return RespostaApi::sucesso(ReclamacaoLavandaria::query()->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))->orderByDesc('criado_em')->orderByDesc('id')->get(),
+        return RespostaApi::sucesso(ReclamacaoLavandariaResource::collection(ReclamacaoLavandaria::query()->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))->orderByDesc('criado_em')->orderByDesc('id')->get()),
             'Danos e reclamações.');
     }
 

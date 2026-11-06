@@ -15,6 +15,9 @@ use App\Http\Requests\POS\Pos\GuardarServicosLavTerminalRequest;
 use App\Http\Requests\POS\Pos\GuardarTerminalRequest;
 use App\Http\Requests\POS\Pos\SessoesRequest;
 use App\Http\Requests\POS\Pos\VenderRequest;
+use App\Http\Resources\POS\SessaoPOSResource;
+use App\Http\Resources\POS\TerminalPOSResource;
+use App\Http\Resources\POS\VendaPOSResource;
 use App\Models\Produto;
 use App\Models\SessaoPOS;
 use App\Models\TerminalPOS;
@@ -47,7 +50,7 @@ final class POSController extends Controller
         $this->exigir('pos_view', 'pos_terminais_view', 'pos_terminais_gerir', 'pos_venda');
         $abertas = SessaoPOS::query()->where('estado', 'ABERTA')->get(['id', 'terminal_pos_id', 'codigo_sessao', 'nome_operador', 'aberto_em'])->keyBy('terminal_pos_id');
 
-        return RespostaApi::sucesso(TerminalPOS::query()->orderBy('codigo')->get()->map(fn ($t) => $t->toArray() + ['sessao_aberta' => $abertas[$t->id] ?? null]), 'Terminais POS.');
+        return RespostaApi::sucesso(TerminalPOS::query()->orderBy('codigo')->get()->map(fn ($t) => (new TerminalPOSResource($t, $abertas[$t->id] ?? null))->resolve()), 'Terminais POS.');
     }
 
     public function terminal(int $terminal): JsonResponse
@@ -55,7 +58,7 @@ final class POSController extends Controller
         $this->exigir('pos_view', 'pos_terminais_view', 'pos_terminais_gerir', 'pos_venda');
         $t = TerminalPOS::query()->findOrFail($terminal);
 
-        return RespostaApi::sucesso($t->toArray() + ['sessao_aberta' => $this->terminais->sessaoAberta($t)], 'Terminal POS.');
+        return RespostaApi::sucesso(new TerminalPOSResource($t, $this->terminais->sessaoAberta($t)), 'Terminal POS.');
     }
 
     public function guardarTerminal(GuardarTerminalRequest $r, ?int $terminal = null): JsonResponse
@@ -136,7 +139,7 @@ final class POSController extends Controller
             $q->when($f[$c] ?? null, fn ($q, $v) => $q->where($c, $v));
         }
 
-        return RespostaApi::paginado($q->orderByDesc('aberto_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Sessões POS.');
+        return RespostaApi::paginado($q->orderByDesc('aberto_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), SessaoPOSResource::class, 'Sessões POS.');
     }
 
     public function sessao(int $sessao): JsonResponse
@@ -144,8 +147,8 @@ final class POSController extends Controller
         $this->exigir('pos_view', 'pos_relatorios_view', 'pos_integracao_view', 'pos_desvios_view', 'pos_prestacao_view', 'pos_venda');
         $s = SessaoPOS::query()->findOrFail($sessao);
 
-        return RespostaApi::sucesso($s->toArray() + ['vendas' => Venda::query()->where('sessao_pos_id', $s->id)->orderBy('id')
-            ->get(['id', 'numero_documento', 'data_emissao', 'cliente_id', 'total_bruto', 'estado', 'pos_pagamentos', 'pos_troco', 'pos_operador', 'contabilizado'])], 'Sessão POS.');
+        return RespostaApi::sucesso(new SessaoPOSResource($s, Venda::query()->where('sessao_pos_id', $s->id)->orderBy('id')
+            ->get(['id', 'numero_documento', 'data_emissao', 'cliente_id', 'total_bruto', 'estado', 'pos_pagamentos', 'pos_troco', 'pos_operador', 'contabilizado'])), 'Sessão POS.');
     }
 
     public function abrirSessao(AbrirSessaoRequest $r, int $terminal): JsonResponse
@@ -188,7 +191,7 @@ final class POSController extends Controller
         $this->catalogo->exigirDoServico($d['linhas'], TerminalPOS::query()->findOrFail($s->terminal_pos_id));
         $v = $this->vendas->vender($s, $d);
 
-        return RespostaApi::criado($v->load('itensVenda'), "Venda {$v->numero_documento} registada. Troco: ".number_format((float) $v->pos_troco, 2, ',', ' ').' Kz.');
+        return RespostaApi::criado(new VendaPOSResource($v), "Venda {$v->numero_documento} registada. Troco: ".number_format((float) $v->pos_troco, 2, ',', ' ').' Kz.');
     }
 
     // ───────────── Integração e desvios ─────────────

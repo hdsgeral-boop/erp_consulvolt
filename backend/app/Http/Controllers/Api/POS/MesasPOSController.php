@@ -7,6 +7,7 @@ use App\Http\Requests\POS\Mesas\CobrarRequest;
 use App\Http\Requests\POS\Mesas\GravarContaRequest;
 use App\Http\Requests\POS\Mesas\GuardarMesaRequest;
 use App\Http\Requests\POS\Mesas\IndexRequest;
+use App\Http\Resources\POS\VendaPOSResource;
 use App\Models\Produto;
 use App\Services\POS\ServicoMesasPOS;
 use App\Support\Api\RespostaApi;
@@ -70,7 +71,7 @@ final class MesasPOSController extends Controller
         $this->exigirDesconto($d);
         $v = $this->mesas->cobrar($sessao, $mesa, $d);
 
-        return RespostaApi::criado($v->load('itensVenda'), "Venda {$v->numero_documento} registada. Troco: ".number_format((float) $v->pos_troco, 2, ',', ' ').' Kz.');
+        return RespostaApi::criado(new VendaPOSResource($v), "Venda {$v->numero_documento} registada. Troco: ".number_format((float) $v->pos_troco, 2, ',', ' ').' Kz.');
     }
 
     /** Desconto global ou preço diferente do catálogo exigem pos_desconto (como na venda POS). */
