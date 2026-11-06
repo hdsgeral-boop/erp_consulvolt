@@ -2433,6 +2433,216 @@
       ]
     },
     {
+      "id": "estrategia",
+      "nome": "Planeamento Estratégico",
+      "ecras": [
+        {
+          "id": "est_painel",
+          "nome": "Painel estratégico",
+          "vistas": [
+            "est_painel"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_medir",
+              "rotulo": "Medir os indicadores automáticos de um período",
+              "sensivel": false
+            },
+            {
+              "chave": "est_entregar",
+              "rotulo": "Entregar o valor de indicadores de recolha manual",
+              "sensivel": false
+            },
+            {
+              "chave": "est_ver_financeiros",
+              "rotulo": "Ver valores de indicadores de origem financeira (contas, orçamento, indicadores de finanças e tesouraria)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "est_diagnostico",
+          "nome": "Diagnóstico (SWOT, PESTEL, partes interessadas, TOWS)",
+          "vistas": [
+            "est_diagnostico"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_diag_editar",
+              "rotulo": "Criar e editar factores de diagnóstico",
+              "sensivel": false
+            },
+            {
+              "chave": "est_diag_objectivo",
+              "rotulo": "Transformar factores em objectivos e ligá-los a objectivos",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "est_mapa_estrategico",
+          "nome": "Mapa estratégico",
+          "vistas": [
+            "est_mapa_estrategico"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_mapa_editar",
+              "rotulo": "Mover objectivos no mapa e criar relações de causa-efeito",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "est_documento",
+          "nome": "Documento do plano estratégico",
+          "vistas": [
+            "est_documento"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_doc_editar",
+              "rotulo": "Editar o modelo do documento do plano",
+              "sensivel": false
+            },
+            {
+              "chave": "est_doc_emitir",
+              "rotulo": "Emitir e anular versões do documento do plano",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "est_plano",
+          "nome": "Plano e objectivos",
+          "vistas": [
+            "est_plano"
+          ],
+          "pai": null,
+          "nota": "Quem vê o plano vê o semáforo de todos os indicadores; os valores financeiros só com est_ver_financeiros ou com acesso ao módulo de origem.",
+          "tarefas": [
+            {
+              "chave": "est_plano_editar",
+              "rotulo": "Criar e editar planos, perspectivas e objectivos",
+              "sensivel": false
+            },
+            {
+              "chave": "est_plano_aprovar",
+              "rotulo": "Aprovar, reabrir e encerrar o plano; alterar a estrutura de um plano aprovado",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "est_indicadores",
+          "nome": "Indicadores e metas",
+          "vistas": [
+            "est_indicadores"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_ind_editar",
+              "rotulo": "Criar e editar indicadores",
+              "sensivel": false
+            },
+            {
+              "chave": "est_metas_editar",
+              "rotulo": "Definir as metas dos indicadores por período",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "est_iniciativas",
+          "nome": "Iniciativas",
+          "vistas": [
+            "est_iniciativas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_inic_editar",
+              "rotulo": "Criar e editar iniciativas",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "est_cascata",
+          "nome": "Desdobramento por unidade",
+          "vistas": [
+            "est_cascata"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_casc_pedir",
+              "rotulo": "Pedir contributos às unidades",
+              "sensivel": false
+            },
+            {
+              "chave": "est_casc_propor",
+              "rotulo": "Propor o contributo de uma unidade",
+              "sensivel": false
+            },
+            {
+              "chave": "est_casc_decidir",
+              "rotulo": "Aceitar ou devolver contributos das unidades",
+              "sensivel": true
+            },
+            {
+              "chave": "est_casc_medir",
+              "rotulo": "Lançar o realizado de uma unidade",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "est_revisoes",
+          "nome": "Revisões estratégicas",
+          "vistas": [
+            "est_revisoes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_rev_abrir",
+              "rotulo": "Abrir revisões estratégicas",
+              "sensivel": false
+            },
+            {
+              "chave": "est_rev_escrever",
+              "rotulo": "Escrever causas e acções nas revisões",
+              "sensivel": false
+            },
+            {
+              "chave": "est_rev_fechar",
+              "rotulo": "Fechar e reabrir revisões",
+              "sensivel": true
+            },
+            {
+              "chave": "est_rev_accoes",
+              "rotulo": "Concluir e cancelar acções correctivas",
+              "sensivel": false
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "config",
       "nome": "Configurações",
       "ecras": [
@@ -3046,6 +3256,16 @@
       "a": "rh_prod_registar",
       "b": "rh_prod_periodo",
       "motivo": "Regista a produtividade e fecha o período que vai a pagamento."
+    },
+    {
+      "a": "est_plano_editar",
+      "b": "est_plano_aprovar",
+      "motivo": "Edita e aprova o mesmo plano estratégico."
+    },
+    {
+      "a": "est_casc_propor",
+      "b": "est_casc_decidir",
+      "motivo": "Propõe e aceita o mesmo contributo de uma unidade."
     }
   ],
   "modelos": [
@@ -3521,7 +3741,16 @@
         "config_plano_view": true,
         "config_moedas_view": true,
         "config_logs_view": true,
-        "ia_chat_view": true
+        "ia_chat_view": true,
+        "est_painel_view": true,
+        "est_diagnostico_view": true,
+        "est_mapa_estrategico_view": true,
+        "est_documento_view": true,
+        "est_plano_view": true,
+        "est_indicadores_view": true,
+        "est_iniciativas_view": true,
+        "est_cascata_view": true,
+        "est_revisoes_view": true
       }
     },
     {
@@ -3668,7 +3897,37 @@
         "rh_aval_bonus_aprovar": true,
         "mt_aprovar": true,
         "ia_chat_view": true,
-        "ia_chat_regras": true
+        "ia_chat_regras": true,
+        "est_painel_view": true,
+        "est_diagnostico_view": true,
+        "est_mapa_estrategico_view": true,
+        "est_documento_view": true,
+        "est_plano_view": true,
+        "est_indicadores_view": true,
+        "est_iniciativas_view": true,
+        "est_cascata_view": true,
+        "est_revisoes_view": true,
+        "est_medir": true,
+        "est_entregar": true,
+        "est_ver_financeiros": true,
+        "est_diag_editar": true,
+        "est_diag_objectivo": true,
+        "est_mapa_editar": true,
+        "est_doc_editar": true,
+        "est_doc_emitir": true,
+        "est_plano_editar": true,
+        "est_plano_aprovar": true,
+        "est_ind_editar": true,
+        "est_metas_editar": true,
+        "est_inic_editar": true,
+        "est_casc_pedir": true,
+        "est_casc_propor": true,
+        "est_casc_decidir": true,
+        "est_casc_medir": true,
+        "est_rev_abrir": true,
+        "est_rev_escrever": true,
+        "est_rev_fechar": true,
+        "est_rev_accoes": true
       }
     },
     {
@@ -3698,7 +3957,21 @@
         "orc_contributo": true,
         "orc_previsoes_edit": true,
         "orc_cenarios_edit": true,
-        "ia_chat_view": true
+        "ia_chat_view": true,
+        "est_painel_view": true,
+        "est_diagnostico_view": true,
+        "est_mapa_estrategico_view": true,
+        "est_documento_view": true,
+        "est_plano_view": true,
+        "est_indicadores_view": true,
+        "est_iniciativas_view": true,
+        "est_cascata_view": true,
+        "est_revisoes_view": true,
+        "est_ind_editar": true,
+        "est_metas_editar": true,
+        "est_medir": true,
+        "est_entregar": true,
+        "est_ver_financeiros": true
       }
     },
     {
@@ -3718,7 +3991,11 @@
         "orc_contributo": true,
         "mt_assuntos_view": true,
         "mt_criar": true,
-        "mt_aprovar": true
+        "mt_aprovar": true,
+        "est_painel_view": true,
+        "est_cascata_view": true,
+        "est_casc_propor": true,
+        "est_rev_accoes": true
       }
     },
     {
@@ -3911,6 +4188,41 @@
         "_v2": true,
         "suporte_tickets_tecnico_view": true,
         "suporte_tickets_tecnico_gerir": true
+      }
+    },
+    {
+      "nome": "Gestor de Estratégia",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "est_painel_view": true,
+        "est_diagnostico_view": true,
+        "est_mapa_estrategico_view": true,
+        "est_documento_view": true,
+        "est_plano_view": true,
+        "est_indicadores_view": true,
+        "est_iniciativas_view": true,
+        "est_cascata_view": true,
+        "est_revisoes_view": true,
+        "est_medir": true,
+        "est_entregar": true,
+        "est_diag_editar": true,
+        "est_diag_objectivo": true,
+        "est_mapa_editar": true,
+        "est_doc_editar": true,
+        "est_plano_editar": true,
+        "est_ind_editar": true,
+        "est_metas_editar": true,
+        "est_inic_editar": true,
+        "est_casc_pedir": true,
+        "est_casc_propor": true,
+        "est_casc_medir": true,
+        "est_rev_abrir": true,
+        "est_rev_escrever": true,
+        "est_rev_accoes": true
       }
     }
   ]

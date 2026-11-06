@@ -1,5 +1,6 @@
 import {
   AccountBookOutlined,
+  AimOutlined,
   ApartmentOutlined,
   AppstoreOutlined,
   AuditOutlined,
@@ -57,6 +58,7 @@ export const ICONES_MODULOS: Readonly<Record<string, ComponenteIcone>> = {
   acrescimos: SwapOutlined, // Acréscimos e Diferimentos (legado: fa-exchange-alt)
   orcamento: AccountBookOutlined, // Gestão Orçamental (legado: fa-file-invoice-dollar)
   estrutura: ApartmentOutlined, // Estrutura Orgânica (legado: fa-sitemap)
+  estrategia: AimOutlined, // Planeamento Estratégico (legado: fa-bullseye)
   config: SettingOutlined, // Configurações (legado: fa-cog)
   suporte: CustomerServiceOutlined, // Backoffice de Suporte (ADR-077): tickets dos clientes da plataforma
 };
