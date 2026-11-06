@@ -274,6 +274,26 @@ function descreverFiltros<T>(estado: EstadoFiltros, fs: FolhaLegado<T>[]): strin
   return linhas;
 }
 
+/** «Exportar Excel» da barra de colunas seleccionadas (só existe com colunas seleccionadas: o hook da sessão só corre então). */
+function BotaoExportarColunas({ obterPedidoColunas }: { obterPedidoColunas: () => Promise<PedidoImpressao | null> }) {
+  const { exportarExcel } = useImpressao();
+  const [aExportar, setAExportar] = useState(false);
+  const exportar = async () => {
+    setAExportar(true);
+    try {
+      const pedido = await obterPedidoColunas();
+      if (pedido) await exportarExcel(pedido);
+    } finally {
+      setAExportar(false);
+    }
+  };
+  return (
+    <Button size="small" icon={<FileExcelOutlined />} loading={aExportar} onClick={() => void exportar()}>
+      Exportar Excel
+    </Button>
+  );
+}
+
 export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
   const {
     columns = [],
@@ -650,23 +670,16 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
     mensagemColunas[ok ? 'success' : 'error'](ok ? `${indices.length} coluna(s) copiada(s). Já pode colar no Excel.` : 'Não foi possível copiar: o navegador bloqueou o acesso à área de transferência.');
   };
   // «Exportar Excel» só das colunas seleccionadas: o mesmo conteúdo e cabeçalho da exportação normal, restrito a essas colunas.
-  const { exportarExcel } = useImpressao();
-  const [aExportarColunas, setAExportarColunas] = useState(false);
-  const exportarColunasSeleccionadas = async () => {
-    setAExportarColunas(true);
-    try {
-      const pedido = await obterPedido();
-      if (!pedido) return;
-      const indices = indicesSeleccionados(pedido.conteudo);
-      const conteudo = indices.length ? conteudoSoComColunas(pedido.conteudo, indices) : '';
-      if (!conteudo) {
-        mensagemColunas.warning('Não foi encontrada nenhuma tabela para exportar.');
-        return;
-      }
-      await exportarExcel({ ...pedido, conteudo });
-    } finally {
-      setAExportarColunas(false);
+  const obterPedidoColunas = async (): Promise<PedidoImpressao | null> => {
+    const pedido = await obterPedido();
+    if (!pedido) return null;
+    const indices = indicesSeleccionados(pedido.conteudo);
+    const conteudo = indices.length ? conteudoSoComColunas(pedido.conteudo, indices) : '';
+    if (!conteudo) {
+      mensagemColunas.warning('Não foi encontrada nenhuma tabela para exportar.');
+      return null;
     }
+    return { ...pedido, conteudo };
   };
   useEffect(() => {
     if (!colunasSeleccionadas.size) return;
@@ -759,11 +772,7 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
         <Button size="small" type="primary" icon={<CopyOutlined />} onClick={() => void copiarColunasSeleccionadas()}>
           Copiar (Ctrl+C)
         </Button>
-        {excel && (
-          <Button size="small" icon={<FileExcelOutlined />} loading={aExportarColunas} onClick={() => void exportarColunasSeleccionadas()}>
-            Exportar Excel
-          </Button>
-        )}
+        {excel && <BotaoExportarColunas obterPedidoColunas={obterPedidoColunas} />}
         <Button size="small" type="text" onClick={limparColunasSeleccionadas}>
           Limpar
         </Button>
