@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Col, Input, InputNumber, Modal, Row, Skeleton, Space, Statistic, Table, Typography, Upload } from 'antd';
 import { DownloadOutlined, FileExcelOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -199,7 +200,7 @@ export function ModalSaldosHistoricos({ aberto, aoFechar }: { aberto: boolean; a
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.isError ? (
-        <Alert type="error" showIcon title="Não foi possível obter o histórico." description={consulta.error instanceof Error ? consulta.error.message : undefined} />
+        <Alert type="error" showIcon title="Não foi possível obter o histórico." description={mensagemParaUtilizador(consulta.error)} />
       ) : (
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={12}>

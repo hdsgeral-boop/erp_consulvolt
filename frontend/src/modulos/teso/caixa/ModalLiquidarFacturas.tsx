@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Space, Table, Tooltip, Typography } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -63,7 +64,7 @@ export function ModalLiquidarFacturas({ sessao, modo, aoFechar }: Props) {
         await enviar('post', `/tesouraria/caixa/sessoes/${sessao.id}/movimentos`, movimentoDeLiquidacao(p, valorDe(p) as number, modo, { data: dataApi(data) ?? '', ...notas }));
         feitos++;
       } catch (e) {
-        falhas.push(`${p.numero_documento}: ${e instanceof Error ? e.message : String(e)}`);
+        falhas.push(`${p.numero_documento}: ${mensagemParaUtilizador(e)}`);
         chavesFalhadas.push(chavePendente(p));
       }
     }

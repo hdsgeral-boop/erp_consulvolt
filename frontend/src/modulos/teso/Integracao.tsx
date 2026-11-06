@@ -1,10 +1,10 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Card, DatePicker, Form, Modal, Progress, Select, Tabs, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes } from 'react-router';
 import { enviar, obter } from '@/api/cliente';
-import { ErroApi } from '@/api/tipos';
 import { BarraFiltros } from '@/componentes/responsivo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -61,7 +61,7 @@ function PorIntegrar() {
         const { dados } = await enviar<ResultadoIntegracaoLote>('post', '/tesouraria/documentos/integrar', { ids: bloco.map((d) => d.id) });
         erros.push(...errosDoLote(dados));
       } catch (e) {
-        erros.push(...bloco.map((d) => `${d.numero_documento ?? `#${d.id}`}: ${e instanceof ErroApi ? e.message : String(e)}`));
+        erros.push(...bloco.map((d) => `${d.numero_documento ?? `#${d.id}`}: ${mensagemParaUtilizador(e)}`));
       }
       setProgresso({ feitos: Math.min(lista.length, i + bloco.length), total: lista.length, erros: [...erros] });
     }

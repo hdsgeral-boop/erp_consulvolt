@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Typography, message } from 'antd';
 import { AppstoreAddOutlined, CalculatorOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -218,7 +219,7 @@ export default function Contratos() {
         ok += 1;
       } catch (e) {
         const c = (contratos.data ?? []).find((x) => x.id === k);
-        falhas.push(`${c ? colaboradores.nome(c.colaborador_id) : `#${k}`}: ${e instanceof Error ? e.message : 'erro'}`);
+        falhas.push(`${c ? colaboradores.nome(c.colaborador_id) : `#${k}`}: ${mensagemParaUtilizador(e)}`);
       }
     }
     setAEliminar(false);

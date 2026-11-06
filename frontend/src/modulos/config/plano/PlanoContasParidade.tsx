@@ -4,6 +4,7 @@
  * Endpoints: GET /config/plano-contas/uso · POST /config/plano-contas/copiar[/simular] · POST /config/plano-contas/importar
  * · GET /sistema/migracao/modelos/plano_contas (modelo).
  */
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Modal, Select, Space, Table, Tag, Typography, Upload, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -203,7 +204,7 @@ export function ImportarPlano({ aberto, aoFechar }: { aberto: boolean; aoFechar:
     onError: (e) => {
       if (e instanceof ErroApi && e.codigo === 'IMPORTACAO_COM_ERROS' && e.erros) {
         setErros(((e.erros as { linhas?: LinhaRelatorio[] }).linhas ?? []) as LinhaRelatorio[]);
-        message.error(e.message);
+        message.error(mensagemParaUtilizador(e));
       } else notificarErro(e, 'Não foi possível importar');
     },
   });

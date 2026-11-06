@@ -420,7 +420,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
   /** Checkout no quarto (showPOSCheckout, hotelaria.js:194-204): abre o check-out da hotelaria. */
   const checkoutQuarto = async () => {
     if (!estadiaId || !quarto) return void message.warning('O quarto não tem check-in. Faça o check-in ou seleccione o Balcão para uma venda directa.');
-    if (!pode('hotel_checkout')) return void message.warning('Não tem permissão para fazer o check-out (hotel_checkout).');
+    if (!pode('hotel_checkout')) return void message.warning('Não tem permissão para fazer o check-out.');
     if (!(await gravarConsumos())) return;
     setCheckoutHotel([{ id: estadiaId, nome_quarto: quarto.nome }]);
   };

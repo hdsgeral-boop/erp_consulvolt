@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Row, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -179,7 +180,7 @@ export function NovaProposta() {
           });
           criadas.push(dados);
         } catch (e) {
-          falhas.push(`${rotuloPedido(pedido_compra_id)}: ${e instanceof Error ? e.message : 'erro desconhecido'}`);
+          falhas.push(`${rotuloPedido(pedido_compra_id)}: ${mensagemParaUtilizador(e)}`);
         }
       }
     } finally {

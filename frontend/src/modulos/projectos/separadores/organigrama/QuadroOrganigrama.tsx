@@ -236,7 +236,7 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao, 
             titulo, orientacao: disp.largura >= disp.altura ? 'paisagem' : 'retrato',
             conteudo: `<div style="text-align:center">${svg().replace('<svg ', '<svg style="max-width:100%;height:auto" ')}</div>`,
           })} />
-          <Button size="small" icon={<FileImageOutlined />} onClick={() => void descarregarPng(svg(), nomeFicheiro).catch((e: Error) => message.error(e.message))}>PNG</Button>
+          <Button size="small" icon={<FileImageOutlined />} onClick={() => void descarregarPng(svg(), nomeFicheiro).catch(() => message.error('Não foi possível gerar a imagem do organigrama.'))}>PNG</Button>
         </Space>
       </Flex>
       <div ref={area} role="tree" aria-label={`${titulo}. Arraste o fundo para mover; Ctrl + roda ou + e − para o zoom; 0 ajusta ao ecrã.`} tabIndex={0}

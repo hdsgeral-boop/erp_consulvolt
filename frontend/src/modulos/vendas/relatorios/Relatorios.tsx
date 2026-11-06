@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Card, Col, DatePicker, Empty, Row, Skeleton, Table, Tag, Typography, message, theme } from 'antd';
 import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -157,7 +158,7 @@ function DashboardVendas() {
       ) : consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.error || !resumo ? (
-        <Alert type="error" showIcon title="Não foi possível calcular os indicadores." description={consulta.error?.message} />
+        <Alert type="error" showIcon title="Não foi possível calcular os indicadores." description={mensagemParaUtilizador(consulta.error)} />
       ) : (
         <>
           {/* 4.3.2/4.3.5: cartões do legado (barra de cor por baixo, valor grande a negrito), rótulos explícitos com/sem IVA */}

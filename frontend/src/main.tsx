@@ -10,6 +10,7 @@ import { PedidoReautenticacao } from '@/sessao/PedidoReautenticacao';
 import { limparChavesAntigas } from '@/sessao/armazenamento';
 import { idOpaco } from '@/sessao/chaveOpaca';
 import { App } from '@/App';
+import { FronteiraDeErros } from '@/componentes/FronteiraDeErros';
 import { TEMA } from '@/estilos/tema';
 // Fonte Inter alojada no próprio servidor (o legado carregava-a do Google Fonts; a CSP só permite font-src 'self').
 import '@fontsource/inter/latin-300.css';
@@ -72,7 +73,9 @@ createRoot(document.getElementById('raiz')!).render(
           <SessaoProvider>
             <SaltarParaConteudo />
             <AjudasAcessibilidade />
-            <App />
+            <FronteiraDeErros>
+              <App />
+            </FronteiraDeErros>
             <PedidoReautenticacao />
           </SessaoProvider>
         </QueryClientProvider>

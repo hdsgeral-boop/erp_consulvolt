@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Checkbox, Descriptions, Drawer, Empty, Input, Select, Skeleton, Table, Tag, Typography } from 'antd';
 import { ExportOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -55,7 +56,7 @@ export default function Validacoes() {
 
   if (consulta.isLoading) return <Skeleton active />;
   if (consulta.isError) {
-    return <Alert type="error" showIcon title="Não foi possível executar as validações." description={consulta.error instanceof Error ? consulta.error.message : undefined} action={<Button onClick={() => void consulta.refetch()}>Tentar de novo</Button>} />;
+    return <Alert type="error" showIcon title="Não foi possível executar as validações." description={mensagemParaUtilizador(consulta.error)} action={<Button onClick={() => void consulta.refetch()}>Tentar de novo</Button>} />;
   }
 
   return (
@@ -187,7 +188,7 @@ function DetalheValidacaoGaveta({ validacao, aoFechar }: { validacao: ResumoVali
       {consulta.isLoading ? (
         <Skeleton active />
       ) : consulta.isError ? (
-        <Alert type="error" showIcon title="Não foi possível obter o detalhe." description={consulta.error instanceof Error ? consulta.error.message : undefined} />
+        <Alert type="error" showIcon title="Não foi possível obter o detalhe." description={mensagemParaUtilizador(consulta.error)} />
       ) : (
         <Table<Record<string, unknown>>
           rowKey="__chave"

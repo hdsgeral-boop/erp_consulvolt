@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Descriptions, Modal, Radio, Space, Table, Typography, Upload, message } from 'antd';
 import { DownloadOutlined, ExperimentOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
@@ -79,7 +80,7 @@ export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, paramsMo
       if (e instanceof ErroApi && e.codigo === 'IMPORTACAO_COM_ERROS' && e.erros) {
         const x = e.erros as { linhas?: { linha: number; motivo: string }[]; rejeitadas?: { linha: number; motivo: string }[] };
         setErros(linhasComErro({ rejeitadas: x.rejeitadas ?? [], erros: x.linhas ?? [] }));
-        message.error(e.message);
+        message.error(mensagemParaUtilizador(e));
       } else notificarErro(e);
     } finally {
       setAEnviar(false);

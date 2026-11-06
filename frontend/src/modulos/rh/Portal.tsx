@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Result, Row, Select, Space, Table, Tabs, Typography } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -5,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
-import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -39,7 +39,7 @@ export default function Portal() {
   const [pedirFerias, setPedirFerias] = useState(false);
   if (resumo.isLoading) return <Card loading />;
   if (resumo.error || !resumo.data) {
-    const msg = resumo.error instanceof ErroApi ? resumo.error.message : 'Não foi possível abrir o portal.';
+    const msg = mensagemParaUtilizador(resumo.error, 'abrir o portal');
     return <Result status="info" title="Portal do Colaborador" subTitle={msg} />;
   }
   const r = resumo.data;

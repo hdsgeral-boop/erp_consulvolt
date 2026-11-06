@@ -1,3 +1,4 @@
+import { detalhesDoErro, mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import dayjs from 'dayjs';
 import type { CampoFormulario, OpcaoCampo } from './tipos';
 
@@ -189,10 +190,10 @@ export function mapearColagem(celulas: string[][], campos: CampoFormulario[]): {
 /** Mensagem de um erro de gravação (ErroApi com detalhes por campo, Error, texto). */
 export function mensagemErro(e: unknown): string {
   if (!e) return 'Não foi gravada.';
-  const base = e instanceof Error ? e.message : typeof e === 'string' ? e : 'Erro ao gravar.';
+  const base = typeof e === 'string' ? e : mensagemParaUtilizador(e);
   const erros = (e as { erros?: Record<string, unknown> }).erros;
   if (!erros || typeof erros !== 'object') return base || 'Erro ao gravar.';
-  const det = Object.values(erros).flatMap((v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : typeof v === 'string' ? [v] : [])) as string[];
+  const det = detalhesDoErro(e);
   const extra = det.filter((d) => d !== base).slice(0, 4);
   return [base, ...extra].filter(Boolean).join(' ');
 }

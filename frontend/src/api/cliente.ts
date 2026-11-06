@@ -3,11 +3,12 @@ import { Modal } from 'antd';
 import { ErroApi, type Envelope, type Pagina } from './tipos';
 import { armazenamento } from '@/sessao/armazenamento';
 import { metodoDoErro, pedirReautenticacao } from '@/sessao/reautenticacao';
+import { normalizarFalhaSemResposta, normalizarRespostaDeErro } from '@/utilitarios/mensagensErro';
 
 /**
  * Cliente HTTP da API (/api). O token viaja num cookie HttpOnly (withCredentials; nunca acessível a JavaScript —
  * Fase D), acrescenta o X-Empresa-Id da sessão e o cabeçalho CSRF nos pedidos que alteram estado, desembrulha o
- * envelope e converte qualquer erro em ErroApi (mensagem em português vinda do servidor, código e detalhes).
+ * envelope e converte qualquer erro em ErroApi (mensagem segura em português por categoria, código, detalhes e referência nos 5xx).
  */
 export const http = axios.create({ baseURL: '/api', headers: { Accept: 'application/json' }, timeout: 120_000, withCredentials: true });
 
@@ -86,21 +87,20 @@ http.interceptors.response.use(
     const estado = e.response?.status ?? 0;
     const corpo = e.response?.data;
     if (estado === 401 && aoExpirar && !e.config?.url?.includes('autenticacao/entrar')) aoExpirar();
-    const mensagem =
-      corpo?.mensagem ??
-      (estado === 0 ? 'Sem ligação ao servidor. Verifique a rede e tente novamente.' : `Erro inesperado (${estado}).`);
-    if (corpo?.codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
-    const erros = corpo?.erros as Record<string, unknown> | undefined;
+    // Sem resposta (rede/timeout/cancelado) ≠ erro do servidor; com resposta, só o texto seguro chega ao utilizador.
+    const norm = e.response ? normalizarRespostaDeErro(estado, corpo) : normalizarFalhaSemResposta(e.code);
+    const { mensagem, codigo, erros, referencia } = norm;
+    if (codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
     // Step-up (ADR-085): operação crítica sem autenticação recente — pede o código/palavra-passe e repete o pedido UMA vez
     const original = e.config as (AxiosRequestConfig & { _reautenticado?: boolean }) | undefined;
-    if (estado === 403 && corpo?.codigo === 'MFA_REQUERIDO' && original && !original._reautenticado && !original.url?.includes('autenticacao/reautenticar')) {
+    if (estado === 403 && codigo === 'MFA_REQUERIDO' && original && !original._reautenticado && !original.url?.includes('autenticacao/reautenticar')) {
       return pedirReautenticacao(metodoDoErro(erros)).then((confirmado) => {
-        if (!confirmado) return Promise.reject(new ErroApi(mensagem, estado, corpo?.codigo, erros));
+        if (!confirmado) return Promise.reject(new ErroApi(mensagem, estado, codigo, erros, referencia));
         original._reautenticado = true;
         return http.request(original);
       });
     }
-    return Promise.reject(new ErroApi(mensagem, estado, corpo?.codigo, erros));
+    return Promise.reject(new ErroApi(mensagem, estado, codigo, erros, referencia));
   },
 );
 
@@ -160,22 +160,18 @@ async function descarregarPedido(executar: () => Promise<AxiosResponse<Blob>>, n
   const r = await executar();
   if (r.status >= 400) {
     if (r.status === 401 && aoExpirar) aoExpirar();
-    let mensagem = `Não foi possível obter o ficheiro (${r.status}).`;
-    let codigo: string | undefined;
-    let erros: Record<string, unknown> | undefined;
+    let corpoErro: unknown = null;
     try {
-      const corpo = JSON.parse(await lerTexto(r.data)) as Partial<Envelope<unknown>>;
-      mensagem = corpo.mensagem ?? mensagem;
-      codigo = corpo.codigo;
-      erros = corpo.erros as Record<string, unknown> | undefined;
+      corpoErro = JSON.parse(await lerTexto(r.data));
     } catch {
-      /* corpo não é JSON */
+      /* corpo não é JSON (p.ex. página de erro do proxy): vale a mensagem da categoria */
     }
+    const { mensagem, codigo, erros, referencia } = normalizarRespostaDeErro(r.status, corpoErro);
     if (codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
     if (r.status === 403 && codigo === 'MFA_REQUERIDO' && !jaReautenticado && (await pedirReautenticacao(metodoDoErro(erros)))) {
       return descarregarPedido(executar, nomeFicheiro, true);
     }
-    throw new ErroApi(mensagem, r.status, codigo, erros);
+    throw new ErroApi(mensagem, r.status, codigo, erros, referencia);
   }
   const cabecalhos: Record<string, string> = {};
   for (const [k, v] of Object.entries((r.headers ?? {}) as Record<string, unknown>)) {

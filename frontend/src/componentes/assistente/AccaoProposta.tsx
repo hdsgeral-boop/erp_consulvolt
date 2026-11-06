@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { useState } from 'react';
 import { Button, Popconfirm, Space, Tag, Typography, message } from 'antd';
 import { useNavigate } from 'react-router';
@@ -67,7 +68,7 @@ export function AccaoProposta({ accao, aoDecidir, aoNavegar }: Props) {
         mensagemOk = r.mensagem || mensagemOk;
       } catch (e) {
         notificarErro(e);
-        await registar('FALHOU', { mensagem: e instanceof Error ? e.message : 'Falhou.' });
+        await registar('FALHOU', { mensagem: mensagemParaUtilizador(e) });
         return;
       }
       message.success(mensagemOk);

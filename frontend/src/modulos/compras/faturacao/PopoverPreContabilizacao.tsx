@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Popover, Spin, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -62,7 +63,7 @@ export function ConteudoPreContabilizacao({ fatura, dados: p, carregando, erro }
         <Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>NIF: {fatura.fornecedor?.nif || '---'}</Typography.Text>
       </div>
       {carregando && <Spin size="small" description="A calcular no servidor…"><div style={{ height: 32 }} /></Spin>}
-      {erro && <Typography.Text type="warning">{erro.message}</Typography.Text>}
+      {erro && <Typography.Text type="warning">{mensagemParaUtilizador(erro)}</Typography.Text>}
       {p && (
         <>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

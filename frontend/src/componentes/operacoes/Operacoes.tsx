@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { CheckCircleFilled, CloseCircleFilled, CloseOutlined, DownOutlined, LoadingOutlined, StopOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Progress, Tooltip, Typography } from 'antd';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -67,7 +68,7 @@ export function OperacoesProvider({ children }: { children: ReactNode }) {
         window.setTimeout(() => remover(id), 4000);
         return r;
       } catch (e) {
-        actualizar(id, { estado: 'FALHOU', detalhe: e instanceof Error ? e.message : 'Falhou.' });
+        actualizar(id, { estado: 'FALHOU', detalhe: mensagemParaUtilizador(e) });
         throw e;
       }
     },
@@ -84,7 +85,7 @@ export function OperacoesProvider({ children }: { children: ReactNode }) {
           if (r.estado === 'EM_CURSO') temporizadores.current.set(id, window.setTimeout(ciclo, INTERVALO_MS));
           else aoConcluir?.();
         } catch (e) {
-          actualizar(id, { estado: 'FALHOU', detalhe: e instanceof Error ? e.message : 'Não foi possível obter o estado.' });
+          actualizar(id, { estado: 'FALHOU', detalhe: mensagemParaUtilizador(e, 'obter o estado') });
         }
       };
       void ciclo();

@@ -3,6 +3,8 @@ export interface Envelope<T> {
   sucesso: boolean;
   mensagem: string;
   codigo?: string;
+  /** Só nos 5xx: referência curta que liga a resposta ao log do servidor. */
+  referencia?: string;
   dados: T;
   erros?: Record<string, unknown>;
   metadados: { empresa_id: number | null; executado_em: string; paginacao?: Paginacao } & Record<string, unknown>;
@@ -57,13 +59,18 @@ export interface ModuloMenu {
   ecras: EcraMenu[];
 }
 
-/** Erro normalizado da API: mensagem para o utilizador, código estável e detalhes (chave `erros`). */
+/**
+ * Erro normalizado da API: `message` é SEMPRE segura para mostrar (já passou por utilitarios/mensagensErro), código estável,
+ * detalhes por campo (`erros`) e, nos 5xx, a `referencia` que o suporte cruza com o log do servidor. `estado` 0 = sem resposta
+ * do servidor (rede, timeout ou pedido cancelado).
+ */
 export class ErroApi extends Error {
   constructor(
     mensagem: string,
     public readonly estado: number,
     public readonly codigo?: string,
     public readonly erros?: Record<string, unknown>,
+    public readonly referencia?: string,
   ) {
     super(mensagem);
     this.name = 'ErroApi';

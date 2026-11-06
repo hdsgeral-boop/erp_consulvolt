@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Avatar, Button, Card, Col, Divider, Empty, List, Row, Space, Spin, Statistic, Tag, Typography } from 'antd';
 import {
   ArrowRightOutlined,
@@ -18,7 +19,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { descarregar, obter } from '@/api/cliente';
-import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { GraficosPainel, type SeriesPainel } from './GraficosPainel';
 import { notificarErro } from '@/utilitarios/erros';
@@ -108,7 +108,7 @@ export function PlataformaDashboardExecutivo() {
   if (painel.isError || !painel.data) {
     // O motivo que o servidor deu (ex.: 403 «área reservada à administração da plataforma» quando a conta é de um cliente)
     // diz ao utilizador o que fazer; sem ele só se vê «erro» e parece que a plataforma está avariada.
-    const motivo = painel.error instanceof ErroApi ? painel.error.message : null;
+    const motivo = mensagemParaUtilizador(painel.error);
     return <Alert type="error" showIcon title="Não foi possível carregar o painel da plataforma." description={motivo ?? undefined} />;
   }
 

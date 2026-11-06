@@ -1,3 +1,4 @@
+import { mensagemParaUtilizador } from '@/utilitarios/mensagensErro';
 import { Alert, Button, Card, Col, DatePicker, Flex, Row, Typography, message, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -134,7 +135,7 @@ export function EcraSaft() {
       </Card>
 
       {analise.error ? (
-        <Alert type="error" showIcon title="Não foi possível analisar os registos." description={analise.error.message} />
+        <Alert type="error" showIcon title="Não foi possível analisar os registos." description={mensagemParaUtilizador(analise.error)} />
       ) : s && analise.data ? (
         <Card>
           <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${token.colorSplit}`, paddingBottom: 12 }}>
