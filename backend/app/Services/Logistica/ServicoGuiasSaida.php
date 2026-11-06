@@ -77,7 +77,7 @@ final class ServicoGuiasSaida
             $g = GuiaSaida::create(['numero_documento' => $this->numero('GE POS', $data), 'data' => $data, 'tipo' => GuiaSaida::VENDA_BALCAO,
                 'terceiro_id' => $cliente?->id, 'armazem_id' => $d['armazem_id'], 'area_rececao' => $cliente?->nome ?? 'Cliente de balcão', 'estado' => 'CONCLUIDO',
                 'contabilizado' => false, 'observacoes' => $d['observacoes'] ?? null, 'criado_por' => Auth::user()?->nome_utilizador]);
-            $this->darSaida($g, $d['linhas'], "Saída POS {$g->numero_documento} (".($cliente?->nome ?? 'Cliente de balcão').')', $cliente?->id);
+            $this->darSaida($g, $d['linhas'], "Saída POS {$g->numero_documento} (".($cliente?->nome ?? 'Cliente de balcão').')', $cliente?->id, true);
             // o CMV lança-se já; sem contas da logística ou com o exercício fechado a guia fica emitida e por contabilizar (aviso),
             // para não parar o balcão — contabiliza-se depois em Logística › Guias de saída. Produtos sem custo: nada a lançar.
             $aviso = null;
@@ -157,13 +157,16 @@ final class ServicoGuiasSaida
     }
 
     /** Saída de stock ao custo médio (sem negativos) e linhas da guia com o custo do movimento. */
-    private function darSaida(GuiaSaida $g, array $linhas, string $referencia, ?int $terceiro = null): void
+    private function darSaida(GuiaSaida $g, array $linhas, string $referencia, ?int $terceiro = null, bool $guardarPreco = false): void
     {
+        // venda ao balcão: o preço de venda do produto na altura da saída fica na linha (impresso do cliente, sem custo)
+        $precos = $guardarPreco ? Produto::query()->whereIn('id', array_column($linhas, 'produto_id'))->pluck('preco_unitario', 'id') : collect();
         foreach ($linhas as $l) {
             $r = $this->stock->saida((int) $l['produto_id'], (int) $g->armazem_id, (string) $l['quantidade'], null, $g->data->toDateString(), $referencia,
                 $terceiro, null, false, ['documento_tipo' => 'GUIA_SAIDA', 'documento_id' => $g->id]);
             ItemGuiaSaida::create(['guia_saida_id' => $g->id, 'produto_id' => (int) $l['produto_id'], 'quantidade' => $l['quantidade'],
-                'custo_unitario_kz' => $r['custo_unitario'], 'valor_kz' => $r['movimento']->valor]);
+                'custo_unitario_kz' => $r['custo_unitario'], 'valor_kz' => $r['movimento']->valor,
+                'preco_unitario_kz' => $guardarPreco ? number_format((float) ($precos[(int) $l['produto_id']] ?? 0), 2, '.', '') : null]);
         }
     }
 

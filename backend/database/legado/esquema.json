@@ -8959,6 +8959,15 @@
           "dominio": null
         },
         {
+          "coluna": "preco_unitario_kz",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "item_compra_id",
           "legado": null,
           "tipo": "bigint",

@@ -1160,6 +1160,7 @@ Linhas reais: **55** · fictícias descartadas: 0
 | `fx_v2` | `cambial_v2` | numeric(15,2) | sim | 16% |  |  |
 | `value_kz` | `valor_kz` | numeric(15,2) | sim | 16% |  | tipos mistos: decimal=1, inteiro=8 |
 | `unit_cost_kz` | `custo_unitario_kz` | numeric(15,2) | sim | 16% |  | tipos mistos: decimal=1, inteiro=8 |
+| — | `preco_unitario_kz` | numeric(15,2) | sim | novo |  | POS F3: preço de venda unitário na saída do balcão de armazém (impresso do cliente, sem custo); NULL nas guias anteriores |
 
 ### `inventory_sessions` → `sessoes_inventario` (model `SessaoInventario`, `/api/logistica/inventario/sessoes`)
 

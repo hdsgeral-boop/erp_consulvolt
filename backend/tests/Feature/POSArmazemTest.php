@@ -144,4 +144,28 @@ final class POSArmazemTest extends TestCase
         $this->getJson("/api/vendas/documentos/{$ne['id']}", $this->s)->assertJsonPath('dados.estado', 'PENDENTE');   // concluída só quando facturada (ADR-043)
         $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a'], 'recolhidos' => $itens], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'JA_CONVERTIDO');
     }
+
+    #[Test]
+    public function guia_do_balcao_guarda_o_preco_de_venda_sem_o_custo_e_a_fila_mostra_o_valor_da_encomenda(): void
+    {
+        // P1: preço 1000, custo 600. 3 unidades: preço 1000,00 por linha (impresso do cliente), custo 600,00 (só interno)
+        $g = $this->postJson('/api/pos/armazem/vendas', ['armazem_id' => $this->ids['a'], 'terceiro_id' => $this->ids['cliente'],
+            'linhas' => [['produto_id' => $this->ids['p'], 'quantidade' => 3]]], $this->s)->assertCreated()->json('dados');
+        $this->assertSame(['1000.00', '600.00', '1800.00'], [$g['linhas'][0]['preco_unitario_kz'], $g['linhas'][0]['custo_unitario_kz'], $g['linhas'][0]['valor_kz']]);
+        $this->assertSame(['Cliente', $this->ids['cliente']], [$g['area_rececao'], $g['terceiro_id']]);
+        // a consulta da guia devolve o mesmo preço (reimpressão)
+        $this->getJson("/api/pos/armazem/vendas/{$g['id']}", $this->s)->assertOk()->assertJsonPath('dados.linhas.0.preco_unitario_kz', '1000.00');
+        // preço alterado depois não muda o da guia emitida
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Produto::query()->whereKey($this->ids['p'])->update(['preco_unitario' => 1500]));
+        $this->getJson("/api/pos/armazem/vendas/{$g['id']}", $this->s)->assertJsonPath('dados.linhas.0.preco_unitario_kz', '1000.00');
+        $g2 = $this->postJson('/api/pos/armazem/vendas', ['armazem_id' => $this->ids['a'], 'linhas' => [['produto_id' => $this->ids['p'], 'quantidade' => 2]]], $this->s)->assertCreated()->json('dados');
+        $this->assertSame(['1500.00', 'Cliente de balcão', null], [$g2['linhas'][0]['preco_unitario_kz'], $g2['area_rececao'], $g2['terceiro_id']]);
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Produto::query()->whereKey($this->ids['p'])->update(['preco_unitario' => 1000]));
+
+        // fila de picking: valor total = total_bruto da NE (5 × 1000 + 1 × 500 = 5500 sem IVA; IVA 14% = 770; 6270,00), não um campo inexistente
+        $ne = $this->postJson('/api/vendas/documentos', ['tipo_documento' => 'NE', 'cliente_id' => $this->ids['cliente'], 'data_emissao' => now()->toDateString(),
+            'linhas' => [['produto_id' => $this->ids['p'], 'quantidade' => 5], ['produto_id' => $this->ids['serv'], 'quantidade' => 1]]], $this->s)->assertCreated()->json('dados');
+        $fila = $this->getJson('/api/pos/armazem/picking', $this->s)->assertOk()->json('dados');
+        $this->assertSame([[$ne['id'], '6270.00', 'Cliente']], array_map(fn ($x) => [$x['id'], $x['total_bruto'], $x['cliente']], $fila));
+    }
 }

@@ -25,7 +25,7 @@ abstract class ItemGuiaSaidaBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'produto_id', 'quantidade', 'projeto_id', 'codigo_projeto', 'cambial_q1', 'cambial_v1', 'cambial_q2', 'cambial_v2', 'valor_kz', 'custo_unitario_kz', 'item_compra_id', 'guia_saida_id', 'rececao_compra_id',
+        'empresa_id', 'produto_id', 'quantidade', 'projeto_id', 'codigo_projeto', 'cambial_q1', 'cambial_v1', 'cambial_q2', 'cambial_v2', 'valor_kz', 'custo_unitario_kz', 'preco_unitario_kz', 'item_compra_id', 'guia_saida_id', 'rececao_compra_id',
     ];
 
     protected function casts(): array
@@ -41,6 +41,7 @@ abstract class ItemGuiaSaidaBase extends ModeloBase
             'cambial_v2' => 'decimal:2',
             'valor_kz' => 'decimal:2',
             'custo_unitario_kz' => 'decimal:2',
+            'preco_unitario_kz' => 'decimal:2',
             'item_compra_id' => 'integer',
             'guia_saida_id' => 'integer',
             'rececao_compra_id' => 'integer',
