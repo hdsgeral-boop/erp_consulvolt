@@ -114,7 +114,7 @@ export function DadosPessoais() {
                   rules={[
                     { required: true, message: 'Indique a nova palavra-passe.' },
                     { min: minimo, message: `Pelo menos ${minimo} caracteres.` },
-                    { validator: (_, v?: string) => { const p = v ? problemaPalavraPasse(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } },
+                    { validator: (_, v?: string) => { const p = v ? problemaPalavraPasse(v, [dados.data?.nome_utilizador, dados.data?.email?.split('@')[0]]) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } },
                     ({ getFieldValue }) => ({
                       validator: (_, v) => (v && v === getFieldValue('palavra_passe_actual') ? Promise.reject(new Error('Tem de ser diferente da actual.')) : Promise.resolve()),
                     }),

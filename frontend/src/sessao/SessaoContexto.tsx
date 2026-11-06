@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { definirAoExpirar, enviar, obter, possivelSessaoActiva } from '@/api/cliente';
+import { definirAoExpirar, enviar, http, obter, possivelSessaoActiva } from '@/api/cliente';
 import type { Empresa, ModuloMenu, Utilizador } from '@/api/tipos';
 import { armazenamento } from './armazenamento';
+import { ErroMfaPendente } from './mfa';
 
 interface DadosSessao {
   utilizador: Utilizador;
@@ -24,6 +25,8 @@ interface Sessao {
   permissoes: string[];
   motivoSaida: string | null;
   entrar: (nomeUtilizador: string, palavraPasse: string) => Promise<Utilizador>;
+  /** 2.º passo do login com MFA: confirma o código com o token limitado que `entrar` lançou (ErroMfaPendente) e abre a sessão. */
+  concluirMfa: (tokenMfa: string, codigo: string) => Promise<Utilizador>;
   sair: (motivo?: string) => Promise<void>;
   escolherEmpresa: (id: number) => Promise<void>;
   /** Larga a empresa activa e volta ao ecrã de escolha (legado: «Trocar empresa» → #/selecionar-empresa). */
@@ -128,6 +131,8 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       nome_utilizador: nomeUtilizador,
       palavra_passe: palavraPasse,
     });
+    // MFA activo: ainda não há sessão (só um token limitado para o código) — o ecrã pede o código e chama concluirMfa
+    if ((r as { mfa_pendente?: boolean }).mfa_pendente === true) throw new ErroMfaPendente(String((r as { token_mfa?: string }).token_mfa ?? ''));
     armazenamento.definirEmpresa(null);
     inatividade.current = r.inatividade_minutos ?? INATIVIDADE_PADRAO_MIN;
     setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes, ultima_empresa_id: r.ultima_empresa_id ?? null });
@@ -135,6 +140,18 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setMotivoSaida(null);
     setEstado('autenticado');
     return r.utilizador;
+  }, []);
+
+  const concluirMfa = useCallback(async (tokenMfa: string, codigo: string) => {
+    // o token limitado vai no cabeçalho só neste pedido; a sessão completa chega no cookie HttpOnly
+    await http.post('/autenticacao/mfa/verificar', { codigo }, { headers: { Authorization: `Bearer ${tokenMfa}` } });
+    const d = await obter<DadosSessao>('/autenticacao/eu');
+    armazenamento.definirEmpresa(null);
+    setDados({ utilizador: d.utilizador, empresas: d.empresas, permissoes: d.permissoes, ultima_empresa_id: d.ultima_empresa_id ?? null });
+    setEmpresaId(null);
+    setMotivoSaida(null);
+    setEstado('autenticado');
+    return d.utilizador;
   }, []);
 
   const sair = useCallback(
@@ -207,6 +224,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       permissoes,
       motivoSaida,
       entrar,
+      concluirMfa,
       sair,
       escolherEmpresa,
       largarEmpresa,
@@ -215,7 +233,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       actualizarUtilizador,
       autenticarAposRegisto,
     };
-  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa, recarregarEmpresas, actualizarUtilizador, autenticarAposRegisto]);
+  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, concluirMfa, sair, escolherEmpresa, largarEmpresa, recarregarEmpresas, actualizarUtilizador, autenticarAposRegisto]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

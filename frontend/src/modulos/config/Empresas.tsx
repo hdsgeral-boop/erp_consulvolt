@@ -14,6 +14,7 @@ import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/respon
 import { TabelaLocalImprimivel } from './comum/impressao';
 import { enderecoSede, podeUsarEmpresa } from './comum/paridade';
 import { notificarErro } from '@/utilitarios/erros';
+import { regraNifAngolano } from '@/utilitarios/nifAngolano';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 
@@ -206,7 +207,7 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
         <SeccaoFormulario titulo="Identificação">
                 <Row gutter={16}>
                   <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
-                  <Col xs={24} sm={12} md={8}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}><Input maxLength={30} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }, regraNifAngolano(nova ? null : ficha.data?.nif)]}><Input maxLength={30} /></Form.Item></Col>
                   <Col xs={24}><Form.Item name="endereco" label="Endereço"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
                   <Col xs={24} sm={12} md={8}><Form.Item name="provincia" label="Província"><Input maxLength={100} /></Form.Item></Col>
                   <Col xs={24} sm={12} md={8}><Form.Item name="municipio" label="Município"><Input maxLength={100} /></Form.Item></Col>

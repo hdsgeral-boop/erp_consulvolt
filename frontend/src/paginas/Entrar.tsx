@@ -1,14 +1,16 @@
 import { podeConsolaPlataforma } from '@/sessao/areas';
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { LogotipoDoSistema } from '@/componentes/LogotipoSistema';
 import { RodapeEntrada } from '@/paginas/RodapeEntrada';
+import type { Utilizador } from '@/api/tipos';
 import { useIdentidadeSistema } from '@/sessao/identidade';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { ErroApi } from '@/api/tipos';
 import { naRotaPortal } from '@/portal/rota';
+import { PassoMfa } from '@/paginas/PassoMfa';
+import { useEntrada } from '@/paginas/useEntrada';
 
 /** Mensagens dos erros que o login Google devolve por redirect (AutenticacaoGoogleController) — nunca por AJAX. */
 const ERROS_GOOGLE: Record<string, string> = {
@@ -31,11 +33,10 @@ function IconeGoogle() {
 
 /** Entrada no sistema, com o aspecto do sistema anterior: fotografia de fundo e cartão translúcido ao centro. */
 export function Entrar() {
-  const { entrar, motivoSaida } = useSessao();
+  const { motivoSaida } = useSessao();
   const navegar = useNavigate();
   const [parametros, definirParametros] = useSearchParams();
-  const [erro, setErro] = useState<string | null>(null);
-  const [aEntrar, setAEntrar] = useState(false);
+  const { erro, setErro, aEntrar, passoMfa, submeter: entrarComSenha, submeterCodigo, cancelarMfa } = useEntrada();
   const portal = naRotaPortal();
   const sistema = useIdentidadeSistema();
 
@@ -53,21 +54,14 @@ export function Entrar() {
     window.location.href = '/auth/google/redirecionar';
   };
 
-  const submeter = async (v: { nome_utilizador: string; palavra_passe: string }) => {
-    setErro(null);
-    setAEntrar(true);
-    try {
-      const u = await entrar(v.nome_utilizador, v.palavra_passe);
-      // só este login explícito (a seguir a um logout) cai na consola da plataforma; trocar de empresa a meio da
-      // sessão (LayoutPrincipal) nunca mais passa por aqui — fica sempre dentro do ERP (Destino em App.tsx). Quem
-      // entra pelo Portal nunca sai dele, nem um super-administrador (ADR-071: o Portal é o único destino possível).
-      if (u.papel === 'SUPER_ADMINISTRADOR' && podeConsolaPlataforma(u) && !portal) navegar('/admin');
-    } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível entrar.');
-    } finally {
-      setAEntrar(false);
-    }
+  // só este login explícito (a seguir a um logout) cai na consola da plataforma; trocar de empresa a meio da
+  // sessão (LayoutPrincipal) nunca mais passa por aqui — fica sempre dentro do ERP (Destino em App.tsx). Quem
+  // entra pelo Portal nunca sai dele, nem um super-administrador (ADR-071: o Portal é o único destino possível).
+  const depoisDeEntrar = (u: Utilizador | null) => {
+    if (u && u.papel === 'SUPER_ADMINISTRADOR' && podeConsolaPlataforma(u) && !portal) navegar('/admin');
   };
+  const submeter = async (v: { nome_utilizador: string; palavra_passe: string }) => depoisDeEntrar(await entrarComSenha(v.nome_utilizador, v.palavra_passe));
+  const submeterCodigoMfa = async (codigo: string) => depoisDeEntrar(await submeterCodigo(codigo));
 
   return (
     <main className="erp-pagina-entrada erp-fundo-entrada" style={{ paddingBottom: 64 }}>
@@ -79,24 +73,54 @@ export function Entrar() {
         </Flex>
         {motivoSaida && <Alert type="info" showIcon title={motivoSaida} style={{ marginBottom: 16 }} />}
         {erro && <Alert type="error" showIcon title={erro} style={{ marginBottom: 16 }} />}
-        <Form layout="vertical" onFinish={submeter} requiredMark={false}>
-          <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
-            <Input size="large" prefix={<UserOutlined />} autoComplete="username" autoFocus />
-          </Form.Item>
-          <Form.Item name="palavra_passe" label="Palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }]}>
-            <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" />
-          </Form.Item>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 16 }}>
-            <Link to="/recuperar-password" style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>
-              Esqueceu-se da palavra-passe?
-            </Link>
-          </div>
-          <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ fontWeight: 700 }}>
-            Entrar
-          </Button>
-        </Form>
+        {passoMfa ? (
+          <PassoMfa aEnviar={aEntrar} onSubmeter={(c) => void submeterCodigoMfa(c)} onCancelar={cancelarMfa} />
+        ) : (
+          <Form layout="vertical" onFinish={(v) => void submeter(v)} requiredMark={false} aria-label="Entrar no sistema">
+            <Form.Item
+              name="nome_utilizador"
+              label="Utilizador"
+              rules={[
+                { required: true, whitespace: true, message: 'Indique o utilizador ou o e-mail.' },
+                { max: 150, message: 'O utilizador ou e-mail não pode ter mais de 150 caracteres.' },
+              ]}
+            >
+              <Input
+                size="large"
+                prefix={<UserOutlined />}
+                placeholder="Utilizador ou e-mail"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
+                enterKeyHint="next"
+                maxLength={150}
+                autoFocus
+              />
+            </Form.Item>
+            <Form.Item
+              name="palavra_passe"
+              label="Palavra-passe"
+              rules={[
+                { required: true, message: 'Indique a palavra-passe.' },
+                { max: 255, message: 'A palavra-passe não pode ter mais de 255 caracteres.' },
+              ]}
+            >
+              <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" enterKeyHint="go" maxLength={255} />
+            </Form.Item>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 16 }}>
+              <Link to="/recuperar-password" style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>
+                Esqueceu-se da palavra-passe?
+              </Link>
+            </div>
+            <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ fontWeight: 700 }}>
+              Entrar
+            </Button>
+          </Form>
+        )}
 
-        {!portal && (
+        {!portal && !passoMfa && (
           <>
             <Divider style={{ margin: '20px 0 12px' }} plain>
               ou

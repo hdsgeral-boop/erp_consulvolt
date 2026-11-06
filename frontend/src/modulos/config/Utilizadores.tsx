@@ -13,6 +13,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { larguraModal } from '@/componentes/responsivo';
 import { ErroApi } from '@/api/tipos';
 import { sugerirNomeUtilizador } from '@/utilitarios/palavraPasse';
+import { problemaNomeUtilizador } from '@/utilitarios/nomeUtilizador';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 
@@ -303,8 +304,17 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
-              <Input maxLength={100} autoComplete="off" onChange={() => (nomeEditado.current = true)} />
+            <Form.Item
+              name="nome_utilizador"
+              label="Nome de utilizador"
+              extra={novo ? 'Letras sem acentos, algarismos e . _ - (3 a 50); é gravado em minúsculas.' : undefined}
+              rules={[
+                { required: true, whitespace: true, message: 'Indique o nome de utilizador.' },
+                // contas novas: o mesmo formato do servidor (regra NomeUtilizador); as antigas editam-se sem esta regra
+                { validator: (_, v?: string) => { const p = novo && v && v.trim() ? problemaNomeUtilizador(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } },
+              ]}
+            >
+              <Input maxLength={100} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={() => (nomeEditado.current = true)} />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>

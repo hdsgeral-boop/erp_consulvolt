@@ -9,6 +9,7 @@ import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { CHAVE_IDENTIDADE_SISTEMA, useIdentidadeSistema } from '@/sessao/identidade';
 import { notificarErro } from '@/utilitarios/erros';
+import { regraNifAngolano } from '@/utilitarios/nifAngolano';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { lerLogotipoReduzido } from './comum/ficheiros';
@@ -196,7 +197,7 @@ function Importar() {
                 </Form.Item>
               </Col>
               <Col xs={24} sm={12} md={10}>
-                <Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}>
+                <Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }, regraNifAngolano()]}>
                   <Input maxLength={30} />
                 </Form.Item>
               </Col>
@@ -269,7 +270,7 @@ function Clonar() {
             </Form.Item>
           </Col>
           <Col xs={24} sm={12} md={10}>
-            <Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}>
+            <Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }, regraNifAngolano()]}>
               <Input maxLength={30} />
             </Form.Item>
           </Col>

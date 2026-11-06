@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
@@ -12,6 +12,7 @@ export function RecuperarPassword() {
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [aEnviar, setAEnviar] = useState(false);
+  const emCurso = useRef(false);
 
   const logotipo = useQuery({
     queryKey: ['logotipo-login'],
@@ -20,10 +21,13 @@ export function RecuperarPassword() {
   });
 
   const submeter = async (v: { identificador: string }) => {
+    if (emCurso.current) return;   // duplo clique / Enter repetido: um pedido de cada vez (cada pedido gera um e-mail)
+    emCurso.current = true;
     setErro(null);
     setSucesso(null);
     setAEnviar(true);
     try {
+      v = { identificador: v.identificador.trim() };
       const res = await enviar<{ processado: boolean; mensagem: string }>(
         'post',
         '/autenticacao/recuperar-password',
@@ -36,6 +40,7 @@ export function RecuperarPassword() {
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível processar a recuperação.');
     } finally {
+      emCurso.current = false;
       setAEnviar(false);
     }
   };
@@ -79,17 +84,25 @@ export function RecuperarPassword() {
             </Link>
           </div>
         ) : (
-          <Form layout="vertical" onFinish={submeter} requiredMark={false}>
+          <Form layout="vertical" onFinish={submeter} requiredMark={false} aria-label="Recuperar a palavra-passe">
             <Form.Item
               name="identificador"
               label="Utilizador ou E-mail registado"
-              rules={[{ required: true, message: 'Indique o nome de utilizador ou e-mail.' }]}
+              rules={[
+                { required: true, whitespace: true, message: 'Indique o nome de utilizador ou e-mail.' },
+                { max: 255, message: 'O nome de utilizador ou e-mail não pode ter mais de 255 caracteres.' }
+              ]}
             >
               <Input
                 size="large"
                 prefix={<UserOutlined />}
                 placeholder="Ex: admin ou utilizador@empresa.co.ao"
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
+                maxLength={255}
                 autoFocus
               />
             </Form.Item>

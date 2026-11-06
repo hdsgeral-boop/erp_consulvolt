@@ -11,6 +11,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
+import { regraNifAngolano } from '@/utilitarios/nifAngolano';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, EtiquetaEstado, ValorKz } from './comum/Componentes';
 
@@ -221,7 +222,7 @@ export default function Consolidacao() {
             <Form.Item name="nome" label="Nome da holding" rules={[{ required: true }]}>
               <Input maxLength={255} placeholder="Ex.: GRUPO XPTO — CONSOLIDADO" />
             </Form.Item>
-            <Form.Item name="nif" label="NIF da holding" rules={[{ required: true }]}>
+            <Form.Item name="nif" label="NIF da holding" rules={[{ required: true }, regraNifAngolano()]}>
               <Input maxLength={30} />
             </Form.Item>
             <Form.Item

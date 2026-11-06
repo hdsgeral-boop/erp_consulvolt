@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Row, Typography } from 'antd';
+import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Progress, Row, Select, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { CHAVE_SESSAO_MOSTRAR_TOUR } from '@/componentes/tour/TourBoasVindas';
+import { MENSAGEM_NIF, nifValido, normalizarNif } from '@/utilitarios/nifAngolano';
+import { MENSAGEM_TELEFONE, normalizarTelefone, telefoneValido } from '@/utilitarios/telefoneAngolano';
+import { normalizarNomeUtilizador, problemaNomeUtilizador } from '@/utilitarios/nomeUtilizador';
+import { MINIMO_PALAVRA_PASSE_REGISTO, forcaPalavraPasse, problemaPalavraPasse, sugerirNomeUtilizador } from '@/utilitarios/palavraPasse';
+import { PROVINCIAS_ANGOLA } from '@/utilitarios/provinciasAngola';
 
 const DIAS_TESTE_PADRAO = 30;
+
+/** Espaços das pontas e repetidos reduzidos a um (o servidor faz o mesmo: o que se vê é o que se grava). */
+const limparEspacos = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
 
 export function RegistarEmpresa() {
   const [form] = Form.useForm();
@@ -17,6 +25,12 @@ export function RegistarEmpresa() {
   const [erro, setErro] = useState<string | null>(null);
   const [detalhesErros, setDetalhesErros] = useState<string[]>([]);
   const [aGuardar, setAGuardar] = useState(false);
+  const emCurso = useRef(false);   // bloqueia o duplo envio (Enter repetido, duplo clique) antes de o estado actualizar
+  const palavraPasse = Form.useWatch('palavra_passe', form) as string | undefined;
+  const nomeUtilizadorEscrito = Form.useWatch('nome_utilizador', form) as string | undefined;
+  const emailEscrito = Form.useWatch('email', form) as string | undefined;
+  const evitar = [nomeUtilizadorEscrito ? normalizarNomeUtilizador(nomeUtilizadorEscrito) : null, emailEscrito ? emailEscrito.split('@')[0].toLowerCase() : null];
+  const forca = forcaPalavraPasse(palavraPasse ?? '', evitar, MINIMO_PALAVRA_PASSE_REGISTO);
   // Chegou aqui vindo do login Google sem conta ainda (AutenticacaoGoogleController): nome e email pré-preenchidos,
   // o resto (NIF, telefone, província, nome de utilizador, palavra-passe) continua a ser preenchido à mão.
   const deGoogle = parametros.has('email');
@@ -45,7 +59,21 @@ export function RegistarEmpresa() {
   });
   const diasTeste = definicoes.data?.dias_teste_padrao ?? DIAS_TESTE_PADRAO;
 
-  const submeter = async (v: Record<string, string>) => {
+  const submeter = async (valores: Record<string, string>) => {
+    if (emCurso.current) return;
+    emCurso.current = true;
+    // o servidor normaliza e valida tudo outra vez; aqui só se retira o que é só do ecrã (confirmação) e se limpam os textos
+    const { palavra_passe_confirmacao: _confirmacao, ...resto } = valores;
+    void _confirmacao;
+    const v = {
+      ...resto,
+      nome_comercial: limparEspacos(resto.nome_comercial),
+      nif: normalizarNif(resto.nif),
+      telefone: normalizarTelefone(resto.telefone),
+      nome_completo: limparEspacos(resto.nome_completo),
+      nome_utilizador: normalizarNomeUtilizador(resto.nome_utilizador),
+      email: limparEspacos(resto.email).toLowerCase(),
+    };
     setAGuardar(true);
     setErro(null);
     setDetalhesErros([]);
@@ -88,6 +116,7 @@ export function RegistarEmpresa() {
         setDetalhesErros([]);
       }
     } finally {
+      emCurso.current = false;
       setAGuardar(false);
     }
   };
@@ -149,6 +178,9 @@ export function RegistarEmpresa() {
           form={form}
           layout="vertical"
           onFinish={submeter}
+          validateTrigger={['onBlur', 'onChange']}
+          scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
+          aria-label="Criar conta de empresa"
           onValuesChange={() => {
             if (erro) {
               setErro(null);
@@ -168,39 +200,69 @@ export function RegistarEmpresa() {
               <Form.Item
                 name="nome_comercial"
                 label="Nome comercial / Denominação social"
-                rules={[{ required: true, message: 'Indique o nome da empresa.' }]}
+                rules={[
+                  { required: true, whitespace: true, message: 'Indique o nome da empresa.' },
+                  { min: 2, message: 'O nome comercial deve ter pelo menos 2 caracteres.' },
+                  { max: 255, message: 'O nome comercial não pode ter mais de 255 caracteres.' },
+                  { pattern: /^[^<>]+$/u, message: 'O nome comercial não pode ter os caracteres < e >.' },
+                  { pattern: /[\p{L}\p{N}]/u, message: 'O nome comercial tem de ter letras ou algarismos.' }
+                ]}
               >
-                <Input size="large" placeholder="Ex: Minha Empresa, Lda" />
+                <Input size="large" placeholder="Ex: Minha Empresa, Lda" autoComplete="organization" maxLength={255} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
                 name="nif"
                 label="NIF da empresa"
+                extra="10 dígitos. Empresário em nome individual: o número do BI."
                 rules={[
-                  { required: true, message: 'Indique o NIF.' },
-                  { pattern: /^\d{9,14}$/, message: 'Indique um NIF válido (9 a 14 dígitos).' }
+                  { required: true, whitespace: true, message: 'Indique o NIF.' },
+                  { validator: (_, v?: string) => (!v || !v.trim() || nifValido(v) ? Promise.resolve() : Promise.reject(new Error(MENSAGEM_NIF))) }
                 ]}
               >
-                <Input size="large" placeholder="Ex: 5418291024" />
+                <Input
+                  size="large"
+                  placeholder="Ex: 5418291024"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="text"
+                  maxLength={24}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
                 name="telefone"
                 label="Telefone principal"
-                rules={[{ required: true, message: 'Indique o contacto telefónico.' }]}
+                rules={[
+                  { required: true, whitespace: true, message: 'Indique o contacto telefónico.' },
+                  { max: 30, message: 'O telefone não pode ter mais de 30 caracteres.' },
+                  { validator: (_, v?: string) => (!v || !v.trim() || telefoneValido(v) ? Promise.resolve() : Promise.reject(new Error(MENSAGEM_TELEFONE))) }
+                ]}
               >
-                <Input size="large" placeholder="Ex: 923 000 000" />
+                <Input size="large" type="tel" inputMode="tel" autoComplete="tel" placeholder="Ex: 923 000 000" maxLength={30} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
                 name="provincia"
                 label="Província"
-                rules={[{ required: true, message: 'Indique a província.' }]}
+                rules={[{ required: true, message: 'Seleccione a província.' }]}
               >
-                <Input size="large" placeholder="Ex: Luanda" />
+                <Select
+                  size="large"
+                  showSearch
+                  virtual={false}
+                  placeholder="Seleccione a província"
+                  options={PROVINCIAS_ANGOLA.map((p) => ({ value: p, label: p }))}
+                  optionFilterProp="label"
+                  filterOption={(entrada, opcao) =>
+                    (opcao?.label ?? '').toString().normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase().includes(entrada.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -216,36 +278,111 @@ export function RegistarEmpresa() {
               <Form.Item
                 name="nome_completo"
                 label="Nome completo"
-                rules={[{ required: true, message: 'Indique o seu nome.' }]}
+                rules={[
+                  { required: true, whitespace: true, message: 'Indique o seu nome.' },
+                  { min: 3, message: 'O nome completo deve ter pelo menos 3 caracteres.' },
+                  { max: 200, message: 'O nome completo não pode ter mais de 200 caracteres.' },
+                  { pattern: /^\p{L}[\p{L}\p{M}\s'’.-]*\p{L}\.?$/u, message: "O nome só pode ter letras, espaços e os sinais . ' -" }
+                ]}
               >
-                <Input size="large" placeholder="Ex: João Baptista" />
+                <Input
+                  size="large"
+                  autoComplete="name"
+                  placeholder="Ex: João Baptista"
+                  maxLength={200}
+                  onBlur={() => {
+                    // sugere o utilizador a partir do nome, só se ainda estiver vazio
+                    if (!form.getFieldValue('nome_utilizador')) {
+                      const sugestao = sugerirNomeUtilizador(String(form.getFieldValue('nome_completo') ?? ''));
+                      if (sugestao.length >= 3) form.setFieldsValue({ nome_utilizador: sugestao });
+                    }
+                  }}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
                 name="nome_utilizador"
                 label="Nome de utilizador (login)"
-                rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}
+                extra="Letras sem acentos, algarismos e . _ - (3 a 50). É gravado em minúsculas."
+                rules={[
+                  { required: true, whitespace: true, message: 'Indique o nome de utilizador.' },
+                  { validator: (_, v?: string) => { const p = v && v.trim() ? problemaNomeUtilizador(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } }
+                ]}
               >
-                <Input size="large" autoComplete="username" placeholder="Ex: jbaptista" />
+                <Input
+                  size="large"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="Ex: jbaptista"
+                  maxLength={50}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
                 name="email"
                 label="E-mail profissional"
-                rules={[{ required: true, type: 'email', message: 'Indique um e-mail válido.' }]}
+                rules={[
+                  { required: true, whitespace: true, message: 'Indique o e-mail.' },
+                  { type: 'email', message: 'Indique um e-mail válido.' },
+                  { max: 150, message: 'O e-mail não pode ter mais de 150 caracteres.' }
+                ]}
               >
-                <Input size="large" autoComplete="email" placeholder="Ex: joao@empresa.co.ao" />
+                <Input
+                  size="large"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="Ex: joao@empresa.co.ao"
+                  maxLength={150}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
                 name="palavra_passe"
-                label="Palavra-passe (mín. 10 caracteres)"
-                rules={[{ required: true, min: 10, message: 'Mínimo de 10 caracteres.' }]}
+                label={`Palavra-passe (mín. ${MINIMO_PALAVRA_PASSE_REGISTO} caracteres)`}
+                extra="Com maiúsculas, minúsculas e algarismos; sem o seu utilizador ou e-mail."
+                rules={[
+                  { required: true, message: 'Indique a palavra-passe.' },
+                  {
+                    validator: (_, v?: string) => {
+                      const p = v ? problemaPalavraPasse(v, evitar, MINIMO_PALAVRA_PASSE_REGISTO) : null;
+                      return p ? Promise.reject(new Error(p)) : Promise.resolve();
+                    }
+                  }
+                ]}
               >
-                <Input.Password size="large" autoComplete="new-password" placeholder="••••••••••" />
+                <Input.Password size="large" autoComplete="new-password" placeholder="••••••••••" maxLength={128} />
+              </Form.Item>
+              {palavraPasse ? (
+                <div aria-live="polite" style={{ marginTop: -14, marginBottom: 16 }}>
+                  <Progress percent={forca.percentagem} status={forca.estado} showInfo={false} size="small" aria-label="Força da palavra-passe" />
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Força: {forca.rotulo}
+                  </Typography.Text>
+                </div>
+              ) : null}
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="palavra_passe_confirmacao"
+                label="Confirmar a palavra-passe"
+                dependencies={['palavra_passe']}
+                rules={[
+                  { required: true, message: 'Repita a palavra-passe.' },
+                  ({ getFieldValue }) => ({
+                    validator: (_, v) => (!v || v === getFieldValue('palavra_passe') ? Promise.resolve() : Promise.reject(new Error('Não coincide com a palavra-passe.')))
+                  })
+                ]}
+              >
+                <Input.Password size="large" autoComplete="new-password" placeholder="••••••••••" maxLength={128} />
               </Form.Item>
             </Col>
           </Row>

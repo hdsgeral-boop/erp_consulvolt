@@ -1,10 +1,10 @@
-import { Alert, Button, Card, Divider, Flex, Form, Input, Typography, message } from 'antd';
+import { Alert, Button, Card, Divider, Flex, Form, Input, Progress, Typography, message } from 'antd';
 import { KeyOutlined, LockOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { MINIMO_PALAVRA_PASSE, problemaPalavraPasse } from '@/utilitarios/palavraPasse';
+import { MINIMO_PALAVRA_PASSE, forcaPalavraPasse, problemaPalavraPasse } from '@/utilitarios/palavraPasse';
 
 interface Valores {
   palavra_passe_actual: string;
@@ -18,8 +18,12 @@ interface Valores {
  * este ecrã; só sair (logout) ou trocar a password avançam (backend: ExigirTrocaPassword, 423 em todo o resto da API).
  */
 export function TrocaPasswordObrigatoria() {
-  const { sair, actualizarUtilizador } = useSessao();
+  const { sair, actualizarUtilizador, utilizador } = useSessao();
   const [form] = Form.useForm<Valores>();
+  const nova = Form.useWatch('palavra_passe_nova', form) as string | undefined;
+  // a nova palavra-passe não pode conter o utilizador nem a parte local do e-mail (o servidor aplica a mesma regra)
+  const evitar = [utilizador?.nome_utilizador, typeof utilizador?.email === 'string' ? utilizador.email.split('@')[0] : null];
+  const forca = forcaPalavraPasse(nova ?? '', evitar);
   const [aAlterar, setAAlterar] = useState(false);
   const [aSair, setASair] = useState(false);
 
@@ -51,7 +55,7 @@ export function TrocaPasswordObrigatoria() {
 
         <Form form={form} layout="vertical" onFinish={(v) => void submeter(v)} requiredMark={false}>
           <Form.Item name="palavra_passe_actual" label="Password actual (a que recebeu por email)" rules={[{ required: true, message: 'Indique a password actual.' }]}>
-            <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" autoFocus />
+            <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" maxLength={255} autoFocus />
           </Form.Item>
           <Form.Item
             name="palavra_passe_nova"
@@ -59,15 +63,21 @@ export function TrocaPasswordObrigatoria() {
             rules={[
               { required: true, message: 'Indique a nova password.' },
               { min: MINIMO_PALAVRA_PASSE, message: `Pelo menos ${MINIMO_PALAVRA_PASSE} caracteres.` },
-              { validator: (_, v?: string) => { const p = v ? problemaPalavraPasse(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } },
+              { validator: (_, v?: string) => { const p = v ? problemaPalavraPasse(v, evitar) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } },
               ({ getFieldValue }) => ({
                 validator: (_, v) => (v && v === getFieldValue('palavra_passe_actual') ? Promise.reject(new Error('Tem de ser diferente da actual.')) : Promise.resolve()),
               }),
             ]}
             hasFeedback
           >
-            <Input.Password size="large" prefix={<LockOutlined />} autoComplete="new-password" />
+            <Input.Password size="large" prefix={<LockOutlined />} autoComplete="new-password" maxLength={128} />
           </Form.Item>
+          {nova ? (
+            <div aria-live="polite" style={{ marginTop: -14, marginBottom: 16 }}>
+              <Progress percent={forca.percentagem} status={forca.estado} showInfo={false} size="small" aria-label="Força da palavra-passe" />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>Força: {forca.rotulo}</Typography.Text>
+            </div>
+          ) : null}
           <Form.Item
             name="palavra_passe_nova_confirmation"
             label="Confirmar a nova password"

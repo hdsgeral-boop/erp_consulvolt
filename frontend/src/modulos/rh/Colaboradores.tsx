@@ -12,6 +12,7 @@ import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { AlocacaoUN, alocacaoDeApi, alocacaoParaApi, gravarAlocacao, obterAlocacao, useCriterios, validarAlocacao, type Alocacao } from '@/componentes/reparticao';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { notificarErro } from '@/utilitarios/erros';
+import { regraNifAngolano } from '@/utilitarios/nifAngolano';
 import { ImportarExcel } from './comum/ImportarExcel';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml, useImpressao } from '@/componentes/impressao';
@@ -556,7 +557,7 @@ function FormularioColaborador() {
           {/* Campos principais do formulário embutido do antigo (renderColaboradores), na mesma ordem */}
           <Row gutter={16}>
             <Col xs={24} md={12}><Form.Item name="nome_completo" label="Nome Completo" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }, { max: 30 }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="nif" label="NIF" extra="10 dígitos ou o número do BI (ex.: 000755848LA037)." rules={[{ required: true, message: 'Indique o NIF.' }, { max: 30 }, regraNifAngolano(id ? ficha.data?.nif : null)]}><Input /></Form.Item></Col>
             <Col xs={24} md={12}><Form.Item name="numero_inss" label="Número INSS"><Input maxLength={50} /></Form.Item></Col>
             <Col xs={24} md={12}><Form.Item name="cargo_funcao_id" label="Função"><Select allowClear showSearch optionFilterProp="label" options={cargos.lista.map((t) => ({ value: t.id, label: t.nome }))} /></Form.Item></Col>
             <Col xs={24}>
