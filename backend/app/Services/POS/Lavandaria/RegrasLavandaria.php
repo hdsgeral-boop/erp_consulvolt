@@ -20,6 +20,9 @@ final class RegrasLavandaria
 
     public const UNIDADES = ['PECA', 'KG'];
 
+    /** Modos de preço de uma opção (MODOS_PRECO, lavandaria.js:49): à peça, ao quilo ou por tamanho. */
+    public const MODOS = ['PECA', 'KG', 'TAMANHO'];
+
     public const BOM_ESTADO = 'Bom estado';
 
     /** Estados da peça à entrada (ESTADOS_ENTRADA, lavandaria.js:48). */
@@ -33,6 +36,52 @@ final class RegrasLavandaria
     public static function dinheiro(mixed $v): string
     {
         return number_format((float) $v, 2, '.', '');
+    }
+
+    /**
+     * Opções de preço da peça (opcoesPeca, lavandaria.js:146-150): a lista guardada, sem as de tamanho sem nome; na falta,
+     * a opção única reconstruída de unidade+preço (peças anteriores às opções). A 1.ª opção manda.
+     *
+     * @param  list<array<string, mixed>>|null  $opcoes
+     * @return list<array{modo: string, tamanho: string, preco: string}>
+     */
+    public static function opcoesPeca(?array $opcoes, ?string $unidade, mixed $preco): array
+    {
+        $lista = [];
+        foreach ($opcoes ?? [] as $o) {
+            $n = self::opcao($o);
+            if ($n['modo'] !== 'TAMANHO' || $n['tamanho'] !== '') {
+                $lista[] = $n;
+            }
+        }
+
+        return $lista ?: [['modo' => $unidade === 'KG' ? 'KG' : 'PECA', 'tamanho' => '', 'preco' => self::dinheiro($preco)]];
+    }
+
+    /** normalizarOpcao (lavandaria.js:142-145). @return array{modo: string, tamanho: string, preco: string} */
+    public static function opcao(mixed $o): array
+    {
+        $o = (array) $o;
+        $modo = in_array($o['modo'] ?? null, self::MODOS, true) ? $o['modo'] : 'PECA';
+
+        return ['modo' => $modo, 'tamanho' => $modo === 'TAMANHO' ? trim((string) ($o['tamanho'] ?? '')) : '', 'preco' => self::dinheiro($o['preco'] ?? 0)];
+    }
+
+    /** chaveOpcao (lavandaria.js:151): modo e tamanho (sem distinguir maiúsculas no tamanho). */
+    public static function chaveOpcao(array $o): string
+    {
+        return ($o['modo'] ?? 'PECA').'|'.mb_strtolower(trim((string) ($o['tamanho'] ?? '')));
+    }
+
+    public static function rotuloOpcao(array $o): string
+    {
+        return ($o['modo'] ?? '') === 'TAMANHO' ? 'Tamanho '.$o['tamanho'] : (($o['modo'] ?? '') === 'KG' ? 'Quilograma (kg)' : 'Peça');
+    }
+
+    /** Unidade de venda da opção: KG só no modo quilograma (o tamanho vende-se à peça). */
+    public static function unidadeOpcao(array $o): string
+    {
+        return ($o['modo'] ?? '') === 'KG' ? 'KG' : 'PECA';
     }
 
     /** Valor facturável (com IVA) de qtd × preço unitário com IVA, pela regra AGT. */

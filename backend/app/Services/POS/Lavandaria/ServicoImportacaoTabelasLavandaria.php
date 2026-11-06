@@ -17,7 +17,7 @@ use Throwable;
  * Modelos (colunas por esta ordem, com cabeçalho na 1.ª linha — os nomes do cabeçalho também são reconhecidos):
  *   - pecas:    Código | Designação | Tecido | Cor | Unidade (Peça/Kg) | Preço | Activa (Sim/Não)
  *   - servicos: Código | Designação | Grupo (Lavandaria/Alfaiataria) | Conta (62…) | IVA | Prazo (dias) | Exige orçamento | Activo
- *   - precos:   Peça (código) | Serviço (código) | Preço (0 remove o preço específico)
+ *   - precos:   Peça (código) | Serviço (código) | Preço (0 remove o preço específico) | Opção (Peça, Kg ou o nome do tamanho; vazia = a 1.ª opção da peça)
  * Linha com código → actualiza esse registo (o código tem de existir); sem código → procura pela mesma designação
  * (tecido e unidade / grupo) e, não havendo, cria com código automático. As linhas com erros são ignoradas.
  * Cada linha válida é gravada pelo ServicoTabelasLavandaria (mesmas regras do ecrã), numa transacção com ponto de
@@ -30,7 +30,7 @@ final class ServicoImportacaoTabelasLavandaria
     private const COLUNAS = [
         'pecas' => ['codigo', 'designacao', 'tecido', 'cor', 'unidade', 'preco', 'activa'],
         'servicos' => ['codigo', 'designacao', 'grupo', 'conta', 'iva', 'prazo', 'orcamento', 'activo'],
-        'precos' => ['peca', 'servico', 'preco'],
+        'precos' => ['peca', 'servico', 'preco', 'opcao'],
     ];
 
     public function __construct(
@@ -194,12 +194,41 @@ final class ServicoImportacaoTabelasLavandaria
         if ($preco === null || $preco < 0) {
             $erros[] = 'preço inválido';
         }
-        $actual = $peca && $servico ? collect($peca->precos_servico ?? [])->first(fn ($x) => (int) ($x['produto_id'] ?? 0) === $servico->id) : null;
+        // 4.ª coluna (opcional): a opção de preço; vazia = a 1.ª opção da peça (lavandaria.js:2690-2704)
+        $opcao = null;
+        if ($peca) {
+            $todas = RegrasLavandaria::opcoesPeca($peca->opcoes_preco, $peca->unidade, $peca->preco);
+            $opcao = $todas[0];
+            if ($r['opcao'] !== '') {
+                $alvo = mb_strtolower($r['opcao']);
+                $opcao = collect($todas)->first(fn ($o) => mb_strtolower(RegrasLavandaria::rotuloOpcao($o)) === $alvo)
+                    ?? collect($todas)->first(fn ($o) => $o['modo'] === 'TAMANHO' && mb_strtolower($o['tamanho']) === $alvo)
+                    ?? (preg_match('/^k/i', $r['opcao']) ? collect($todas)->first(fn ($o) => $o['modo'] === 'KG') : null)
+                    ?? (preg_match('/^p/i', $r['opcao']) ? collect($todas)->first(fn ($o) => $o['modo'] === 'PECA') : null);
+                if (! $opcao) {
+                    $erros[] = "a peça não tem a opção \"{$r['opcao']}\"";
+                }
+            }
+        }
+        $chaveOpcao = $opcao ? RegrasLavandaria::chaveOpcao($opcao) : '';
+        $actual = $peca && $servico && $opcao ? self::entradaDaOpcao($peca, $servico->id, $opcao) : null;
         $accao = $erros ? 'IGNORADA' : ($preco == 0 ? ($actual ? 'REMOVER' : 'SEM_ALTERACAO') : ($actual ? 'ACTUALIZAR' : 'CRIAR'));
 
-        return ['accao' => $accao, 'codigo' => $peca?->codigo, 'designacao' => trim(($peca ? "{$peca->codigo} · {$peca->nome}" : $r['peca']).' / '.($servico ? "{$servico->codigo} · {$servico->nome}" : $r['servico'])),
-            'erros' => $erros, 'dados' => ['peca_id' => $peca?->id, 'produto_id' => $servico?->id, 'preco' => $preco, 'actual' => $actual['preco'] ?? null],
-            'alvo_id' => $peca?->id, 'chave' => $peca && $servico ? "{$peca->id}|{$servico->id}" : null];
+        return ['accao' => $accao, 'codigo' => $peca?->codigo, 'designacao' => trim(($peca ? "{$peca->codigo} · {$peca->nome}" : $r['peca']).' / '.($servico ? "{$servico->codigo} · {$servico->nome}" : $r['servico'])
+            .($opcao && count($todas) > 1 ? ' / '.RegrasLavandaria::rotuloOpcao($opcao) : '')),
+            'erros' => $erros, 'dados' => ['peca_id' => $peca?->id, 'produto_id' => $servico?->id, 'preco' => $preco, 'actual' => $actual['preco'] ?? null,
+                'modo' => $opcao['modo'] ?? null, 'tamanho' => $opcao['tamanho'] ?? '', 'opcao' => $opcao ? RegrasLavandaria::rotuloOpcao($opcao) : null,
+                'preco_base' => $opcao['preco'] ?? null],
+            'alvo_id' => $peca?->id, 'chave' => $peca && $servico ? "{$peca->id}|{$servico->id}|{$chaveOpcao}" : null];
+    }
+
+    /** Entrada de precos_servico que vale para a opção: a da própria opção ou, numa peça de uma só opção, a antiga sem modo. */
+    private static function entradaDaOpcao(PecaLavandaria $peca, int $servicoId, array $opcao): ?array
+    {
+        $lista = collect($peca->precos_servico ?? [])->filter(fn ($x) => (int) ($x['produto_id'] ?? 0) === $servicoId);
+        $k = RegrasLavandaria::chaveOpcao($opcao);
+
+        return $lista->first(fn ($x) => ! empty($x['modo']) && RegrasLavandaria::chaveOpcao($x) === $k) ?? $lista->first(fn ($x) => empty($x['modo']));
     }
 
     // ───────────── gravação ─────────────
@@ -212,10 +241,14 @@ final class ServicoImportacaoTabelasLavandaria
             $this->tabelas->guardarServico($a['dados'], $a['alvo_id'] ? Produto::query()->findOrFail($a['alvo_id']) : null);
         } elseif ($a['accao'] !== 'SEM_ALTERACAO') {
             $peca = PecaLavandaria::query()->lockForUpdate()->findOrFail($a['dados']['peca_id']);
-            $lista = collect($peca->precos_servico ?? [])->reject(fn ($x) => (int) ($x['produto_id'] ?? 0) === (int) $a['dados']['produto_id'])
-                ->map(fn ($x) => ['produto_id' => (int) $x['produto_id'], 'preco' => $x['preco']])->values()->all();
+            $opcao = ['modo' => $a['dados']['modo'], 'tamanho' => $a['dados']['tamanho']];
+            $k = RegrasLavandaria::chaveOpcao($opcao);
+            $unica = count(RegrasLavandaria::opcoesPeca($peca->opcoes_preco, $peca->unidade, $peca->preco)) === 1;
+            // substitui só a entrada daquela opção (e, numa peça de uma só opção, a antiga sem modo); as restantes ficam INTACTAS, com modo e tamanho
+            $lista = collect($peca->precos_servico ?? [])->reject(fn ($x) => (int) ($x['produto_id'] ?? 0) === (int) $a['dados']['produto_id']
+                && (! empty($x['modo']) ? RegrasLavandaria::chaveOpcao($x) === $k : $unica))->values()->all();
             if ($a['dados']['preco'] > 0) {
-                $lista[] = ['produto_id' => (int) $a['dados']['produto_id'], 'preco' => $a['dados']['preco']];
+                $lista[] = ['produto_id' => (int) $a['dados']['produto_id'], 'modo' => $opcao['modo'], 'tamanho' => $opcao['tamanho'], 'preco' => $a['dados']['preco']];
             }
             $this->tabelas->guardarPeca(['precos_servico' => $lista], $peca);
         }
@@ -236,7 +269,7 @@ final class ServicoImportacaoTabelasLavandaria
         $sinonimos = ['designacao' => ['designacao', 'nome', 'descricao'], 'activa' => ['activa', 'ativa', 'activo', 'ativo'], 'activo' => ['activo', 'ativo', 'activa', 'ativa'],
             'orcamento' => ['exigeorcamento', 'orcamento', 'requerorcamento'], 'prazo' => ['prazo', 'prazodias', 'dias', 'diasentrega'], 'conta' => ['conta', 'contadeproveitos', 'codigoconta'],
             'peca' => ['peca', 'codigopeca'], 'servico' => ['servico', 'codigoservico'], 'iva' => ['iva', 'taxaiva', 'taxa'], 'preco' => ['preco', 'precobase', 'valor'],
-            'unidade' => ['unidade', 'unidadedevenda'], 'codigo' => ['codigo', 'cod']];
+            'unidade' => ['unidade', 'unidadedevenda'], 'opcao' => ['opcao', 'tamanho', 'opcaodepreco'], 'codigo' => ['codigo', 'cod']];
         $valores = array_values($bruto);
         $r = [];
         foreach ($nomes as $i => $n) {

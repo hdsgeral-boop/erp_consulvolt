@@ -562,6 +562,12 @@ final class ServicoOrdensLavandaria
                 throw new ErroNegocio("Linha {$n}: peça inexistente ou inactiva.", 'PECA_INVALIDA', 422, ['linha' => $n]);
             }
             $s = $this->tabelas->servico((int) ($x['produto_id'] ?? 0));
+            try {   // «Cobrar por»: a opção de preço da peça (sem pedido, a 1.ª, como as ordens anteriores às opções)
+                $opcao = ServicoTabelasLavandaria::opcaoDaPeca($p, isset($x['modo']) ? (string) $x['modo'] : null, isset($x['tamanho']) ? (string) $x['tamanho'] : null);
+            } catch (ErroNegocio $e) {
+                throw new ErroNegocio("Linha {$n}: ".$e->getMessage(), $e->codigo, 422, ['linha' => $n]);
+            }
+            $unidade = RegrasLavandaria::unidadeOpcao($opcao);
             $orcamento = (bool) $s->lavandaria_requer_orcamento;
             $estadoEntrada = trim((string) ($x['estado_entrada'] ?? ''));
             $notas = trim((string) ($x['notas_entrada'] ?? ''));
@@ -575,17 +581,17 @@ final class ServicoOrdensLavandaria
             if (bccomp($qtd, '0', 3) <= 0) {
                 throw new ErroNegocio("Linha {$n}: indique a quantidade (peças ou kg).", 'QUANTIDADE_INVALIDA', 422, ['linha' => $n]);
             }
-            if ($p->unidade !== 'KG' && floor((float) $qtd) != (float) $qtd) {
+            if ($unidade !== 'KG' && floor((float) $qtd) != (float) $qtd) {
                 throw new ErroNegocio("Linha {$n}: a peça vende-se à unidade (quantidade inteira).", 'QUANTIDADE_INVALIDA', 422, ['linha' => $n]);
             }
             // o preço vem da tabela; só a estimativa dos serviços com orçamento é indicada (lavandaria.js:483)
-            $preco = $orcamento && isset($x['preco']) ? RegrasLavandaria::dinheiro($x['preco']) : ServicoTabelasLavandaria::precoPecaServico($p, $s);
+            $preco = $orcamento && isset($x['preco']) ? RegrasLavandaria::dinheiro($x['preco']) : ServicoTabelasLavandaria::precoPecaServico($p, $s, $opcao);
             if (! $orcamento && bccomp($preco, '0', 2) <= 0) {
-                throw new ErroNegocio("A peça «{$p->nome}» não tem preço para o serviço «{$s->nome}» (nem preço base).", 'PRECO_EM_FALTA', 422, ['linha' => $n]);
+                throw new ErroNegocio("A peça «{$p->nome}» não tem preço em «".RegrasLavandaria::rotuloOpcao($opcao)."» para o serviço «{$s->nome}» (nem preço base). Complete-a em Lavandaria → Peças.", 'PRECO_EM_FALTA', 422, ['linha' => $n]);
             }
             $valor = RegrasLavandaria::valorComIva($qtd, $preco, $s->taxa_imposto);
             $itens[] = ['peca_id' => $p->id, 'codigo_peca' => $p->codigo, 'nome_peca' => $p->nome, 'cor' => trim((string) ($x['cor'] ?? $p->cor ?? '')),
-                'tecido' => trim((string) ($x['tecido'] ?? $p->tecido ?? '')), 'descricao_peca' => trim((string) ($x['descricao_peca'] ?? '')) ?: null, 'unidade' => $p->unidade ?: 'PECA',
+                'tecido' => trim((string) ($x['tecido'] ?? $p->tecido ?? '')), 'descricao_peca' => trim((string) ($x['descricao_peca'] ?? '')) ?: null, 'unidade' => $unidade, 'modo' => $opcao['modo'], 'tamanho' => $opcao['tamanho'],
                 'produto_id' => $s->id, 'codigo_servico' => $s->codigo, 'nome' => $s->nome, 'grupo' => $s->lavandaria_grupo, 'quantidade' => $qtd,
                 'numero_pecas' => max(1, (int) round((float) ($x['numero_pecas'] ?? 1))), 'preco' => $preco, 'valor' => $valor, 'taxa_imposto' => (string) $s->taxa_imposto,
                 'dias_entrega' => (int) $s->lavandaria_dias_entrega ?: ($s->lavandaria_grupo === 'ALFAIATARIA' ? 5 : 2),
