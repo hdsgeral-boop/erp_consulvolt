@@ -2438,6 +2438,8 @@ Linhas reais: **2** · fictícias descartadas: 0
 | `lav_prices` | `opcoes_preco` | jsonb | sim | 0% |  | **F0b** (aditiva, 2026_12_06_090000): opções de preço `[{modo: PECA\|KG\|TAMANHO, tamanho, preco}]`; a 1.ª manda na grelha. O backup original não a lia (perdia-se); lê-se com `erp:lavandaria:completar-migracao <backup>` |
 | _(novo)_ | `opcoes_preco_origem` | varchar(12) | sim | 0% |  | **F0b**: `LEGADO` (lida de `lav_prices`), `DERIVADA` (reconstruída de `unidade`+`preco`, a confirmar com o backup) ou `NOVO` (gravada no sistema novo) |
 
+> F5: a regra de preço usa a opção (`modo`, `tamanho`) — `precoPecaServico` escolhe a entrada de `precos_servico` da opção e, na falta, a antiga sem `modo`; gravar uma peça (`guardarPeca`) escreve `opcoes_preco` e marca `opcoes_preco_origem = NOVO`; `unidade`/`preco` espelham a 1.ª opção. As linhas novas das ordens guardam `modo` (PECA/KG/TAMANHO), `tamanho` e `unidade` (KG só no modo quilograma). Rotas novas: `GET /api/pos/lavandaria/modelos/{pecas|servicos|precos}` (modelo .xlsx) e `GET /api/pos/lavandaria/relatorio/excel` (7 folhas).
+
 > F0b: `precos_servico` passa a guardar também `modo`/`tamanho` por entrada (legado `service_prices[].mode/size`: matriz serviço × opção); as linhas das ordens (`itens`) guardam `modo` (legado `items.unit`) e `tamanho` (legado `items.size`).
 
 ## Módulo: Activos

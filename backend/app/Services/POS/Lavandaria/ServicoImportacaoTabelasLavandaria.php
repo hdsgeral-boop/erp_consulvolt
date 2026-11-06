@@ -268,8 +268,8 @@ final class ServicoImportacaoTabelasLavandaria
         }
         $sinonimos = ['designacao' => ['designacao', 'nome', 'descricao'], 'activa' => ['activa', 'ativa', 'activo', 'ativo'], 'activo' => ['activo', 'ativo', 'activa', 'ativa'],
             'orcamento' => ['exigeorcamento', 'orcamento', 'requerorcamento'], 'prazo' => ['prazo', 'prazodias', 'dias', 'diasentrega'], 'conta' => ['conta', 'contadeproveitos', 'codigoconta'],
-            'peca' => ['peca', 'codigopeca'], 'servico' => ['servico', 'codigoservico'], 'iva' => ['iva', 'taxaiva', 'taxa'], 'preco' => ['preco', 'precobase', 'valor'],
-            'unidade' => ['unidade', 'unidadedevenda'], 'opcao' => ['opcao', 'tamanho', 'opcaodepreco'], 'codigo' => ['codigo', 'cod']];
+            'peca' => ['peca', 'codigopeca', 'codigodapeca'], 'servico' => ['servico', 'codigoservico', 'codigodoservico'], 'iva' => ['iva', 'taxaiva', 'taxa'], 'preco' => ['preco', 'precobase', 'valor'],
+            'unidade' => ['unidade', 'unidadedevenda', 'vendapor'], 'opcao' => ['opcao', 'tamanho', 'opcaodepreco'], 'tecido' => ['tecido', 'tipodetecido'], 'codigo' => ['codigo', 'cod']];
         $valores = array_values($bruto);
         $r = [];
         foreach ($nomes as $i => $n) {
@@ -278,6 +278,15 @@ final class ServicoImportacaoTabelasLavandaria
                 if (array_key_exists($s, $porNome)) {
                     $v = $porNome[$s];
                     break;
+                }
+            }
+            if ($v === null) {   // cabeçalhos dos modelos .xlsx com indicações: «Designação *», «Venda por (Peça/Kg) *», «Código (vazio = novo)»…
+                foreach ($sinonimos[$n] ?? [$n] as $s) {
+                    $achado = array_filter(array_keys($porNome), fn ($h) => str_starts_with((string) $h, $s));
+                    if ($achado) {
+                        $v = $porNome[reset($achado)];
+                        break;
+                    }
                 }
             }
             $v ??= $porNome ? null : ($valores[$i] ?? null);

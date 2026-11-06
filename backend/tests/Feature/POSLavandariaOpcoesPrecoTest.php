@@ -144,6 +144,11 @@ final class POSLavandariaOpcoesPrecoTest extends TestCase
         $this->assertSame(['PECA', 'KG', 'PECA', 'PECA', 'PECA'], array_column($itens, 'unidade'));
         $this->assertSame(11370.0, array_sum(array_map('floatval', array_column($itens, 'valor'))));   // 2 280 + 2 250 + 3 420 + 2 280 + 1 140
 
+        // o relatório separa as peças pelo tamanho cobrado
+        $hoje = now()->toDateString();
+        $pecas = $this->getJson("/api/pos/lavandaria/relatorio?de={$hoje}&ate={$hoje}", $this->s)->assertOk()->json('dados.por_peca');
+        $this->assertEqualsCanonicalizing(['Camisa', 'Camisa', 'Camisa (M)', 'Camisa (Casal)'], array_column($pecas, 'peca'));
+
         $this->registar($sessao, [['quantidade' => 1, 'modo' => 'TAMANHO', 'tamanho' => 'XL']])->assertStatus(422)->assertJsonPath('codigo', 'OPCAO_PRECO_INVALIDA');
         $this->registar($sessao, [['quantidade' => 1.5, 'modo' => 'TAMANHO', 'tamanho' => 'M']])->assertStatus(422)->assertJsonPath('codigo', 'QUANTIDADE_INVALIDA');
         $this->registar($sessao, [['quantidade' => 1, 'modo' => 'LITRO']])->assertStatus(422);

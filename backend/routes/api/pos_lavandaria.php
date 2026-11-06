@@ -3,6 +3,7 @@
 // Incluído por routes/api.php dentro do grupo autenticado com empresa activa (prefixo /api).
 // POS parte 3a — lavandaria e alfaiataria (ADR-049).
 
+use App\Http\Controllers\Api\POS\ExportacaoLavandariaController;
 use App\Http\Controllers\Api\POS\LavandariaController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,4 +40,8 @@ Route::prefix('pos/lavandaria')->name('pos.lavandaria.')->controller(LavandariaC
     Route::post('reclamacoes/{reclamacao}/pagar', 'pagarReclamacao')->whereNumber('reclamacao')->name('reclamacoes.pagar');
 
     Route::get('relatorio', 'relatorioPeriodo')->name('relatorio');
+
+    // F5: ficheiros Excel (modelo de importação e relatório de 7 folhas)
+    Route::get('modelos/{tipo}', [ExportacaoLavandariaController::class, 'modelo'])->where('tipo', 'pecas|servicos|precos')->name('modelos');
+    Route::get('relatorio/excel', [ExportacaoLavandariaController::class, 'relatorio'])->name('relatorio.excel');
 });

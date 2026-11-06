@@ -91,8 +91,9 @@ final class ServicoRelatorioLavandaria
         $porPeca = [];
         foreach ($recebidas as $o) {
             foreach (collect($o->itens ?? [])->where('estado', '<>', 'ANULADA') as $i) {
-                $k = ($i['nome_peca'] ?? '—').'|'.($i['unidade'] ?? 'PECA');
-                $porPeca[$k] ??= ['peca' => $i['nome_peca'] ?? '—', 'unidade' => $i['unidade'] ?? 'PECA', 'quantidade' => '0.000', 'etiquetas' => 0, 'valor' => '0.00'];
+                $nome = ($i['nome_peca'] ?? '—').(($i['modo'] ?? null) === 'TAMANHO' && ! empty($i['tamanho']) ? " ({$i['tamanho']})" : '');   // F5: o tamanho cobrado
+                $k = $nome.'|'.($i['unidade'] ?? 'PECA');
+                $porPeca[$k] ??= ['peca' => $nome, 'unidade' => $i['unidade'] ?? 'PECA', 'quantidade' => '0.000', 'etiquetas' => 0, 'valor' => '0.00'];
                 $porPeca[$k]['quantidade'] = bcadd($porPeca[$k]['quantidade'], (string) $i['quantidade'], 3);
                 $porPeca[$k]['etiquetas'] += count($i['etiquetas'] ?? []);
                 $porPeca[$k]['valor'] = bcadd($porPeca[$k]['valor'], RegrasLavandaria::valorItem($i), 2);
