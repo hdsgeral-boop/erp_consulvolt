@@ -1,14 +1,14 @@
 import { Button, Checkbox, Popover, Space, Table, Tag, type TableProps } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
+import { CopyOutlined, FileExcelOutlined } from '@ant-design/icons';
 import type { ColumnGroupType, ColumnsType, SorterResult, TablePaginationConfig } from 'antd/es/table/interface';
 import { createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type Key, type MouseEvent as EventoRato, type ReactNode } from 'react';
 import { IconeFa } from '../fluxos/IconeFa';
 import { BotoesExportarLegado } from '../impressao/BotoesExportar';
-import { colunasDoConteudo, copiarTexto, tabelaParaTexto } from '../impressao/copiar';
+import { colunasDoConteudo, conteudoSoComColunas, copiarTexto, tabelaParaTexto } from '../impressao/copiar';
 import { tabelaHtml } from '../impressao/tabela';
 import { prepararTexto } from '../impressao/texto';
 import type { Orientacao, Papel } from '../impressao/tipos';
-import { useMensagem, type PedidoImpressao } from '../impressao/useImpressao';
+import { useImpressao, useMensagem, type PedidoImpressao } from '../impressao/useImpressao';
 import { AccoesLinha, type AccaoLinha } from './AccoesLinha';
 import { BarraSeleccao, type AccaoMassa, type OpcoesEditarEmMassa } from './BarraSeleccao';
 import { chaveColuna, colunasParaImpressao, conteudoTotal, eColunaAccoes, folhas, numeroCelula, textoColuna, tituloTexto, type ColunaLegado, type FolhaLegado } from './colunasTabela';
@@ -632,12 +632,15 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
     setColunasSeleccionadas(new Set());
     ultimaColunaRef.current = null;
   };
+  /** Índices (pela ordem do cabeçalho do conteúdo) das colunas escolhidas no cabeçalho da tabela. */
+  const indicesSeleccionados = (conteudo: Parameters<typeof colunasDoConteudo>[0]): number[] => {
+    const titulosEscolhidos = new Set(folhasVisiveis.filter((c, i) => colunasSeleccionadas.has(chavesFolhas.get(c) ?? String(i))).map((c) => tituloTexto(c)));
+    return colunasDoConteudo(conteudo).map((t, i) => (titulosEscolhidos.has(t) ? i : -1)).filter((i) => i !== -1);
+  };
   const copiarColunasSeleccionadas = async () => {
     const pedido = await obterPedido();
     if (!pedido) return;
-    const titulosEscolhidos = new Set(folhasVisiveis.filter((c, i) => colunasSeleccionadas.has(chavesFolhas.get(c) ?? String(i))).map((c) => tituloTexto(c)));
-    const titulosTodos = colunasDoConteudo(pedido.conteudo);
-    const indices = titulosTodos.map((t, i) => (titulosEscolhidos.has(t) ? i : -1)).filter((i) => i !== -1);
+    const indices = indicesSeleccionados(pedido.conteudo);
     if (!indices.length) {
       mensagemColunas.warning('Não foi encontrada nenhuma tabela para copiar.');
       return;
@@ -645,6 +648,25 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
     const texto = tabelaParaTexto(pedido.conteudo, indices);
     const ok = await copiarTexto(texto);
     mensagemColunas[ok ? 'success' : 'error'](ok ? `${indices.length} coluna(s) copiada(s). Já pode colar no Excel.` : 'Não foi possível copiar: o navegador bloqueou o acesso à área de transferência.');
+  };
+  // «Exportar Excel» só das colunas seleccionadas: o mesmo conteúdo e cabeçalho da exportação normal, restrito a essas colunas.
+  const { exportarExcel } = useImpressao();
+  const [aExportarColunas, setAExportarColunas] = useState(false);
+  const exportarColunasSeleccionadas = async () => {
+    setAExportarColunas(true);
+    try {
+      const pedido = await obterPedido();
+      if (!pedido) return;
+      const indices = indicesSeleccionados(pedido.conteudo);
+      const conteudo = indices.length ? conteudoSoComColunas(pedido.conteudo, indices) : '';
+      if (!conteudo) {
+        mensagemColunas.warning('Não foi encontrada nenhuma tabela para exportar.');
+        return;
+      }
+      await exportarExcel({ ...pedido, conteudo });
+    } finally {
+      setAExportarColunas(false);
+    }
   };
   useEffect(() => {
     if (!colunasSeleccionadas.size) return;
@@ -737,6 +759,11 @@ export function TabelaLegado<T extends object>(props: PropsTabelaLegado<T>) {
         <Button size="small" type="primary" icon={<CopyOutlined />} onClick={() => void copiarColunasSeleccionadas()}>
           Copiar (Ctrl+C)
         </Button>
+        {excel && (
+          <Button size="small" icon={<FileExcelOutlined />} loading={aExportarColunas} onClick={() => void exportarColunasSeleccionadas()}>
+            Exportar Excel
+          </Button>
+        )}
         <Button size="small" type="text" onClick={limparColunasSeleccionadas}>
           Limpar
         </Button>

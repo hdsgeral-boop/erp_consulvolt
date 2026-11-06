@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { colunasDoConteudo, copiarTexto, tabelaParaTexto } from './copiar';
+import { colunasDoConteudo, conteudoSoComColunas, copiarTexto, tabelaParaTexto } from './copiar';
 import { tabelaHtml } from './tabela';
 
 interface Linha { codigo: string; nome: string; total: number }
@@ -77,5 +77,26 @@ describe('copiarTexto', () => {
     Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true });
     expect(await copiarTexto('x')).toBe(true);
     expect(execCommand).toHaveBeenCalledWith('copy');
+  });
+});
+
+describe('conteudoSoComColunas', () => {
+  it('mantém só as colunas escolhidas (cabeçalho, linhas e total) e o resto sai', () => {
+    const so = conteudoSoComColunas(HTML, [0, 2]);
+    expect(colunasDoConteudo(so)).toEqual(['Código', 'Total']);
+    const linhas = tabelaParaTexto(so).split(String.fromCharCode(10));
+    expect(linhas[1]).toBe(['C1', '1 234,50'].join(String.fromCharCode(9)));
+    expect(so).not.toContain('Alfa');
+  });
+
+  it('as células que se estendem por várias colunas ficam com a extensão das colunas mantidas', () => {
+    const html = '<table><thead><tr><th>A</th><th>B</th><th>C</th></tr></thead><tbody><tr><td colspan="3">Grupo</td></tr><tr><td>1</td><td>2</td><td>3</td></tr></tbody></table>';
+    const so = conteudoSoComColunas(html, [0, 2]);
+    expect(so).toContain('colspan="2"');
+    expect(colunasDoConteudo(so)).toEqual(['A', 'C']);
+  });
+
+  it('sem tabela de dados devolve vazio', () => {
+    expect(conteudoSoComColunas('<p>nada</p>', [0])).toBe('');
   });
 });

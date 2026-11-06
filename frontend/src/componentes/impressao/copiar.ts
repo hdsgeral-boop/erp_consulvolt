@@ -36,6 +36,29 @@ export function tabelaParaTexto(conteudo: OpcoesDocumento['conteudo'], colunas?:
     .join('\n\n');
 }
 
+/**
+ * Conteúdo (HTML) só com as colunas escolhidas da 1.ª tabela de dados — para exportar para Excel só essas colunas
+ * (o mesmo critério de `colunasDoConteudo`/`tabelaParaTexto`: índices 0-based pela ordem do cabeçalho). Células que se
+ * estendem por várias colunas (linhas de grupo e totais) ficam com a extensão das colunas mantidas.
+ */
+export function conteudoSoComColunas(conteudo: OpcoesDocumento['conteudo'], colunas: number[]): string {
+  const alvo = tabelasDoConteudo(conteudo).filter(DADOS)[0]?.tabela;
+  if (!alvo) return '';
+  const manter = new Set(colunas);
+  const tabela = alvo.cloneNode(true) as HTMLTableElement;
+  Array.from(tabela.rows).forEach((tr) => {
+    let c = 0;
+    Array.from(tr.cells).forEach((celula) => {
+      const largura = Math.max(1, celula.colSpan || 1);
+      const mantidas = Array.from({ length: largura }, (_, k) => c + k).filter((i) => manter.has(i)).length;
+      if (mantidas === 0) celula.remove();
+      else if (largura > 1) celula.colSpan = mantidas;
+      c += largura;
+    });
+  });
+  return tabela.outerHTML;
+}
+
 /** Copia texto para a área de transferência; `execCommand` como recurso em navegadores/contextos sem a API moderna. */
 export async function copiarTexto(texto: string): Promise<boolean> {
   try {
