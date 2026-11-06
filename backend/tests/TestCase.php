@@ -9,6 +9,7 @@ use App\Support\Autenticacao\CookiesSessao;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Testing\TestResponse;
+use Tests\Support\ContratoPOS;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -65,7 +66,10 @@ abstract class TestCase extends BaseTestCase
     {
         $this->app['auth']->forgetGuards();
 
-        return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+        $resposta = parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+        ContratoPOS::registar($method, $resposta);   // no-op sem POS_CONTRATO (contrato JSON do POS, F0)
+
+        return $resposta;
     }
 
     /**
