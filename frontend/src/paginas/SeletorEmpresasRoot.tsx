@@ -64,7 +64,7 @@ export function SeletorEmpresasRoot({ aEscolher, escolher }: { aEscolher: number
   const total = q.data?.paginacao.total ?? 0;
 
   return (
-    <section aria-label="Empresas de todos os clientes" data-testid="seletor-root">
+    <section className="erp-seletor-root" aria-label="Empresas de todos os clientes" data-testid="seletor-root">
       <Typography.Title level={5} style={{ marginTop: 0 }}>
         Empresas de todos os clientes
         <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 12, marginInlineStart: 8 }}>

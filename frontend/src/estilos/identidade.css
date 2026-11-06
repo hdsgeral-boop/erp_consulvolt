@@ -1186,6 +1186,19 @@ button.erp-inicio-mini:focus-visible {
   padding: 0 8px;
   scrollbar-gutter: stable;
 }
+/* Selector da conta root: a secção ocupa o espaço que sobra no cartão e só a caixa da lista desloca (nunca a página). */
+.erp-seletor-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.erp-seletor-root > .erp-lista-escolha {
+  min-height: 0;
+}
+.erp-seletor-root > .ant-pagination {
+  flex: none;
+}
 .erp-lista-escolha:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
