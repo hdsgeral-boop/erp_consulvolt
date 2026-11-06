@@ -515,7 +515,7 @@ final class ServicoUtilizadores
      * Força mínima de uma palavra-passe ESCOLHIDA por quem a vai usar (troca da própria): a política única
      * (PoliticaPalavraPasse). Nas geradas pelo servidor garante-se em `gerarPalavraPasseAleatoria`.
      *
-     * @param list<string|null> $evitar utilizador/e-mail da conta, que a palavra-passe não pode conter
+     * @param  list<string|null>  $evitar  utilizador/e-mail da conta, que a palavra-passe não pode conter
      */
     public static function problemaDeForca(string $palavraPasse, array $evitar = []): ?string
     {

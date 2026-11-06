@@ -3,6 +3,7 @@
 namespace App\Services\Sistema;
 
 use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
+use App\Support\Api\MensagemSegura;
 use App\Support\Cache\Batimentos;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;

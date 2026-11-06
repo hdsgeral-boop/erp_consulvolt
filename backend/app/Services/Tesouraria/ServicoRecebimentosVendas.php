@@ -12,6 +12,7 @@ use App\Models\Venda;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Services\Vendas\ServicoRetencaoFonte;
+use App\Support\Api\MensagemSegura;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
