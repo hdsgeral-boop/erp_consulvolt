@@ -99,6 +99,8 @@ final class ServicoSessoesPOS
                 }
             }
         }
+        // F6 (Q17): as notas de crédito emitidas com a sessão aberta saem dos totais (o dinheiro devolvido sai do meio da factura)
+        ['bruto' => $bruto, 'numerario' => $numerario] = ServicoNcSessaoPOS::abater($s->id, $porMeio, $transferencias, $bruto, $numerario);
         $lavandaria = $this->lavandaria->acumular($s, $porMeio, $transferencias, $numerario);
 
         $mov = ServicoMovimentosCaixaPOS::totaisDaSessao($s->id);   // F1b: suprimentos entram, sangrias saem

@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Consulta e reimpressão das vendas de uma sessão (F1b; o legado não tinha) e regra do atalho para a nota de crédito (Q17):
  *   - NC sobre uma factura-recibo de sessão ainda aberta ou fechada mas não integrada: permitida (credita a conta do cliente, ADR-071);
- *   - NC sobre factura-recibo de sessão JÁ INTEGRADA na contabilidade: bloqueada (NC_SESSAO_INTEGRADA). O estorno na transitória
- *     que a permitiria (com permissão contabilística) é da F6; até lá, para a emitir descontabilize antes a sessão.
+ *   - NC sobre factura-recibo de sessão JÁ INTEGRADA na contabilidade (F6): só com a permissão `pos_nc_estornar` e sem prestação de contas
+ *     registada (NC_SESSAO_INTEGRADA / NC_SESSAO_COM_PRESTACAO); acompanha-a o estorno na transitória (ServicoNcSessaoPOS).
  */
 final class ServicoConsultaVendasPOS
 {
@@ -50,9 +50,7 @@ final class ServicoConsultaVendasPOS
     /** @return ?array{codigo: string, mensagem: string} */
     public static function motivoBloqueioNc(SessaoPOS $s): ?array
     {
-        return $s->estado_contabilizacao === 'CONTABILIZADA'
-            ? ['codigo' => 'NC_SESSAO_INTEGRADA', 'mensagem' => "A sessão {$s->codigo_sessao} já está integrada na contabilidade: a nota de crédito exige o estorno na conta transitória (a tratar na fase de integração). Descontabilize a sessão primeiro."]
-            : null;
+        return ServicoNcSessaoPOS::motivoBloqueio($s);
     }
 
     /** Chamado pela validação da nota de crédito (ServicoDocumentosVenda): recusa NC sobre factura-recibo de sessão integrada. */

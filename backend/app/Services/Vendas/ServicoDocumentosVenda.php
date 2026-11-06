@@ -13,6 +13,7 @@ use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\CRM\ServicoOportunidadesCRM;
 use App\Services\POS\ServicoConsultaVendasPOS;
+use App\Services\POS\ServicoNcSessaoPOS;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
@@ -210,6 +211,7 @@ final class ServicoDocumentosVenda
             }
             if ($origemNc) {
                 $this->estado->recalcular($origemNc->refresh());
+                app(ServicoNcSessaoPOS::class)->registar($venda->refresh(), $origemNc);   // F6/Q17: devolução de FR POS abate a sessão
             }
             if (! empty($d['oportunidade_crm_id'])) {   // CRM (ADR-054): mesmo cliente, não ligado a outra oportunidade; FT/FR/NE ganham-na
                 app(ServicoOportunidadesCRM::class)->ligarVenda(OportunidadeVendaCRM::query()->findOrFail($d['oportunidade_crm_id']), $venda->id);

@@ -72,6 +72,7 @@ final class ServicoContabilizacaoPOS
                     'descricao' => mb_substr("{$s->numero_z} — suprimentos e sangrias de caixa {$s->codigo_terminal} ({$doDia->count()} mov.)", 0, 1000), 'linhas' => $this->linhasMovimentos($doDia),
                 ])->first()->numero_lan;
             }
+            $lans = array_merge($lans, app(ServicoNcSessaoPOS::class)->lancarPendentes($s));   // F6: devoluções (NC) estornadas na transitória
             if ($comLavandaria) {   // facturas e recibos da lavandaria (linhasIntegracao, lavandaria.js:2379-2463)
                 $lans = array_merge($lans, $this->lavandaria->contabilizar($s, $diario));
             }
@@ -149,6 +150,7 @@ final class ServicoContabilizacaoPOS
             }
             Venda::query()->where('sessao_pos_id', $s->id)->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null, 'pos_lans_contabilizacao' => null]);
             $this->lavandaria->desmarcar($s);
+            app(ServicoNcSessaoPOS::class)->repor($s);
             $s->update(['estado_contabilizacao' => 'PENDENTE', 'lans_contabilizacao' => null, 'contabilizado_em' => null, 'contabilizado_por' => null, 'deliberacao' => $del,
                 'descontabilizado_em' => now(), 'descontabilizado_por' => Auth::user()?->nome_utilizador]);
 

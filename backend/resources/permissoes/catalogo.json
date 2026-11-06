@@ -1319,6 +1319,11 @@
               "chave": "pos_descontabilizar",
               "rotulo": "Descontabilizar sessões",
               "sensivel": true
+            },
+            {
+              "chave": "pos_nc_estornar",
+              "rotulo": "Estornar notas de crédito de sessões integradas",
+              "sensivel": true
             }
           ]
         },
@@ -3090,6 +3095,7 @@
         "teso_integrar": true,
         "activos_amort_integrar": true,
         "pos_integrar": true,
+        "pos_nc_estornar": true,
         "compras_fact_contabilizar": true,
         "vendas_fat_contabilizar": true,
         "ad_editar": true,
