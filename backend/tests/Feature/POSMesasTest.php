@@ -86,6 +86,19 @@ final class POSMesasTest extends TestCase
     }
 
     #[Test]
+    public function mesas_e_contas_ficam_na_auditoria_automatica_dos_modelos(): void
+    {
+        $m = $this->mesa('Mesa Audit');
+        $this->putJson("/api/pos/mesas/{$m}/conta", ['linhas' => [['produto_id' => $this->ids['p'], 'quantidade' => 1]]], $this->s)->assertOk();
+        $this->putJson("/api/pos/mesas/{$m}/conta", ['linhas' => []], $this->s)->assertOk();
+        $this->deleteJson("/api/pos/mesas/{$m}", [], $this->s)->assertOk();
+
+        $acoes = fn (string $tabela) => DB::table('logs_auditoria')->where('modulo', 'POS')->where('tabela', $tabela)->orderBy('id')->pluck('acao')->all();
+        $this->assertSame(['Criou', 'Atualizou'], $acoes('mesas_pos'), 'criar e desactivar (tem histórico) ficam registados');
+        $this->assertSame(['Criou', 'Atualizou'], array_slice($acoes('contas_mesa_pos'), 0, 2));
+    }
+
+    #[Test]
     public function cobrar_a_mesa_emite_a_fr_com_o_nome_da_mesa_e_fecha_a_conta(): void
     {
         $m = $this->mesa('Mesa 5');
