@@ -2288,7 +2288,7 @@ Linhas reais: **7** · fictícias descartadas: 0
 | `doc_number` | `numero_documento` | varchar(50) | sim | 43% |  |  |
 | `reference` | `referencia` | varchar(100) | sim | 43% |  | tipos mistos: string_inteiro=2, string=1; tipo forçado (inferido: varchar(20)) |
 
-### `pos_settings` → `configuracoes_pos` (model `ConfiguracaoPOS`, `/api/pos/config`)
+### `pos_settings` → `configuracoes_pos` (model `ConfiguracaoPOS`, `/api/pos/definicoes`)
 
 Linhas reais: **1** · fictícias descartadas: 0
 
@@ -2344,7 +2344,7 @@ Linhas reais: **8** · fictícias descartadas: 0
 | `closed_at` | `fechado_em` | timestamptz | sim | 100% |  |  |
 | `closed_by` | `fechado_por` | varchar(10) | sim | 100% |  |  |
 
-### `lav_orders` → `pedidos_lavandaria` (model `PedidoLavandaria`, `/api/pos/lavandaria/pedidos`)
+### `lav_orders` → `pedidos_lavandaria` (model `PedidoLavandaria`, `/api/pos/lavandaria/ordens`)
 
 Linhas reais: **6** · fictícias descartadas: 0
 
@@ -2378,7 +2378,7 @@ Linhas reais: **6** · fictícias descartadas: 0
 | `assignments` | `atribuicoes` | jsonb | sim | 100% |  |  |
 | `delivered_at` | `entregue_em` | timestamptz | sim | 33% |  |  |
 
-### `lav_payments` → `pagamentos_lavandaria` (model `PagamentoLavandaria`, `/api/pos/lavandaria/pagamentos`)
+### `lav_payments` → `pagamentos_lavandaria` (model `PagamentoLavandaria`, sem endpoint de listagem próprio: os recibos vêm em `/api/pos/lavandaria/ordens/{ordem}`)
 
 Linhas reais: **6** · fictícias descartadas: 0
 
@@ -2408,7 +2408,7 @@ Linhas reais: **0** · fictícias descartadas: 0 · ⚠ **sem dados reais — es
 
 _Sem colunas reais no backup._
 
-### `lav_settings` → `configuracoes_lavandaria` (model `ConfiguracaoLavandaria`, `/api/pos/lavandaria/config`)
+### `lav_settings` → `configuracoes_lavandaria` (model `ConfiguracaoLavandaria`, `/api/pos/lavandaria/definicoes`)
 
 Linhas reais: **0** · fictícias descartadas: 0 · ⚠ **sem dados reais — esquema a derivar do código legado**
 

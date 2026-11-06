@@ -10,12 +10,14 @@ use Illuminate\Console\Command;
  * Repete os passos pós-carga da migração do legado (ADR-068): tarefas novas do catálogo atribuídas aos perfis que já
  * faziam a acção e contas de diferenças de câmbio 6621/7621. A migração (erp:migrar-backup-legado) já os aplica depois
  * do COMMIT; este comando serve para os repetir se aí falharem. Idempotente.
+ * Atenção ao nome: «pos-carga» é «pós-carga» (depois da carga da migração), NÃO tem a ver com o módulo POS (ponto de venda).
+ * O nome mantém-se (scripts de deploy e documentação já o usam); a integridade das tabelas do POS é `erp:pos:auditar-integridade`.
  */
 final class PosCargaMigracao extends Command
 {
     protected $signature = 'erp:migracao:pos-carga';
 
-    protected $description = 'Aplica (de novo) os passos pós-carga da migração do legado: permissões novas e contas 6621/7621';
+    protected $description = 'Aplica (de novo) os passos pós-carga (depois da carga, não é do módulo POS) da migração do legado: permissões novas e contas 6621/7621';
 
     public function handle(): int
     {

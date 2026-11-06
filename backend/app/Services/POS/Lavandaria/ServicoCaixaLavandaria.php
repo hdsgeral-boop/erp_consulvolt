@@ -36,8 +36,8 @@ use Illuminate\Support\Facades\DB;
  *   - taxa de armazenagem com o IVA do produto da taxa (o legado simulava com 14 % fixo, lavandaria.js:1204);
  *   - o valor de cada linha passa a ser o valor do documento que a factura (o documento manda);
  *   - anulação de recibo enquanto a sessão está aberta (o legado não permitia anular recebimentos).
- * Pendente de alteração nas Vendas (ver relatório): a Factura sai por ServicoDocumentosVenda::emitir sem `pos` (série geral e
- * preço base a 2 casas), porque o motor só aceita facturas-recibo no modo POS.
+ * A Factura em conta corrente sai por ServicoDocumentosVenda::emitir em modo POS (série do terminal, preço com IVA), tal como a
+ * factura-recibo; já não há pendência nas Vendas (a nota antiga «a Factura sai sem pos» ficou resolvida).
  */
 final class ServicoCaixaLavandaria
 {
@@ -370,10 +370,6 @@ final class ServicoCaixaLavandaria
         return $o;
     }
 
-    /**
-     * Factura em conta corrente. Enquanto o motor de vendas não aceitar facturas no modo POS, sai com o preço base
-     * (sem IVA) a 2 casas que reproduz o valor com IVA; o valor final é o que o documento calcular.
-     */
     /** Factura em conta corrente na série do terminal, com preço com IVA (ServicoDocumentosVenda::emitir em modo POS). */
     private function emitirFatura(array $linhas, SessaoPOS $s, TerminalPOS $t, int $clienteId, string $obs, array $extra): Venda
     {

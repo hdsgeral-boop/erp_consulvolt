@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\DB;
  * Definições da lavandaria (lav_settings, DEF_PADRAO e lavGravarDefinicoes, js/lavandaria.js:57-61, 1442-1486), com as correcções:
  *   - contas validadas no servidor (movimento; taxas na classe 62, indemnizações na classe 7) — o legado só filtrava a lista no ecrã;
  *   - sem conta das taxas, as taxas não se criam (erro claro); o legado criava o produto sem conta e a integração falhava depois.
- * Nota de esquema: configuracoes_lavandaria.fator_prazo_urgencia é inteiro (devia ser decimal): guarda-se em percentagem
- * (0,5 → 50) e lê-se tanto em percentagem como em fracção, para continuar certo depois de o tipo ser corrigido.
+ * Nota de esquema: configuracoes_lavandaria.fator_prazo_urgencia é numeric(6,4), mas o legado (coluna inteira) e este serviço
+ * guardam-no em percentagem (0,5 → 50); lê-se tanto em percentagem (> 1) como em fracção (≤ 1) e a API fala sempre em fracção
+ * (0,1 a 1). Não se converte para fracção na base sem migrar os valores já gravados (decisão F0: documentar, não mudar).
  */
 final class ServicoConfigLavandaria
 {
