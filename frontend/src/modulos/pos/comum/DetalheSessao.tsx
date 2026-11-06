@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { obter } from '@/api/cliente';
 import { BotoesExportar } from '@/componentes/impressao';
+import { BotaoPdfServidor } from './BotaoPdfServidor';
 import { larguraGaveta, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
@@ -41,6 +42,7 @@ export function DetalheSessao({ id, aoFechar, accoes }: { id: number | null; aoF
         s && (
           <Flex gap={8} wrap justify="flex-end">
             <BotoesExportar tamanho="small" obterPedido={() => pedidoSessao(s)} />
+            <BotaoPdfServidor tamanho="small" tipo="sessao" texto="PDF servidor" obterPedido={() => pedidoSessao(s)} />
             {s.estado === 'FECHADA' && (
               <Button icon={<PrinterOutlined />} onClick={() => reimprimir(htmlRelatorioSessao(s, cabecalho(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id))}>
                 Imprimir Z

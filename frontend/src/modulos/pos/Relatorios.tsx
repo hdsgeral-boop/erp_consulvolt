@@ -1,10 +1,10 @@
 import { Button, Card, Col, DatePicker, Empty, Flex, Row, Skeleton, Table, Tabs } from 'antd';
-import { DownloadOutlined, PrinterOutlined } from '@ant-design/icons';
+import { DownloadOutlined, FileExcelOutlined, PrinterOutlined } from '@ant-design/icons';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
@@ -68,6 +68,19 @@ export default function Relatorios() {
     obter<SessaoPOS>(`/pos/sessoes/${id}`)
       .then((s) => reimprimir(htmlRelatorioSessao(s, cabecalho(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id)))
       .catch((e) => notificarErro(e, 'Não foi possível reemitir o Z'));
+
+  const [aExportar, setAExportar] = useState(false);
+  /** Excel do painel inteiro (GET /pos/relatorios/excel, 7 folhas), com os mesmos filtros do ecrã. */
+  const exportarExcel = async () => {
+    setAExportar(true);
+    try {
+      await descarregar('/pos/relatorios/excel', filtros, `Relatorios_POS_${sufixo}.xlsx`);
+    } catch (e) {
+      notificarErro(e, 'Não foi possível exportar o Excel');
+    } finally {
+      setAExportar(false);
+    }
+  };
 
   const exportarZ = () =>
     r &&
@@ -133,6 +146,9 @@ export default function Relatorios() {
           onChange={(v) => setPeriodo(v?.[0] && v[1] ? [v[0], v[1]] : null)}
         />
         <SeletorTerminal value={terminal} onChange={setTerminal} />
+        <Button icon={<FileExcelOutlined />} loading={aExportar} disabled={!r} onClick={() => void exportarExcel()} title="Todas as tabelas do relatório (resumo, meios, fechos Z, produtos, terminais, operadores e diferenças de TPA) num ficheiro Excel gerado no servidor">
+          Excel
+        </Button>
       </BarraFiltros>
       {!r ? (
         <Skeleton active />

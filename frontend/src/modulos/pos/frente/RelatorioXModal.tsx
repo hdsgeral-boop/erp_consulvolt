@@ -1,6 +1,7 @@
 import { Button, Descriptions, Modal, Skeleton, Table } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import { BotaoImprimir } from '@/componentes/impressao';
+import { BotaoPdfServidor } from '../comum/BotaoPdfServidor';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
@@ -27,6 +28,7 @@ export function RelatorioXModal({ sessaoId, aberto, aoFechar }: { sessaoId: numb
           Imprimir
         </Button>,
         <BotaoImprimir key="pdf" modo="pdf" texto="PDF (A4)" desactivado={!r} obterPedido={() => (r ? pedidoRelatorioX(r) : null)} />,
+        <BotaoPdfServidor key="pdfs" tipo="sessao" texto="Descarregar PDF" desactivado={!r} obterPedido={() => (r ? pedidoRelatorioX(r) : null)} />,
         <Button key="ok" type="primary" onClick={aoFechar}>
           Fechar
         </Button>,

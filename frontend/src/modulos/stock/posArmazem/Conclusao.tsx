@@ -2,6 +2,7 @@ import { Button, Modal, Result, Select, Space, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { useImpressao } from '@/componentes/impressao';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { BotaoPdfServidor } from '@/modulos/pos/comum/BotaoPdfServidor';
 import { imprimirHtml, lerPreferencias, useCabecalhoTalao, useSincronizarImpressao } from '@/modulos/pos/comum/impressao';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -82,6 +83,7 @@ export function Conclusao({ conclusao, aviso, aoFechar }: { conclusao: Conclusao
       footer={
         <Space wrap style={{ justifyContent: 'flex-end' }}>
           <Button onClick={() => conclusao && void impressos.guia(conclusao)} icon={<IconeFa nome="print" />}>Imprimir Documento A4</Button>
+          <BotaoPdfServidor tipo="guia_saida" texto="Descarregar PDF" desactivado={!conclusao} obterPedido={() => (conclusao ? pedidoDocumentoComercial(dadosGuiaSaidaPOS(conclusao)) : null)} />
           <Button onClick={() => conclusao && impressos.talao(conclusao)} icon={<IconeFa nome="receipt" />}>Imprimir Talão</Button>
           <Button type="primary" onClick={aoFechar}>Fechar</Button>
         </Space>

@@ -26,6 +26,8 @@ import {
   type ItemCarrinho,
   type Pagamento,
 } from '../comum/calculos';
+import { BotaoPdfServidor } from '../comum/BotaoPdfServidor';
+import { pedidoPdfDeDocumentoHtml } from '../comum/pdfServidor';
 import { obterTalaoFiscal, useCatalogoPOS, useCategoriasPOS } from '../comum/dados';
 import { motivoNaoAdicionar, motivoQuantidadeExcede, PREFERENCIAS_FRENTE_PADRAO, stockDe, useImagensProdutos, useStockFrente, type PreferenciasFrente } from '../comum/frente';
 import { avisoErrosAgt, htmlTalaoGenerico, htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
@@ -693,6 +695,16 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
                 <Button size="large" icon={<IconeFa nome="file-alt" />} title="Abre o documento A4; na janela de impressão pode escolher «Guardar como PDF»" onClick={() => void imprimir(emitida, true, 'A4')}>
                   Imprimir A4 / PDF
                 </Button>
+                <BotaoPdfServidor
+                  tipo="talao"
+                  texto="Descarregar PDF"
+                  obterPedido={async () => {
+                    // talão em A4 (com QR e IBAN) gerado no servidor
+                    const fiscal = await obterTalaoFiscal(emitida.id);
+                    const html = htmlTalaoVenda(emitida, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}` }), { ...lerPreferencias(empresa?.id), formato: 'A4' }, nomes, fiscal);
+                    return pedidoPdfDeDocumentoHtml(html);
+                  }}
+                />
                 <Button
                   size="large"
                   type="primary"

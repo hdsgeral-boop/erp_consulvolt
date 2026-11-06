@@ -1,4 +1,4 @@
-import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { Modal } from 'antd';
 import { ErroApi, type Envelope, type Pagina } from './tipos';
 import { armazenamento } from '@/sessao/armazenamento';
@@ -146,9 +146,18 @@ export interface Descarga {
  * (mensagem, código e detalhes) para lançar um ErroApi. O nome vem do Content-Disposition ou, na falta dele, de `nomeFicheiro`.
  */
 export async function descarregar(url: string, params: Record<string, unknown> | undefined, nomeFicheiro: string, jaReautenticado = false): Promise<Descarga> {
+  return descarregarPedido(() => http.get<Blob>(url, { params: limpar(params), responseType: 'blob', validateStatus: () => true }), nomeFicheiro, jaReautenticado);
+}
+
+/** Como `descarregar`, mas por POST com corpo JSON (ex.: PDF gerado no servidor a partir de um documento). */
+export async function descarregarPost(url: string, dados: unknown, nomeFicheiro: string): Promise<Descarga> {
+  return descarregarPedido(() => http.post<Blob>(url, dados, { responseType: 'blob', validateStatus: () => true }), nomeFicheiro, false);
+}
+
+async function descarregarPedido(executar: () => Promise<AxiosResponse<Blob>>, nomeFicheiro: string, jaReautenticado: boolean): Promise<Descarga> {
   // validateStatus aceita tudo para o corpo (blob) do erro não se perder no interceptor;
   // sem resposta (rede), o interceptor já converte em ErroApi.
-  const r = await http.get<Blob>(url, { params: limpar(params), responseType: 'blob', validateStatus: () => true });
+  const r = await executar();
   if (r.status >= 400) {
     if (r.status === 401 && aoExpirar) aoExpirar();
     let mensagem = `Não foi possível obter o ficheiro (${r.status}).`;
@@ -164,7 +173,7 @@ export async function descarregar(url: string, params: Record<string, unknown> |
     }
     if (codigo === 'LICENCA_EXPIRADA') avisarLicencaExpirada(mensagem);
     if (r.status === 403 && codigo === 'MFA_REQUERIDO' && !jaReautenticado && (await pedirReautenticacao(metodoDoErro(erros)))) {
-      return descarregar(url, params, nomeFicheiro, true);
+      return descarregarPedido(executar, nomeFicheiro, true);
     }
     throw new ErroApi(mensagem, r.status, codigo, erros);
   }
