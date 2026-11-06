@@ -46,7 +46,7 @@ describe('descarregar ficheiros binários', () => {
     vi.spyOn(http, 'get').mockResolvedValue(resposta(401, new Blob(['<html>'])));
     const erro = await descarregar('/sistema/copias/exportar', undefined, 'c.json').catch((e: unknown) => e);
     expect(expirou).toHaveBeenCalledOnce();
-    expect(erro).toMatchObject({ estado: 401, message: 'Não foi possível obter o ficheiro (401).' });
+    expect(erro).toMatchObject({ estado: 401, message: 'A sua sessão terminou. Entre novamente.' });
   });
 });
 

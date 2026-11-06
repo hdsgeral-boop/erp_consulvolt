@@ -1,3 +1,4 @@
+import { ErroApi } from '@/api/tipos';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Form, Input } from 'antd';
@@ -169,7 +170,7 @@ describe('ModalFormulario — Grade | Linhas', () => {
   });
 
   it('grava linha a linha, ignora as em branco, e as que falham ficam na tabela com o erro', async () => {
-    const gravar = vi.fn().mockImplementation((r: Record<string, unknown>) => (r.nome === 'B' ? Promise.reject(new Error('Já existe uma fase com esse nome.')) : Promise.resolve({ dados: { avisos: [] } })));
+    const gravar = vi.fn().mockImplementation((r: Record<string, unknown>) => (r.nome === 'B' ? Promise.reject(new ErroApi('Já existe uma fase com esse nome.', 422, 'FASE_DUPLICADA')) : Promise.resolve({ dados: { avisos: [] } })));
     const aoConcluir = vi.fn();
     render(<Ecra gravar={gravar} aoConcluir={aoConcluir} />);
     irParaLinhas();

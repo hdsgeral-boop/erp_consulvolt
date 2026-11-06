@@ -1,3 +1,4 @@
+import { ErroApi } from '@/api/tipos';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { OperacoesProvider, useOperacoes } from './Operacoes';
@@ -59,10 +60,10 @@ describe('OperacoesProvider — acompanhar um lote em segundo plano (M-05)', () 
   }, 15_000);
 
   it('erro a consultar o estado marca a operação como falhada (sem repetir)', async () => {
-    obterMock.mockRejectedValueOnce(new Error('Falha de rede'));
+    obterMock.mockRejectedValueOnce(new ErroApi('Não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.', 0, 'SEM_LIGACAO'));
     montar({ id: 'lote-3' });
 
-    await waitFor(() => expect(screen.getByText('Falha de rede')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Não foi possível contactar o servidor/)).toBeInTheDocument());
     expect(obterMock).toHaveBeenCalledTimes(1);
   });
 });
