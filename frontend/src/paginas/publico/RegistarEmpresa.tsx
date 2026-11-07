@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Progress, Row, Select, Typography } from 'antd';
+import { Alert, Button, Card, Col, Divider, Flex, Form, Input, Modal, Progress, Row, Select, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
@@ -78,8 +78,19 @@ export function RegistarEmpresa() {
     setErro(null);
     setDetalhesErros([]);
     try {
-      const r = await enviar<{ empresa_id: number }>('post', '/autenticacao/registar-empresa', v);
-      await autenticarAposRegisto(r.dados.empresa_id);
+      const r = await enviar<{ empresa_id?: number; sem_sessao?: boolean; endereco_entrada?: string }>('post', '/autenticacao/registar-empresa', v);
+      if (r.dados.sem_sessao && r.dados.endereco_entrada) {
+        // registo feito no endereço de outro cliente: a empresa existe, mas a sessão só vale no endereço da própria empresa
+        const endereco = r.dados.endereco_entrada;
+        Modal.success({
+          title: 'Empresa registada',
+          content: `Entre agora em ${endereco} com o utilizador «${v.nome_utilizador}» e a palavra-passe que acabou de criar.`,
+          okText: 'Ir para o endereço da empresa',
+          onOk: () => window.location.assign(endereco),
+        });
+        return;
+      }
+      await autenticarAposRegisto(r.dados.empresa_id as number);
       try {
         sessionStorage.setItem(CHAVE_SESSAO_MOSTRAR_TOUR, '1');
       } catch {

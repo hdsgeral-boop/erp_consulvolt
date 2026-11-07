@@ -241,6 +241,27 @@ describe('RegistarEmpresa — campos e critérios', () => {
     await waitFor(() => expect(autenticarAposRegisto).toHaveBeenCalledWith(7));
   });
 
+  it('registo feito no endereço de outro cliente: não tenta abrir sessão e indica o endereço da nova empresa', async () => {
+    enviar.mockResolvedValue({ dados: { sem_sessao: true, endereco_entrada: 'https://nova.exemplo.test/app' } });
+    montar(<RegistarEmpresa />);
+    preencher({
+      'Nome comercial / Denominação social': 'Caculo Tech e Associados',
+      'NIF da empresa': '5417012345',
+      'Telefone principal': '937256318',
+      'Nome completo': 'Leonildo Mulanga Caculo',
+      'Nome de utilizador (login)': 'Leonel_Caculo',
+      'E-mail profissional': 'leonildo@consulvolt.pt',
+    });
+    fireEvent.change(screen.getByLabelText(/Palavra-passe \(mín/), { target: { value: 'Barcaça#2026x' } });
+    fireEvent.change(screen.getByLabelText('Confirmar a palavra-passe'), { target: { value: 'Barcaça#2026x' } });
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByText('Luanda'));
+    fireEvent.click(screen.getByRole('button', { name: /Começar/ }));
+    expect((await screen.findAllByText('Empresa registada')).length).toBeGreaterThan(0);
+    expect(screen.getByText(/https:\/\/nova\.exemplo\.test\/app/)).toBeInTheDocument();
+    expect(autenticarAposRegisto).not.toHaveBeenCalled();
+  });
+
   it('erro do servidor por campo (NIF repetido): aparece no campo e no resumo, sem detalhes técnicos', async () => {
     enviar.mockRejectedValue(new ErroApi('Os dados enviados são inválidos.', 422, 'VALIDACAO', { nif: ['Este NIF já se encontra registado numa empresa existente.'] }));
     montar(<RegistarEmpresa />);

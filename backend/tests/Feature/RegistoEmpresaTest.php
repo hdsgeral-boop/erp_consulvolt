@@ -177,4 +177,36 @@ final class RegistoEmpresaTest extends TestCase
         $r->assertUnprocessable();
         $this->assertArrayHasKey('nif', $r->json('erros') ?? []);
     }
+
+    /** @return array<string, mixed> */
+    private function payloadRegisto(string $nif, string $utilizador, string $email): array
+    {
+        return ['nome_comercial' => 'Caculo Tech e Associados', 'nif' => $nif, 'telefone' => '937256318', 'provincia' => 'Luanda', 'nome_completo' => 'Leonildo Mulanga Caculo', 'nome_utilizador' => $utilizador, 'email' => $email, 'palavra_passe' => 'LilStrong24@x!', 'plano' => null];
+    }
+
+    public function test_registo_feito_no_endereco_de_outro_cliente_cria_a_empresa_sem_abrir_sessao_e_indica_o_endereco_proprio(): void
+    {
+        config(['erp.dominio.base' => 'exemplo.test']);
+
+        $r = $this->postJson('https://consulvolt.exemplo.test/api/autenticacao/registar-empresa', $this->payloadRegisto('5418291024', 'Leonel_Caculo', 'leonel@caculo.pt'));
+
+        $r->assertCreated();
+        $r->assertJsonPath('dados.sem_sessao', true);
+        $this->assertSame('https://caculo-tech-e-associados.exemplo.test/app', $r->json('dados.endereco_entrada'));
+        $this->assertEmpty($this->tokenDoCookie($r));
+        $this->assertDatabaseHas('empresas', ['nif' => '5418291024']);
+        $this->assertDatabaseHas('utilizadores', ['nome_utilizador' => 'leonel_caculo']);   // maiúsculas aceites, gravado em minúsculas
+    }
+
+    public function test_registo_no_endereco_principal_continua_a_abrir_sessao(): void
+    {
+        config(['erp.dominio.base' => 'exemplo.test']);
+
+        $r = $this->postJson('https://exemplo.test/api/autenticacao/registar-empresa', $this->payloadRegisto('5418291024', 'leonel.caculo', 'leonel@caculo.pt'));
+
+        $r->assertCreated();
+        $this->assertNotEmpty($r->json('dados.empresa_id'));   // sessão aberta (o token vai em cookie, com nome próprio em HTTPS)
+        $this->assertNull($r->json('dados.sem_sessao'));
+        $this->assertNotNull($r->json('dados.utilizador'));
+    }
 }
