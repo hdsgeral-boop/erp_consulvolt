@@ -2,7 +2,7 @@
 
 Este ficheiro permite a uma sessão nova do Claude Code (conta nova, sem memória) retomar o ERP_CONSULVOLT sem reconstruir o contexto. Ler tudo antes de agir. **Não contém segredos**: as credenciais ficam no perfil AWS `erp-cli`, no `.env` e nos segredos do GitHub, nunca neste ficheiro.
 
-Última actualização: 2026-11-07 (a meio de uma suite completa e antes do deploy das ondas F3–F6; ver secção 8).
+Última actualização: 2026-11-07 (F3–F6 publicadas; ver secção 8).
 
 ## 1. Como arrancar a sessão nova
 
@@ -83,23 +83,15 @@ Sem git nem AWS CLI no servidor. Construir localmente as imagens com `docker bui
 ## 7. Notas de custo
 Cada onda de implementação gasta cerca de 0,6 a 0,7 milhões de tokens num subagente. Trabalhar por ondas fechadas, um agente por tarefa, e correr a suite completa (19 minutos) apenas antes de publicar.
 
-## 8. Ponto exacto onde o trabalho ficou (2026-11-07)
+## 8. Ponto exacto onde o trabalho ficou (2026-11-07, actualizado após o deploy)
 
-Estado dos commits locais (ainda **por publicar**, por esta ordem): `a414e1b` (F3) → `ac34800` (F4) → `3f3f784` (F5) → `56816ba` (F6) → `259d0df` (correcção do registo). O último commit publicado nos 3 remotos é `82a81f4`.
+**Publicado** nos 3 remotos, na produção e no ambiente de teste: commit `5248052` (inclui Imobiliário F3–F6, correcção do registo e login único). Teste em `teste-20261107-1312`. Verificado: saúde 200 em `meuerp.ao` e `consulvolt.meuerp.ao`, 0 migrações pendentes, perfis actualizados, contagem de erros do log estável (122). Suites antes de publicar: backend 2022 passados; vitest 1954 passados (1 teste da lavandaria `TabelasOpcoes` falhou por tempo esgotado sob carga e passa isolado); tsc limpo. Ensaio das 4 migrações (`2026_12_17` a `2026_12_20`) em cópia restaurada: sem problemas.
 
-Em curso nesse momento:
-- **Suite completa do backend** (`docker exec erp_app_e2e php artisan test`, ~20 min), resultado em `%TEMP%\full_be.txt` (termina com a linha `FIM`), e **vitest completo** em `%TEMP%\full_fe.txt`. Se estes ficheiros já não existirem, correr de novo. Ler o conteúdo real; não confiar no código de saída.
-- **Snapshot RDS** `meuerp-pre-imof36-<data>` criado (nome em `%TEMP%\snap9.txt`) e pacote de ensaio `ov7.tar.gz` já enviado para `s3://meuerp-transferencia-962367498111/ensaio/`. Sem cópia RDS temporária criada ainda.
+**Login:** único em `meuerp.ao` por omissão; a morada própria `<slug>.meuerp.ao` continua activa e funcional como opção (registo noutra morada devolve `endereco_entrada` = login único e `endereco_empresa` = morada própria).
 
-Passos que faltam, por esta ordem:
-1. Esperar pela suite completa; corrigir qualquer falha. Confirmar `tsc` limpo.
-2. **Mudança de login (decidida pelo utilizador):** passar a ser **login único** em `meuerp.ao` por omissão. A opção de **morada própria por empresa** (`<slug>.meuerp.ao`) fica **opcional, activada no sistema e funcional**. Implementar assim: no registo (`RegistoEmpresaController::store`), quando o pedido vem de uma morada de outro cliente, da plataforma ou do portal, a resposta `sem_sessao` deve apontar `endereco_entrada` para o **login único** (`<esquema>://<base>/app`) e acrescentar `endereco_empresa` com a morada própria da empresa como alternativa opcional; o ecrã (`RegistarEmpresa.tsx`) mostra o login único como destino principal e a morada própria como opção. Actualizar os testes `RegistoEmpresaTest` e `EntradaFormularios.test.tsx`. Não retirar a verificação por morada (`DominioPedido`, `ResolverTenantAtivo`): continua activa para quem usar a morada própria. Confirmar que um utilizador de qualquer cliente consegue entrar pelo endereço principal (área `SITE`, `permite()` devolve verdadeiro).
-3. Ensaio das 4 migrações (`2026_12_17_090000` a `2026_12_20_090000`) numa cópia restaurada do snapshot (secção 6.1); verificar tabelas novas, RLS, GRANT a `erp_app`, as colunas aditivas (`configuracao_imobiliario`: `produto_reserva_id`, `produto_venda_imovel_id`, `conta_mais_valia`, `conta_menos_valia`, `conta_compra_contrapartida`; `imoveis.data_alienacao`), contagens inalteradas, 2.ª corrida sem alterações. Apagar a cópia e o objecto do S3.
-4. `npm run build` em `frontend`; push para `origin` (ramo `paridade-bd-front`), `teste` e `producao` (`HEAD:main`); esperar CI + «Deploy AWS»; verificar saúde, 0 migrações pendentes, `erp:perfis:actualizar-modelos` (os perfis do Imobiliário mudaram nas ondas F3–F6), contagem de erros do log.
-5. Ambiente de teste: construir imagens, enviar para S3, lançar `actualizar-teste.sh` pelo SSM (secção 6.3).
-6. Depois, seguir a lista da secção 5 (F7, F8, F9 do Imobiliário, etc.).
+**Próximo passo:** seguir a lista da secção 5 pela ordem: Imobiliário F7 (Rentabilidade e Fiscal), F8 (Transversais), F9 (ETL e fecho); depois Estratégia F2b–F9; Procedimentos Ondas 2–3; POS F8/F9. Cada onda: subagente, testes, commit, relatório; publicar com o ensaio da secção 6.
 
-Notas das ondas F3–F6 a ter presentes: cada empresa tem de configurar em Modelos e Taxas › «Facturação e contas» o artigo «Renda», o artigo das reservas, o artigo da venda de imóveis (IVA 0 %), a contrapartida da compra e as contas de caução, mais-valia e menos-valia. As taxas fiscais e o IP retido estão «por confirmar» pelo contabilista. Os perfis Gestor Imobiliário e Técnico de Rendas mudaram (segregação de funções). Comandos agendados novos: `erp:imobiliario:caducar-reservas` (15 em 15 minutos) e `erp:imobiliario:obras` (06:30).
+Notas das ondas F3–F6: cada empresa tem de configurar em Modelos e Taxas › «Facturação e contas» o artigo «Renda», o artigo das reservas, o artigo da venda de imóveis (IVA 0 %), a contrapartida da compra e as contas de caução, mais-valia e menos-valia. As taxas fiscais e o IP retido estão «por confirmar» pelo contabilista. Os perfis Gestor Imobiliário e Técnico de Rendas mudaram (segregação). Comandos agendados novos: `erp:imobiliario:caducar-reservas` (15 em 15 min) e `erp:imobiliario:obras` (06:30); confirmar que o scheduler corre em produção.
 
 ## 9. Prompt para colar na conta nova do Claude
 
@@ -109,13 +101,13 @@ Copiar o bloco seguinte para a primeira mensagem da sessão nova:
 Estás a continuar um projecto existente: ERP_CONSULVOLT (Laravel 13 + React 19, PostgreSQL com RLS, AWS), na pasta C:\xampp\htdocs\ERP_CONSULVOLT_MEU\erp_laravel, ramo paridade-bd-front. Responde SEMPRE em português (pré-acordo ortográfico).
 
 1. Lê por inteiro docs/CONTINUAR_TRABALHO.md. É a fonte de verdade: regras permanentes (secção 3), como testar (4), estado e lista do que falta (5 e 8), como publicar (6).
-2. Corre `git status` e `git log --oneline -12` para ver o que já está commitado e o que está publicado (o último commit publicado nos remotos era 82a81f4).
-3. Retoma exactamente pelo ponto da secção 8 («Passos que faltam»), pela ordem indicada. Não recomeces trabalho já feito: confirma pelo git e pelos relatórios em docs/paridade/.
+2. Corre `git status` e `git log --oneline -12` para ver o que já está commitado e o que está publicado (o último commit publicado nos remotos é 5248052).
+3. Retoma pelo ponto da secção 8 e pela lista da secção 5. Não recomeces trabalho já feito: confirma pelo git e pelos relatórios em docs/paridade/.
 4. Restrições que nunca se quebram: não tocar no ODK; não apagar nem rodar a conta/chaves erp-cli; manter os dados da produção; nunca force-push; nunca expor segredos ou dados pessoais; não fazer git add dos ficheiros pessoais (Implementar.txt, Logotipo_3Cores.jpeg, segurança.txt, Mapa Remuneração*.xlsx, v_boss/); nunca regenerar catalogo.json (editar à mão); nunca correr dois PHPUnit em paralelo; não introduzir credenciais do utilizador para fazer login.
 5. Trabalha por ondas fechadas (testes verdes + commit + relatório em docs/paridade/). Um subagente por tarefa; usa-os para implementações grandes e mantém o contexto principal pequeno. Antes de publicar: suite completa do backend, vitest completo, tsc, pint, npm run build, snapshot RDS + ensaio das migrações numa cópia restaurada. Depois publica nos 3 remotos e nos 2 ambientes AWS (autorização permanente do utilizador, com estas salvaguardas).
 6. No fim de cada entrega mostra ao utilizador o que ficou feito e o que falta. Se os tokens estiverem a acabar, pára numa fronteira limpa e actualiza a secção 8 deste ficheiro com o ponto exacto onde ficaste.
 
-Começa por confirmar que leste o ficheiro, resume-me em 5 linhas o estado e continua no passo 1 da secção 8.
+Começa por confirmar que leste o ficheiro, resume-me em 5 linhas o estado e continua pela lista da secção 5 (próximo: Imobiliário F7).
 ```
 
 ### Acesso e credenciais (sem segredos)
