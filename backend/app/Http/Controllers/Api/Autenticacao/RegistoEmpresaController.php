@@ -50,16 +50,15 @@ final class RegistoEmpresaController extends Controller
             }
             throw ValidationException::withMessages($campo);
         }
-        // Registo feito num endereço que já é de OUTRO cliente (ex.: consulvolt.<base>), da plataforma ou do portal: a conta nova
-        // pertence ao seu próprio cliente e esses endereços recusariam a sessão (403 «nome de utilizador ou palavra-passe
-        // incorrectos» logo a seguir ao registo, com a empresa já criada). Cria-se, não se abre sessão aqui e devolve-se o
-        // endereço próprio da empresa para entrar. No endereço principal (ou sem domínios por cliente) tudo fica como era.
+        // Login único por omissão (meuerp.ao). Registo feito numa morada de OUTRO cliente, da plataforma ou do portal: a conta nova
+        // pertence ao seu próprio cliente e essas moradas recusariam a sessão. Cria-se, não se abre sessão aqui e indica-se o
+        // login único como destino principal; a morada própria da empresa (<slug>.<base>) fica como opção, também funcional.
         $area = DominioPedido::de($r)->area;
         if (in_array($area, [DominioPedido::CLIENTE, DominioPedido::PLATAFORMA, DominioPedido::PORTAL], true)) {
             $base = strtolower(trim((string) config('erp.dominio.base')));
-            $endereco = $r->getScheme().'://'.$resultado['tenant']->slug.'.'.$base.'/app';
+            $esquema = $r->getScheme();
 
-            return RespostaApi::criado(['sem_sessao' => true, 'endereco_entrada' => $endereco, 'nome_utilizador' => $d['nome_utilizador'], 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo. Entre no endereço da sua empresa com o utilizador e a palavra-passe que acabou de criar.");
+            return RespostaApi::criado(['sem_sessao' => true, 'endereco_entrada' => $esquema.'://'.$base.'/app', 'endereco_empresa' => $esquema.'://'.$resultado['tenant']->slug.'.'.$base.'/app', 'nome_utilizador' => $d['nome_utilizador'], 'dias_teste' => $diasTeste], "Empresa registada. O período de demonstração de {$diasTeste} dias já está activo. Entre com o utilizador e a palavra-passe que acabou de criar.");
         }
         $dispositivo = CookiesSessao::dispositivoDoPedido($r);
         $sessao = $this->autenticacao->entrar($d['nome_utilizador'], $d['palavra_passe'], $dispositivo['id'], $r->ip(), $r->userAgent());

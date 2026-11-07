@@ -192,7 +192,8 @@ final class RegistoEmpresaTest extends TestCase
 
         $r->assertCreated();
         $r->assertJsonPath('dados.sem_sessao', true);
-        $this->assertSame('https://caculo-tech-e-associados.exemplo.test/app', $r->json('dados.endereco_entrada'));
+        $this->assertSame('https://exemplo.test/app', $r->json('dados.endereco_entrada'));   // login único como destino principal
+        $this->assertSame('https://caculo-tech-e-associados.exemplo.test/app', $r->json('dados.endereco_empresa'));   // morada própria, opcional
         $this->assertEmpty($this->tokenDoCookie($r));
         $this->assertDatabaseHas('empresas', ['nif' => '5418291024']);
         $this->assertDatabaseHas('utilizadores', ['nome_utilizador' => 'leonel_caculo']);   // maiúsculas aceites, gravado em minúsculas

@@ -242,7 +242,7 @@ describe('RegistarEmpresa — campos e critérios', () => {
   });
 
   it('registo feito no endereço de outro cliente: não tenta abrir sessão e indica o endereço da nova empresa', async () => {
-    enviar.mockResolvedValue({ dados: { sem_sessao: true, endereco_entrada: 'https://nova.exemplo.test/app' } });
+    enviar.mockResolvedValue({ dados: { sem_sessao: true, endereco_entrada: 'https://exemplo.test/app', endereco_empresa: 'https://nova.exemplo.test/app' } });
     montar(<RegistarEmpresa />);
     preencher({
       'Nome comercial / Denominação social': 'Caculo Tech e Associados',
@@ -258,7 +258,8 @@ describe('RegistarEmpresa — campos e critérios', () => {
     fireEvent.click(await screen.findByText('Luanda'));
     fireEvent.click(screen.getByRole('button', { name: /Começar/ }));
     expect((await screen.findAllByText('Empresa registada')).length).toBeGreaterThan(0);
-    expect(screen.getByText(/https:\/\/nova\.exemplo\.test\/app/)).toBeInTheDocument();
+    expect(screen.getByText(/login único: https:\/\/exemplo\.test\/app/)).toBeInTheDocument();
+    expect(screen.getByText(/morada própria https:\/\/nova\.exemplo\.test\/app/)).toBeInTheDocument();
     expect(autenticarAposRegisto).not.toHaveBeenCalled();
   });
 

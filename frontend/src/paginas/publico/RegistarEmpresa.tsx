@@ -78,15 +78,21 @@ export function RegistarEmpresa() {
     setErro(null);
     setDetalhesErros([]);
     try {
-      const r = await enviar<{ empresa_id?: number; sem_sessao?: boolean; endereco_entrada?: string }>('post', '/autenticacao/registar-empresa', v);
+      const r = await enviar<{ empresa_id?: number; sem_sessao?: boolean; endereco_entrada?: string; endereco_empresa?: string }>('post', '/autenticacao/registar-empresa', v);
       if (r.dados.sem_sessao && r.dados.endereco_entrada) {
-        // registo feito no endereço de outro cliente: a empresa existe, mas a sessão só vale no endereço da própria empresa
-        const endereco = r.dados.endereco_entrada;
+        // registo feito na morada de outro cliente: a empresa existe; entra-se pelo login único (ou, se preferir, pela morada própria)
+        const unico = r.dados.endereco_entrada;
+        const propria = r.dados.endereco_empresa;
         Modal.success({
           title: 'Empresa registada',
-          content: `Entre agora em ${endereco} com o utilizador «${v.nome_utilizador}» e a palavra-passe que acabou de criar.`,
-          okText: 'Ir para o endereço da empresa',
-          onOk: () => window.location.assign(endereco),
+          content: (
+            <>
+              <p>Entre agora com o utilizador «{v.nome_utilizador}» e a palavra-passe que acabou de criar, no login único: {unico}</p>
+              {propria ? <p>Opcional: a sua empresa também tem a morada própria {propria}</p> : null}
+            </>
+          ),
+          okText: 'Ir para o login',
+          onOk: () => window.location.assign(unico),
         });
         return;
       }
