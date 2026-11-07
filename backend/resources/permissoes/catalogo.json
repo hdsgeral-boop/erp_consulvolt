@@ -3644,6 +3644,11 @@
       "a": "imo_caucao_movimentar",
       "b": "imo_contrato_terminar",
       "motivo": "Movimenta a caução e termina o contrato a que ela pertence."
+    },
+    {
+      "a": "imo_renda_gerar",
+      "b": "imo_renda_aprovar",
+      "motivo": "Gera ou recalcula rendas e aprova as mesmas rendas."
     }
   ],
   "modelos": [
@@ -4676,7 +4681,6 @@
         "imo_contrato_docs": true,
         "imo_contrato_suspender": true,
         "imo_contrato_renovar": true,
-        "imo_renda_gerar": true,
         "imo_renda_aprovar": true,
         "imo_sub_debitar": true,
         "imo_neg_editar": true,
@@ -4698,7 +4702,6 @@
         "imo_rendas_view": true,
         "imo_modelos_view": true,
         "imo_renda_gerar": true,
-        "imo_renda_aprovar": true,
         "imo_contrato_docs": true
       }
     },

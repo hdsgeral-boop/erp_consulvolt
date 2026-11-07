@@ -597,6 +597,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         require __DIR__.'/api/procedimentos_manual.php';   // Manual de Procedimentos, Onda 1 (paridade): processos e definições do documento
         require __DIR__.'/api/estrategia.php';   // Planeamento Estratégico, Onda 1 (F0-F2a): planos, objectivos, indicadores, metas e medição manual
         require __DIR__.'/api/imobiliario.php';   // Gestão Imobiliária, Onda 1 (F0-F2): cadastro, mapa de ocupação, modelos de documentos e taxas
+        require __DIR__.'/api/imobiliario_contratos.php';   // Gestão Imobiliária, Onda 2 (F3): contratos, rendas, facturação, caução e subarrendamento
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

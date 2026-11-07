@@ -2,6 +2,7 @@
 
 namespace App\Services\Imobiliario;
 
+use App\Models\ContratoArrendamento;
 use App\Models\Imovel;
 use App\Services\Sistema\ServicoNumeracao;
 
@@ -28,6 +29,26 @@ final class ServicoNumeracaoImobiliario
         }
 
         return $this->formatar(self::SERIE_IMOVEL, $this->numeracao->proximo($empresaId, 'imo:'.self::SERIE_IMOVEL, fn () => $this->maiorImovel()));
+    }
+
+    /** Prefixos dos contratos por tipo (AR arrendamento, SB subarrendamento, AT tomado). */
+    public const PREFIXOS_CONTRATO = ['ARRENDAMENTO' => 'AR', 'SUBARRENDAMENTO' => 'SB', 'TOMADA' => 'AT'];
+
+    /** Próximo número de contrato do ano (`AR 2026/0001`): uma sequência por empresa, prefixo e ano, sem a corrida do legado. */
+    public function proximoNumeroContrato(int $empresaId, string $tipo, ?int $ano = null): string
+    {
+        $pref = self::PREFIXOS_CONTRATO[$tipo] ?? 'AR';
+        $ano ??= (int) now()->format('Y');
+        $n = $this->numeracao->proximo($empresaId, "imo:{$pref}:{$ano}", function () use ($pref, $ano) {
+            $maior = 0;
+            foreach (ContratoArrendamento::query()->where('numero', '~*', "^{$pref} {$ano}/[0-9]+$")->pluck('numero') as $num) {
+                $maior = max($maior, (int) substr((string) $num, strlen("{$pref} {$ano}/")));
+            }
+
+            return $maior;
+        });
+
+        return sprintf('%s %d/%04d', $pref, $ano, $n);
     }
 
     public function formatar(string $serie, int $numero): string
