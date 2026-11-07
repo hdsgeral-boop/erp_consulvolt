@@ -22,6 +22,7 @@ Schedule::command('erp:licencas:avisar')->dailyAt('07:00')->withoutOverlapping()
 // Alertas de prazos de RH (Fase K, ADR-079): entregáveis em atraso, férias a começar, pedidos e assuntos pendentes há mais de 3 dias e
 // delegações a terminar. Idempotente (não repete avisos), um só servidor de cada vez.
 Schedule::command('erp:rh:alertas-prazos')->dailyAt('07:30')->onOneServer()->withoutOverlapping();
+Schedule::command('erp:imobiliario:caducar-reservas')->everyFifteenMinutes()->onOneServer()->withoutOverlapping();   // reservas de áreas comuns com o prazo de pagamento esgotado
 
 // Alertas de SLA de suporte violado (Fase 6 da extensão SaaS): corre com frequência porque o prazo é em horas, não em dias.
 Schedule::command('erp:suporte:avisar-sla')->everyFifteenMinutes()->withoutOverlapping();

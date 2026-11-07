@@ -29,6 +29,7 @@ export interface Fracao {
   numero: string | null; piso: number | null; tipologia: string; finalidade: string; area_bruta: number; area_util: number; quartos: number | null;
   casas_banho: number | null; mobilada: string; estado: EstadoFracao; estado_desde: string | null; estado_motivo: string | null; matriz_predial: string | null;
   valor_patrimonial: number | null; renda_referencia: number | null; venda_referencia: number | null; documentos: DocumentoLigado[]; ordem: number; notas: string | null;
+  park_afectacao?: string | null;
 }
 
 export interface HistoricoEstado { id: number; estado_de: EstadoFracao | null; estado_para: EstadoFracao; motivo: string | null; utilizador_id: number | null; em: string }

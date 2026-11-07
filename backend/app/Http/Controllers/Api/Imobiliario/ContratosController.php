@@ -65,7 +65,7 @@ final class ContratosController extends Controller
 
     public function contas(): JsonResponse
     {
-        $this->exigir('imo_contratos_view', 'imo_contrato_editar', 'imo_caucao_movimentar', 'imo_taxas_editar', 'imo_renda_pagar');
+        $this->exigir('imo_contratos_view', 'imo_contrato_editar', 'imo_caucao_movimentar', 'imo_taxas_editar', 'imo_renda_pagar', 'imo_reserva_receber', 'imo_reserva_caucao');
         $contas = collect($this->plano->todas())->where('tipo', 'M')->sortKeys()->map(fn ($c) => ['codigo' => (string) $c['codigo'], 'descricao' => $c['descricao'] ?? null])->values()->all();
 
         return RespostaApi::sucesso(ImobiliarioResource::collection($contas), 'Contas de movimento do plano de contas.');

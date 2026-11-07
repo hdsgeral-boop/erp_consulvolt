@@ -6,7 +6,7 @@ import { CHAVES_CT, gravarConfiguracao, listarArtigos, listarContas, obterConfig
 import { useRefrescar } from './hooks';
 
 const CONTAS = [
-  { campo: 'conta_caucao_passivo', rotulo: 'Cauções de terceiros (passivo)', ajuda: 'Caução recebida dos inquilinos, a devolver. Usada nos contratos em que a empresa é senhoria.' },
+  { campo: 'conta_caucao_passivo', rotulo: 'Cauções de terceiros (passivo)', ajuda: 'Caução recebida dos inquilinos e dos reservantes de áreas comuns, a devolver. Usada nos contratos em que a empresa é senhoria.' },
   { campo: 'conta_caucao_receita', rotulo: 'Caução retida (receita)', ajuda: 'Onde vai a parte da caução retida por danos, com motivo escrito.' },
   { campo: 'conta_caucao_activo', rotulo: 'Cauções prestadas (activo)', ajuda: 'Caução entregue aos senhorios nos contratos tomados.' },
   { campo: 'conta_ip_credito', rotulo: 'Imposto Predial retido (crédito de imposto)', ajuda: 'Imposto retido pelo inquilino à renda: crédito de imposto a receber. A validar pelo contabilista.' },
@@ -23,7 +23,7 @@ export function SeparadorConfiguracao({ podeEditar }: { podeEditar: boolean }) {
   useEffect(() => {
     const c = q.data;
     if (!c) return;
-    form.setFieldsValue({ produto_renda_id: c.produto_renda?.id ?? null, produto_renda_alojamento_id: c.produto_renda_alojamento?.id ?? null,
+    form.setFieldsValue({ produto_renda_id: c.produto_renda?.id ?? null, produto_renda_alojamento_id: c.produto_renda_alojamento?.id ?? null, produto_reserva_id: c.produto_reserva?.id ?? null,
       conta_caucao_passivo: c.conta_caucao_passivo?.codigo ?? null, conta_caucao_activo: c.conta_caucao_activo?.codigo ?? null, conta_caucao_receita: c.conta_caucao_receita?.codigo ?? null, conta_ip_credito: c.conta_ip_credito?.codigo ?? null });
   }, [q.data, form]);
   const gravar = useMutation({
@@ -42,6 +42,9 @@ export function SeparadorConfiguracao({ podeEditar }: { podeEditar: boolean }) {
           <Select allowClear showSearch optionFilterProp="label" loading={artigos.isLoading} placeholder="— artigo —" options={opArtigos} />
         </Form.Item>
         <Form.Item name="produto_renda_alojamento_id" label="Artigo de serviço «Renda» do alojamento (com IVA)" extra="Só se há contratos de alojamento hoteleiro, tributados em IVA.">
+          <Select allowClear showSearch optionFilterProp="label" loading={artigos.isLoading} placeholder="— artigo —" options={opArtigos} />
+        </Form.Item>
+        <Form.Item name="produto_reserva_id" label="Artigo de serviço das reservas de áreas comuns (IVA 0 %)" extra="É o artigo da factura da utilização do espaço e da factura da caução retida por danos. A receita vai pela conta do artigo; o tratamento do IVA destes serviços deve ser validado pelo contabilista.">
           <Select allowClear showSearch optionFilterProp="label" loading={artigos.isLoading} placeholder="— artigo —" options={opArtigos} />
         </Form.Item>
         {CONTAS.map((c) => (

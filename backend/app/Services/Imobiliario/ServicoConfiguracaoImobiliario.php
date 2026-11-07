@@ -22,17 +22,17 @@ final class ServicoConfiguracaoImobiliario
     public function obter(): array
     {
         $c = ConfiguracaoImobiliario::query()->first();
-        $ids = array_values(array_filter([$c?->produto_renda_id, $c?->produto_renda_alojamento_id]));
+        $ids = array_values(array_filter([$c?->produto_renda_id, $c?->produto_renda_alojamento_id, $c?->produto_reserva_id]));
         $produtos = $ids ? Produto::query()->whereIn('id', $ids)->get(['id', 'codigo', 'nome', 'taxa_imposto', 'bloqueado'])->keyBy('id') : collect();
         $todas = $this->plano->todas();
         $conta = fn (?string $codigo) => $codigo ? ['codigo' => $codigo, 'descricao' => $todas[$codigo]['descricao'] ?? null] : null;
         $produto = fn (?int $id) => $id && isset($produtos[$id]) ? ['id' => $id, 'codigo' => $produtos[$id]->codigo, 'nome' => $produtos[$id]->nome, 'taxa_imposto' => (float) $produtos[$id]->taxa_imposto] : null;
 
         return [
-            'produto_renda' => $produto($c?->produto_renda_id), 'produto_renda_alojamento' => $produto($c?->produto_renda_alojamento_id),
+            'produto_renda' => $produto($c?->produto_renda_id), 'produto_renda_alojamento' => $produto($c?->produto_renda_alojamento_id), 'produto_reserva' => $produto($c?->produto_reserva_id),
             'conta_caucao_passivo' => $conta($c?->conta_caucao_passivo), 'conta_caucao_activo' => $conta($c?->conta_caucao_activo),
             'conta_caucao_receita' => $conta($c?->conta_caucao_receita), 'conta_ip_credito' => $conta($c?->conta_ip_credito),
-            'completa_facturacao' => $c?->produto_renda_id !== null, 'completa_caucao' => $c?->conta_caucao_passivo !== null && $c?->conta_caucao_receita !== null,
+            'completa_facturacao' => $c?->produto_renda_id !== null, 'completa_reservas' => $c?->produto_reserva_id !== null, 'completa_caucao' => $c?->conta_caucao_passivo !== null && $c?->conta_caucao_receita !== null,
             'aviso' => 'O ERP não traz contas nem artigos pré-escolhidos: indique os do plano de contas e do catálogo da empresa. As contas e o tratamento do imposto retido devem ser validados pelo contabilista.',
         ];
     }
@@ -44,7 +44,7 @@ final class ServicoConfiguracaoImobiliario
     public function gravar(array $d): array
     {
         $valores = [];
-        foreach (['produto_renda_id', 'produto_renda_alojamento_id'] as $k) {
+        foreach (['produto_renda_id', 'produto_renda_alojamento_id', 'produto_reserva_id'] as $k) {
             if (! array_key_exists($k, $d)) {
                 continue;
             }
@@ -56,6 +56,9 @@ final class ServicoConfiguracaoImobiliario
                 }
                 if ($k === 'produto_renda_id' && (float) $p->taxa_imposto !== 0.0) {
                     throw new ErroNegocio('O artigo da renda de arrendamento tem de ter IVA 0 % com o motivo de isenção AGT (o arrendamento está isento).', 'IMO_PRODUTO_IVA');
+                }
+                if ($k === 'produto_reserva_id' && (float) $p->taxa_imposto !== 0.0) {
+                    throw new ErroNegocio('O artigo das reservas de áreas comuns tem de ter IVA 0 % (com o motivo de isenção AGT) até o contabilista validar o tratamento do IVA destes serviços.', 'IMO_PRODUTO_IVA');
                 }
                 if ($k === 'produto_renda_alojamento_id' && (float) $p->taxa_imposto <= 0.0) {
                     throw new ErroNegocio('O artigo da renda de alojamento hoteleiro tem de ter a taxa de IVA do alojamento.', 'IMO_PRODUTO_IVA');
@@ -84,6 +87,18 @@ final class ServicoConfiguracaoImobiliario
     public function actual(): ?ConfiguracaoImobiliario
     {
         return ConfiguracaoImobiliario::query()->first();
+    }
+
+    /** Artigo de serviço da facturação das reservas de áreas comuns (nada vem pré-escolhido). */
+    public function produtoDaReserva(): Produto
+    {
+        $id = $this->actual()?->produto_reserva_id ?? throw new ErroNegocio('Falta o artigo de serviço das reservas: indique-o em Modelos e Taxas › Facturação e contas antes de facturar.', 'IMO_SEM_ARTIGO_RESERVA');
+        $p = Produto::query()->find($id) ?? throw new ErroNegocio('O artigo configurado para as reservas já não existe. Reveja a configuração.', 'IMO_SEM_ARTIGO_RESERVA');
+        if ((float) $p->taxa_imposto !== 0.0) {
+            throw new ErroNegocio("O artigo {$p->codigo} tem IVA: o das reservas tem de estar isento. Reveja a configuração.", 'IMO_PRODUTO_IVA');
+        }
+
+        return $p;
     }
 
     /** Artigo da renda para a taxa de IVA da renda (isento: o geral; com IVA: o do alojamento). */

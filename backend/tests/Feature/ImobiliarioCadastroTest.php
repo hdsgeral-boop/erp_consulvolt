@@ -70,18 +70,18 @@ final class ImobiliarioCadastroTest extends TestCase
     // ---------------------------------------------------------------- catálogo, fábrica e funções puras
 
     #[Test]
-    public function o_catalogo_tem_o_modulo_com_13_ecras_41_tarefas_20_sensiveis_6_pares_e_5_perfis(): void
+    public function o_catalogo_tem_o_modulo_com_13_ecras_43_tarefas_21_sensiveis_9_pares_e_5_perfis(): void
     {
         $m = collect(CatalogoPermissoes::completo()['modulos'])->firstWhere('id', 'imobiliario');
         $this->assertCount(13, $m['ecras']);
         $tarefas = collect($m['ecras'])->flatMap(fn ($e) => $e['tarefas']);
-        $this->assertCount(41, $tarefas);
-        $this->assertSame(20, $tarefas->where('sensivel', true)->count());
+        $this->assertCount(43, $tarefas);   // 41 + imo_reserva_receber e imo_reserva_vistoria (Onda 3)
+        $this->assertSame(21, $tarefas->where('sensivel', true)->count());
         foreach (['imo_reserva_cancelar', 'imo_contrato_suspender', 'imo_contrato_renovar', 'imo_caucao_movimentar', 'imo_alertas_gerir', 'imo_exportar'] as $k) {
             $this->assertTrue($tarefas->firstWhere('chave', $k)['sensivel'], $k);
         }
         $pares = collect(CatalogoPermissoes::segregacao())->filter(fn ($s) => str_starts_with($s['a'], 'imo_'));
-        $this->assertCount(6, $pares);
+        $this->assertCount(9, $pares);   // 6 da Onda 2 + aprovar×facturar, facturar×receber e vistoria×caução das reservas
 
         $modelos = collect(CatalogoPermissoes::modelos());
         foreach (['Gestor Imobiliário', 'Técnico de Rendas', 'Responsável de Cobrança', 'Gestor de Obras do Imóvel', 'Fiscalista Predial'] as $nome) {

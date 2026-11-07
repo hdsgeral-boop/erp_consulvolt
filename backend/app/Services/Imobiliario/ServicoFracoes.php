@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * importarDoEdificio do legado). Correcções: o código vem do maior sufixo existente (o legado contava as irmãs e colidia após
  * eliminações), o limite de 500 conta os blocos, a importação das portas é idempotente por `porta_id` e cada mudança de estado
  * deixa trilho em `historico_estado_fracao` e obedece a CatalogoImobiliario::TRANSICOES. Esta onda grava fracções e
- * arrecadações; as vagas de estacionamento são do Parqueamento (colunas `park_*` já existem, ainda sem ecrã).
+ * arrecadações; as vagas de estacionamento são do Parqueamento (ServicoParqueamento) e vivem nesta mesma tabela.
  */
 final class ServicoFracoes
 {
@@ -277,7 +277,7 @@ final class ServicoFracoes
             throw new ErroNegocio('Escolha a natureza da fracção.', 'FRACCAO_NATUREZA');
         }
         if (! in_array($natureza, CatalogoImobiliario::NATUREZAS_ACTIVAS, true)) {
-            throw new ErroNegocio('As vagas de estacionamento são geridas no Parqueamento, que ainda não está disponível. Registe aqui fracções e arrecadações.', 'FRACCAO_NATUREZA_INDISPONIVEL');
+            throw new ErroNegocio('As vagas de estacionamento criam-se e editam-se no ecrã Parqueamento. Registe aqui fracções e arrecadações.', 'FRACCAO_NATUREZA_INDISPONIVEL');
         }
         $bruta = Normaliza::r2($d['area_bruta'] ?? 0);
         $util = Normaliza::r2($d['area_util'] ?? 0);

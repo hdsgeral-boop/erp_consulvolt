@@ -21,14 +21,14 @@ final class ConfiguracaoImobiliarioController extends Controller
 
     public function show(): JsonResponse
     {
-        $this->exigir('imo_modelos_view', 'imo_contratos_view', 'imo_rendas_view');
+        $this->exigir('imo_modelos_view', 'imo_contratos_view', 'imo_rendas_view', 'imo_areas_view');
 
         return RespostaApi::sucesso(new ImobiliarioResource($this->config->obter()), 'Configuração do módulo imobiliário.');
     }
 
     public function artigos(): JsonResponse
     {
-        $this->exigir('imo_modelos_view', 'imo_taxas_editar');
+        $this->exigir('imo_modelos_view', 'imo_taxas_editar', 'imo_areas_view');
         $artigos = Produto::query()->where(fn ($q) => $q->where('bloqueado', false)->orWhereNull('bloqueado'))->orderBy('codigo')->limit(500)->get(['id', 'codigo', 'nome', 'taxa_imposto'])
             ->map(fn ($p) => ['id' => $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'taxa_imposto' => (float) $p->taxa_imposto])->all();
 
@@ -38,7 +38,7 @@ final class ConfiguracaoImobiliarioController extends Controller
     public function update(Request $r): JsonResponse
     {
         $this->exigir('imo_taxas_editar');
-        $d = $r->validate(['produto_renda_id' => ['nullable', 'integer', 'min:1'], 'produto_renda_alojamento_id' => ['nullable', 'integer', 'min:1'],
+        $d = $r->validate(['produto_renda_id' => ['nullable', 'integer', 'min:1'], 'produto_renda_alojamento_id' => ['nullable', 'integer', 'min:1'], 'produto_reserva_id' => ['nullable', 'integer', 'min:1'],
             'conta_caucao_passivo' => ['nullable', 'string', 'max:20'], 'conta_caucao_activo' => ['nullable', 'string', 'max:20'], 'conta_caucao_receita' => ['nullable', 'string', 'max:20'],
             'conta_ip_credito' => ['nullable', 'string', 'max:20']]);
 

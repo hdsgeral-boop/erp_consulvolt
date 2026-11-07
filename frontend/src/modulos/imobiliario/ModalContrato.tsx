@@ -1,11 +1,12 @@
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select, Space, Switch } from 'antd';
+import { Alert, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, message } from 'antd';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useMemo } from 'react';
 import { larguraModal } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
 import { listarFracoes, listarImoveis, listarTerceiros, obterTaxas, type Fracao } from './api';
+import { obterEncargosPropostos } from './apiParque';
 import { CHAVES_CT, gravarContrato, listarContas, listarContratos, type Encargo, type FichaContrato, type ListasContratos } from './apiContratos';
 import { useRefrescar } from './hooks';
 import { diasDoPrimeiroPeriodo, limiteCaucao, previsaoRenda } from './logicaContratos';
@@ -26,7 +27,7 @@ export function dadosContrato(v: Valores): Record<string, unknown> {
   const saida: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(v)) {
     if ((DATAS as readonly string[]).includes(k)) saida[k] = x ? dayjs(x as string).format('YYYY-MM-DD') : null;
-    else if (k === 'encargos') saida[k] = (x as Encargo[] | undefined ?? []).filter((e) => e && (e.designacao ?? '').trim() !== '').map((e) => ({ designacao: e.designacao, valor: e.valor ?? 0, incluido_na_renda: !!e.incluido_na_renda }));
+    else if (k === 'encargos') saida[k] = (x as Encargo[] | undefined ?? []).filter((e) => e && (e.designacao ?? '').trim() !== '').map((e) => ({ designacao: e.designacao, valor: e.valor ?? 0, incluido_na_renda: !!e.incluido_na_renda, ...(e.origem ? { origem: e.origem } : {}), ...(e.fracao_id ? { fracao_id: e.fracao_id } : {}) }));
     else saida[k] = x === undefined || x === '' ? null : x;
   }
   return saida;
@@ -78,7 +79,10 @@ export function ModalContrato({ contrato, listas, aoFechar }: { contrato: FichaC
   };
 
   const imoveisPossiveis = useMemo(() => (imoveis.data ?? []).filter((i) => (tomada || sub ? i.papel === 'ARRENDADO' : i.papel !== 'MEDIACAO')), [imoveis.data, tomada, sub]);
-  const arrendaveis = useMemo(() => (fracoes.data ?? []).filter((f: Fracao) => f.natureza === 'HABITACIONAL' || f.natureza === 'ARRECADACAO'), [fracoes.data]);
+  const arrendaveis = useMemo(() => (fracoes.data ?? []).filter((f: Fracao) => f.natureza === 'HABITACIONAL' || f.natureza === 'ARRECADACAO' || (f.natureza === 'ESTACIONAMENTO' && f.park_afectacao === 'AUTONOMA')), [fracoes.data]);   // a vaga autónoma arrenda-se sozinha; a afecta vai com a fracção
+  const fracaoUnica = Form.useWatch('fracao_id', form) as number | undefined;
+  const fracoesEscolhidas = Form.useWatch('fracoes_ids', form) as number[] | undefined;
+  const idsParaParque = useMemo(() => (ambito === 'FRACCAO' ? (fracaoUnica ? [fracaoUnica] : []) : ambito === 'PARCIAL' ? (fracoesEscolhidas ?? []) : arrendaveis.filter((f) => f.natureza === 'HABITACIONAL').map((f) => f.id)), [ambito, fracaoUnica, fracoesEscolhidas, arrendaveis]);
   const tomadasDaFracao = useMemo(() => (contratos.data ?? []).filter((c) => c.tipo === 'TOMADA' && ['ACTIVO', 'RASCUNHO', 'SUSPENSO'].includes(c.estado) && c.permite_sub), [contratos.data]);
   const pf = inicio ? diasDoPrimeiroPeriodo(inicio.format('YYYY-MM-DD'), periodicidade) : null;
   const previsao = taxas.data && renda > 0
@@ -188,7 +192,20 @@ export function ModalContrato({ contrato, listas, aoFechar }: { contrato: FichaC
                   <Col xs={4} md={2}><Form.Item><Button danger icon={<DeleteOutlined />} aria-label={`Remover o encargo ${i + 1}`} onClick={() => remove(c.name)} /></Form.Item></Col>
                 </Row>
               ))}
-              <Space><Button icon={<PlusOutlined />} onClick={() => add({ designacao: '', valor: 0, incluido_na_renda: false })}>Encargo</Button></Space>
+              <Space wrap>
+                <Button icon={<PlusOutlined />} onClick={() => add({ designacao: '', valor: 0, incluido_na_renda: false })}>Encargo</Button>
+                {!tomada && (
+                  <Button disabled={idsParaParque.length === 0} onClick={async () => {
+                    try {
+                      const propostos = await obterEncargosPropostos(idsParaParque);
+                      const ja = new Set(((form.getFieldValue('encargos') as Encargo[] | undefined) ?? []).map((e) => e?.designacao));
+                      const novos = propostos.filter((e) => !ja.has(e.designacao));
+                      novos.forEach((e) => add({ designacao: e.designacao, valor: e.valor, incluido_na_renda: e.incluido_na_renda === true, origem: 'PARQUE', fracao_id: e.fracao_id }));
+                      message.info(novos.length ? `${novos.length} encargo(s) das vagas afectas acrescentado(s). Reveja os valores e se vão incluídos na renda.` : 'As vagas afectas a esta fracção já estão nos encargos (ou não há nenhuma).');
+                    } catch (e) { notificarErro(e, 'Não foi possível obter os encargos das vagas'); }
+                  }}>Propor as vagas afectas</Button>
+                )}
+              </Space>
             </>
           )}
         </Form.List>

@@ -20,10 +20,10 @@ class ConfiguracaoImobiliario extends ModeloBase
     protected string $moduloAuditoria = 'Imobiliário';
 
     protected $fillable = ['empresa_id', 'produto_renda_id', 'produto_renda_alojamento_id', 'conta_caucao_passivo', 'conta_caucao_activo', 'conta_caucao_receita',
-        'conta_ip_credito', 'criado_por', 'atualizado_por'];
+        'conta_ip_credito', 'produto_reserva_id', 'criado_por', 'atualizado_por'];
 
     protected function casts(): array
     {
-        return ['empresa_id' => 'integer', 'produto_renda_id' => 'integer', 'produto_renda_alojamento_id' => 'integer'];
+        return ['empresa_id' => 'integer', 'produto_renda_id' => 'integer', 'produto_renda_alojamento_id' => 'integer', 'produto_reserva_id' => 'integer'];
     }
 }

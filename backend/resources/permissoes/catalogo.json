@@ -2540,7 +2540,17 @@
             },
             {
               "chave": "imo_reserva_facturar",
-              "rotulo": "Facturar e receber reservas pagas",
+              "rotulo": "Facturar reservas pagas",
+              "sensivel": false
+            },
+            {
+              "chave": "imo_reserva_receber",
+              "rotulo": "Registar o recebimento de reservas pagas e das suas cauções",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_reserva_vistoria",
+              "rotulo": "Registar as vistorias de entrada e de saída das reservas",
               "sensivel": false
             },
             {
@@ -3649,6 +3659,21 @@
       "a": "imo_renda_gerar",
       "b": "imo_renda_aprovar",
       "motivo": "Gera ou recalcula rendas e aprova as mesmas rendas."
+    },
+    {
+      "a": "imo_reserva_aprovar",
+      "b": "imo_reserva_facturar",
+      "motivo": "Aprova a reserva e factura essa mesma reserva."
+    },
+    {
+      "a": "imo_reserva_facturar",
+      "b": "imo_reserva_receber",
+      "motivo": "Factura a reserva e recebe o dinheiro dessa factura."
+    },
+    {
+      "a": "imo_reserva_vistoria",
+      "b": "imo_reserva_caucao",
+      "motivo": "Regista a vistoria que prova os danos e decide reter a caução."
     }
   ],
   "modelos": [
@@ -4685,7 +4710,9 @@
         "imo_sub_debitar": true,
         "imo_neg_editar": true,
         "imo_neg_fase": true,
-        "imo_modelo_editar": true
+        "imo_modelo_editar": true,
+        "imo_reserva_receber": true,
+        "imo_reserva_vistoria": true
       }
     },
     {
@@ -4720,7 +4747,8 @@
         "imo_sub_view": true,
         "imo_renda_facturar": true,
         "imo_reserva_facturar": true,
-        "imo_contrato_docs": true
+        "imo_contrato_docs": true,
+        "imo_reserva_caucao": true
       }
     },
     {

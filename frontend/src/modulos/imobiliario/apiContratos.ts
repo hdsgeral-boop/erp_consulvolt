@@ -79,6 +79,7 @@ export interface CadeiaTomada {
 export interface ContaPlano { codigo: string; descricao: string | null }
 export interface ArtigoRenda { id: number; codigo: string; nome: string; taxa_imposto: number }
 export interface ConfiguracaoImo {
+  produto_reserva: { id: number; codigo: string; nome: string; taxa_imposto: number } | null; completa_reservas: boolean;
   produto_renda: { id: number; codigo: string; nome: string; taxa_imposto: number } | null; produto_renda_alojamento: { id: number; codigo: string; nome: string; taxa_imposto: number } | null;
   conta_caucao_passivo: ContaPlano | null; conta_caucao_activo: ContaPlano | null; conta_caucao_receita: ContaPlano | null; conta_ip_credito: ContaPlano | null;
   completa_facturacao: boolean; completa_caucao: boolean; aviso: string;

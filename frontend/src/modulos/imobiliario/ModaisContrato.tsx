@@ -10,16 +10,16 @@ import { formatarKz } from './logica';
 import { chaveDePedido } from './logicaContratos';
 
 /** Pede um motivo escrito e confirma (suspender, anular, desligar o pagamento…). O servidor volta a exigi-lo. */
-export function ModalMotivo({ titulo, aberto, texto, okText, aoConfirmar, aoFechar, carregando }: {
-  titulo: string; aberto: boolean; texto?: string; okText: string; aoConfirmar: (motivo: string) => void; aoFechar: () => void; carregando?: boolean;
+export function ModalMotivo({ titulo, aberto, texto, okText, aoConfirmar, aoFechar, carregando, opcional }: {
+  titulo: string; aberto: boolean; texto?: string; okText: string; aoConfirmar: (motivo: string) => void; aoFechar: () => void; carregando?: boolean; opcional?: boolean;
 }) {
   const [motivo, setMotivo] = useState('');
   useEffect(() => { if (aberto) setMotivo(''); }, [aberto]);
 
   return (
-    <Modal title={titulo} open={aberto} onCancel={aoFechar} onOk={() => aoConfirmar(motivo.trim())} okText={okText} cancelText="Cancelar" okButtonProps={{ disabled: motivo.trim() === '' }} confirmLoading={carregando} destroyOnHidden>
+    <Modal title={titulo} open={aberto} onCancel={aoFechar} onOk={() => aoConfirmar(motivo.trim())} okText={okText} cancelText="Cancelar" okButtonProps={{ disabled: !opcional && motivo.trim() === '' }} confirmLoading={carregando} destroyOnHidden>
       {texto && <p>{texto}</p>}
-      <label htmlFor="imo-motivo">Motivo</label>
+      <label htmlFor="imo-motivo">Motivo{opcional ? ' (opcional)' : ''}</label>
       <Input.TextArea id="imo-motivo" rows={3} maxLength={300} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
     </Modal>
   );

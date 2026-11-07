@@ -33,7 +33,7 @@ final class ConsultasPorEndpointTest extends TestCase
      * as linhas) — são pedidos explícitos e raros, não polling. Um aumento destes números é uma regressão a justificar.
      */
     private const TECTOS_PROPRIOS = [
-        'GET api/sistema/copias/exportar' => 480,      // exportação completa da empresa: percorre todas as tabelas, uma consulta por tabela (medido: 461 com as tabelas do Imobiliário e da Estratégia)
+        'GET api/sistema/copias/exportar' => 500,      // exportação completa da empresa: percorre todas as tabelas, uma consulta por tabela (medido: 487 com as tabelas do Imobiliário até à Onda 3 e da Estratégia)
         'GET api/gestao/relatorios/resumo' => 125,     // resumo executivo de todos os módulos, 2 períodos (medido: 114)
         'GET api/gestao/relatorios/todos' => 125,      // relatório de gestão completo (medido: 115)
     ];
