@@ -4,6 +4,7 @@ namespace App\Services\Imobiliario;
 
 use App\Models\ContratoArrendamento;
 use App\Models\Imovel;
+use App\Models\NegocioImobiliario;
 use App\Models\OrdemTrabalhoImo;
 use App\Services\Sistema\ServicoNumeracao;
 
@@ -60,6 +61,23 @@ final class ServicoNumeracaoImobiliario
         $n = $this->numeracao->proximo($empresaId, "imo:{$pref}:{$ano}", function () use ($pref, $ano) {
             $maior = 0;
             foreach (OrdemTrabalhoImo::query()->where('numero', '~*', "^{$pref} {$ano}/[0-9]+$")->pluck('numero') as $num) {
+                $maior = max($maior, (int) substr((string) $num, strlen("{$pref} {$ano}/")));
+            }
+
+            return $maior;
+        });
+
+        return sprintf('%s %d/%04d', $pref, $ano, $n);
+    }
+
+    /** Próximo número de negócio do ano: `CP AAAA/NNNN` (compra) ou `VD AAAA/NNNN` (venda), uma sequência por empresa, prefixo e ano. */
+    public function proximoNumeroNegocio(int $empresaId, string $tipo, ?int $ano = null): string
+    {
+        $pref = $tipo === 'VENDA' ? 'VD' : 'CP';
+        $ano ??= (int) now()->format('Y');
+        $n = $this->numeracao->proximo($empresaId, "imo:{$pref}:{$ano}", function () use ($pref, $ano) {
+            $maior = 0;
+            foreach (NegocioImobiliario::query()->where('numero', '~*', "^{$pref} {$ano}/[0-9]+$")->pluck('numero') as $num) {
                 $maior = max($maior, (int) substr((string) $num, strlen("{$pref} {$ano}/")));
             }
 

@@ -70,21 +70,21 @@ final class ImobiliarioCadastroTest extends TestCase
     // ---------------------------------------------------------------- catálogo, fábrica e funções puras
 
     #[Test]
-    public function o_catalogo_tem_o_modulo_com_13_ecras_44_tarefas_22_sensiveis_11_pares_e_5_perfis(): void
+    public function o_catalogo_tem_o_modulo_com_13_ecras_47_tarefas_25_sensiveis_13_pares_e_6_perfis(): void
     {
         $m = collect(CatalogoPermissoes::completo()['modulos'])->firstWhere('id', 'imobiliario');
         $this->assertCount(13, $m['ecras']);
         $tarefas = collect($m['ecras'])->flatMap(fn ($e) => $e['tarefas']);
-        $this->assertCount(44, $tarefas);   // 41 + imo_reserva_receber e imo_reserva_vistoria (Onda 3) + imo_obra_aprovar (Onda 4)
-        $this->assertSame(22, $tarefas->where('sensivel', true)->count());
+        $this->assertCount(47, $tarefas);   // 41 + imo_reserva_receber e imo_reserva_vistoria (Onda 3) + imo_obra_aprovar (Onda 4) + aprovar, pagamento e abater do negócio (Onda 5)
+        $this->assertSame(25, $tarefas->where('sensivel', true)->count());
         foreach (['imo_reserva_cancelar', 'imo_contrato_suspender', 'imo_contrato_renovar', 'imo_caucao_movimentar', 'imo_alertas_gerir', 'imo_exportar'] as $k) {
             $this->assertTrue($tarefas->firstWhere('chave', $k)['sensivel'], $k);
         }
         $pares = collect(CatalogoPermissoes::segregacao())->filter(fn ($s) => str_starts_with($s['a'], 'imo_'));
-        $this->assertCount(11, $pares);   // 6 da Onda 2 + 3 das reservas (Onda 3) + aprovar obra×receber material e debitar ao inquilino×aprovar renda (Onda 4)
+        $this->assertCount(13, $pares);   // 6 da Onda 2 + 3 das reservas (Onda 3) + 2 das obras (Onda 4) + aprovar×pagamento e concluir×abater do negócio (Onda 5)
 
         $modelos = collect(CatalogoPermissoes::modelos());
-        foreach (['Gestor Imobiliário', 'Técnico de Rendas', 'Responsável de Cobrança', 'Gestor de Obras do Imóvel', 'Fiscalista Predial'] as $nome) {
+        foreach (['Gestor Imobiliário', 'Técnico de Rendas', 'Responsável de Cobrança', 'Gestor de Obras do Imóvel', 'Fiscalista Predial', 'Responsável de Escrituras'] as $nome) {
             $this->assertNotNull($modelos->firstWhere('nome', $nome), $nome);
         }
         foreach (['Auditor / Consulta', 'Direcção'] as $nome) {

@@ -40,7 +40,8 @@ final class ConfiguracaoImobiliarioController extends Controller
         $this->exigir('imo_taxas_editar');
         $d = $r->validate(['produto_renda_id' => ['nullable', 'integer', 'min:1'], 'produto_renda_alojamento_id' => ['nullable', 'integer', 'min:1'], 'produto_reserva_id' => ['nullable', 'integer', 'min:1'],
             'conta_caucao_passivo' => ['nullable', 'string', 'max:20'], 'conta_caucao_activo' => ['nullable', 'string', 'max:20'], 'conta_caucao_receita' => ['nullable', 'string', 'max:20'],
-            'conta_ip_credito' => ['nullable', 'string', 'max:20']]);
+            'conta_ip_credito' => ['nullable', 'string', 'max:20'], 'produto_venda_imovel_id' => ['nullable', 'integer', 'min:1'], 'conta_mais_valia' => ['nullable', 'string', 'max:20'],
+            'conta_menos_valia' => ['nullable', 'string', 'max:20'], 'conta_compra_contrapartida' => ['nullable', 'string', 'max:20']]);
 
         return RespostaApi::sucesso(new ImobiliarioResource($this->config->gravar($d)), 'Configuração gravada.');
     }

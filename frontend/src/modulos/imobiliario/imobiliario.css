@@ -41,3 +41,11 @@
 .imo-grupo { border: 1px solid var(--ant-color-border-secondary, #f0f0f0); border-radius: 6px; padding: 8px 12px 0; margin: 0 0 12px; }
 .imo-grupo legend { font-weight: 600; padding: 0 6px; width: auto; font-size: 14px; }
 .imo-linha-form { display: flex; flex-wrap: wrap; gap: 0 12px; }
+
+/* Compra e venda (Onda 5): as fases vêm sempre em texto («agora», «feita»); a cor só reforça. */
+.imo-fases { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 8px 0 12px; }
+.imo-fases li { padding: 6px 10px; border: 1px solid var(--ant-color-border, #d9d9d9); border-radius: 6px; font-size: 13px; line-height: 1.3; }
+.imo-fases li small { display: block; opacity: 0.8; }
+.imo-fases li.feita { border-color: #15803d; }
+.imo-fases li.agora { border-color: #2563eb; border-width: 2px; font-weight: 600; }
+@media (max-width: 700px) { .imo-fases { flex-direction: column; } }

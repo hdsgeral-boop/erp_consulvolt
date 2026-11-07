@@ -22,14 +22,16 @@ final class ServicoConfiguracaoImobiliario
     public function obter(): array
     {
         $c = ConfiguracaoImobiliario::query()->first();
-        $ids = array_values(array_filter([$c?->produto_renda_id, $c?->produto_renda_alojamento_id, $c?->produto_reserva_id]));
+        $ids = array_values(array_filter([$c?->produto_renda_id, $c?->produto_renda_alojamento_id, $c?->produto_reserva_id, $c?->produto_venda_imovel_id]));
         $produtos = $ids ? Produto::query()->whereIn('id', $ids)->get(['id', 'codigo', 'nome', 'taxa_imposto', 'bloqueado'])->keyBy('id') : collect();
         $todas = $this->plano->todas();
         $conta = fn (?string $codigo) => $codigo ? ['codigo' => $codigo, 'descricao' => $todas[$codigo]['descricao'] ?? null] : null;
         $produto = fn (?int $id) => $id && isset($produtos[$id]) ? ['id' => $id, 'codigo' => $produtos[$id]->codigo, 'nome' => $produtos[$id]->nome, 'taxa_imposto' => (float) $produtos[$id]->taxa_imposto] : null;
 
         return [
-            'produto_renda' => $produto($c?->produto_renda_id), 'produto_renda_alojamento' => $produto($c?->produto_renda_alojamento_id), 'produto_reserva' => $produto($c?->produto_reserva_id),
+            'produto_renda' => $produto($c?->produto_renda_id), 'produto_renda_alojamento' => $produto($c?->produto_renda_alojamento_id), 'produto_reserva' => $produto($c?->produto_reserva_id), 'produto_venda_imovel' => $produto($c?->produto_venda_imovel_id),
+            'conta_mais_valia' => $conta($c?->conta_mais_valia), 'conta_menos_valia' => $conta($c?->conta_menos_valia), 'conta_compra_contrapartida' => $conta($c?->conta_compra_contrapartida),
+            'completa_compra' => $c?->conta_compra_contrapartida !== null, 'completa_venda' => $c?->produto_venda_imovel_id !== null && $c?->conta_mais_valia !== null && $c?->conta_menos_valia !== null,
             'conta_caucao_passivo' => $conta($c?->conta_caucao_passivo), 'conta_caucao_activo' => $conta($c?->conta_caucao_activo),
             'conta_caucao_receita' => $conta($c?->conta_caucao_receita), 'conta_ip_credito' => $conta($c?->conta_ip_credito),
             'completa_facturacao' => $c?->produto_renda_id !== null, 'completa_reservas' => $c?->produto_reserva_id !== null, 'completa_caucao' => $c?->conta_caucao_passivo !== null && $c?->conta_caucao_receita !== null,
@@ -44,7 +46,7 @@ final class ServicoConfiguracaoImobiliario
     public function gravar(array $d): array
     {
         $valores = [];
-        foreach (['produto_renda_id', 'produto_renda_alojamento_id', 'produto_reserva_id'] as $k) {
+        foreach (['produto_renda_id', 'produto_renda_alojamento_id', 'produto_reserva_id', 'produto_venda_imovel_id'] as $k) {
             if (! array_key_exists($k, $d)) {
                 continue;
             }
@@ -59,6 +61,9 @@ final class ServicoConfiguracaoImobiliario
                 }
                 if ($k === 'produto_reserva_id' && (float) $p->taxa_imposto !== 0.0) {
                     throw new ErroNegocio('O artigo das reservas de áreas comuns tem de ter IVA 0 % (com o motivo de isenção AGT) até o contabilista validar o tratamento do IVA destes serviços.', 'IMO_PRODUTO_IVA');
+                }
+                if ($k === 'produto_venda_imovel_id' && (float) $p->taxa_imposto !== 0.0) {
+                    throw new ErroNegocio('O artigo da venda de imóveis tem de ter IVA 0 % com o motivo de isenção AGT (a transmissão de imóveis está isenta de IVA).', 'IMO_PRODUTO_IVA');
                 }
                 if ($k === 'produto_renda_alojamento_id' && (float) $p->taxa_imposto <= 0.0) {
                     throw new ErroNegocio('O artigo da renda de alojamento hoteleiro tem de ter a taxa de IVA do alojamento.', 'IMO_PRODUTO_IVA');
@@ -96,6 +101,18 @@ final class ServicoConfiguracaoImobiliario
         $p = Produto::query()->find($id) ?? throw new ErroNegocio('O artigo configurado para as reservas já não existe. Reveja a configuração.', 'IMO_SEM_ARTIGO_RESERVA');
         if ((float) $p->taxa_imposto !== 0.0) {
             throw new ErroNegocio("O artigo {$p->codigo} tem IVA: o das reservas tem de estar isento. Reveja a configuração.", 'IMO_PRODUTO_IVA');
+        }
+
+        return $p;
+    }
+
+    /** Artigo de serviço da factura da venda de imóveis (IVA 0 %: a transmissão está isenta; nada vem pré-escolhido). */
+    public function produtoDaVenda(): Produto
+    {
+        $id = $this->actual()?->produto_venda_imovel_id ?? throw new ErroNegocio('Falta o artigo de serviço da venda de imóveis: indique-o em Modelos e Taxas › Facturação e contas antes de concluir a venda.', 'IMO_SEM_ARTIGO_VENDA');
+        $p = Produto::query()->find($id) ?? throw new ErroNegocio('O artigo configurado para a venda de imóveis já não existe. Reveja a configuração.', 'IMO_SEM_ARTIGO_VENDA');
+        if ((float) $p->taxa_imposto !== 0.0) {
+            throw new ErroNegocio("O artigo {$p->codigo} tem IVA: o da venda de imóveis tem de estar isento. Reveja a configuração.", 'IMO_PRODUTO_IVA');
         }
 
         return $p;

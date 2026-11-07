@@ -12,6 +12,12 @@ const CONTAS = [
   { campo: 'conta_ip_credito', rotulo: 'Imposto Predial retido (crédito de imposto)', ajuda: 'Imposto retido pelo inquilino à renda: crédito de imposto a receber. A validar pelo contabilista.' },
 ] as const;
 
+const CONTAS_NEGOCIOS = [
+  { campo: 'conta_compra_contrapartida', rotulo: 'Compra de imóveis: contrapartida (credores de imobilizado)', ajuda: 'A aquisição lança D conta do imobilizado da categoria / C esta conta, pelo custo de aquisição. O pagamento ao vendedor, ao Estado e ao notário regista-se na Tesouraria contra ela.' },
+  { campo: 'conta_mais_valia', rotulo: 'Mais-valia na alienação de imóveis (ganho)', ajuda: 'Onde vai o ganho quando o preço da venda é maior do que o valor líquido contabilístico do bem. A validar pelo contabilista.' },
+  { campo: 'conta_menos_valia', rotulo: 'Menos-valia na alienação de imóveis (perda)', ajuda: 'Onde vai a perda quando o preço da venda é menor do que o valor líquido contabilístico do bem. A validar pelo contabilista.' },
+] as const;
+
 /** Configuração de contabilização do módulo imobiliário (imo_taxas_editar): artigo de serviço «Renda» e contas da caução e do imposto retido. O ERP não pré-preenche nada. */
 export function SeparadorConfiguracao({ podeEditar }: { podeEditar: boolean }) {
   const [form] = Form.useForm<Record<string, number | string | null>>();
@@ -24,7 +30,8 @@ export function SeparadorConfiguracao({ podeEditar }: { podeEditar: boolean }) {
     const c = q.data;
     if (!c) return;
     form.setFieldsValue({ produto_renda_id: c.produto_renda?.id ?? null, produto_renda_alojamento_id: c.produto_renda_alojamento?.id ?? null, produto_reserva_id: c.produto_reserva?.id ?? null,
-      conta_caucao_passivo: c.conta_caucao_passivo?.codigo ?? null, conta_caucao_activo: c.conta_caucao_activo?.codigo ?? null, conta_caucao_receita: c.conta_caucao_receita?.codigo ?? null, conta_ip_credito: c.conta_ip_credito?.codigo ?? null });
+      conta_caucao_passivo: c.conta_caucao_passivo?.codigo ?? null, conta_caucao_activo: c.conta_caucao_activo?.codigo ?? null, conta_caucao_receita: c.conta_caucao_receita?.codigo ?? null, conta_ip_credito: c.conta_ip_credito?.codigo ?? null,
+      produto_venda_imovel_id: c.produto_venda_imovel?.id ?? null, conta_compra_contrapartida: c.conta_compra_contrapartida?.codigo ?? null, conta_mais_valia: c.conta_mais_valia?.codigo ?? null, conta_menos_valia: c.conta_menos_valia?.codigo ?? null });
   }, [q.data, form]);
   const gravar = useMutation({
     mutationFn: (v: Record<string, unknown>) => gravarConfiguracao(v), onError: (e) => notificarErro(e, 'Não foi possível gravar a configuração'),
@@ -47,7 +54,10 @@ export function SeparadorConfiguracao({ podeEditar }: { podeEditar: boolean }) {
         <Form.Item name="produto_reserva_id" label="Artigo de serviço das reservas de áreas comuns (IVA 0 %)" extra="É o artigo da factura da utilização do espaço e da factura da caução retida por danos. A receita vai pela conta do artigo; o tratamento do IVA destes serviços deve ser validado pelo contabilista.">
           <Select allowClear showSearch optionFilterProp="label" loading={artigos.isLoading} placeholder="— artigo —" options={opArtigos} />
         </Form.Item>
-        {CONTAS.map((c) => (
+        <Form.Item name="produto_venda_imovel_id" label="Artigo de serviço da venda de imóveis (IVA 0 %)" extra="É o artigo da linha da factura da venda de um imóvel ou fracção. A transmissão está isenta de IVA; a receita vai pela conta do artigo (que o lançamento da alienação estorna para deixar só a mais ou menos-valia).">
+          <Select allowClear showSearch optionFilterProp="label" loading={artigos.isLoading} placeholder="— artigo —" options={opArtigos} />
+        </Form.Item>
+        {[...CONTAS_NEGOCIOS, ...CONTAS].map((c) => (
           <Form.Item key={c.campo} name={c.campo} label={c.rotulo} extra={c.ajuda}>
             <Select allowClear showSearch optionFilterProp="label" loading={contas.isLoading} placeholder="— conta —" options={opContas} />
           </Form.Item>

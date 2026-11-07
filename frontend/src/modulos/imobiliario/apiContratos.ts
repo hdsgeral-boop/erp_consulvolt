@@ -82,6 +82,8 @@ export interface ConfiguracaoImo {
   produto_reserva: { id: number; codigo: string; nome: string; taxa_imposto: number } | null; completa_reservas: boolean;
   produto_renda: { id: number; codigo: string; nome: string; taxa_imposto: number } | null; produto_renda_alojamento: { id: number; codigo: string; nome: string; taxa_imposto: number } | null;
   conta_caucao_passivo: ContaPlano | null; conta_caucao_activo: ContaPlano | null; conta_caucao_receita: ContaPlano | null; conta_ip_credito: ContaPlano | null;
+  produto_venda_imovel: { id: number; codigo: string; nome: string; taxa_imposto: number } | null; conta_mais_valia: ContaPlano | null; conta_menos_valia: ContaPlano | null;
+  conta_compra_contrapartida: ContaPlano | null; completa_compra: boolean; completa_venda: boolean;
   completa_facturacao: boolean; completa_caucao: boolean; aviso: string;
 }
 

@@ -23,12 +23,12 @@ class Imovel extends ModeloBase
 
     protected $fillable = ['empresa_id', 'codigo', 'nome', 'tipo', 'papel', 'n_pisos', 'piso_inicial', 'n_habitacoes', 'proprietario_terceiro_id', 'ativo_edificio_id',
         'morada', 'municipio', 'provincia', 'coordenadas', 'matriz_predial', 'registo_predial', 'licenca_utilizacao', 'area_terreno', 'area_bruta', 'area_util',
-        'valor_patrimonial', 'valor_patrimonial_data', 'isencao_detencao', 'valor_aquisicao', 'data_aquisicao', 'estado', 'documentos', 'notas', 'criado_por', 'atualizado_por'];
+        'valor_patrimonial', 'valor_patrimonial_data', 'isencao_detencao', 'valor_aquisicao', 'data_aquisicao', 'data_alienacao', 'estado', 'documentos', 'notas', 'criado_por', 'atualizado_por'];
 
     protected function casts(): array
     {
         return ['empresa_id' => 'integer', 'n_pisos' => 'integer', 'piso_inicial' => 'integer', 'n_habitacoes' => 'integer', 'proprietario_terceiro_id' => 'integer',
             'ativo_edificio_id' => 'integer', 'area_terreno' => 'float', 'area_bruta' => 'float', 'area_util' => 'float', 'valor_patrimonial' => 'float',
-            'valor_aquisicao' => 'float', 'valor_patrimonial_data' => 'date:Y-m-d', 'data_aquisicao' => 'date:Y-m-d', 'documentos' => 'array'];
+            'valor_aquisicao' => 'float', 'valor_patrimonial_data' => 'date:Y-m-d', 'data_aquisicao' => 'date:Y-m-d', 'data_alienacao' => 'date:Y-m-d', 'documentos' => 'array'];
     }
 }

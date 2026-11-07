@@ -13,17 +13,17 @@ class ConfiguracaoImobiliario extends ModeloBase
 {
     use Auditavel, PertenceEmpresa;
 
-    public const CAMPOS_CONTA = ['conta_caucao_passivo', 'conta_caucao_activo', 'conta_caucao_receita', 'conta_ip_credito'];
+    public const CAMPOS_CONTA = ['conta_caucao_passivo', 'conta_caucao_activo', 'conta_caucao_receita', 'conta_ip_credito', 'conta_mais_valia', 'conta_menos_valia', 'conta_compra_contrapartida'];
 
     protected $table = 'configuracao_imobiliario';
 
     protected string $moduloAuditoria = 'Imobiliário';
 
     protected $fillable = ['empresa_id', 'produto_renda_id', 'produto_renda_alojamento_id', 'conta_caucao_passivo', 'conta_caucao_activo', 'conta_caucao_receita',
-        'conta_ip_credito', 'produto_reserva_id', 'criado_por', 'atualizado_por'];
+        'conta_ip_credito', 'produto_reserva_id', 'produto_venda_imovel_id', 'conta_mais_valia', 'conta_menos_valia', 'conta_compra_contrapartida', 'criado_por', 'atualizado_por'];
 
     protected function casts(): array
     {
-        return ['empresa_id' => 'integer', 'produto_renda_id' => 'integer', 'produto_renda_alojamento_id' => 'integer', 'produto_reserva_id' => 'integer'];
+        return ['empresa_id' => 'integer', 'produto_renda_id' => 'integer', 'produto_renda_alojamento_id' => 'integer', 'produto_reserva_id' => 'integer', 'produto_venda_imovel_id' => 'integer'];
     }
 }

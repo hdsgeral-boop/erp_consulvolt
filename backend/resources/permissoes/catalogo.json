@@ -2732,7 +2732,7 @@
             "imo_negocios"
           ],
           "pai": null,
-          "nota": "Concluir leva o custo ao imobilizado (compra) ou apura a mais-valia e abate o activo (venda): separe quem regista de quem conclui.",
+          "nota": "Concluir leva o custo ao imobilizado (compra) ou factura a venda; o abate do bem e a mais ou menos-valia são de outra pessoa; quem aprova o negócio não regista os pagamentos: separe quem regista, aprova, conclui e abate.",
           "tarefas": [
             {
               "chave": "imo_neg_editar",
@@ -2746,7 +2746,22 @@
             },
             {
               "chave": "imo_neg_concluir",
-              "rotulo": "Concluir negócios e emitir a factura da venda",
+              "rotulo": "Concluir negócios (compra: cria o bem em Activos; venda: factura e marca as fracções vendidas)",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_neg_aprovar",
+              "rotulo": "Aprovar negócios de compra e venda",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_neg_pagamento",
+              "rotulo": "Registar e anular pagamentos do negócio (sinal e prestações)",
+              "sensivel": true
+            },
+            {
+              "chave": "imo_neg_abater",
+              "rotulo": "Abater o bem vendido em Activos e lançar a mais ou menos-valia",
               "sensivel": true
             }
           ]
@@ -3689,6 +3704,16 @@
       "a": "imo_sub_debitar",
       "b": "imo_renda_aprovar",
       "motivo": "Debita obras ao inquilino e aprova a renda onde o encargo entra."
+    },
+    {
+      "a": "imo_neg_aprovar",
+      "b": "imo_neg_pagamento",
+      "motivo": "Aprova o negócio e regista os pagamentos desse mesmo negócio."
+    },
+    {
+      "a": "imo_neg_concluir",
+      "b": "imo_neg_abater",
+      "motivo": "Conclui a venda (factura) e abate o bem vendido e lança o resultado."
     }
   ],
   "modelos": [
@@ -4726,7 +4751,9 @@
         "imo_modelo_editar": true,
         "imo_reserva_receber": true,
         "imo_reserva_vistoria": true,
-        "imo_obra_aprovar": true
+        "imo_obra_aprovar": true,
+        "imo_neg_aprovar": true,
+        "imo_contrato_terminar": true
       }
     },
     {
@@ -4762,7 +4789,9 @@
         "imo_renda_facturar": true,
         "imo_reserva_facturar": true,
         "imo_contrato_docs": true,
-        "imo_reserva_caucao": true
+        "imo_reserva_caucao": true,
+        "imo_negocios_view": true,
+        "imo_neg_pagamento": true
       }
     },
     {
@@ -4802,7 +4831,22 @@
         "imo_modelos_view": true,
         "imo_fiscal_entregar": true,
         "imo_taxas_editar": true,
-        "imo_exportar": true
+        "imo_exportar": true,
+        "imo_negocios_view": true,
+        "imo_neg_abater": true
+      }
+    },
+    {
+      "nome": "Responsável de Escrituras",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "proc_manual_view": true,
+        "proc_imprimir": true,
+        "imo_imoveis_view": true,
+        "imo_negocios_view": true,
+        "imo_neg_concluir": true
       }
     }
   ]

@@ -600,6 +600,7 @@ Route::middleware(['auth:sanctum', 'area_portal'])->group(function () {
         require __DIR__.'/api/imobiliario_contratos.php';   // Gestão Imobiliária, Onda 2 (F3): contratos, rendas, facturação, caução e subarrendamento
         require __DIR__.'/api/imobiliario_parqueamento.php';   // Gestão Imobiliária, Onda 3 (F4): parqueamento, áreas comuns, reservas e caução das reservas
         require __DIR__.'/api/imobiliario_obras.php';   // Gestão Imobiliária, Onda 4 (F5): fichas, bens, ordens de trabalho, planos de manutenção e débito ao inquilino
+        require __DIR__.'/api/imobiliario_negocios.php';   // Gestão Imobiliária, Onda 5 (F6): negócios de compra e venda, impostos da transmissão, pagamentos, conclusão e abate
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');
