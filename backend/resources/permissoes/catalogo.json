@@ -2596,6 +2596,11 @@
               "sensivel": false
             },
             {
+              "chave": "imo_obra_aprovar",
+              "rotulo": "Aprovar ordens de obra (antes de pedir material e de debitar ao inquilino)",
+              "sensivel": true
+            },
+            {
               "chave": "imo_obra_pedir",
               "rotulo": "Pedir material ao armazém e a compras",
               "sensivel": true
@@ -3674,6 +3679,16 @@
       "a": "imo_reserva_vistoria",
       "b": "imo_reserva_caucao",
       "motivo": "Regista a vistoria que prova os danos e decide reter a caução."
+    },
+    {
+      "a": "imo_obra_aprovar",
+      "b": "imo_obra_receber",
+      "motivo": "Aprova a obra e recebe o material dessa obra."
+    },
+    {
+      "a": "imo_sub_debitar",
+      "b": "imo_renda_aprovar",
+      "motivo": "Debita obras ao inquilino e aprova a renda onde o encargo entra."
     }
   ],
   "modelos": [
@@ -4696,7 +4711,6 @@
         "imo_ficha_editar": true,
         "imo_obra_editar": true,
         "imo_obra_pedir": true,
-        "imo_obra_receber": true,
         "imo_obra_fechar": true,
         "imo_bens_editar": true,
         "imo_plano_editar": true,
@@ -4707,12 +4721,12 @@
         "imo_contrato_suspender": true,
         "imo_contrato_renovar": true,
         "imo_renda_aprovar": true,
-        "imo_sub_debitar": true,
         "imo_neg_editar": true,
         "imo_neg_fase": true,
         "imo_modelo_editar": true,
         "imo_reserva_receber": true,
-        "imo_reserva_vistoria": true
+        "imo_reserva_vistoria": true,
+        "imo_obra_aprovar": true
       }
     },
     {
@@ -4770,7 +4784,8 @@
         "imo_obra_fechar": true,
         "imo_bens_editar": true,
         "imo_plano_editar": true,
-        "imo_plano_gerar": true
+        "imo_plano_gerar": true,
+        "imo_sub_debitar": true
       }
     },
     {

@@ -39,7 +39,7 @@ export default function AreasComuns() {
   const [aberta, setAberta] = useState<number | null>(null);
   const p = {
     editarArea: pode('imo_area_editar'), marcar: pode('imo_reserva_marcar'), aprovar: pode('imo_reserva_aprovar'), devedor: pode('imo_reserva_devedor'), facturar: pode('imo_reserva_facturar'),
-    receber: pode('imo_reserva_receber'), vistoria: pode('imo_reserva_vistoria'), caucao: pode('imo_reserva_caucao'), cancelar: pode('imo_reserva_cancelar'),
+    receber: pode('imo_reserva_receber'), vistoria: pode('imo_reserva_vistoria'), caucao: pode('imo_reserva_caucao'), cancelar: pode('imo_reserva_cancelar'), ordemObra: pode('imo_obra_editar'),
   };
   const de = intervalo[0].format('YYYY-MM-DD');
   const ate = intervalo[1].format('YYYY-MM-DD');

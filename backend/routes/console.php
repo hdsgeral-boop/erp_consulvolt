@@ -23,6 +23,7 @@ Schedule::command('erp:licencas:avisar')->dailyAt('07:00')->withoutOverlapping()
 // delegações a terminar. Idempotente (não repete avisos), um só servidor de cada vez.
 Schedule::command('erp:rh:alertas-prazos')->dailyAt('07:30')->onOneServer()->withoutOverlapping();
 Schedule::command('erp:imobiliario:caducar-reservas')->everyFifteenMinutes()->onOneServer()->withoutOverlapping();   // reservas de áreas comuns com o prazo de pagamento esgotado
+Schedule::command('erp:imobiliario:obras')->dailyAt('06:30')->onOneServer()->withoutOverlapping();   // gera as ordens dos planos de manutenção e actualiza as recepções de material das obras do imóvel
 
 // Alertas de SLA de suporte violado (Fase 6 da extensão SaaS): corre com frequência porque o prazo é em horas, não em dias.
 Schedule::command('erp:suporte:avisar-sla')->everyFifteenMinutes()->withoutOverlapping();

@@ -213,4 +213,24 @@ describe('Gestão Imobiliária — Áreas Comuns e Reservas', () => {
     expect(await within(d).findByText('Quanto custa')).toBeInTheDocument();
     expect(within(d).getByText(/A receita das reservas vai pelo artigo de serviço configurado/)).toBeInTheDocument();
   });
+
+  it('a vistoria de saída com danos abre a ordem de reparação (só para quem edita ordens) e mostra o número', async () => {
+    permissoes = new Set([...TODAS, 'imo_obra_editar']);
+    const base = ficha();
+    fichaActual = ficha({ situacao: { ...base.situacao, vistoria_depois: { id: 77, estado: 'DANIFICADO', observacoes: 'Mesa partida', url: null, data: '2026-03-28', custo_danos: 5000 } } });
+    enviarMock.mockResolvedValue({ dados: { nova: true, ordem: { numero: 'OB 2026/0007' } }, mensagem: 'Ordem de reparação aberta pelos danos da reserva.' });
+    ecra(<AreasComuns />);
+    fireEvent.click(await screen.findByRole('button', { name: /Abrir a reserva de Salão de festas em 2026-03-27 às 14:00/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Abrir ordem de reparação dos danos' }));
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('post', '/imobiliario/obras/vistorias/77/ordem', {}));
+  });
+
+  it('sem danos na vistoria, ou sem permissão para ordens, não há botão de reparação', async () => {
+    const base = ficha();
+    fichaActual = ficha({ situacao: { ...base.situacao, vistoria_depois: { id: 77, estado: 'DANIFICADO', observacoes: null, url: null, data: '2026-03-28', custo_danos: 5000 } } });
+    ecra(<AreasComuns />);   // TODAS não inclui imo_obra_editar
+    fireEvent.click(await screen.findByRole('button', { name: /Abrir a reserva de Salão de festas em 2026-03-27 às 14:00/ }));
+    await screen.findByText('Dinheiro');
+    expect(screen.queryByRole('button', { name: 'Abrir ordem de reparação dos danos' })).toBeNull();
+  });
 });

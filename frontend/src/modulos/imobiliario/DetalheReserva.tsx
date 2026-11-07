@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { larguraGaveta } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
+import { ordemDaVistoria } from './apiObras';
 import { apagarReserva, CHAVES_PK, facturarReserva, mudarEstadoReserva, obterReserva, type EstadoReserva, type FichaReserva, type ListasParque } from './apiParque';
 import { ModalMotivo } from './ModaisContrato';
 import { ModalCancelarReserva, ModalCaucaoReserva, ModalReceberReserva, ModalVistoriaReserva } from './ModaisReserva';
@@ -10,7 +11,7 @@ import { useRefrescar } from './hooks';
 import { formatarKz } from './logica';
 import { accoesDaReserva, COR_RESERVA, ROTULO_RESERVA } from './logicaParque';
 
-export interface PermissoesReserva { marcar: boolean; aprovar: boolean; facturar: boolean; receber: boolean; vistoria: boolean; caucao: boolean; cancelar: boolean }
+export interface PermissoesReserva { marcar: boolean; aprovar: boolean; facturar: boolean; receber: boolean; vistoria: boolean; caucao: boolean; cancelar: boolean; ordemObra?: boolean }
 
 const EVENTOS: Record<string, string> = {
   CRIADA: 'Marcada', EDITADA: 'Alterada', ESTADO: 'Estado', FACTURADA: 'Facturada', RECEBIDO: 'Recebimento', VISTORIA: 'Vistoria', CANCELADA_FINANCEIRO: 'Cancelamento com reembolso',
@@ -40,8 +41,14 @@ export function DetalheReserva({ id, listas, pode, aoEditar, aoFechar }: { id: n
     mutationFn: () => apagarReserva(id as number), onError: (e) => notificarErro(e, 'Não foi possível apagar a reserva'),
     onSuccess: async () => { message.success('Reserva apagada.'); await refrescar(); aoFechar(); },
   });
+  const ordem = useMutation({
+    mutationFn: () => ordemDaVistoria((r as FichaReserva).situacao.vistoria_depois?.id as number), onError: (e) => notificarErro(e, 'Não foi possível abrir a ordem de reparação'),
+    onSuccess: async (x) => { message.success(`${x.mensagem} (${x.dados.ordem.numero})`); await refrescar(); },
+  });
   const s = r?.situacao;
   const a = r && s ? accoesDaReserva(r.estado, r.espaco.regime === 'RESERVA_PAGA', r.valor, !!r.venda_id, r.interna, r.caucao_recebida > 0) : null;
+  const vd = s?.vistoria_depois;
+  const comDanos = !!vd && (vd.estado === 'DANIFICADO' || vd.estado === 'EM_FALTA' || (vd.custo_danos ?? 0) > 0);
   const fechada = !!r && ['REALIZADA', 'CANCELADA', 'FALTOU'].includes(r.estado);
   const caucaoPorFechar = !!s && s.caucao.em_poder > 0;
   const prazo = s?.prazo ? new Date(s.prazo).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : null;
@@ -90,6 +97,7 @@ export function DetalheReserva({ id, listas, pode, aoEditar, aoFechar }: { id: n
             {a.facturar && pode.facturar && <Button type="primary" onClick={() => facturar.mutate()} loading={facturar.isPending}>Facturar</Button>}
             {a.receber && pode.receber && (s.por_pagar > 0.009 || s.caucao.por_receber > 0.009) && <Button type="primary" onClick={() => setReceber(r)}>Receber</Button>}
             {s.paga && pode.vistoria && !['PEDIDA', 'RECUSADA'].includes(r.estado) && <Button onClick={() => setVistoria(r)}>Vistoria</Button>}
+            {comDanos && pode.ordemObra && <Button onClick={() => ordem.mutate()} loading={ordem.isPending}>Abrir ordem de reparação dos danos</Button>}
             {s.paga && pode.caucao && caucaoPorFechar && <Button onClick={() => setCaucao(r)}>Fechar a caução</Button>}
             {a.editar && pode.marcar && <Button onClick={() => aoEditar(r)}>Alterar</Button>}
             {a.cancelar && pode.cancelar && <Button danger onClick={() => setCancelar(r)}>Cancelar</Button>}

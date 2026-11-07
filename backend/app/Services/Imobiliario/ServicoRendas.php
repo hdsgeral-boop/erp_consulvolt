@@ -292,4 +292,28 @@ final class ServicoRendas
             return $r->refresh();
         });
     }
+
+    /**
+     * Retira de uma renda ainda não documentada os encargos extraordinários de uma origem (a obra debitada que se desfaz). Só aqui: a renda
+     * já facturada corrige-se com nota de crédito em Vendas. A renda volta a «prevista». Devolve a renda (inalterada se não havia o encargo).
+     */
+    public function removerExtra(RendaArrendamento $r, string $origem): RendaArrendamento
+    {
+        return DB::transaction(function () use ($r, $origem) {
+            $r = RendaArrendamento::query()->lockForUpdate()->findOrFail($r->id);
+            if ($r->emDocumento() || $r->estado === 'ANULADA') {
+                throw new ErroNegocio('A renda já é documento ou está anulada: o encargo corrige-se com uma nota de crédito, não aqui.', 'IMO_RENDA_EM_DOCUMENTO');
+            }
+            $extras = array_values(array_filter($r->extras ?? [], fn ($e) => ($e['origem'] ?? null) !== $origem));
+            if (count($extras) === count($r->extras ?? [])) {
+                return $r;
+            }
+            $c = ContratoArrendamento::query()->findOrFail($r->contrato_id);
+            $encargos = ContratoEncargo::query()->where('contrato_id', $c->id)->orderBy('ordem')->get();
+            $r->update($this->montar($c, $encargos, $r->periodo, ['desconto' => $r->desconto, 'extras' => $extras])
+                + ['estado' => 'PREVISTA', 'aprovada_por' => null, 'aprovada_em' => null, 'atualizado_por' => Autor::nome()]);
+
+            return $r->refresh();
+        });
+    }
 }

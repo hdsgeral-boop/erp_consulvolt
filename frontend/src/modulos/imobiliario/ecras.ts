@@ -10,16 +10,17 @@ const emConstrucao = (nome: string): LazyExoticComponent<ComponentType> =>
 /**
  * Ecrãs do módulo Gestão Imobiliária (ids do catálogo de permissões). Onda 1: cadastro, mapa de ocupação e modelos e taxas.
  * Onda 2: contratos, rendas e subarrendamento.
- * Onda 3: parqueamento e áreas comuns com reservas. As ondas seguintes substituem as linhas «em construção» pelo ecrã real
- * (obras, compra e venda, rentabilidade e fiscalidade).
+ * Onda 3: parqueamento e áreas comuns com reservas.
+ * Onda 4: fichas de apetrechamento, ordens de obra, planos de manutenção e bens das fracções. As ondas seguintes substituem as linhas «em construção»
+ * pelo ecrã real (compra e venda, rentabilidade e fiscalidade).
  */
 export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   imo_imoveis: lazy(() => import('./Imoveis')),
   imo_ocupacao: lazy(() => import('./MapaOcupacao')),
   imo_parque: lazy(() => import('./Parqueamento')),
   imo_areas: lazy(() => import('./AreasComuns')),
-  imo_fichas: emConstrucao('Fichas de Apetrechamento'),
-  imo_obras: emConstrucao('Apetrechamento e Manutenção'),
+  imo_fichas: lazy(() => import('./FichasApetrechamento')),
+  imo_obras: lazy(() => import('./Obras')),
   imo_contratos: lazy(() => import('./Contratos')),
   imo_rendas: lazy(() => import('./Rendas')),
   imo_sub: lazy(() => import('./Subarrendamento')),
